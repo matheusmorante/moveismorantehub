@@ -62,22 +62,6 @@ const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDist
             <div className="flex flex-wrap justify-between items-center mb-2 px-1 w-full gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Distância KM</label>
                 <div className="flex items-center gap-2">
-                    {onAutoCalculateDistance && (
-                        <button
-                            type="button"
-                            onClick={onAutoCalculateDistance}
-                            disabled={isCalculatingDistance}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors text-[10px] font-black uppercase tracking-widest border border-emerald-100/50 dark:border-emerald-900/20 ${isCalculatingDistance ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            title="Calcular automaticamente"
-                        >
-                            {isCalculatingDistance ? (
-                                <i className="bi bi-hourglass-split animate-spin" />
-                            ) : (
-                                <i className="bi bi-magic" />
-                            )}
-                            <span className="hidden sm:inline">Calcular</span>
-                        </button>
-                    )}
                     <a
                         href={routeUrl}
                         target="_blank"

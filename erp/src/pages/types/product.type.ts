@@ -17,6 +17,7 @@ export type Variation = {
     freightType?: 'fixed' | 'percentage' | 'none';
     freightCost?: number;
     ipiPercent?: number;
+    ipiType?: 'fixed' | 'percentage' | 'none';
     finalPurchasePrice?: number;
     minStock?: number;
     comboItems?: ComboItem[];
@@ -64,9 +65,10 @@ export type Product = {
     unitPrice: number;
     costPrice?: number; // Preço de custo base
     freightType?: 'fixed' | 'percentage' | 'none';
-    freightCost?: number; // Can be a fixed value or a percentage
+    freightCost?: number; 
     ipiPercent?: number;
-    finalPurchasePrice?: number; // (costPrice + freight) * (1 + ipi/100) aprox.
+    ipiType?: 'fixed' | 'percentage' | 'none';
+    finalPurchasePrice?: number; 
     initialStock?: number;
     stock?: number;
     minStock?: number;

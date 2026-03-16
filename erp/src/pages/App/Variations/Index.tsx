@@ -279,6 +279,7 @@ const Variations = () => {
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
                 variation={editingVariation}
+                allVariations={variations}
             />
         </div>
     );

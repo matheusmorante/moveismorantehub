@@ -22,7 +22,7 @@ import AssistanceActions from "./AssistanceOrderModalComponents/AssistanceAction
 
 interface AssistanceOrderModalProps {
     onClose: () => void;
-    onSaveSuccess: () => void;
+    onSaveSuccess: (id?: string) => void;
     order?: Order | null;
     initialData?: {
         customerName?: string;
@@ -212,9 +212,9 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                 return;
             }
 
-            await saveOrder(assistanceOrder);
+            const savedId = await saveOrder(assistanceOrder);
             toast.success(isEditing ? "Assistência atualizada!" : "Assistência criada!");
-            onSaveSuccess();
+            onSaveSuccess(savedId);
             onClose();
         } catch (error: any) {
             console.error("Erro ao salvar assistência:", error);

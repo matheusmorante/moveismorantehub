@@ -169,8 +169,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         costPrice: 0,
         finalPurchasePrice: 0,
         ipiPercent: 0,
+        ipiType: 'percentage',
         freightCost: 0,
-        freightType: 'none',
+        freightType: 'fixed',
         stock: 0,
         minStock: 0,
         hasVariations: false,
@@ -237,14 +238,29 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     // Effect for calculating final purchase price
     useEffect(() => {
         let final = formData.costPrice || 0;
-        if (formData.ipiPercent) final += (formData.costPrice || 0) * (formData.ipiPercent / 100);
-        if (formData.freightType === 'fixed' && formData.freightCost) final += formData.freightCost;
-        if (formData.freightType === 'percentage' && formData.freightCost) final += (formData.costPrice || 0) * (formData.freightCost / 100);
         
-        if (final !== formData.finalPurchasePrice) {
+        // IPI Calculation
+        if (formData.ipiPercent) {
+            if (formData.ipiType === 'fixed') {
+                final += formData.ipiPercent;
+            } else {
+                final += (formData.costPrice || 0) * (formData.ipiPercent / 100);
+            }
+        }
+        
+        // Freight Calculation
+        if (formData.freightCost) {
+            if (formData.freightType === 'percentage') {
+                final += (formData.costPrice || 0) * (formData.freightCost / 100);
+            } else {
+                final += formData.freightCost;
+            }
+        }
+        
+        if (Math.abs(final - (formData.finalPurchasePrice || 0)) > 0.01) {
             setFormData(prev => ({ ...prev, finalPurchasePrice: final }));
         }
-    }, [formData.costPrice, formData.ipiPercent, formData.freightCost, formData.freightType]);
+    }, [formData.costPrice, formData.ipiPercent, formData.ipiType, formData.freightCost, formData.freightType]);
 
     // Sync variation prices/costs
     useEffect(() => {

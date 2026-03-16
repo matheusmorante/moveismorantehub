@@ -20,6 +20,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.freightType !== undefined) data.freight_type = product.freightType;
     if (product.freightCost !== undefined) data.freight_cost = product.freightCost;
     if (product.ipiPercent !== undefined) data.ipi_percent = product.ipiPercent;
+    if (product.ipiType !== undefined) data.ipi_type = product.ipiType;
     if (product.finalPurchasePrice !== undefined) data.final_purchase_price = product.finalPurchasePrice;
     if (product.initialStock !== undefined) data.initial_stock = product.initialStock;
     if (product.stock !== undefined) data.stock = product.stock;
@@ -83,6 +84,7 @@ const mapFromDB = (data: any): Product => {
         freightType: data.freight_type || 'fixed',
         freightCost: Number(data.freight_cost),
         ipiPercent: Number(data.ipi_percent),
+        ipiType: data.ipi_type || 'percentage',
         finalPurchasePrice: Number(data.final_purchase_price),
         initialStock: Number(data.initial_stock),
         stock: Number(data.stock),
@@ -135,7 +137,7 @@ const mapFromDB = (data: any): Product => {
     };
 };
 
-const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at, product_categories(category_id)";
+const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, ipi_type, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at, product_categories(category_id)";
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
     let currentProducts: Product[] = [];

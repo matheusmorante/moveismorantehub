@@ -10,10 +10,11 @@ type OrderHistoryListProps = {
     visibilitySettings: VisibilitySettings;
     onToggleColumn: (column: keyof VisibilitySettings) => void;
     onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+    highlightOrderId?: string | null;
 };
 
 
-const OrderHistoryList = ({ onEdit, filters, visibilitySettings, onToggleColumn, onSort }: OrderHistoryListProps) => {
+const OrderHistoryList = ({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId }: OrderHistoryListProps) => {
     const {
         orders,
         loading,
@@ -166,6 +167,7 @@ const OrderHistoryList = ({ onEdit, filters, visibilitySettings, onToggleColumn,
                     onBulkTrash={handleBulkTrash}
                     onBulkRestore={handleBulkRestore}
                     onBulkPermanentDelete={handleBulkPermanentDelete}
+                    highlightOrderId={highlightOrderId}
                 />
 
                 {/* Pagination Controls */}

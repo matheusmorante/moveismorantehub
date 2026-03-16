@@ -29,6 +29,7 @@ const SalesOrder = () => {
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
     const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings>({
         id: true,
         orderDate: true,
@@ -217,6 +218,7 @@ const SalesOrder = () => {
                             visibilitySettings={visibilitySettings}
                             onToggleColumn={toggleVisibility}
                             onSort={handleSort}
+                            highlightOrderId={highlightOrderId}
                         />
                     </div>
                 </div>
@@ -262,6 +264,7 @@ const SalesOrder = () => {
                                     visibilitySettings={visibilitySettings}
                                     onToggleColumn={toggleVisibility}
                                     onSort={handleSort}
+                                    highlightOrderId={highlightOrderId}
                                 />
                             </div>
                         </div>
@@ -309,6 +312,7 @@ const SalesOrder = () => {
                                     visibilitySettings={visibilitySettings}
                                     onToggleColumn={toggleVisibility}
                                     onSort={handleSort}
+                                    highlightOrderId={highlightOrderId}
                                 />
                             </div>
                         </div>
@@ -321,14 +325,24 @@ const SalesOrder = () => {
                 <NewSaleOrder
                     initialDeliveryMethod={orderModalType === 'pickup' ? 'pickup' : 'delivery'}
                     onClose={() => setOrderModalType(null)}
-                    onSaveSuccess={() => { }}
+                    onSaveSuccess={(id) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
                 />
             )}
 
             {orderModalType === 'assistance' && (
                 <AssistanceOrderModal
                     onClose={() => setOrderModalType(null)}
-                    onSaveSuccess={() => { }}
+                    onSaveSuccess={(id) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
                 />
             )}
 
@@ -336,13 +350,23 @@ const SalesOrder = () => {
                 <AssistanceOrderModal
                     order={editingOrder}
                     onClose={() => setEditingOrder(null)}
-                    onSaveSuccess={() => { }}
+                    onSaveSuccess={(id) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
                 />
             ) : editingOrder ? (
                 <OrderEditModal
                     order={editingOrder}
                     onClose={() => setEditingOrder(null)}
-                    onSaveSuccess={() => { }}
+                    onSaveSuccess={(id) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
                 />
             ) : null}
         </div>

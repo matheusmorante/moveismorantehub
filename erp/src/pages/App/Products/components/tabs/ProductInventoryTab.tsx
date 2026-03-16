@@ -93,7 +93,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preço de Custo (Base)</label>
                         <input
@@ -108,7 +108,21 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         />
                     </div>
                     <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">IPI (%)</label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">IPI</label>
+                            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, ipiType: 'percentage' })}
+                                    className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-md transition-all ${(!formData.ipiType || formData.ipiType === 'percentage') ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >%</button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, ipiType: 'fixed' })}
+                                    className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-md transition-all ${formData.ipiType === 'fixed' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >$</button>
+                            </div>
+                        </div>
                         <input
                             type="number"
                             step="0.1"
@@ -121,7 +135,21 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         />
                     </div>
                     <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Valor Frete Unit.</label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Valor Frete Unit.</label>
+                            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, freightType: 'percentage' })}
+                                    className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-md transition-all ${formData.freightType === 'percentage' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >%</button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, freightType: 'fixed' })}
+                                    className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-md transition-all {(formData.freightType === 'fixed' || !formData.freightType || formData.freightType === 'none') ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >$</button>
+                            </div>
+                        </div>
                         <input
                             type="number"
                             step="0.01"
@@ -132,18 +160,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             }}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                         />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Frete por:</label>
-                        <select
-                            value={formData.freightType}
-                            onChange={(e) => setFormData({ ...formData, freightType: e.target.value as any })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                        >
-                            <option value="none">Nenhum</option>
-                            <option value="fixed">Valor Fixo</option>
-                            <option value="percentage">Percentual (%)</option>
-                        </select>
                     </div>
                 </div>
 
@@ -241,8 +257,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <i className="bi bi-box-seam text-blue-600"></i> Gestão de Estoque
                     </h4>
-                    
-                    {formData.hasVariations ? (
+                       {formData.hasVariations ? (
                         <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl">
                             <div className="flex items-center gap-3 mb-2">
                                 <i className="bi bi-info-circle-fill text-blue-600"></i>
@@ -253,115 +268,111 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             </p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-600 transition-colors">Estoque Atual</label>
-                                <input
-                                    type="number"
-                                    value={isNaN(formData.stock as number) || formData.stock === 0 ? '' : formData.stock}
-                                    onChange={(e) => {
-                                        const val = parseInt(e.target.value);
-                                        setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
-                                    }}
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-black text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
-                                <div className="flex gap-2">
+                        <div className="flex flex-col gap-6">
+                            {/* Inventory Management Inputs */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-600 transition-colors">Estoque Atual</label>
                                     <input
                                         type="number"
-                                        value={isNaN(formData.minStock as number) || formData.minStock === 0 ? '' : formData.minStock}
+                                        value={isNaN(formData.stock as number) || formData.stock === 0 ? '' : formData.stock}
                                         onChange={(e) => {
                                             const val = parseInt(e.target.value);
-                                            setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
+                                            setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
                                         }}
-                                        className="flex-1 px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
+                                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-black text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500/20"
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={calculateMinStock}
-                                        className="p-3 bg-slate-100 dark:bg-slate-800 text-blue-600 hover:bg-blue-600 hover:text-white rounded-2xl transition-all"
-                                        title="Calcular Estoque Mínimo Sugerido"
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 tracking-tighter">Giro Mensal</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            value={formData.avgMonthlySales || ''}
+                                            onChange={(e) => setFormData({ ...formData, avgMonthlySales: parseInt(e.target.value) || 0 })}
+                                            placeholder="Ex: 50"
+                                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleSyncSales}
+                                            disabled={isSyncingSales}
+                                            className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors"
+                                            title="Sincronizar com histórico de vendas (90 dias)"
+                                        >
+                                            <i className={`bi ${isSyncingSales ? 'bi-hourglass-split animate-spin' : 'bi-arrow-repeat'}`}></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 tracking-tighter">Lead Time (Dias)</label>
+                                    <input
+                                        type="number"
+                                        value={formData.leadTime || ''}
+                                        onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
+                                        placeholder="Ex: 15"
+                                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 tracking-tighter">Importância</label>
+                                    <select
+                                        value={formData.classification || 'Q2'}
+                                        onChange={(e) => setFormData({ ...formData, classification: e.target.value as any })}
+                                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
                                     >
-                                        <i className="bi bi-calculator"></i>
-                                    </button>
+                                        <option value="Q1">Q1 (Crucial +50%)</option>
+                                        <option value="Q2">Q2 (Importante)</option>
+                                        <option value="Q3">Q3 (Normal)</option>
+                                        <option value="Q4">Q4 (Eventual)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <div className="flex flex-1 gap-2">
+                                        <input
+                                            type="number"
+                                            value={isNaN(formData.minStock as number) || formData.minStock === 0 ? '' : formData.minStock}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
+                                            }}
+                                            className="flex-1 px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={calculateMinStock}
+                                            className="p-3 bg-slate-100 dark:bg-slate-800 text-blue-600 hover:bg-blue-600 hover:text-white rounded-2xl transition-all"
+                                            title="Calcular Estoque Mínimo Sugerido"
+                                        >
+                                            <i className="bi bi-calculator"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Min Stock Formula Explanation */}
+                                    <div className="flex-1 p-3 bg-white/50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 text-[10px]">
+                                        <p className="font-black uppercase tracking-widest text-slate-400 mb-1">Cálculo Automático:</p>
+                                        <div className="flex flex-col gap-1 font-medium text-slate-600 dark:text-slate-300 italic">
+                                            <p>Fórmula: (Venda Diária × Lead Time) + Margem Seg.</p>
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 font-bold not-italic">
+                                                <span className="text-blue-600">Venda: {(formData.avgMonthlySales || 0) / 30 > 0 ? ((formData.avgMonthlySales || 0) / 30).toFixed(2) : '0'} un/dia</span>
+                                                <span className="text-blue-600">L. Time: {formData.leadTime || 0} dias</span>
+                                                <span className="text-blue-600">Margem: {
+                                                    formData.classification === 'Q1' ? '50%' :
+                                                    formData.classification === 'Q2' ? '20%' :
+                                                    formData.classification === 'Q3' ? '15%' : '0%'
+                                                }</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
-
-                    <div className="p-6 bg-slate-100/50 dark:bg-slate-900/30 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                            <i className="bi bi-lightning-charge-fill text-yellow-500"></i> Inteligência de Reposição
-                        </p>
-                        
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Giro Mensal (Vendas)</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="number"
-                                        value={formData.avgMonthlySales || ''}
-                                        onChange={(e) => setFormData({ ...formData, avgMonthlySales: parseInt(e.target.value) || 0 })}
-                                        placeholder="Ex: 50"
-                                        className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleSyncSales}
-                                        disabled={isSyncingSales}
-                                        className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
-                                        title="Sincronizar com hist├│rico de vendas (90 dias)"
-                                    >
-                                        <i className={`bi ${isSyncingSales ? 'bi-hourglass-split animate-spin' : 'bi-arrow-repeat'}`}></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Lead Time (Dias)</label>
-                                <input
-                                    type="number"
-                                    value={formData.leadTime || ''}
-                                    onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
-                                    placeholder="Ex: 15"
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Importância</label>
-                                <select
-                                    value={formData.classification || 'Q2'}
-                                    onChange={(e) => setFormData({ ...formData, classification: e.target.value as any })}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
-                                >
-                                    <option value="Q1">Q1 (Crucial +30%)</option>
-                                    <option value="Q2">Q2 (Importante)</option>
-                                    <option value="Q3">Q3 (Normal)</option>
-                                    <option value="Q4">Q4 (Eventual)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-[8px] font-black tracking-widest text-slate-400 uppercase mb-2">Impacto no Estoque Mínimo (Margem de Segurança):</p>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {[
-                                    { id: 'Q1', label: 'Crucial (+50%)', color: 'text-rose-600' },
-                                    { id: 'Q2', label: 'Importante (+20%)', color: 'text-orange-500' },
-                                    { id: 'Q3', label: 'Normal (+15%)', color: 'text-blue-500' },
-                                    { id: 'Q4', label: 'Irrelevante (0%)', color: 'text-slate-400' }
-                                ].map(item => (
-                                    <div key={item.id} className="flex flex-col p-2 bg-white dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800">
-                                        <span className={`text-[9px] font-black ${item.color}`}>{item.id}</span>
-                                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
                 </div>
-
                 {/* Main Supplier */}
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">

@@ -7,10 +7,14 @@ interface VariationFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     variation?: VariationType | null;
+    allVariations?: VariationType[];
 }
 
-const VariationFormModal = ({ isOpen, onClose, variation }: VariationFormModalProps) => {
+const VariationFormModal = ({ isOpen, onClose, variation, allVariations = [] }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
+    const [isCartesianMode, setIsCartesianMode] = useState(false);
+    const [cartesianAttrA, setCartesianAttrA] = useState("");
+    const [cartesianAttrB, setCartesianAttrB] = useState("");
     
     const initialFormData: Partial<VariationType> = {
         name: "",
@@ -28,6 +32,9 @@ const VariationFormModal = ({ isOpen, onClose, variation }: VariationFormModalPr
             setFormData(initialFormData);
         }
         setNewOptionValue("");
+        setIsCartesianMode(false);
+        setCartesianAttrA("");
+        setCartesianAttrB("");
     }, [variation, isOpen]);
 
     const addOption = () => {
@@ -41,6 +48,38 @@ const VariationFormModal = ({ isOpen, onClose, variation }: VariationFormModalPr
             options: [...(prev.options || []), newOpt]
         }));
         setNewOptionValue("");
+    };
+
+    const generateCartesian = () => {
+        const attrA = allVariations.find(v => v.id === cartesianAttrA);
+        const attrB = allVariations.find(v => v.id === cartesianAttrB);
+
+        if (!attrA || !attrB) {
+            toast.error("Selecione dois atributos para combinar.");
+            return;
+        }
+
+        const newOptions: VariationOption[] = [];
+        attrA.options.forEach(optA => {
+            attrB.options.forEach(optB => {
+                newOptions.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    value: `${optA.value} ${optB.value}`
+                });
+            });
+        });
+
+        if (newOptions.length === 0) {
+            toast.warning("Os atributos selecionados não possuem valores para combinar.");
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            options: [...(prev.options || []), ...newOptions]
+        }));
+        setIsCartesianMode(false);
+        toast.success(`${newOptions.length} combinações geradas!`);
     };
 
     const removeOption = async (id: string, value: string) => {
@@ -160,7 +199,59 @@ const VariationFormModal = ({ isOpen, onClose, variation }: VariationFormModalPr
                                 >
                                     Adicionar
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCartesianMode(!isCartesianMode)}
+                                    className={`px-4 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${isCartesianMode ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
+                                    title="Gerar combinações cartesianas (Ex: Cor + Tamanho)"
+                                >
+                                    <i className="bi bi-grid-3x3-gap" />
+                                </button>
                             </div>
+
+                            {isCartesianMode && (
+                                <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex flex-col gap-4 animate-fade-in shadow-sm">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <i className="bi bi-info-circle-fill text-amber-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">Modelo Cartesiano: Combine dois Atributos</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-[9px] font-black uppercase text-amber-700/60 dark:text-amber-500 ml-1">Atributo A</span>
+                                            <select
+                                                value={cartesianAttrA}
+                                                onChange={(e) => setCartesianAttrA(e.target.value)}
+                                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-amber-200/50 dark:border-amber-900/30 rounded-xl text-xs font-bold outline-none"
+                                            >
+                                                <option value="">Selecionar...</option>
+                                                {allVariations.filter(v => v.id !== variation?.id).map(v => (
+                                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-[9px] font-black uppercase text-amber-700/60 dark:text-amber-500 ml-1">Atributo B</span>
+                                            <select
+                                                value={cartesianAttrB}
+                                                onChange={(e) => setCartesianAttrB(e.target.value)}
+                                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-amber-200/50 dark:border-amber-900/30 rounded-xl text-xs font-bold outline-none"
+                                            >
+                                                <option value="">Selecionar...</option>
+                                                {allVariations.filter(v => v.id !== variation?.id).map(v => (
+                                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={generateCartesian}
+                                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-amber-200 dark:shadow-none"
+                                    >
+                                        Gerar Combinações
+                                    </button>
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-2 mt-2">
                                 {formData.options?.length === 0 && (

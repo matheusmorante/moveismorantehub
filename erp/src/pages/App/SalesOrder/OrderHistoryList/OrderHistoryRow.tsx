@@ -21,6 +21,8 @@ interface OrderHistoryRowProps {
     orderedColumnKeys?: string[];
     isSelected?: boolean;
     onToggleSelection?: () => void;
+    isHighlighted?: boolean;
+    id?: string;
 }
 
 const OrderHistoryRow = ({
@@ -35,7 +37,9 @@ const OrderHistoryRow = ({
     showTrash,
     orderedColumnKeys,
     isSelected,
-    onToggleSelection
+    onToggleSelection,
+    isHighlighted,
+    id
 }: OrderHistoryRowProps) => {
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
@@ -171,7 +175,7 @@ const OrderHistoryRow = ({
                                 </>
                             )}
 
-                            {order.status === 'fulfilled' && !order.reviewRequested && !showTrash && (
+                            {order.status === 'fulfilled' && !order.reviewRequested && !showTrash && !(order.shipping?.deliveryMethod === 'pickup' && (order.customerData?.fullName === "Consumidor Final" || order.customerData?.fullName === "Ao Consumidor")) && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -379,8 +383,9 @@ const OrderHistoryRow = ({
 
     return (
         <tr
+            id={id}
             onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${showMenu || showPicker ? 'relative z-[60]' : ''} ${finalRowBg} ${isSelected ? cls.rowActive : ''}`}
+            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${showMenu || showPicker ? 'relative z-[60]' : ''} ${finalRowBg} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
         >
             {/* Row Checkbox */}
             <td className="p-0 w-12 text-center">

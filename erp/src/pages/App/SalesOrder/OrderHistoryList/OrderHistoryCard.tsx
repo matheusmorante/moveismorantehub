@@ -16,6 +16,8 @@ interface OrderHistoryCardProps {
     showTrash?: boolean;
     isSelected?: boolean;
     onToggleSelection?: () => void;
+    isHighlighted?: boolean;
+    id?: string;
 }
 
 const OrderHistoryCard = ({
@@ -28,7 +30,9 @@ const OrderHistoryCard = ({
     onStatusUpdate,
     showTrash,
     isSelected,
-    onToggleSelection
+    onToggleSelection,
+    isHighlighted,
+    id
 }: OrderHistoryCardProps) => {
     const settings = getSettings();
     const [showMenu, setShowMenu] = React.useState(false);
@@ -50,7 +54,8 @@ const OrderHistoryCard = ({
 
     return (
         <div 
-            className={`${cardBgClass} border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative`}
+            id={id}
+            className={`${cardBgClass} border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative`}
             onClick={() => onEdit(order)}
         >
             <div className="flex justify-between items-start mb-2.5">

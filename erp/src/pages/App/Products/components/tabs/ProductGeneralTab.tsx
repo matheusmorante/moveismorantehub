@@ -449,55 +449,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 </div>
             </div>
 
-            {/* Meter Calculator for Profile Handles */}
-            <div className="md:col-span-2 mt-4 bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            <i className="bi bi-calculator text-blue-600"></i> Calculadora de Metros (Puxador de Perfil)
-                        </h4>
-                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Auxiliar para planejamento de fabricação e corte</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total de Puxadores</label>
-                        <input
-                            type="number"
-                            id="calc_handles_qty"
-                            placeholder="Qtd de peças"
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                            onChange={() => {
-                                const qty = parseFloat((document.getElementById('calc_handles_qty') as HTMLInputElement).value) || 0;
-                                const len = parseFloat((document.getElementById('calc_handles_len') as HTMLInputElement).value) || 0;
-                                const result = (qty * len).toFixed(2);
-                                (document.getElementById('calc_handles_result') as HTMLElement).innerText = `${result} m`;
-                            }}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Comprimento por Peça (M)</label>
-                        <input
-                            type="number"
-                            id="calc_handles_len"
-                            step="0.01"
-                            placeholder="Ex: 2.10"
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                            onChange={() => {
-                                const qty = parseFloat((document.getElementById('calc_handles_qty') as HTMLInputElement).value) || 0;
-                                const len = parseFloat((document.getElementById('calc_handles_len') as HTMLInputElement).value) || 0;
-                                const result = (qty * len).toFixed(2);
-                                (document.getElementById('calc_handles_result') as HTMLElement).innerText = `${result} m`;
-                            }}
-                        />
-                    </div>
-                    <div className="bg-blue-600/10 dark:bg-blue-900/10 p-6 rounded-2xl flex flex-col items-center justify-center border border-blue-100 dark:border-blue-900/30">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Total Necessário</span>
-                        <span id="calc_handles_result" className="text-xl font-black text-blue-700 dark:text-blue-300">0.00 m</span>
-                    </div>
-                </div>
-            </div>
 
             {/* Observations */}
             <div className="md:col-span-2 mt-4">

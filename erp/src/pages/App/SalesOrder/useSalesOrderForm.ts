@@ -321,7 +321,9 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
 
     // Automatic calculation when address changes
     useEffect(() => {
-        const addr = customerData.fullAddress;
+        const addr = shipping.useCustomerAddress ? customerData.fullAddress : shipping.deliveryAddress;
+        if (!addr) return;
+
         if (addr.street && addr.city && (addr.number || addr.cep)) {
             const addrStr = JSON.stringify(addr);
             if (addrStr === lastCalculatedAddressRef.current) return;
@@ -332,7 +334,7 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
             }, 1000); // Debounce to avoid excessive API calls
             return () => clearTimeout(timer);
         }
-    }, [customerData.fullAddress, handleAutoCalculateDistance]);
+    }, [customerData.fullAddress, shipping.deliveryAddress, shipping.useCustomerAddress, handleAutoCalculateDistance]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
@@ -357,7 +359,7 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
             }
             setStatus('draft');
             toast.success("Pedido salvo como rascunho!");
-            return true;
+            return savedId;
         } catch (error: any) {
             toast.error(error?.message || "Erro ao salvar pedido como rascunho.");
             return false;
@@ -383,10 +385,10 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
         setErrors({});
 
         try {
-            await saveOrder(orderData);
+            const savedId = await saveOrder(orderData);
             setStatus('scheduled');
             toast.success("Pedido FINALIZADO com sucesso!");
-            return true;
+            return savedId;
         } catch (error: any) {
             toast.error(error?.message || "Erro ao efetivar pedido.");
             return false;

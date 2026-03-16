@@ -26,6 +26,7 @@ interface OrderHistoryTableProps {
     onBulkRestore: () => void;
     onBulkPermanentDelete: () => void;
     onClearSelection: () => void;
+    highlightOrderId?: string | null;
 }
 
 interface ColumnDef {
@@ -49,7 +50,8 @@ const COLUMNS_DEF: ColumnDef[] = [
 const OrderHistoryTable = ({
     orders, onEdit, onDelete, onRestore, onPermanentDelete, onAction, onStatusUpdate,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
-    selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection
+    selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection,
+    highlightOrderId
 }: OrderHistoryTableProps) => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
@@ -84,6 +86,16 @@ const OrderHistoryTable = ({
     React.useEffect(() => {
         localStorage.setItem('order_table_column_order', JSON.stringify(orderedColumns.map(c => c.key)));
     }, [orderedColumns]);
+
+    // Scroll to highlighted order
+    React.useEffect(() => {
+        if (highlightOrderId) {
+            const element = document.getElementById(`order-row-${highlightOrderId}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [highlightOrderId]);
 
     const handleDragStart = (e: React.DragEvent, key: string) => {
         setDraggedColumn(key);
@@ -266,6 +278,8 @@ const OrderHistoryTable = ({
                                     orderedColumnKeys={orderedColumns.map(c => c.key as string)}
                                     isSelected={selectedOrders.includes(order.id!)}
                                     onToggleSelection={() => onToggleSelection(order.id!)}
+                                    isHighlighted={highlightOrderId === order.id}
+                                    id={`order-row-${order.id}`}
                                 />
                             ))}
                         </tbody>
@@ -292,6 +306,8 @@ const OrderHistoryTable = ({
                                 showTrash={showTrash}
                                 isSelected={selectedOrders.includes(order.id!)}
                                 onToggleSelection={() => onToggleSelection(order.id!)}
+                                isHighlighted={highlightOrderId === order.id}
+                                id={`order-card-${order.id}`}
                             />
                         ))
                     )}

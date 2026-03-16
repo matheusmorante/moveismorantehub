@@ -178,14 +178,6 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                                 <i className="bi bi-arrow-left" /> Anterior
                             </button>
                         )}
-                        <div className="hidden md:flex flex-col">
-                             <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">Etapa {currentStep} de 4</span>
-                             <div className="flex gap-1 mt-1">
-                                {[1,2,3,4].map(s => (
-                                    <div key={s} className={`w-8 h-1 rounded-full ${s <= currentStep ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`} />
-                                ))}
-                             </div>
-                        </div>
                     </div>
 
                     <div className="flex items-center gap-4">
