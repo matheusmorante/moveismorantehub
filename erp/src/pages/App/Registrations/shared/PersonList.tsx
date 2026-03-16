@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef, useImperativeHandle, useEffect } from "react";
 import PersonTable from "./PersonTable";
 import { usePeople } from "./usePeople";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
@@ -14,7 +14,11 @@ interface PersonListProps {
     onViewPurchaseHistory?: (person: Person) => void;
 };
 
-const PersonList = ({
+export interface PersonListRef {
+    refresh: () => void;
+}
+
+const PersonList = forwardRef<PersonListRef, PersonListProps>(({
     onEdit,
     filters,
     visibilitySettings,
@@ -23,7 +27,7 @@ const PersonList = ({
     collectionName,
     storageKey,
     onViewPurchaseHistory
-}: PersonListProps) => {
+}, ref) => {
     const {
         people,
         loading,
@@ -43,8 +47,13 @@ const PersonList = ({
         handleBulkTrash,
         handleBulkRestore,
         handleBulkPermanentDelete,
-        toggleActive
+        toggleActive,
+        refresh
     } = usePeople(collectionName, filters);
+
+    useImperativeHandle(ref, () => ({
+        refresh
+    }));
 
     const getPageButtons = () => {
         const buttons: number[] = [];
@@ -159,6 +168,6 @@ const PersonList = ({
             </div>
         </div>
     );
-};
+});
 
 export default PersonList;

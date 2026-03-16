@@ -75,6 +75,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Código (SKU)</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço Venda (R$)</th>
+                                <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Custo (R$)</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">Estoque</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
                             </tr>
@@ -88,7 +89,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                     removeVariation={removeVariation}
                                     setFormData={setFormData}
                                     isCombo={isCombo}
-                                    onEditCombo={onEditCombo}
                                     onEdit={onEdit}
                                 />
                             ))}

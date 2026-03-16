@@ -9,6 +9,9 @@ export const useProducts = (filters?: any) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+    const [refreshSignal, setRefreshSignal] = useState(0);
+
+    const refresh = () => setRefreshSignal(prev => prev + 1);
 
     useEffect(() => {
         const unsubscribe = subscribeToProducts((data) => {
@@ -17,7 +20,7 @@ export const useProducts = (filters?: any) => {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [refreshSignal]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
@@ -311,6 +314,7 @@ export const useProducts = (filters?: any) => {
         handleBulkTrash,
         handleBulkRestore,
         handleBulkPermanentDelete,
-        toggleActive
+        toggleActive,
+        refresh
     };
 };

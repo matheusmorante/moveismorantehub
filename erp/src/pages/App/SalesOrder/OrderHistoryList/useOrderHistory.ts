@@ -10,6 +10,9 @@ export const useOrderHistory = (filters?: any) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+    const [refreshSignal, setRefreshSignal] = useState(0);
+
+    const refresh = () => setRefreshSignal(prev => prev + 1);
 
     useEffect(() => {
         let active = true; // Will be set to false on cleanup
@@ -46,7 +49,7 @@ export const useOrderHistory = (filters?: any) => {
             clearTimeout(failsafe);
             unsubscribe();
         };
-    }, []);
+    }, [refreshSignal]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
@@ -311,6 +314,7 @@ export const useOrderHistory = (filters?: any) => {
         handleBulkTrash,
         handleBulkRestore,
         handleBulkPermanentDelete,
-        handleDeleteDrafts: handleBulkPermanentDelete // Alias for drafts modal
+        handleDeleteDrafts: handleBulkPermanentDelete, // Alias for drafts modal
+        refresh
     };
 };

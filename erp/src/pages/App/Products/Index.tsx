@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 import ProductFilters from "./ProductFilters";
 import ProductList from "./ProductList";
@@ -12,6 +12,7 @@ import VariationFormModal from "./VariationFormModal";
 import StockLaunchModal from "../Stock/components/StockLaunchModal";
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { Variation } from "../../types/product.type";
+import { ProductListRef } from "./ProductList";
 
 interface ProductFiltersData {
     search: string;
@@ -33,6 +34,9 @@ const Products = () => {
     const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
     const [categoryTree, setCategoryTree] = useState<any>(null);
     const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
+
+    const productListRef = useRef<ProductListRef>(null);
+    const trashListRef = useRef<ProductListRef>(null);
 
 
     // Variation Modal State
@@ -233,16 +237,9 @@ const Products = () => {
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                             >
                                 <i className="bi bi-ui-radios"></i>
-                                Gerenciar Atributos e Valores
+                                Gerenciar Variações e Valores
                             </Link>
 
-                            <button
-                                onClick={() => { setHistoryProduct(null); setIsHistoryModalOpen(true); }}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-emerald-600 border-emerald-200 dark:bg-slate-900 dark:border-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                            >
-                                <i className="bi bi-clock-history"></i>
-                                Histórico de Preços
-                            </button>
                         </div>
 
                         <div className="flex gap-3">
@@ -344,6 +341,8 @@ const Products = () => {
                     onToggleColumn={toggleVisibility}
                     onSort={handleSort}
                     categoryTree={categoryTree}
+                    ref={productListRef}
+                    onRefresh={() => productListRef.current?.refresh()}
                 />
 
 
@@ -398,6 +397,8 @@ const Products = () => {
                                 categoryTree={categoryTree}
                                 title="Produtos Desativados"
                                 onCloseTrash={() => setIsTrashOpen(false)}
+                                ref={trashListRef}
+                                onRefresh={() => productListRef.current?.refresh()}
                             />
 
                         </div>
@@ -409,6 +410,10 @@ const Products = () => {
             <ProductFormModal
                 isOpen={isFormModalOpen}
                 onClose={() => { setIsFormModalOpen(false); setEditingProduct(null); setInitialFormData(null); }}
+                onSuccess={() => {
+                    productListRef.current?.refresh();
+                    trashListRef.current?.refresh();
+                }}
                 product={editingProduct}
                 initialData={initialFormData}
             />

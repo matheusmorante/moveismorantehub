@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import PersonFilters from "./PersonFilters";
 import PersonList from "./PersonList";
 import PersonFormModal from "./PersonFormModal";
 import PersonPurchaseHistoryModal from "./PersonPurchaseHistoryModal";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
 import { useNavigate } from "react-router-dom";
+import { PersonListRef } from "./PersonList";
 
 export type PersonSortBy = "fullName" | "createdAt";
 
@@ -70,6 +71,8 @@ const PersonPage = ({
     const [filters, setFilters] = useState<PersonFiltersData>(DEFAULT_FILTERS);
     const [visibilitySettings, setVisibilitySettings] =
         useState<PersonVisibilitySettings>(DEFAULT_VISIBILITY);
+    const listRef = useRef<PersonListRef>(null);
+    const trashListRef = useRef<PersonListRef>(null);
     const navigate = useNavigate();
 
     const toggleVisibility = (column: keyof PersonVisibilitySettings) => {
@@ -263,6 +266,7 @@ const PersonPage = ({
                                 setHistoryPerson(p);
                                 setIsHistoryModalOpen(true);
                             }}
+                            ref={listRef}
                         />
                     </div>
                 </div>
@@ -306,6 +310,7 @@ const PersonPage = ({
                                     setHistoryPerson(p);
                                     setIsHistoryModalOpen(true);
                                 }}
+                                ref={trashListRef}
                             />
                         </div>
                     </div>
@@ -317,6 +322,10 @@ const PersonPage = ({
             <PersonFormModal
                 isOpen={isFormModalOpen}
                 onClose={closeForm}
+                onSuccess={() => {
+                    listRef.current?.refresh();
+                    trashListRef.current?.refresh();
+                }}
                 person={editingPerson}
                 collectionName={collectionName}
                 title={title}

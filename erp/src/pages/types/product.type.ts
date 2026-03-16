@@ -1,3 +1,13 @@
+export type InitialStockEntry = {
+    quantity: number;
+    unitCost: number;
+    ipiPercent?: number;
+    ipiType?: 'fixed' | 'percentage';
+    freightCost?: number;
+    freightType?: 'fixed' | 'percentage';
+    finalUnitCost?: number;
+};
+
 export type Variation = {
     id: string;
     sku: string;
@@ -22,6 +32,10 @@ export type Variation = {
     ipiType?: 'fixed' | 'percentage' | 'none';
     finalPurchasePrice?: number;
     minStock?: number;
+    launchInitialStock?: boolean;
+    initialStock?: number;
+    initialCost?: number;
+    initialStockEntries?: InitialStockEntry[];
     comboItems?: ComboItem[];
     // Intelligence Fields
     leadTime?: number;
@@ -146,6 +160,7 @@ export type Product = {
     noDepth?: boolean;
     noBrand?: boolean;
     launchInitialStock?: boolean;
+    initialStockEntries?: InitialStockEntry[];
 };
 
 export type ProductNotificationConfig = {

@@ -11,6 +11,7 @@ import VariationType from "../../../types/variation.type";
 import { subscribeToVariations } from "../../../utils/variationService";
 import AttributeSelectionModal from "./AttributeSelectionModal";
 import AttributeManagementModal from "./AttributeManagementModal";
+import InitialStockList from "./InitialStockList";
 
 
 interface VariationEditModalProps {
@@ -160,6 +161,27 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
         }
     };
 
+    const updateFinalPurchasePrice = (v: Variation) => {
+        const base = Number(v.initialCost) || 0;
+        let ipi = Number(v.ipiPercent) || 0;
+        let freight = Number(v.freightCost) || 0;
+
+        if (v.ipiType === 'percentage') ipi = base * (ipi / 100);
+        if (v.freightType === 'percentage') freight = base * (freight / 100);
+
+        const final = base + ipi + freight;
+        return Number(final.toFixed(2));
+    };
+
+    const handleCostChange = (field: keyof Variation, value: any) => {
+        setLocalVariation(prev => {
+            if (!prev) return null;
+            const next = { ...prev, [field]: value };
+            next.finalPurchasePrice = updateFinalPurchasePrice(next);
+            return next;
+        });
+    };
+
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
@@ -211,7 +233,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4 col-span-1 md:col-span-2 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Composição da Variação (Modelo Cartesiano)</h4>
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Composição da Variação</h4>
                                         <div className="flex items-center gap-4">
                                             <button
                                                 type="button"
@@ -343,11 +365,57 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
                     {activeTab === 'financeiro' && (
                         <div className="space-y-6">
+                            {/* Initial Stock Toggle - ONLY FOR NEW VARIATIONS OR DRAFTS */}
+                            {(!localVariation.id || parentProduct?.id === undefined) && (
+                                <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                            <i className="bi bi-box-seam-fill text-blue-600"></i>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Estoque Inicial?</h4>
+                                            <p className="text-[8px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Definir saldo e custos agora?</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange('launchInitialStock', !localVariation.launchInitialStock)}
+                                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${localVariation.launchInitialStock ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}
+                                    >
+                                        {localVariation.launchInitialStock ? 'Sim' : 'Não'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {localVariation.launchInitialStock && (
+                                <div className="space-y-4 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-300">
+                                    <InitialStockList
+                                        entries={localVariation.initialStockEntries || []}
+                                        onChange={(entries) => {
+                                            const totalStock = entries.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+                                            const avgCost = entries.length > 0
+                                                ? entries.reduce((acc, curr) => acc + (curr.finalUnitCost || 0), 0) / entries.length
+                                                : 0;
+
+                                            setLocalVariation(prev => prev ? ({
+                                                ...prev,
+                                                initialStockEntries: entries,
+                                                initialStock: totalStock,
+                                                initialCost: avgCost,
+                                                stock: totalStock, // Legado compat
+                                                costPrice: avgCost // Legado compat
+                                            }) : null);
+                                        }}
+                                    />
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preço de Venda</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Venda</label>
                                         <button 
+                                            type="button"
                                             onClick={() => handleChange('syncUnitPrice', !localVariation.syncUnitPrice)}
                                             className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${localVariation.syncUnitPrice ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
                                         >
@@ -364,8 +432,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preço de Custo</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custo {localVariation.launchInitialStock ? '' : '(Manual)'}</label>
                                         <button 
+                                            type="button"
                                             onClick={() => handleChange('syncCostPrice', !localVariation.syncCostPrice)}
                                             className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${localVariation.syncCostPrice ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
                                         >
@@ -374,8 +443,8 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     </div>
                                     <input
                                         type="number"
-                                        disabled={localVariation.syncCostPrice}
-                                        value={localVariation.syncCostPrice ? parentProduct?.costPrice : localVariation.costPrice}
+                                        disabled={localVariation.syncCostPrice || localVariation.launchInitialStock}
+                                        value={localVariation.syncCostPrice ? parentProduct?.costPrice : (localVariation.launchInitialStock ? localVariation.finalPurchasePrice : localVariation.costPrice)}
                                         onChange={(e) => handleChange('costPrice', parseFloat(e.target.value))}
                                         className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm disabled:opacity-50"
                                     />
@@ -384,12 +453,20 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estoque Atual</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{localVariation.launchInitialStock ? 'Quantidade de Entrada' : 'Estoque Atual'}</label>
                                     <input
                                         type="number"
-                                        value={localVariation.stock || 0}
-                                        onChange={(e) => handleChange('stock', parseInt(e.target.value) || 0)}
-                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
+                                        disabled={!!localVariation.id || localVariation.launchInitialStock}
+                                        value={localVariation.launchInitialStock ? localVariation.initialStock : (localVariation.stock || 0)}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value) || 0;
+                                            if (localVariation.launchInitialStock) {
+                                                handleChange('initialStock', val);
+                                            } else {
+                                                handleChange('stock', val);
+                                            }
+                                        }}
+                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm disabled:opacity-50"
                                     />
                                 </div>
                                 <div className="space-y-2 relative">
@@ -480,47 +557,45 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                         onClick={handleSave}
                         className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95"
                     >
-                        Salvar Alterações
+                        Concluir Cadastro
                     </button>
                 </div>
             </div>
-                {/* Modals */}
-                <AttributeSelectionModal
-                    isOpen={isSelectionModalOpen}
-                    onClose={() => setIsSelectionModalOpen(false)}
-                    onSelect={(attr) => {
-                        const currentAttrs = localVariation.attributes || [];
-                        const exists = currentAttrs.find(a => a.name === attr.name);
-                        
-                        let newAttrs;
-                        if (exists) {
-                            newAttrs = currentAttrs.map(a => a.name === attr.name ? attr : a);
-                        } else {
-                            newAttrs = [...currentAttrs, attr];
-                        }
-                        
-                        const name = generateVariationName(newAttrs, !!localVariation.hideAttributeNames);
-                        setLocalVariation(prev => prev ? ({
-                            ...prev,
-                            name,
-                            attributes: newAttrs
-                        }) : null);
-                    }}
-                    onManageAttributes={() => {
-                        setIsSelectionModalOpen(false);
-                        setIsManagementModalOpen(true);
-                    }}
-                />
 
-                <AttributeManagementModal
-                    isOpen={isManagementModalOpen}
-                    onClose={() => setIsManagementModalOpen(false)}
-                />
-            </div>
+            {/* Modals */}
+            <AttributeSelectionModal
+                isOpen={isSelectionModalOpen}
+                onClose={() => setIsSelectionModalOpen(false)}
+                onSelect={(attr) => {
+                    const currentAttrs = localVariation.attributes || [];
+                    const exists = currentAttrs.find(a => a.name === attr.name);
+                    
+                    let newAttrs;
+                    if (exists) {
+                        newAttrs = currentAttrs.map(a => a.name === attr.name ? attr : a);
+                    } else {
+                        newAttrs = [...currentAttrs, attr];
+                    }
+                    
+                    const name = generateVariationName(newAttrs, !!localVariation.hideAttributeNames);
+                    setLocalVariation(prev => prev ? ({
+                        ...prev,
+                        name,
+                        attributes: newAttrs
+                    }) : null);
+                }}
+                onManageAttributes={() => {
+                    setIsSelectionModalOpen(false);
+                    setIsManagementModalOpen(true);
+                }}
+            />
+
+            <AttributeManagementModal
+                isOpen={isManagementModalOpen}
+                onClose={() => setIsManagementModalOpen(false)}
+            />
+        </div>
     , document.body);
 };
-
-
-
 
 export default VariationEditModal;

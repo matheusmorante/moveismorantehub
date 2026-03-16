@@ -4,6 +4,7 @@ import Product, { Variation } from '../../types/product.type';
 import { saveVariation } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 import { generateProductCode } from '@/pages/utils/formatters';
+import InitialStockList from './components/InitialStockList';
 
 interface VariationFormModalProps {
     isOpen: boolean;
@@ -414,18 +415,52 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                         </div>
                     </div>
 
+                    <div className="flex flex-col gap-5 bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Estoque Inicial?</h4>
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, launchInitialStock: !formData.launchInitialStock })}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.launchInitialStock ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}
+                            >
+                                {formData.launchInitialStock ? 'Sim, Lançar' : 'Não Lançar'}
+                            </button>
+                        </div>
+
+                        {formData.launchInitialStock && (
+                            <div className="animate-in zoom-in-95 duration-300">
+                                <InitialStockList
+                                    entries={formData.initialStockEntries || []}
+                                    onChange={(entries) => {
+                                        const totalStock = entries.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+                                        const avgCost = entries.length > 0
+                                            ? entries.reduce((acc, curr) => acc + (curr.finalUnitCost || 0), 0) / entries.length
+                                            : 0;
+
+                                        setFormData({
+                                            ...formData,
+                                            initialStockEntries: entries,
+                                            stock: totalStock,
+                                            costPrice: avgCost
+                                        });
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-3 gap-6 shrink-0">
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex flex-col">
-                                Estoque Atual
-                                {!!variation?.id && <span className="text-[8px] text-amber-500 font-bold lowercase tracking-normal mt-0.5">(altere na tela anterior)</span>}
+                                {formData.launchInitialStock ? 'Saldo de Lotes' : 'Estoque Atual'}
+                                {!!variation?.id && !formData.launchInitialStock && <span className="text-[8px] text-amber-500 font-bold lowercase tracking-normal mt-0.5">(altere na tela anterior)</span>}
                             </label>
                             <input
                                 type="number"
                                 value={formData.stock || 0}
                                 onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-100 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900"
-                                disabled={!!variation?.id}
+                                disabled={(!!variation?.id && !formData.launchInitialStock) || formData.launchInitialStock}
                             />
                         </div>
                         <div className="flex flex-col gap-2">
@@ -474,7 +509,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                             disabled={loading}
                             className="flex-[2] px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {loading ? "Salvando..." : "Salvar Variação"}
+                            {loading ? "Salvando..." : "Concluir Cadastro"}
                         </button>
                     </div>
                 </form>

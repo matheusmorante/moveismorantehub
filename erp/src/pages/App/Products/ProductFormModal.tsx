@@ -117,7 +117,7 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
             <input
                 type="number"
                 value={v.stock}
-                onChange={(e) => updateVariation(e.target.value === '' ? '' : v.id, 'stock', parseInt(e.target.value))}
+                onChange={(e) => updateVariation(v.id, 'stock', parseInt(e.target.value) || 0)}
                 className="bg-slate-100 dark:bg-slate-800 border-none outline-none text-xs font-bold w-16 px-2 py-1 rounded-lg dark:text-slate-200"
             />
         </td>
@@ -318,7 +318,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     }, [formData.costPrice, formData.ipiPercent, formData.ipiType, formData.freightCost, formData.freightType]);
 
-    // Sync variation prices/costs
+    // Sync variation prices/costs (Parent -> Children)
     useEffect(() => {
         if (formData.variations?.length) {
             const nextVariations = formData.variations.map(v => {
@@ -332,17 +332,37 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     newV.costPrice = formData.costPrice || 0;
                     updated = true;
                 }
-                if (v.syncDescription && v.name !== formData.description) {
-                    // updated name if sync description? actually name is usually Color/Size
-                    // maybe we don't sync name but the base description in display
-                }
                 return updated ? newV : v;
             });
             if (JSON.stringify(nextVariations) !== JSON.stringify(formData.variations)) {
                 setFormData(prev => ({ ...prev, variations: nextVariations }));
             }
         }
-    }, [formData.unitPrice, formData.costPrice, formData.description]);
+    }, [formData.unitPrice, formData.costPrice]);
+
+    // Sync variation aggregates (Children -> Parent)
+    useEffect(() => {
+        if (formData.hasVariations && formData.variations?.length) {
+            const totalStock = formData.variations.reduce((acc, v) => acc + (v.stock || 0), 0);
+            
+            // Average cost calculation (only for variations with cost > 0)
+            const varsWithCost = formData.variations.filter(v => (v.costPrice || 0) > 0);
+            const avgCost = varsWithCost.length > 0
+                ? varsWithCost.reduce((acc, v) => acc + (v.costPrice || 0), 0) / varsWithCost.length
+                : 0;
+
+            const shouldUpdateStock = formData.stock !== totalStock;
+            const shouldUpdateCost = Math.abs((formData.costPrice || 0) - avgCost) > 0.01;
+
+            if (shouldUpdateStock || shouldUpdateCost) {
+                setFormData(prev => ({ 
+                    ...prev, 
+                    stock: totalStock,
+                    costPrice: avgCost 
+                }));
+            }
+        }
+    }, [formData.variations, formData.hasVariations]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
         let files: FileList | File[] = [];
@@ -687,9 +707,16 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const handleSubmit = async (isDraft: boolean = false) => {
-        if (!formData.description) {
-            if (!isDraft) toast.error("O título do produto é obrigatório.");
-            return;
+        let finalDescription = formData.description;
+        
+        if (!finalDescription) {
+            if (isDraft) {
+                // If it's a draft, we allow it with a placeholder
+                finalDescription = `[RASCUNHO S-TÍTULO] ${new Date().toLocaleDateString()}`;
+            } else {
+                toast.error("O título do produto é obrigatório.");
+                return;
+            }
         }
         
         // ... (rest of validation) ...
@@ -697,7 +724,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         try {
             const normalizedData = { 
                 ...formData, 
-                // ... (normalization) ...
+                description: finalDescription,
                 isDraft: isDraft 
             } as Product;
 
@@ -715,8 +742,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const handleCloseWithAutoSave = async () => {
-        if (hasChanged.current && formData.description && !loading) {
-            // Auto-save as draft
+        if (hasChanged.current && !loading) {
+            // Auto-save as draft even if description is missing (handleSubmit handles it)
             await handleSubmit(true);
         } else {
             onClose();
@@ -730,7 +757,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={handleCloseWithAutoSave} />
             
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-6xl h-[90vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
+            <div className="relative bg-white dark:bg-slate-900 w-full max-w-[96vw] h-[96vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
                 {/* Header */}
                 <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
                     <div>
@@ -755,7 +782,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         {[
                             { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
                             { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
-                            { id: 'variacoes', label: 'Atributos / Grade', icon: 'bi-grid-3x3-gap' },
+                            { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
                             { id: 'ecommerce', label: 'Vitrine / E-commerce / Marketplace', icon: 'bi-cart-check' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ].map(tab => (
@@ -857,9 +884,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                 type="button"
                                 onClick={() => setIsConversionModalOpen(true)}
                                 className="px-6 py-3 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
-                                title="Transformar este produto simples em um produto com grade de varia├º├╡es"
+                                title="Transformar este produto simples em um produto com grade de variações"
                             >
-                                <i className="bi bi-layers-fill"></i> Converter para Varia├º├úo
+                                <i className="bi bi-layers-fill"></i> Converter para Variação
                             </button>
                         )}
 
@@ -877,7 +904,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         >
                             {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                             <i className="bi bi-check-circle-fill"></i>
-                            {product ? "Salvar Alterações" : "Concluir Cadastro"}
+                            {"Concluir Cadastro"}
                         </button>
                     </div>
                 </div>
@@ -1013,7 +1040,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         onConvert={(updated) => {
                             setFormData(updated);
                             setActiveTab('variacoes');
-                            toast.success("Produto convertido! O c├│digo e estoque agora est├úo na primeira varia├º├úo.");
+                            toast.success("Produto convertido! O código e estoque agora estão na primeira variação.");
                         }}
                     />
                 )}

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import Product, { ProductVisibilitySettings } from "../../../types/product.type";
 import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
+import DropdownPortal from "../../../../components/shared/DropdownPortal";
+import ProductMigrationModal from "../components/ProductMigrationModal";
 
 interface ProductRowProps {
     product: Product;
@@ -19,6 +21,7 @@ interface ProductRowProps {
     isSelected?: boolean;
     onToggleSelection?: () => void;
     categoryTree?: any;
+    onRefresh?: () => void;
 }
 
 const ProductRow = ({
@@ -35,8 +38,12 @@ const ProductRow = ({
     orderedColumnKeys,
     isSelected,
     onToggleSelection,
-    categoryTree
+    categoryTree,
+    onRefresh
 }: ProductRowProps) => {
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const [isMigrationModalOpen, setIsMigrationModalOpen] = React.useState(false);
+    const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
     const renderCell = (key: string) => {
         if (!visibilitySettings[key as keyof ProductVisibilitySettings]) return null;
@@ -214,52 +221,87 @@ const ProductRow = ({
                                         <i className={`bi ${product.active ? 'bi-toggle-on' : 'bi-toggle-off'} text-lg`} />
                                     </button>
 
-                                    {product.itemType !== 'service' && !product.isParent && (
-                                        <>
-                                            <Link
-                                                to="/stock/label-printing"
-                                                state={{ product }}
-                                                className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                                title="Imprimir Etiquetas"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <i className="bi bi-printer text-sm" />
-                                            </Link>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onLaunchStock?.(product); }}
-                                                className="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                                title="Lançar / Estornar Estoque"
-                                            >
-                                                <i className="bi bi-box-seam text-sm" />
-                                            </button>
-                                        </>
-                                    )}
-
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onEdit(product); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Editar Produto"
-                                    >
-                                        <i className="bi bi-pencil-fill text-sm" />
-                                    </button>
-
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete(product.id!); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Mover para Lixeira"
-                                    >
-                                        <i className="bi bi-trash-fill text-sm" />
-                                    </button>
-
-                                    {!product.isParent && onShowHistory && (
+                                    <div className="relative">
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); onShowHistory(product); }}
-                                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                            title="Histórico de Preços"
+                                            ref={menuAnchorRef}
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                                            className={`p-2 rounded-xl transition-all shadow-sm border bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 ${isMenuOpen ? 'border-blue-200 text-blue-600 ring-4 ring-blue-50 dark:ring-blue-900/10' : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-800'}`}
+                                            title="Mais Ações"
                                         >
-                                            <i className="bi bi-clock-history text-sm" />
+                                            <i className="bi bi-three-dots-vertical text-sm" />
                                         </button>
-                                    )}
+
+                                        <DropdownPortal
+                                            isOpen={isMenuOpen}
+                                            onClose={() => setIsMenuOpen(false)}
+                                            anchorRef={menuAnchorRef}
+                                            className="min-w-[180px]"
+                                        >
+                                            <div 
+                                                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
+                                                onMouseLeave={() => setIsMenuOpen(false)}
+                                            >
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(product); }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                >
+                                                    <i className="bi bi-pencil-fill text-blue-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar Detalhes</span>
+                                                </button>
+
+                                                {onShowHistory && !product.isParent && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onShowHistory(product); }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                    >
+                                                        <i className="bi bi-clock-history text-amber-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
+                                                    </button>
+                                                )}
+
+                                                {product.itemType !== 'service' && !product.isParent && (
+                                                    <>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onLaunchStock?.(product); }}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                        >
+                                                            <i className="bi bi-box-seam text-emerald-500" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Lançar Estoque</span>
+                                                        </button>
+                                                        
+                                                        <Link
+                                                            to="/stock/label-printing"
+                                                            state={{ product }}
+                                                            onClick={() => setIsMenuOpen(false)}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                        >
+                                                            <i className="bi bi-printer text-indigo-500" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Imprimir Etiquetas</span>
+                                                        </Link>
+                                                    </>
+                                                )}
+                                                
+                                                {/* Opção de Migração - Apenas para simples ou variações */}
+                                                {(product.isVariation || !product.hasVariations) && !product.isParent && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setIsMigrationModalOpen(true); }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                    >
+                                                        <i className="bi bi-shuffle text-blue-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Migrar Referências</span>
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(product.id!); }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50 mt-1"
+                                                >
+                                                    <i className="bi bi-trash-fill text-red-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Produto</span>
+                                                </button>
+                                            </div>
+                                        </DropdownPortal>
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -298,6 +340,15 @@ const ProductRow = ({
                     {renderCell('stock')}
                     {renderCell('actions')}
                 </>
+            )}
+            
+            {/* Modal de Migração */}
+            {isMigrationModalOpen && (
+                <ProductMigrationModal
+                    sourceProduct={product}
+                    onClose={() => setIsMigrationModalOpen(false)}
+                    onSuccess={() => onRefresh?.()}
+                />
             )}
         </tr>
     );

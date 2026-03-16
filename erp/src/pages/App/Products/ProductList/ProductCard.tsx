@@ -2,6 +2,8 @@ import React from "react";
 import Product from "../../../types/product.type";
 import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
+import DropdownPortal from "../../../../components/shared/DropdownPortal";
+import ProductMigrationModal from "../components/ProductMigrationModal";
 
 interface ProductCardProps {
     product: Product;
@@ -11,10 +13,12 @@ interface ProductCardProps {
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
     onToggleActive: (id: string, currentStatus: boolean) => void;
+    onShowHistory?: (product: Product) => void;
     showTrash?: boolean;
     isSelected?: boolean;
     onToggleSelection?: () => void;
     categoryTree?: any;
+    onRefresh?: () => void;
 }
 
 const ProductCard = ({
@@ -25,11 +29,16 @@ const ProductCard = ({
     onRestore,
     onPermanentDelete,
     onToggleActive,
+    onShowHistory,
     showTrash,
     isSelected,
     onToggleSelection,
-    categoryTree
+    categoryTree,
+    onRefresh
 }: ProductCardProps) => {
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const [isMigrationModalOpen, setIsMigrationModalOpen] = React.useState(false);
+    const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation;
@@ -190,17 +199,6 @@ const ProductCard = ({
                             <span className="text-[8px] font-black uppercase">{product.active ? 'Ativo' : 'Inativo'}</span>
                         </button>
 
-                        {/* Stock Button - only if not service/parent */}
-                        {product.itemType !== 'service' && !product.isParent && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onLaunchStock?.(product); }}
-                                className="flex flex-col items-center justify-center gap-1 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-                            >
-                                <i className="bi bi-box-seam text-base" />
-                                <span className="text-[8px] font-black uppercase">Estoque</span>
-                            </button>
-                        )}
-
                         <button
                             onClick={() => onEdit(product)}
                             className="flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
@@ -209,16 +207,79 @@ const ProductCard = ({
                             <span className="text-[8px] font-black uppercase">Editar</span>
                         </button>
 
-                        <button
-                            onClick={() => onDelete(product.id!)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                        >
-                            <i className="bi bi-trash-fill text-base" />
-                            <span className="text-[8px] font-black uppercase">Excluir</span>
-                        </button>
+                        <div className="relative">
+                            <button
+                                ref={menuAnchorRef}
+                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                                className={`flex flex-col items-center justify-center gap-1 py-2 w-full rounded-lg border transition-all ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                            >
+                                <i className="bi bi-three-dots text-base" />
+                                <span className="text-[8px] font-black uppercase">Mais</span>
+                            </button>
+
+                            <DropdownPortal
+                                isOpen={isMenuOpen}
+                                onClose={() => setIsMenuOpen(false)}
+                                anchorRef={menuAnchorRef}
+                                className="min-w-[160px]"
+                            >
+                                <div 
+                                    className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
+                                    onMouseLeave={() => setIsMenuOpen(false)}
+                                >
+                                    {onShowHistory && !product.isParent && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onShowHistory(product); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                        >
+                                            <i className="bi bi-clock-history text-amber-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
+                                        </button>
+                                    )}
+
+                                    {product.itemType !== 'service' && !product.isParent && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onLaunchStock?.(product); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                        >
+                                            <i className="bi bi-box-seam text-emerald-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Lançar Estoque</span>
+                                        </button>
+                                    )}
+
+                                    {/* Opção de Migração - Apenas para simples ou variações */}
+                                    {(product.isVariation || !product.hasVariations) && !product.isParent && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setIsMigrationModalOpen(true); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                        >
+                                            <i className="bi bi-shuffle text-blue-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Migrar Referências</span>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(product.id!); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50 mt-1"
+                                    >
+                                        <i className="bi bi-trash-fill text-red-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir</span>
+                                    </button>
+                                </div>
+                            </DropdownPortal>
+                        </div>
                     </>
                 )}
             </div>
+            
+            {/* Modal de Migração */}
+            {isMigrationModalOpen && (
+                <ProductMigrationModal
+                    sourceProduct={product}
+                    onClose={() => setIsMigrationModalOpen(false)}
+                    onSuccess={() => onRefresh?.()}
+                />
+            )}
         </div>
     );
 };

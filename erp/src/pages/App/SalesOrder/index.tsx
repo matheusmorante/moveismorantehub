@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import OrderHistoryList from "./OrderHistoryList";
 import OrderEditModal from "./OrderEditModal";
@@ -7,6 +7,7 @@ import AssistanceOrderModal from "./AssistanceOrderModal";
 import NewOrderDropdown from "./NewOrderDropdown";
 import Order, { VisibilitySettings } from "../../types/order.type";
 import OrderFilters, { Filters } from "./OrderFilters";
+import { OrderHistoryListRef } from "./OrderHistoryList";
 
 const SalesOrder = () => {
     const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | null>(null);
@@ -30,6 +31,9 @@ const SalesOrder = () => {
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
+    const orderListRef = useRef<OrderHistoryListRef>(null);
+    const trashListRef = useRef<OrderHistoryListRef>(null);
+    const draftsListRef = useRef<OrderHistoryListRef>(null);
     const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings>({
         id: true,
         orderDate: true,
@@ -219,6 +223,7 @@ const SalesOrder = () => {
                             onToggleColumn={toggleVisibility}
                             onSort={handleSort}
                             highlightOrderId={highlightOrderId}
+                            ref={orderListRef}
                         />
                     </div>
                 </div>
@@ -265,6 +270,7 @@ const SalesOrder = () => {
                                     onToggleColumn={toggleVisibility}
                                     onSort={handleSort}
                                     highlightOrderId={highlightOrderId}
+                                    ref={trashListRef}
                                 />
                             </div>
                         </div>
@@ -313,6 +319,7 @@ const SalesOrder = () => {
                                     onToggleColumn={toggleVisibility}
                                     onSort={handleSort}
                                     highlightOrderId={highlightOrderId}
+                                    ref={draftsListRef}
                                 />
                             </div>
                         </div>
@@ -328,6 +335,8 @@ const SalesOrder = () => {
                     onSaveSuccess={(id) => {
                         if (id) {
                             setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}
@@ -340,6 +349,8 @@ const SalesOrder = () => {
                     onSaveSuccess={(id) => {
                         if (id) {
                             setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}
@@ -353,6 +364,8 @@ const SalesOrder = () => {
                     onSaveSuccess={(id) => {
                         if (id) {
                             setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}
@@ -364,6 +377,9 @@ const SalesOrder = () => {
                     onSaveSuccess={(id) => {
                         if (id) {
                             setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            trashListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}

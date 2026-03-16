@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef, useImperativeHandle } from "react";
 import ProductTable from "./ProductTable";
 import { useProducts } from "./useProducts";
 import Product, { ProductVisibilitySettings } from "../../../types/product.type";
@@ -15,9 +15,14 @@ interface ProductListProps {
     categoryTree?: any;
     title?: string;
     onCloseTrash?: () => void;
+    onRefresh?: () => void;
 };
 
-const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash }: ProductListProps) => {
+export interface ProductListRef {
+    refresh: () => void;
+}
+
+const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh }, ref) => {
 
     const {
         products,
@@ -38,8 +43,13 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
         handleBulkTrash,
         handleBulkRestore,
         handleBulkPermanentDelete,
-        toggleActive
+        toggleActive,
+        refresh
     } = useProducts(filters);
+
+    useImperativeHandle(ref, () => ({
+        refresh
+    }));
 
     const getPageButtons = () => {
         const buttons: number[] = [];
@@ -126,6 +136,7 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
                     onBulkRestore={handleBulkRestore}
                     onBulkPermanentDelete={handleBulkPermanentDelete}
                     categoryTree={categoryTree}
+                    onRefresh={() => { refresh(); onRefresh?.(); }}
                 />
 
                 {/* Pagination */}
@@ -177,6 +188,6 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
             </div>
         </div>
     );
-};
+});
 
 export default ProductList;

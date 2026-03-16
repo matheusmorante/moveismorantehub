@@ -20,7 +20,7 @@ const DEFAULT_VISIBILITY: VariationVisibilitySettings = {
 };
 
 const Variations = () => {
-    const { variations, handleDelete } = useVariations();
+    const { variations, loading, handleDelete, refresh } = useVariations();
     const { width } = useWindowSize();
     const isMobile = width <= 900;
 
@@ -278,6 +278,7 @@ const Variations = () => {
             <VariationFormModal
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
+                onSuccess={refresh}
                 variation={editingVariation}
                 allVariations={variations}
             />

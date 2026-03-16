@@ -21,5 +21,16 @@ Para manter a raiz do projeto limpa e organizada, todos os scripts e arquivos de
 **Caminho:** `apps/erp/scripts/` (na raiz da pasta scripts)
 - Scripts que são executados com frequência via CRON ou manualmente para manutenção regular.
 
+
 ---
-> 🚀 **Nota:** Nunca salve scripts `.js`, `.ts` ou `.sql` diretamente na raiz da pasta `apps/erp` ou na raiz do projeto.
+
+## 5. Regras Globais do Usuário (AGENTIC RULES)
+
+- **Código Limpo:** Siga sempre os princípios de código limpo e modularizado.
+- **Transparência de Ideias:** Salve sempre ideias e planos pendentes em um arquivo (como `task.md` ou similar) para posterior consulta.
+- **Custo e Eficiência:** Economize o máximo de cota do plano de assinatura.
+- **Ambientes (Dev/Prod):** Sempre considere os ambientes de desenvolvimento e produção ao configurar rotas, variáveis de ambiente e dados ambíguos.
+- **Relato de Bugs:** Relate imediatamente qualquer bug que esteja impedindo o progresso.
+- **Confirmação:** Pergunte em caso de dúvida sobre ambiguidade ou entendimento.
+- **Persistência de Regras:** Salve estas regras sempre em um arquivo do projeto (este arquivo).
+- **Idioma:** Fale apenas em Português Brasileiro.

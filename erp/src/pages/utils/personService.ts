@@ -18,7 +18,9 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
 
     return {
         person_type: p.type || collectionName,
+        person_type_pf_pj: p.personType, // Added
         full_name: p.fullName,
+        social_name: p.socialName, // Added
         nickname: p.nickname || p.tradeName,
         cpf_cnpj: p.cpfCnpj,
         rg_ie: p.rgIe,
@@ -27,9 +29,10 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
         address: addressValue,
         observation: p.observation,
         position: p.position,
-        active: p.active,
+        active: p.active ?? true, // Default to true
         is_draft: p.isDraft ?? false,
-        deleted: p.deleted,
+        lead_time: p.leadTime, // Added
+        deleted: p.deleted ?? false, // Default to false
         deleted_at: person.deletedAt ? new Date().toISOString() : null, // Simplification
         updated_at: new Date().toISOString()
     };
@@ -47,21 +50,24 @@ const mapFromDB = (data: any): Person => {
 
     const p: any = {
         id: String(data.id),
-        fullName: data.full_name,
-        nickname: data.nickname,
-        cpfCnpj: data.cpf_cnpj,
-        rgIe: data.rg_ie,
-        email: data.email,
-        phone: data.phone,
-        address: parsedAddress,
+        personType: data.person_type_pf_pj || 'PF',
+        fullName: data.full_name || '',
+        socialName: data.social_name || '',
+        nickname: data.nickname || '',
+        cpfCnpj: data.cpf_cnpj || '',
+        rgIe: data.rg_ie || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        address: parsedAddress || {},
         fullAddress: typeof parsedAddress === 'object' && parsedAddress !== null ? parsedAddress : { street: parsedAddress || '' },
-        observation: data.observation,
-        active: data.active,
-        isDraft: data.is_draft,
-        deleted: data.deleted,
+        observation: data.observation || '',
+        active: data.active ?? true,
+        isDraft: data.is_draft ?? false,
+        deleted: data.deleted ?? false,
         deletedAt: data.deleted_at,
-        position: data.position,
-        type: data.person_type,
+        position: data.position || '',
+        type: data.person_type as any,
+        leadTime: data.lead_time || 0,
         createdAt: data.created_at,
         updatedAt: data.updated_at
     };
@@ -86,23 +92,23 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
         let peopleQuery = supabase.from(TABLE_NAME).select('*');
 
         if (!includeDeleted) {
-            // Use "not is_draft eq true" to capture both false AND null (imported records)
-            peopleQuery = peopleQuery
-                .not('is_draft', 'eq', true)
-                .not('deleted', 'eq', true);
+            // Show everything (active, inactive, drafts) except deleted
+            // Note: or(deleted.eq.false,deleted.is.null) is safer for items migrated without this flag
+            peopleQuery = peopleQuery.or('deleted.eq.false,deleted.is.null');
         } else {
             // For trash view: show only deleted records
             peopleQuery = peopleQuery.eq('deleted', true);
         }
 
         if (collectionName === 'employees') {
-            peopleQuery = peopleQuery.or(`person_type.eq.employees,and(position.not.is.null,position.neq."")`);
+            peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},and(position.not.is.null,position.neq."")`);
         } else if (collectionName === 'customers') {
-            // "fornecedores podem ser clientes" - "employees" removed as per "apenas fornecedores podem estar na lista de clientes"
-            peopleQuery = peopleQuery.or(`person_type.eq.customers,person_type.eq.suppliers`);
+            // "fornecedores podem ser clientes"
+            peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.suppliers`);
         } else {
-            // "clientes nao podem ser fornecedores" (collectionName === 'suppliers')
-            peopleQuery = peopleQuery.eq('person_type', collectionName);
+            // "clientes nao podem ser fornecedores" (this is for 'suppliers')
+            // Using ilike for case-insensitivity and or for singular/plural support
+            peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},person_type.ilike.supplier`);
         }
 
         const { data: peopleData } = await peopleQuery.order('full_name', { ascending: true });

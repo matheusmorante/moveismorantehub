@@ -6,6 +6,9 @@ import { toast } from "react-toastify";
 export const useVariations = () => {
     const [variations, setVariations] = useState<VariationType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshSignal, setRefreshSignal] = useState(0);
+
+    const refresh = () => setRefreshSignal(prev => prev + 1);
 
     useEffect(() => {
         const unsubscribe = subscribeToVariations((data) => {
@@ -13,7 +16,7 @@ export const useVariations = () => {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, [refreshSignal]);
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -39,5 +42,5 @@ export const useVariations = () => {
         }
     };
 
-    return { variations, loading, handleDelete };
+    return { variations, loading, handleDelete, refresh };
 };

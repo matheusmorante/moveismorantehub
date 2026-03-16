@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef, useImperativeHandle } from "react";
 import Order, { VisibilitySettings } from "../../../types/order.type";
 import { useOrderHistory } from "./useOrderHistory";
 import OrderHistoryTable from "./OrderHistoryTable";
@@ -13,8 +13,12 @@ type OrderHistoryListProps = {
     highlightOrderId?: string | null;
 };
 
+export interface OrderHistoryListRef {
+    refresh: () => void;
+}
 
-const OrderHistoryList = ({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId }: OrderHistoryListProps) => {
+
+const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId }, ref) => {
     const {
         orders,
         loading,
@@ -35,8 +39,13 @@ const OrderHistoryList = ({ onEdit, filters, visibilitySettings, onToggleColumn,
         clearSelection,
         handleBulkTrash,
         handleBulkRestore,
-        handleBulkPermanentDelete
+        handleBulkPermanentDelete,
+        refresh
     } = useOrderHistory(filters);
+
+    useImperativeHandle(ref, () => ({
+        refresh
+    }));
 
     const [pageInput, setPageInput] = React.useState(String(currentPage));
     const [stockModal, setStockModal] = React.useState<{ order: Order, type: 'withdrawal' | 'entry' } | null>(null);
@@ -282,6 +291,6 @@ const OrderHistoryList = ({ onEdit, filters, visibilitySettings, onToggleColumn,
             )}
         </div>
     );
-};
+});
 
 export default OrderHistoryList;

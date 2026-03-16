@@ -28,6 +28,7 @@ interface ProductTableProps {
     onBulkRestore: () => void;
     onBulkPermanentDelete: () => void;
     categoryTree?: any;
+    onRefresh?: () => void;
 }
 
 interface ColumnDef {
@@ -51,7 +52,7 @@ const ProductTable = ({
     products, onEdit, onShowHistory, onLaunchStock, onDelete, onRestore, onPermanentDelete, onToggleActive,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedProducts, onToggleSelection, onSelectAll, onClearSelection,
-    onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree
+    onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh
 }: ProductTableProps) => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
@@ -255,6 +256,7 @@ const ProductTable = ({
                                     isSelected={selectedProducts.includes(product.id!)}
                                     onToggleSelection={() => onToggleSelection(product.id!)}
                                     categoryTree={categoryTree}
+                                    onRefresh={onRefresh}
                                 />
                             ))}
                         </tbody>
@@ -273,6 +275,7 @@ const ProductTable = ({
                                 key={product.id}
                                 product={product}
                                 onEdit={onEdit}
+                                onShowHistory={onShowHistory}
                                 onLaunchStock={onLaunchStock}
                                 onDelete={onDelete}
                                 onRestore={onRestore}
@@ -282,6 +285,7 @@ const ProductTable = ({
                                 isSelected={selectedProducts.includes(product.id!)}
                                 onToggleSelection={() => onToggleSelection(product.id!)}
                                 categoryTree={categoryTree}
+                                onRefresh={onRefresh}
                             />
                         ))
                     )}

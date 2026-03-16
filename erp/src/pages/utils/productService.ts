@@ -41,6 +41,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.notificationConfig !== undefined) data.notification_config = product.notificationConfig;
     if (product.isCombo !== undefined) data.is_combo = product.isCombo;
     if (product.comboItems !== undefined) data.combo_items = product.comboItems;
+    if (product.initialStockEntries !== undefined) data.initial_stock_entries = product.initialStockEntries;
     
     // Dimensions & Details
     if (product.width !== undefined) data.width = product.width;
@@ -334,7 +335,7 @@ export const saveProduct = async (product: Product): Promise<string> => {
                 }
             }
 
-            // Lançamento de Estoque Inicial (Entrada)
+            // Lançamento de Estoque Inicial (Entrada) - Legado (campo único)
             if (product.launchInitialStock && Number(product.stock) > 0) {
                 try {
                     const { saveInventoryMove } = await import('./inventoryService');
@@ -350,6 +351,73 @@ export const saveProduct = async (product: Product): Promise<string> => {
                     }, 0); 
                 } catch (stockError) {
                     console.error("Erro ao registrar estoque inicial:", stockError);
+                }
+            }
+
+            // Lançamento de Estoque Inicial (Entrada) - Novo (Múltiplas Entradas)
+            if (product.initialStockEntries && product.initialStockEntries.length > 0) {
+                try {
+                    const { saveInventoryMove } = await import('./inventoryService');
+                    for (const entry of product.initialStockEntries) {
+                        if (entry.quantity > 0) {
+                            await saveInventoryMove({
+                                productId: newId,
+                                productDescription: product.description || "Estoque Inicial",
+                                type: 'entry',
+                                quantity: entry.quantity,
+                                unitCost: entry.finalUnitCost || entry.unitCost,
+                                date: new Date().toISOString(),
+                                label: 'ESTOQUE INICIAL',
+                                observation: 'Lançamento via entradas múltiplas de estoque inicial.'
+                            }, 0);
+                        }
+                    }
+                } catch (stockError) {
+                    console.error("Erro ao registrar estoque inicial múltiplo:", stockError);
+                }
+            }
+
+            // Lançamento de Estoque Inicial (Variações)
+            if (product.variations && product.variations.length > 0) {
+                try {
+                    const { saveInventoryMove } = await import('./inventoryService');
+                    for (const v of product.variations) {
+                        // Legado
+                        if (v.launchInitialStock && Number(v.initialStock) > 0) {
+                            await saveInventoryMove({
+                                productId: newId,
+                                variationId: v.id,
+                                productDescription: `${product.description} (${v.name})`,
+                                type: 'entry',
+                                quantity: Number(v.initialStock),
+                                unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
+                                date: new Date().toISOString(),
+                                label: 'ESTOQUE INICIAL',
+                                observation: `Lançamento automático de estoque inicial da variação ${v.name}.`
+                            }, 0);
+                        }
+
+                        // Novo (Múltiplas Entradas)
+                        if (v.initialStockEntries && v.initialStockEntries.length > 0) {
+                            for (const entry of v.initialStockEntries) {
+                                if (entry.quantity > 0) {
+                                    await saveInventoryMove({
+                                        productId: newId,
+                                        variationId: v.id,
+                                        productDescription: `${product.description} (${v.name})`,
+                                        type: 'entry',
+                                        quantity: entry.quantity,
+                                        unitCost: entry.finalUnitCost || entry.unitCost,
+                                        date: new Date().toISOString(),
+                                        label: 'ESTOQUE INICIAL',
+                                        observation: `Entrada múltipla: ${v.name}.`
+                                    }, 0);
+                                }
+                            }
+                        }
+                    }
+                } catch (stockError) {
+                    console.error("Erro ao registrar estoque inicial das variações:", stockError);
                 }
             }
 
@@ -921,3 +989,19 @@ export const cleanupOldDrafts = async () => {
     }
 };
 
+/**
+ * Migra todas as referências de um produto antigo para um novo
+ */
+export const migrateProductReferences = async (oldId: string, newId: string): Promise<void> => {
+    try {
+        const { error } = await supabase.rpc('migrate_product_data', { 
+            old_id: parseInt(oldId), 
+            new_id: parseInt(newId) 
+        });
+
+        if (error) throw error;
+    } catch (error) {
+        console.error("Erro ao migrar referências de produto:", error);
+        throw error;
+    }
+};

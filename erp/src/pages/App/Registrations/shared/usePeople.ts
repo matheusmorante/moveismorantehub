@@ -10,6 +10,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
+    const [refreshSignal, setRefreshSignal] = useState(0);
 
     // Subscription for active records
     useEffect(() => {
@@ -18,7 +19,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
             setLoading(false);
         }, false);
         return () => unsubscribe();
-    }, [collectionName]);
+    }, [collectionName, refreshSignal]);
 
     // Subscription for deleted records (trash)
     useEffect(() => {
@@ -26,7 +27,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
             setTrashedPeople(data);
         }, true);
         return () => unsubscribe();
-    }, [collectionName]);
+    }, [collectionName, refreshSignal]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -52,9 +53,13 @@ export const usePeople = (collectionName: string, filters?: any) => {
 
                 if (!filters) return true;
 
+                const normalize = (str: string) => 
+                    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+                const searchTerm = normalize(filters.search || "");
                 const searchMatch = !filters.search ||
-                    person.fullName?.toLowerCase().includes(filters.search.toLowerCase()) ||
-                    person.email?.toLowerCase().includes(filters.search.toLowerCase()) ||
+                    normalize(person.fullName || "").includes(searchTerm) ||
+                    normalize(person.email || "").includes(searchTerm) ||
                     person.cpfCnpj?.includes(filters.search);
 
                 const activeMatch = filters.activeOnly === undefined || person.active === filters.activeOnly;
@@ -174,6 +179,21 @@ export const usePeople = (collectionName: string, filters?: any) => {
         }
     };
 
+    const refresh = () => {
+        // Since we have subscriptions, fetchAll is already inside the effect. 
+        // But we want to FORCE it immediately. 
+        // We can use a version state to trigger effects.
+        setRefreshSignal(prev => prev + 1);
+    };
+
+
+    // Force fetch on signal
+    useEffect(() => {
+        if (refreshSignal > 0) {
+            setLoading(true);
+        }
+    }, [refreshSignal]);
+
     return {
         people: paginatedPeople,
         totalItems,
@@ -193,6 +213,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
         handleBulkTrash,
         handleBulkRestore,
         handleBulkPermanentDelete,
-        toggleActive
+        toggleActive,
+        refresh
     };
 };

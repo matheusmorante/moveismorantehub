@@ -302,7 +302,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 value={formData.fullName}
                                 onValueChange={(val) => setFormData({ ...formData, fullName: val })}
                                 tableName="people"
-                                columnName="fullName"
+                                columnName="full_name"
                                 placeholder={formData.personType === 'PJ' ? 'Razão Social da Empresa' : 'Nome do Cliente'}
                                 icon="bi-person"
                             />
@@ -341,7 +341,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             <PatternFormat
                                 format={formData.personType === 'PJ' ? "##.###.###/####-##" : "###.###.###-##"}
                                 type="text"
-                                value={formData.cpfCnpj}
+                                value={formData.cpfCnpj || ""}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, cpfCnpj: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 placeholder={formData.personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}
@@ -365,7 +365,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <PatternFormat
                                     format="(##) #####-####"
                                     type="text"
-                                    value={formData.phone}
+                                    value={formData.phone || ""}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })}
                                     disabled={formData.noPhone}
                                     className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 ${formData.noPhone ? 'opacity-50 grayscale' : ''}`}
@@ -391,7 +391,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">E-mail {settings.requiredFields.customer?.email ? <span className="text-red-500">*</span> : null}</label>
                             <input
                                 type="email"
-                                value={formData.email}
+                                value={formData.email || ""}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 placeholder="exemplo@email.com"
@@ -422,7 +422,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.cep}
+                                    value={formData.fullAddress?.cep || ""}
                                     onChange={(e) => handleAddressChange("cep", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
@@ -431,7 +431,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.street}
+                                    value={formData.fullAddress?.street || ""}
                                     onChange={(e) => handleAddressChange("street", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
@@ -440,7 +440,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.number}
+                                    value={formData.fullAddress?.number || ""}
                                     onChange={(e) => handleAddressChange("number", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
@@ -449,7 +449,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.neighborhood}
+                                    value={formData.fullAddress?.neighborhood || ""}
                                     onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
@@ -458,7 +458,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.complement}
+                                    value={formData.fullAddress?.complement || ""}
                                     onChange={(e) => handleAddressChange("complement", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                     placeholder="Opcional"
@@ -468,7 +468,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.city}
+                                    value={formData.fullAddress?.city || ""}
                                     onChange={(e) => handleAddressChange("city", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
@@ -477,7 +477,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
                                 <input
                                     type="text"
-                                    value={formData.fullAddress?.observation}
+                                    value={formData.fullAddress?.observation || ""}
                                     onChange={(e) => handleAddressChange("observation", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                     placeholder="Ponto de referência, etc."
