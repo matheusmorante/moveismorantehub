@@ -55,6 +55,8 @@ export type FiscalInfo = {
     pisCst?: string;
     cofinsCst?: string;
     icmsPercent?: number;
+    codigoServico?: string; // Para serviços LC 116/03
+    issPercent?: number;    // Aliquota ISS Municipal
 };
 
 export type ComboItem = {

@@ -53,7 +53,8 @@ export type OrderAction =
     'STOCK_WITHDRAWAL' |
     'STOCK_REVERSAL' |
     'PRINT_SHIPPING_LABEL' |
-    'PRINT_PRODUCT_LABEL'
+    'PRINT_PRODUCT_LABEL' |
+    'GENERATE_PAYMENT_LINK'
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -68,7 +69,8 @@ export type IsButtonsClicked = {
     stockWithdrawal: boolean,
     stockReversal: boolean,
     printShippingLabel: boolean,
-    printProductLabel: boolean
+    printProductLabel: boolean,
+    generatePaymentLink: boolean
 }
 
 export type VisibilitySettings = {

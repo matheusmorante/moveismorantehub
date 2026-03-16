@@ -38,12 +38,17 @@ const OrderHistoryCard = ({
     const [showMenu, setShowMenu] = React.useState(false);
     const [showPicker, setShowPicker] = React.useState(false);
 
-    const statuses = settings.orderStatuses || [
+    const statuses = settings.orderStatuses ? [...settings.orderStatuses] : [
         { id: 'draft', label: 'Rascunho', color: 'slate' },
         { id: 'scheduled', label: 'Agendado', color: 'amber' },
         { id: 'fulfilled', label: 'Atendido', color: 'emerald' },
         { id: 'cancelled', label: 'Cancelado', color: 'rose' },
     ];
+
+    if (!statuses.find((s: any) => s.id === 'chargeback')) {
+        statuses.push({ id: 'chargeback', label: 'Chargeback', color: 'rose' });
+        statuses.push({ id: 'disputed', label: 'Em Disputa', color: 'amber' });
+    }
 
     const currentStatus = statuses.find(s => s.id === (order.status || 'draft')) || statuses[0];
 
@@ -72,6 +77,11 @@ const OrderHistoryCard = ({
                     <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
                         #{order.id?.slice(-6).toUpperCase()}
                     </span>
+                    {(order.status === 'chargeback' || order.status === 'disputed') && (
+                        <span className="bg-red-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded animate-pulse shadow-sm flex items-center gap-1" title="Atenção: Pagamento Constestado na Rede Itaú (Chargeback)! Não envie a mercadoria.">
+                            <i className="bi bi-exclamation-triangle-fill" /> ALERTA: FRAUDE
+                        </span>
+                    )}
                 </div>
                 
                 <div className="relative" onClick={(e) => e.stopPropagation()}>

@@ -143,23 +143,24 @@ const InventoryAudit = () => {
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 flex-1 max-w-2xl px-1">
+                    <button
+                        onClick={() => setIsScannerOpen(true)}
+                        className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-xl shadow-slate-200 dark:shadow-none min-w-[200px]"
+                    >
+                        <i className="bi bi-qr-code-scan text-base" />
+                        Iniciar contagem
+                    </button>
+
                     <div className="relative flex-1 group/search">
                         <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-emerald-500 transition-colors"></i>
                         <input 
                             id="inventory-search"
                             type="text" 
-                            placeholder="Pesquisar ou escanear..." 
+                            placeholder="Pesquisar..." 
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-12 pr-12 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all dark:text-slate-200 font-bold"
+                            className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all dark:text-slate-200 font-bold"
                         />
-                        <button
-                            onClick={() => setIsScannerOpen(true)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
-                            title="Escanear Código de Barras"
-                        >
-                            <i className="bi bi-qr-code-scan"></i>
-                        </button>
                     </div>
                     
                     <button
@@ -172,7 +173,7 @@ const InventoryAudit = () => {
                         ) : (
                             <i className="bi bi-check-all text-lg"></i>
                         )}
-                        Finalizar Balanço
+                        Finalizar
                     </button>
                 </div>
             </div>

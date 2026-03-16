@@ -75,6 +75,8 @@ const OrderHistoryRow = ({
     // Fallbacks just in case
     if (!statusConfig.draft) statusConfig.draft = { label: 'Rascunho', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' };
     if (!statusConfig.fulfilled) statusConfig.fulfilled = { label: 'Atendido', bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500' };
+    if (!statusConfig.chargeback) statusConfig.chargeback = { label: 'Chargeback', bg: 'bg-red-100 border border-red-300', text: 'text-red-700 font-black', dot: 'bg-red-600 animate-pulse' };
+    if (!statusConfig.disputed) statusConfig.disputed = { label: 'Em Disputa', bg: 'bg-orange-100 border border-orange-300', text: 'text-orange-800 font-black', dot: 'bg-orange-600 animate-pulse' };
 
     const statusKey = (order.status as string) === 'completed' ? 'scheduled' : (order.status || 'draft');
     const currentStatus = statusConfig[statusKey] || statusConfig.draft;
@@ -86,9 +88,19 @@ const OrderHistoryRow = ({
 
         switch (key) {
             case 'id':
+                const isChargeback = order.status === 'chargeback' || order.status === 'disputed';
                 return (
                     <td key="id" className="px-4 py-4 text-left">
-                        <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">{order.id?.slice(-8)}</span>
+                        <div className="flex flex-col gap-1 items-start">
+                            <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                                {order.id?.slice(-8)}
+                            </span>
+                            {isChargeback && (
+                                <span className="bg-red-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md animate-pulse shadow-sm flex items-center gap-1" title="Atenção: Pagamento Constestado na Rede Itaú (Chargeback)! Não envie a mercadoria.">
+                                    <i className="bi bi-exclamation-triangle-fill" /> ALERTA: FRAUDE
+                                </span>
+                            )}
+                        </div>
                     </td>
                 );
             case 'orderDate':

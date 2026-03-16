@@ -210,6 +210,15 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const hasChanged = useRef(false);
     const initialFormDataRef = useRef<string>("");
 
+    const isService = formData.itemType === 'service';
+
+    // Reset tab when switching type to service (tabs estoque/variacoes/ecommerce are unavailable)
+    useEffect(() => {
+        if (isService && (activeTab === 'estoque' || activeTab === 'variacoes' || activeTab === 'ecommerce')) {
+            setActiveTab('geral');
+        }
+    }, [isService, activeTab]);
+
     // Detect changes
     useEffect(() => {
         if (isOpen && formData.description) {
@@ -612,10 +621,16 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 // SKU suffix based on values only
                 const skuSuffix = sortedKeys.map(key => String(combo[key]).toUpperCase().replace(/\s+/g, '')).join('-');
                 
+                // Limit SKU to 6 characters if possible, or truncate suffix
+                let finalSku = formData.code ? `${formData.code}-${skuSuffix}` : skuSuffix;
+                if (finalSku.length > 6) {
+                    finalSku = finalSku.substring(0, 6);
+                }
+                
                 return {
                     id: Math.random().toString(36).substr(2, 9),
                     name,
-                    sku: formData.code ? `${formData.code}-${skuSuffix}` : "",
+                    sku: finalSku,
                     unitPrice: formData.unitPrice || 0,
                     costPrice: formData.costPrice || 0,
                     stock: 0,
@@ -698,10 +713,16 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         
         setFormData(prev => ({
             ...prev,
-            variations: prev.variations?.map(v => ({
-                ...v,
-                sku: `${prev.code}-${v.name.toUpperCase().replace(/\s+/g, '').replace(/\//g, '-')}`
-            }))
+            variations: prev.variations?.map(v => {
+                let newSku = `${prev.code}-${v.name.toUpperCase().replace(/\s+/g, '').replace(/\//g, '-')}`;
+                if (newSku.length > 6) {
+                    newSku = newSku.substring(0, 6);
+                }
+                return {
+                    ...v,
+                    sku: newSku
+                };
+            })
         }));
         toast.success("SKUs das variações atualizados!");
     };
@@ -779,13 +800,13 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 {/* Tabs Navigation */}
                 <div className="px-10 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10">
                     <div className="flex gap-10">
-                        {[
+                        {([
                             { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
-                            { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
-                            { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
-                            { id: 'ecommerce', label: 'Vitrine / E-commerce / Marketplace', icon: 'bi-cart-check' },
+                            !isService && { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
+                            !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
+                            !isService && { id: 'ecommerce', label: 'Vitrine / E-commerce', icon: 'bi-cart-check' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
-                        ].map(tab => (
+                        ] as any[]).filter(Boolean).map((tab: any) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}

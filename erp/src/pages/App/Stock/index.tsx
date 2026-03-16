@@ -68,14 +68,6 @@ const StockPage = () => {
                         </Link>
                         
                         <button
-                            onClick={() => setIsScannerOpen(true)}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all hover:scale-105 active:scale-95 w-full sm:w-auto shadow-xl"
-                        >
-                            <i className="bi bi-qr-code-scan text-sm xl:text-base" />
-                            Escanear Produto
-                        </button>
-
-                        <button
                             onClick={() => handleLaunch()}
                             className="flex items-center justify-center gap-2 xl:gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
                         >

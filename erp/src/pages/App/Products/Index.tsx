@@ -6,7 +6,7 @@ import ProductFormModal from "./ProductFormModal";
 import Product, { ProductVisibilitySettings } from "../../types/product.type";
 import { Link } from "react-router-dom";
 import PriceHistoryModal from "./PriceHistoryModal";
-import { bulkConvertToVariations, cleanupOldDrafts } from '@/pages/utils/productService';
+import { cleanupOldDrafts } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 import VariationFormModal from "./VariationFormModal";
 import StockLaunchModal from "../Stock/components/StockLaunchModal";
@@ -243,26 +243,6 @@ const Products = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button
-                                onClick={async () => {
-                                    if (window.confirm("ATENÇÃO: Isso converterá TODOS os produtos simples para o modelo de variações (COR: BRANCO). Esta ação não pode ser desfeita. Deseja continuar?")) {
-                                        const loadingToast = toast.info("Convertendo produtos... Aguarde.", { autoClose: false });
-                                        try {
-                                            const { success, fails } = await bulkConvertToVariations();
-                                            toast.dismiss(loadingToast);
-                                            toast.success(`Conversão concluída! ${success} fixados, ${fails} falhas.`);
-                                            // Forçar recarregamento da página ou estado se necessário, mas as subscriptions devem cuidar disso
-                                        } catch (err) {
-                                            toast.dismiss(loadingToast);
-                                            toast.error("Erro crítico na conversão em massa.");
-                                        }
-                                    }
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/40"
-                            >
-                                <i className="bi bi-magic"></i>
-                                Converter Simples p/ Variação (Bulk)
-                            </button>
 
                             <div className="relative">
                                 <button

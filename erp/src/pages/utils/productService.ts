@@ -879,10 +879,11 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
             .gte('created_at', ninetyDaysAgo.toISOString());
 
         // We use contains to find orders with this product
+        // Using a simpler query if JSON contains fails or is slow
         if (variationId) {
-            query = query.contains('order_data', { items: [{ productId, variationId }] });
+            query = query.filter('order_data->items', 'cs', `[{"productId": "${productId}", "variationId": "${variationId}"}]`);
         } else {
-            query = query.contains('order_data', { items: [{ productId }] });
+            query = query.filter('order_data->items', 'cs', `[{"productId": "${productId}"}]`);
         }
 
         const { data, error } = await query;

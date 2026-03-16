@@ -90,10 +90,17 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     ) : (
                         <SmartInput
                             value={formData.code}
-                            onValueChange={(val) => setFormData({ ...formData, code: val.toUpperCase() })}
+                            onValueChange={(val) => {
+                                const newCode = val.toUpperCase();
+                                if (newCode.length <= 6) {
+                                    setFormData({ ...formData, code: newCode });
+                                } else {
+                                    toast.warning("O SKU não pode ter mais que 6 caracteres.");
+                                }
+                            }}
                             tableName="products"
                             columnName="code"
-                            placeholder="Ex: PROD-001"
+                            placeholder="Ex: P-001 (Máx 6. char)"
                             icon="bi-upc-scan"
                         />
                     )}
@@ -108,68 +115,72 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     placeholder="Ex: UN, KG, M..."
                     icon="bi-box-seam"
                 />
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Marca / Fabricante <span className="text-red-500">*</span></label>
-                        <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, noBrand: !prev.noBrand }))}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noBrand ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                        >
-                            <i className={`bi ${formData.noBrand ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> {formData.noBrand ? 'Mostrar' : 'Ocultar'}
-                        </button>
-                    </div>
-                    <SmartInput
-                        value={formData.brand || ""}
-                        onValueChange={(val) => setFormData({ ...formData, brand: val })}
-                        tableName="products"
-                        columnName="brand"
-                        placeholder="Ex: Kappesberg, Henn..."
-                        icon="bi-award"
-                        required
-                    />
-                </div>
+                {formData.itemType === 'product' && (
+                    <>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Marca / Fabricante <span className="text-red-500">*</span></label>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, noBrand: !prev.noBrand }))}
+                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noBrand ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    <i className={`bi ${formData.noBrand ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> {formData.noBrand ? 'Mostrar' : 'Ocultar'}
+                                </button>
+                            </div>
+                            <SmartInput
+                                value={formData.brand || ""}
+                                onValueChange={(val) => setFormData({ ...formData, brand: val })}
+                                tableName="products"
+                                columnName="brand"
+                                placeholder="Ex: Kappesberg, Henn..."
+                                icon="bi-award"
+                                required
+                            />
+                        </div>
 
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categorias associadas <span className="text-red-500">*</span></label>
-                        <button
-                            type="button"
-                            onClick={handleGenerateCategory}
-                            disabled={isGeneratingCategory}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${isGeneratingCategory ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'}`}
-                            title="Sugerir categorias com IA"
-                        >
-                            {isGeneratingCategory ? (
-                                <span className="flex items-center gap-1"><i className="bi bi-hourglass-split animate-spin"></i> Analisando...</span>
-                            ) : (
-                                <span className="flex items-center gap-1"><i className="bi bi-magic"></i> Sugerir com IA</span>
-                            )}
-                        </button>
-                    </div>
-                    <CategoryAutocomplete
-                        selectedIds={formData.categoryIds || []}
-                        onSelect={(cat) => {
-                            setFormData(prev => {
-                                const ids = prev.categoryIds || [];
-                                if (ids.includes(cat.id)) return prev;
-                                
-                                let nextIds = [...ids, cat.id];
-                                if (cat.parent_id && !nextIds.includes(cat.parent_id)) {
-                                    nextIds.push(cat.parent_id);
-                                }
-                                return { ...prev, categoryIds: nextIds };
-                            });
-                        }}
-                        onRemove={(id) => {
-                            setFormData(prev => ({
-                                ...prev,
-                                categoryIds: prev.categoryIds?.filter(i => i !== id)
-                            }));
-                        }}
-                        onSearch={onOpenCategorySearch}
-                    />
-                </div>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categorias associadas <span className="text-red-500">*</span></label>
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateCategory}
+                                    disabled={isGeneratingCategory}
+                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${isGeneratingCategory ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'}`}
+                                    title="Sugerir categorias com IA"
+                                >
+                                    {isGeneratingCategory ? (
+                                        <span className="flex items-center gap-1"><i className="bi bi-hourglass-split animate-spin"></i> Analisando...</span>
+                                    ) : (
+                                        <span className="flex items-center gap-1"><i className="bi bi-magic"></i> Sugerir com IA</span>
+                                    )}
+                                </button>
+                            </div>
+                            <CategoryAutocomplete
+                                selectedIds={formData.categoryIds || []}
+                                onSelect={(cat) => {
+                                    setFormData(prev => {
+                                        const ids = prev.categoryIds || [];
+                                        if (ids.includes(cat.id)) return prev;
+                                        
+                                        let nextIds = [...ids, cat.id];
+                                        if (cat.parent_id && !nextIds.includes(cat.parent_id)) {
+                                            nextIds.push(cat.parent_id);
+                                        }
+                                        return { ...prev, categoryIds: nextIds };
+                                    });
+                                }}
+                                onRemove={(id) => {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        categoryIds: prev.categoryIds?.filter(i => i !== id)
+                                    }));
+                                }}
+                                onSearch={onOpenCategorySearch}
+                            />
+                        </div>
+                    </>
+                )}
 
                 {/* Condition */}
                 {formData.itemType === 'product' && (
@@ -228,7 +239,8 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             </div>
 
             {/* Technical Details */}
-            <div className="md:col-span-2 mt-4 bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-8">
+            {formData.itemType === 'product' && (
+                <div className="md:col-span-2 mt-4 bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-8">
                 <div className="flex items-center justify-between">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <i className="bi bi-rulers text-blue-600"></i> Detalhes Técnicos / Dimensões
@@ -505,6 +517,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     </div>
                 </div>
             </div>
+            )}
 
 
             {/* Observations */}

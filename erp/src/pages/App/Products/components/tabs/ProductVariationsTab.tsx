@@ -58,13 +58,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                         >
                             <i className="bi bi-grid-3x3-gap"></i> Gerar Grade (Cartesiano)
                         </button>
-                        <button
-                            type="button"
-                            onClick={addVariation}
-                            className="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-2"
-                        >
-                            <i className="bi bi-plus-lg"></i> Nova Variação Manual
-                        </button>
                     </div>
                 </div>
 

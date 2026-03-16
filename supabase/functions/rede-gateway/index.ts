@@ -115,6 +115,78 @@ serve(async (req) => {
       });
     }
 
+    if (action === "create-payment-link") {
+      const token = await getAccessToken();
+      
+      // The Rede API for payment links might be /v1/payment-links or similar. Assuming /v1 based on common patterns, 
+      // but payload must match their schema (amount, reference, etc)
+      const response = await fetch(`${baseUrl}/v1/payment-links`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        await supabaseClient.from("rede_transactions").insert([{
+          order_id: payload.reference || payload.orderId || null,
+          tid: result.id || `LINK-${Date.now()}`,
+          amount: payload.amount,
+          status: "pending",
+          payment_method: "payment_link",
+          raw_response: result
+        }]);
+      }
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: response.ok ? 200 : 400,
+      });
+    }
+
+    if (action === "webhook") {
+      // Recebe notificação da Rede (via POST do gateway deles)
+      const notif = payload;
+      
+      // Tenta recuperar identificadores comuns
+      const tid = notif.tid || notif.payment?.tid || notif.id;
+      const status = notif.status || notif.payment?.status;
+      const returnCode = notif.returnCode || notif.payment?.returnCode;
+
+      if (tid) {
+          let dbStatus = "pending";
+          // Mapeamento básico de status Rede -> Nosso DB
+          if (status === "Approved" || returnCode === "00") dbStatus = "approved";
+          else if (status === "Denied") dbStatus = "denied";
+          else if (status === "Canceled") dbStatus = "canceled";
+          else if (status === "Chargeback" || status === "Dispute" || notif.type === "chargeback") dbStatus = "chargeback"; 
+
+          const { data: txData } = await supabaseClient
+            .from("rede_transactions")
+            .update({ status: dbStatus, raw_response: notif })
+            .eq("tid", tid)
+            .select("order_id")
+            .single();
+
+          if (dbStatus === "chargeback" && txData?.order_id) {
+            // Sincroniza o alerta de Chargeback direto na tabela de pedidos do ERP para travar a entrega
+            await supabaseClient
+              .from("orders")
+              .update({ status: "chargeback" })
+              .eq("id", txData.order_id);
+          }
+      }
+
+      return new Response(JSON.stringify({ received: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Ação não suportada" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,

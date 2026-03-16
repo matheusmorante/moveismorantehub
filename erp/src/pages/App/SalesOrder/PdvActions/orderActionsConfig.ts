@@ -1,5 +1,7 @@
 import Order, { OrderAction, IsButtonsClicked } from "../../../types/order.type";
 import { assistanceCustomerWhatsappUrl } from "../../../utils/whatsapp";
+import { supabase } from "@/pages/utils/supabaseConfig";
+import { toast } from "react-toastify";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_RECEIPT': (order) => {
@@ -95,6 +97,58 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     },
     'STOCK_REVERSAL': () => {
         // Handled in UI
+    },
+    'PRINT_SHIPPING_LABEL': () => {
+        console.log("Printing shipping label...");
+    },
+    'PRINT_PRODUCT_LABEL': () => {
+        console.log("Printing product label...");
+    },
+    'GENERATE_PAYMENT_LINK': async (order) => {
+        toast.info("Gerando Link de Pagamento da Rede...");
+        try {
+            const { data, error } = await supabase.functions.invoke('rede-gateway', {
+                body: { 
+                    action: 'create-payment-link', 
+                    payload: {
+                        amount: Math.round((order.paymentsSummary.totalOrderValue || 0) * 100),
+                        reference: order.id,
+                        orderId: order.id,
+                        softDescriptor: "LOJA_PDV"
+                    } 
+                }
+            });
+
+            if (error || !data || data.error) {
+                console.error("Erro gerando link:", error, data);
+                toast.error("Erro ao gerar link de pagamento.");
+                return;
+            }
+
+            const url = data.url || (data.links && data.links.find((l: any) => l.rel === 'payment')?.href) || data.id;
+            
+            if (url) {
+                // If it's a valid URL, offer to open or copy. Since it's quick, standard behavior is copying or sending.
+                // For now, let's copy to clipboard and open whatsapp
+                const isUrl = url.startsWith("http");
+                const link = isUrl ? url : `https://pagamento.rede.com.br/link/${url}`;
+                
+                await navigator.clipboard.writeText(link);
+                toast.success("Link gerado e copiado para a área de transferência!");
+                
+                const customerPhone = order.customerData?.phone;
+                if (customerPhone) {
+                    const message = `*Pagamento do Pedido* %0A%0AOlá! Segue o link para pagamento do seu pedido seguro via Rede Itaú: %0A${link} %0A%0AValor: R$ ${(order.paymentsSummary.totalOrderValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                    window.open(`https://wa.me/55${customerPhone.replace(/\D/g, '')}?text=${message}`, "_blank");
+                }
+            } else {
+                toast.error("Retorno inesperado da API Rede.");
+            }
+
+        } catch (err) {
+            console.error("Exceção:", err);
+            toast.error("Falha de conexão com o Gateway Rede.");
+        }
     }
 };
 
@@ -140,5 +194,13 @@ export const buttons: OrderButton[] = [
         color: "bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg shadow-green-200 transition-all font-bold text-xs uppercase tracking-widest px-6 py-3",
         orderTypes: ['assistance']
     },
+    {
+        key: "generatePaymentLink",
+        icon: "bi-link-45deg",
+        action: "GENERATE_PAYMENT_LINK",
+        label: "Link Rede",
+        color: "bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200 transition-all font-bold text-xs uppercase tracking-widest px-6 py-3",
+        orderTypes: ['sale']
+    }
 ];
 
