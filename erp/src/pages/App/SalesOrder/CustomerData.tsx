@@ -287,33 +287,34 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 flex items-center justify-between pr-2">
                                 <span>
                                     Telefone / Celular {!customerData.noPhone && <span className="text-red-500">*</span>}
-                                    {customerData.noPhone && <span className="ml-1 opacity-60">(Opcional)</span>}
                                 </span>
                                 <button
                                     type="button"
-                                    onClick={() => setCustomerData(prev => ({ ...prev, noPhone: !prev.noPhone }))}
-                                    className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-md transition-all ${customerData.noPhone ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
+                                    onClick={() => setCustomerData(prev => ({ ...prev, noPhone: !prev.noPhone, phone: !prev.noPhone ? "" : prev.phone }))}
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                                 >
-                                    {customerData.noPhone ? 'S/ Telefone' : 'C/ Telefone'}
+                                    {customerData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
                                 </button>
                             </label>
                             <div className="flex gap-2">
                                 <PatternFormat
                                     format="(##) #####-####"
-                                    className={field(isPhoneError && !customerData.noPhone)}
-                                    placeholder="(00) 00000-0000"
+                                    className={`${field(isPhoneError && !customerData.noPhone)} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
+                                    placeholder={customerData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
                                     value={customerData.phone}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                                    disabled={customerData.noPhone}
                                 />
                                 <button type="button"
                                     onClick={() => {
-                                        if (!customerData.phone) return;
+                                        if (!customerData.phone || customerData.noPhone) return;
                                         const cleanPhone = customerData.phone.replace(/\D/g, '');
                                         const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
                                         window.open(`https://wa.me/${finalPhone}`, '_blank');
                                     }}
+                                    disabled={customerData.noPhone}
                                     title="Verificar WhatsApp"
-                                    className="shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-md active:scale-95"
+                                    className={`shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-md active:scale-95 ${customerData.noPhone ? 'opacity-50 grayscale pointer-events-none' : ''}`}
                                 >
                                     <i className="bi bi-whatsapp text-lg"></i>
                                 </button>

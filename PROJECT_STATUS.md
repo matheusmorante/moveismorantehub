@@ -1,6 +1,14 @@
 # Project Status & Pending Ideas
 
-## Last Update: 2026-03-14
+## Last Update: 2026-03-16
+
+### Recent Changes (2026-03-16)
+- **Environment Cleanup & Reorganization**:
+    - **Repository Flatness**: Renamed internal folders (erp-admin, erp-store, etc.) to a flatter structure (`erp`, `ecommerce`, `api`, `automation`) at the root level for easier navigation and consistency with the master orchestrator.
+    - **Code Consolidation**: Identified and moved orphaned service and type files from the root directory into the ERP structure (`erp/src/pages/utils/` and `erp/src/pages/types/`), resolving critical build errors on Vercel and local environments.
+    - **Supabase Fixes**: Resolved a "Bad Request (400)" error in product editing by removing the non-existent `ipi_type` column from queries and mappings in `productService.ts`.
+    - **Dev Environment Sync**: Restored all local state using `git reset --hard` to match work done on other machines and ensured `.env` files are correctly placed in the new folder structure.
+    - **Build Optimization**: Verified and fixed the ERP production build, which is now completing successfully.
 
 ### Recent Changes (2026-03-15)
 - **AI-Powered Financial Insights**:

@@ -55,13 +55,13 @@ const PersonCard = ({
             <div className="mb-3">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
                     {person.fullName}
-                    {person.type === 'suppliers' && (
-                        <span className="ml-2 px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-[8px] font-black text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30 rounded-lg uppercase tracking-widest whitespace-nowrap">
-                            Fornecedor
-                        </span>
-                    )}
                 </h3>
-                {person.tradeName && (
+                {person.personType === 'PF' && person.socialName && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                        {person.socialName}
+                    </p>
+                )}
+                {person.personType === 'PJ' && person.tradeName && (
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">
                         {person.tradeName}
                     </p>

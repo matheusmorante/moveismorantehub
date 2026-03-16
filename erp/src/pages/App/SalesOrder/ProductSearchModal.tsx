@@ -18,11 +18,13 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
 
     useEffect(() => {
         const unsub = subscribeToProducts((data) => {
-            setProducts(data.filter(p => p.active && !p.deleted));
+            setProducts(data.filter(p => p.active && !p.deleted && !p.isDraft));
             setLoading(false);
         });
+
         return () => { if (unsub) unsub(); };
     }, []);
+
 
     const flatSelectableItems = useMemo(() => {
         const items: { p: Product; v?: Variation; key: string }[] = [];

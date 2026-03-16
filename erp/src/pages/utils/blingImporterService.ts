@@ -118,16 +118,30 @@ export const importBlingCSV = async (csvContent: string, customConfig?: ImportCo
     let suppliersCreated = 0;
 
     if (uniqueSuppliers.size > 0) {
-        // Fetch existing suppliers to avoid duplicates
-        const { data: existingSuppliers } = await supabase
+        // Fetch existing people (suppliers AND customers) to avoid duplicates/conflicts
+        const { data: existingPeople } = await supabase
             .from('people')
-            .select('id, full_name')
-            .eq('person_type', 'suppliers');
+            .select('id, full_name, person_type')
+            .or('person_type.eq.suppliers,person_type.eq.customers');
 
-        const existingMap = new Map((existingSuppliers || []).map(s => [s.full_name.toLowerCase(), s.id]));
+        const existingSuppliersMap = new Map<string, string>();
+        const existingCustomersNames = new Set<string>();
+
+        (existingPeople || []).forEach((p: any) => {
+            const name = p.full_name.toLowerCase();
+            if (p.person_type === 'suppliers') {
+                existingSuppliersMap.set(name, p.id);
+            } else {
+                existingCustomersNames.add(name);
+            }
+        });
 
         const suppliersToInsert = Array.from(uniqueSuppliers)
-            .filter(name => !existingMap.has(name.toLowerCase()))
+            .filter(name => {
+                const lowerName = name.toLowerCase();
+                // Don't insert if already a supplier OR already a customer (rule: clients can't be suppliers)
+                return !existingSuppliersMap.has(lowerName) && !existingCustomersNames.has(lowerName);
+            })
             .map(name => ({
                 person_type: 'suppliers',
                 full_name: name,
@@ -144,13 +158,13 @@ export const importBlingCSV = async (csvContent: string, customConfig?: ImportCo
             if (supplierError) console.error("Erro ao inserir fornecedores:", supplierError);
             
             if (inserted) {
-                inserted.forEach(s => supplierMap.set(s.full_name.toLowerCase(), s.id));
+                inserted.forEach((s: any) => supplierMap.set(s.full_name.toLowerCase(), s.id));
                 suppliersCreated = inserted.length;
             }
         }
 
-        // Add existing ones to the map too
-        existingMap.forEach((id, name) => supplierMap.set(name, id));
+        // Add existing suppliers to the map for product linking
+        existingSuppliersMap.forEach((id: string, name: string) => supplierMap.set(name, id));
     }
 
     // 2. Group Variations
@@ -304,17 +318,23 @@ export const importBlingPeopleCSV = async (csvContent: string, type: 'suppliers'
     let peopleCreated = 0;
     const errors: string[] = [];
     
-    // 1. Fetch existing people of this type to avoid duplicates
+    // 1. Fetch existing people to avoid duplicates and leaks
+    const isSupplierImport = type === 'suppliers';
+    
+    // If importing suppliers, we must check both existing suppliers AND customers 
+    // to fulfill the "Clients cannot be suppliers" rule.
     const { data: existingPeople } = await supabase
         .from('people')
-        .select('full_name')
-        .eq('person_type', type);
+        .select('full_name, person_type')
+        .or(isSupplierImport 
+            ? 'person_type.eq.suppliers,person_type.eq.customers' 
+            : `person_type.eq.${type}`);
     
-    const existingNames = new Set((existingPeople || []).map(p => p.full_name.toLowerCase()));
+    const existingNames = new Set((existingPeople || []).map((p: any) => p.full_name.toLowerCase()));
 
     const toInsert = peopleToProcess
-        .filter(p => !existingNames.has(p.fullName.toLowerCase()))
-        .map(p => ({
+        .filter((p: any) => !existingNames.has(p.fullName.toLowerCase()))
+        .map((p: any) => ({
             full_name: p.fullName,
             cpf_cnpj: p.cpfCnpj,
             email: p.email,

@@ -13,7 +13,9 @@ export type Variation = {
     syncCostPrice?: boolean;
     syncCondition?: boolean;
     syncDescription?: boolean;
+    hideAttributeNames?: boolean;
     images?: string[];
+
     freightType?: 'fixed' | 'percentage' | 'none';
     freightCost?: number;
     ipiPercent?: number;
@@ -139,6 +141,11 @@ export type Product = {
     avgMonthlySales?: number;
     classification?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
     hasNoLine?: boolean;
+    noHeight?: boolean;
+    noWidth?: boolean;
+    noDepth?: boolean;
+    noBrand?: boolean;
+    launchInitialStock?: boolean;
 };
 
 export type ProductNotificationConfig = {

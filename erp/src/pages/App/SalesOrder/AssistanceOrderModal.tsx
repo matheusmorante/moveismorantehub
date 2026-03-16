@@ -61,6 +61,7 @@ const DEFAULT_SHIPPING: any = {
 const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: AssistanceOrderModalProps) => {
     const [customerName, setCustomerName] = useState(order?.customerData?.fullName || initialData?.customerName || "");
     const [customerPhone, setCustomerPhone] = useState(order?.customerData?.phone || initialData?.customerPhone || "");
+    const [customerNoPhone, setCustomerNoPhone] = useState(!!order?.customerData?.noPhone);
     const [description, setDescription] = useState(order?.assistanceDescription || initialData?.description || "");
     const [observation, setObservation] = useState(order?.observation || "");
     const [scheduledDate, setScheduledDate] = useState(order?.scheduledDate || "");
@@ -143,6 +144,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
         setSelectedAssistanceItems([]);
         setCustomerName(selectedOrder.customerData.fullName);
         setCustomerPhone(selectedOrder.customerData.phone || "");
+        setCustomerNoPhone(!!(selectedOrder.customerData as any).noPhone);
         setIsSelectionModalOpen(false);
         toast.info(`Pedido #${selectedOrder.id} selecionado.`);
     };
@@ -161,6 +163,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                     ...(order?.customerData || EMPTY_CUSTOMER),
                     fullName: customerName.trim(),
                     phone: customerPhone.trim(),
+                    noPhone: customerNoPhone,
                 },
                 assistanceDescription: description.trim(),
                 observation: observation.trim(),
@@ -236,6 +239,8 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         setCustomerName={setCustomerName}
                         customerPhone={customerPhone}
                         setCustomerPhone={setCustomerPhone}
+                        customerNoPhone={customerNoPhone}
+                        setCustomerNoPhone={setCustomerNoPhone}
                         onOpenSearch={() => setIsCustomerSearchOpen(true)}
                         errors={validationErrors}
                     />
@@ -315,6 +320,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                     onSelect={(c) => {
                         setCustomerName(c.fullName);
                         setCustomerPhone(c.phone || "");
+                        setCustomerNoPhone(!!c.noPhone);
                         setIsCustomerSearchOpen(false);
                     }}
                 />

@@ -49,11 +49,11 @@ const PersonRow = ({
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 {person.fullName}
-                                {person.tradeName && <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.tradeName})</span>}
-                                {person.type === 'suppliers' && (
-                                    <span className="ml-2 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-[9px] font-black text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30 rounded-lg uppercase tracking-widest whitespace-nowrap">
-                                        Fornecedor
-                                    </span>
+                                {person.personType === 'PF' && person.socialName && (
+                                    <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.socialName})</span>
+                                )}
+                                {person.personType === 'PJ' && person.tradeName && (
+                                    <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.tradeName})</span>
                                 )}
                             </span>
                             {person.cpfCnpj && (

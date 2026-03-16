@@ -28,9 +28,13 @@ export const useAutoScroll = (
     const animationFrameId = useRef<number | null>(null);
     const mousePos = useRef({ x: 0, y: 0 });
     const isInside = useRef(false);
+    const scrollStartTime = useRef<number | null>(null);
 
     const startScrolling = useCallback(() => {
-        if (!enabled || !isInside.current || !containerRef.current) return;
+        if (!enabled || !isInside.current || !containerRef.current) {
+            scrollStartTime.current = null;
+            return;
+        }
 
         const container = containerRef.current;
         const rect = container.getBoundingClientRect();
@@ -38,36 +42,59 @@ export const useAutoScroll = (
 
         let scrollX = 0;
         let scrollY = 0;
+        let inZone = false;
 
-        // Horizontal scrolling logic
+        // Horizontal zones
         if (direction === 'horizontal' || direction === 'both') {
-            if (x < rect.left + threshold) {
-                // Near left border
-                const ratio = Math.max(0, (rect.left + threshold - x) / threshold);
-                scrollX = -maxSpeed * Math.pow(ratio, 1.5);
-            } else if (x > rect.right - threshold) {
-                // Near right border
-                const ratio = Math.max(0, (x - (rect.right - threshold)) / threshold);
-                scrollX = maxSpeed * Math.pow(ratio, 1.5);
+            if (x < rect.left + threshold || x > rect.right - threshold) {
+                inZone = true;
             }
         }
 
-        // Vertical scrolling logic
-        if (direction === 'vertical' || direction === 'both') {
-            if (y < rect.top + threshold) {
-                // Near top border
-                const ratio = Math.max(0, (rect.top + threshold - y) / threshold);
-                scrollY = -maxSpeed * Math.pow(ratio, 1.5);
-            } else if (y > rect.bottom - threshold) {
-                // Near bottom border
-                const ratio = Math.max(0, (y - (rect.bottom - threshold)) / threshold);
-                scrollY = maxSpeed * Math.pow(ratio, 1.5);
+        // Vertical zones
+        if (!inZone && (direction === 'vertical' || direction === 'both')) {
+            if (y < rect.top + threshold || y > rect.bottom - threshold) {
+                inZone = true;
             }
         }
 
-        if (scrollX !== 0 || scrollY !== 0) {
-            container.scrollLeft += scrollX;
-            container.scrollTop += scrollY;
+        if (!inZone) {
+            scrollStartTime.current = null;
+        } else {
+            const now = Date.now();
+            if (!scrollStartTime.current) {
+                scrollStartTime.current = now;
+            }
+
+            // ONLY SCROLL IF DELAY (1s) HAS PASSED
+            if (now - scrollStartTime.current >= 1000) {
+                // Horizontal scrolling logic
+                if (direction === 'horizontal' || direction === 'both') {
+                    if (x < rect.left + threshold) {
+                        const ratio = Math.max(0, (rect.left + threshold - x) / threshold);
+                        scrollX = -maxSpeed * Math.pow(ratio, 1.5);
+                    } else if (x > rect.right - threshold) {
+                        const ratio = Math.max(0, (x - (rect.right - threshold)) / threshold);
+                        scrollX = maxSpeed * Math.pow(ratio, 1.5);
+                    }
+                }
+
+                // Vertical scrolling logic
+                if (direction === 'vertical' || direction === 'both') {
+                    if (y < rect.top + threshold) {
+                        const ratio = Math.max(0, (rect.top + threshold - y) / threshold);
+                        scrollY = -maxSpeed * Math.pow(ratio, 1.5);
+                    } else if (y > rect.bottom - threshold) {
+                        const ratio = Math.max(0, (y - (rect.bottom - threshold)) / threshold);
+                        scrollY = maxSpeed * Math.pow(ratio, 1.5);
+                    }
+                }
+
+                if (scrollX !== 0 || scrollY !== 0) {
+                    container.scrollLeft += scrollX;
+                    container.scrollTop += scrollY;
+                }
+            }
         }
 
         animationFrameId.current = requestAnimationFrame(startScrolling);

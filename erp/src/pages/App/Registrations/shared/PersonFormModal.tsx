@@ -21,9 +21,11 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
     const [formData, setFormData] = useState<Partial<Person>>({
         personType: "PF",
         fullName: "",
+        socialName: "",
         cpfCnpj: "",
         email: "",
         phone: "",
+        noPhone: false,
         active: true,
         fullAddress: {
             cep: "",
@@ -61,9 +63,11 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             setFormData({
                 personType: "PF",
                 fullName: "",
+                socialName: "",
                 cpfCnpj: "",
                 email: "",
                 phone: "",
+                noPhone: false,
                 active: true,
                 fullAddress: {
                     cep: "",
@@ -112,7 +116,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (requiredFields.customer?.phone && (!formData.phone || formData.phone.trim() === '')) {
+        if (requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
             toast.error("O telefone é obrigatório.");
             return;
         }
@@ -312,7 +316,20 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     value={formData.tradeName || ""}
                                     onChange={(e) => setFormData({ ...formData, tradeName: e.target.value })}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="Nome Popular"
+                                    placeholder="Nome Popular / Fantasia"
+                                />
+                            </div>
+                        )}
+
+                        {formData.personType === 'PF' && (
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome Social</label>
+                                <input
+                                    type="text"
+                                    value={formData.socialName || ""}
+                                    onChange={(e) => setFormData({ ...formData, socialName: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    placeholder="Como a pessoa prefere ser chamada"
                                 />
                             </div>
                         )}
@@ -332,25 +349,38 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Telefone {settings.requiredFields.customer?.phone ? <span className="text-red-500">*</span> : null}</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                    Telefone {settings.requiredFields.customer?.phone && !formData.noPhone ? <span className="text-red-500">*</span> : null}
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, noPhone: !formData.noPhone, phone: !formData.noPhone ? "" : formData.phone })}
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${formData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                >
+                                    {formData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
+                                </button>
+                            </div>
                             <div className="flex gap-2">
                                 <PatternFormat
                                     format="(##) #####-####"
                                     type="text"
                                     value={formData.phone}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="(00) 00000-0000"
+                                    disabled={formData.noPhone}
+                                    className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 ${formData.noPhone ? 'opacity-50 grayscale' : ''}`}
+                                    placeholder={formData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
                                 />
                                 <button type="button"
                                     onClick={() => {
-                                        if (!formData.phone) return;
+                                        if (!formData.phone || formData.noPhone) return;
                                         const cleanPhone = formData.phone.replace(/\D/g, '');
                                         const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
                                         window.open(`https://wa.me/${finalPhone}`, '_blank');
                                     }}
+                                    disabled={formData.noPhone}
                                     title="Verificar WhatsApp"
-                                    className="shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95"
+                                    className={`shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95 ${formData.noPhone ? 'opacity-50 grayscale pointer-events-none' : ''}`}
                                 >
                                     <i className="bi bi-whatsapp text-lg"></i>
                                 </button>

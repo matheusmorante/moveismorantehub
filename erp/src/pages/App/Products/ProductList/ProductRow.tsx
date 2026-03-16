@@ -89,6 +89,11 @@ const ProductRow = ({
                                     {product.description}
                                 </span>
                                 <div className="flex items-center gap-2 mt-1">
+                                    {product.isDraft && (
+                                        <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-900/40 shadow-sm">
+                                            <i className="bi bi-file-earmark-text"></i> Rascunho
+                                        </span>
+                                    )}
                                     {product.itemType === 'service' ? (
                                         <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">
                                             <i className="bi bi-tools"></i> Serviço
@@ -113,35 +118,29 @@ const ProductRow = ({
                                             )}
                                         </>
                                     )}
+
                                 </div>
                             </div>
                         </div>
                     </td>
                 );
+
             case 'costPrice':
                 if (product.isParent) return <td key="costPrice" className="px-6 py-4"></td>;
                 return (
                     <td key="costPrice" className="px-6 py-4 text-right">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onShowHistory?.(product); }}
-                            className="text-sm font-black text-emerald-600 dark:text-emerald-400 hover:scale-105 transition-transform cursor-pointer"
-                            title="Ver histórico de preço de custo"
-                        >
+                        <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
                             {formatCurrency(product.costPrice || 0)}
-                        </button>
+                        </span>
                     </td>
                 );
             case 'unitPrice':
                 if (product.isParent) return <td key="unitPrice" className="px-6 py-4"></td>;
                 return (
                     <td key="unitPrice" className="px-6 py-4 text-right">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onShowHistory?.(product); }}
-                            className="text-sm font-black text-blue-600 dark:text-blue-400 hover:scale-105 transition-transform cursor-pointer"
-                            title="Ver histórico de preço de venda"
-                        >
+                        <span className="text-sm font-black text-blue-600 dark:text-blue-400">
                             {formatCurrency(product.unitPrice || 0)}
-                        </button>
+                        </span>
                     </td>
                 );
             case 'stock':
@@ -251,6 +250,16 @@ const ProductRow = ({
                                     >
                                         <i className="bi bi-trash-fill text-sm" />
                                     </button>
+
+                                    {!product.isParent && onShowHistory && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onShowHistory(product); }}
+                                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
+                                            title="Histórico de Preços"
+                                        >
+                                            <i className="bi bi-clock-history text-sm" />
+                                        </button>
+                                    )}
                                 </>
                             )}
                         </div>

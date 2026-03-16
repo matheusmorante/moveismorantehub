@@ -42,11 +42,12 @@ export const usePeople = (collectionName: string, filters?: any) => {
 
         return sourceList
             .filter(person => {
-                // Draft logic: if we are viewing drafts, only show drafts.
-                if (isDraft) {
-                    if (!person.isDraft) return false;
-                } else if (!showTrash) {
-                    if (person.isDraft) return false;
+                // Draft logic: if we are viewing trash, we don't care about draft status (or we might, but usually trash is trash)
+                // If we are NOT in trash, we show everything (including drafts)
+                if (showTrash) {
+                    // usually deleted items are not considered "drafts" in the main list sense
+                } else {
+                    // Show everything: active, inactive, drafts
                 }
 
                 if (!filters) return true;

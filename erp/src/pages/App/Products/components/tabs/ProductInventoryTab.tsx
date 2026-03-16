@@ -25,67 +25,67 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     const [supplierSearch, setSupplierSearch] = useState('');
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
     const [isSyncingSales, setIsSyncingSales] = useState(false);
+    const [stats, setStats] = useState<{ giro: number, lt: number } | null>(null);
     const supplierInputRef = useRef<HTMLDivElement>(null);
 
-    // Initialize search with current supplier name
+    // Initialize search and load stats
     useEffect(() => {
         if (formData.mainSupplierId && suppliers.length > 0) {
             const current = suppliers.find(s => s.id === formData.mainSupplierId);
-            if (current) setSupplierSearch(current.fullName || '');
+            if (current) {
+                setSupplierSearch(current.fullName || '');
+                setStats(prev => ({ ...prev, lt: current.leadTime || 0 } as any));
+            }
         }
     }, [formData.mainSupplierId, suppliers]);
+
+    useEffect(() => {
+        const loadGiro = async () => {
+            if (formData.id) {
+                try {
+                    const { avgMonthlySales } = await getProductSalesStats(formData.id);
+                    setStats(prev => ({ ...prev, giro: avgMonthlySales } as any));
+                } catch (e) {
+                    console.error("Erro ao carregar giro:", e);
+                }
+            }
+        };
+        loadGiro();
+    }, [formData.id]);
 
     const filteredSuppliers = suppliers.filter(s => 
         (s.fullName || '').toLowerCase().includes(supplierSearch.toLowerCase())
     );
 
-    const calculateMinStock = () => {
-        const leadTime = formData.leadTime || 0;
-        const avgMonthlySales = formData.avgMonthlySales || 0;
-        const classification = formData.classification || 'Q2';
-
-        if (leadTime === 0 || avgMonthlySales === 0) {
-            toast.warning("Preencha Lead Time e Venda Mensal para calcular.");
-            return;
-        }
-
-        // Formula: (Venda Mensal / 30 * Lead Time) + Margin
-        const dailySales = avgMonthlySales / 30;
-        let baseMinStock = dailySales * leadTime;
-
-        // Security Margin
-        let margin = 0.15; // Default 15%
-        if (classification === 'Q1') margin = 0.50;
-        else if (classification === 'Q2') margin = 0.20;
-        else if (classification === 'Q4') margin = 0;
-
-        const totalMinStock = Math.ceil(baseMinStock * (1 + margin));
-        setFormData({ ...formData, minStock: totalMinStock });
-        toast.success(`Estoque M├¡nimo sugerido: ${totalMinStock} unidades.`);
-    };
-
-    const handleSyncSales = async () => {
-        if (!formData.id) {
-            toast.warning("Salve o produto primeiro para sincronizar com vendas reais.");
-            return;
-        }
-
-        setIsSyncingSales(true);
-        try {
-            const { avgMonthlySales } = await getProductSalesStats(formData.id);
-            setFormData(prev => ({ ...prev, avgMonthlySales }));
-            toast.success(`Giro mensal atualizado: ${avgMonthlySales} un/m├¬s (baseado nos ├║ltimos 90 dias).`);
-        } catch (error) {
-            toast.error("Erro ao sincronizar vendas.");
-        } finally {
-            setIsSyncingSales(false);
-        }
-    };
+    const isEditing = !!formData.id;
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Cost Composition */}
-            <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
+            {/* Initial Stock Toggle - ONLY IN CREATION */}
+            {!isEditing && (
+                <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-[2rem] border border-blue-100 dark:border-blue-900/30 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <i className="bi bi-box-seam-fill text-blue-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Estoque Inicial?</h4>
+                            <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Deseja cadastrar o saldo inicial e custos agora?</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, launchInitialStock: !prev.launchInitialStock, stock: 0 }))}
+                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.launchInitialStock ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}
+                    >
+                        {formData.launchInitialStock ? 'Sim, Lançar' : 'Não Lançar'}
+                    </button>
+                </div>
+            )}
+
+            {/* Cost Composition - ONLY IF LAUNCHING INITIAL STOCK OR... wait User said TIRE OS CAMPOS */}
+            {(!isEditing && formData.launchInitialStock) && (
+                <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6 animate-in zoom-in-95 duration-300">
                 <div className="flex items-center justify-between mb-2">
                     <div>
                         <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Composição de Custo / Compra</h4>
@@ -146,7 +146,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => setFormData({ ...formData, freightType: 'fixed' })}
-                                    className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-md transition-all {(formData.freightType === 'fixed' || !formData.freightType || formData.freightType === 'none') ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-md transition-all ${(formData.freightType === 'fixed' || !formData.freightType || formData.freightType === 'none') ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                 >$</button>
                             </div>
                         </div>
@@ -212,127 +212,72 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         </div>
                     </div>
                 </div>
+                </div>
+            )}
 
-                {suggestPricesResults && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                        {(['low', 'medium', 'high'] as const).map(tier => (
-                            <button
-                                key={tier}
-                                type="button"
-                                onClick={() => {
-                                    setFormData({ ...formData, unitPrice: suggestPricesResults[tier].price });
-                                    toast.success(`Preço ${suggestPricesResults[tier].label} aplicado!`);
-                                }}
-                                className={`flex flex-col gap-2 p-5 rounded-3xl border-2 text-left transition-all group ${tier === 'medium' ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-900/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-100'}`}
-                            >
-                                <span className={`text-[9px] font-black uppercase tracking-widest ${tier === 'medium' ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    {suggestPricesResults[tier].label}
-                                </span>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-xs font-bold text-slate-400">R$</span>
-                                        <span className="text-xl font-black text-slate-800 dark:text-slate-100">
-                                            {suggestPricesResults[tier].price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </span>
-                                    </div>
-                                    {suggestPricesResults[tier].margin && (
-                                        <span className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[9px] font-black">
-                                            +{suggestPricesResults[tier].margin}%
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span>Aplicar este valor</span>
-                                    <i className="bi bi-arrow-right"></i>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={`grid grid-cols-1 ${(!isEditing && !formData.launchInitialStock) ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-8`}>
                 {/* Inventory Management */}
+                {(isEditing || formData.launchInitialStock) && (
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-box-seam text-blue-600"></i> Gestão de Estoque
+                        <i className="bi bi-box-seam text-blue-600"></i> {isEditing ? 'Gestão de Estoque' : 'Quantidade Inicial'}
                     </h4>
-                       {formData.hasVariations ? (
-                        <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl">
-                            <div className="flex items-center gap-3 mb-2">
-                                <i className="bi bi-info-circle-fill text-blue-600"></i>
-                                <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400">Gestão por Variação</h5>
-                            </div>
-                            <p className="text-[10px] font-bold text-blue-600/70 dark:text-blue-400/70 leading-relaxed">
-                                Este produto possui variações. O estoque atual e o estoque mínimo são gerenciados individualmente para cada variação na aba "Variações".
-                            </p>
-                        </div>
-                    ) : (
+                    <div className="flex flex-col gap-6">
                         <div className="flex flex-col gap-6">
-                            {/* Inventory Management Inputs */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-600 transition-colors">Estoque Atual</label>
-                                    <input
-                                        type="number"
-                                        value={isNaN(formData.stock as number) || formData.stock === 0 ? '' : formData.stock}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
-                                        }}
-                                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-black text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 tracking-tighter">Giro Mensal</label>
-                                    <div className="flex gap-2">
+                            {!formData.hasVariations ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className={`flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl ${isEditing ? 'opacity-70' : ''}`}>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isEditing ? 'Estoque Atual' : 'Quantidade de Entrada'}</label>
                                         <input
                                             type="number"
-                                            value={formData.avgMonthlySales || ''}
-                                            onChange={(e) => setFormData({ ...formData, avgMonthlySales: parseInt(e.target.value) || 0 })}
-                                            placeholder="Ex: 50"
-                                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
+                                            value={isNaN(formData.stock as number) || formData.stock === 0 ? '' : formData.stock}
+                                            disabled={isEditing}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
+                                            }}
+                                            className="w-full px-0 bg-transparent outline-none text-2xl font-black text-blue-600 dark:text-blue-400"
+                                            placeholder="0"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={handleSyncSales}
-                                            disabled={isSyncingSales}
-                                            className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors"
-                                            title="Sincronizar com histórico de vendas (90 dias)"
-                                        >
-                                            <i className={`bi ${isSyncingSales ? 'bi-hourglass-split animate-spin' : 'bi-arrow-repeat'}`}></i>
-                                        </button>
+                                        {isEditing && <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* Ajuste via Lançamentos de Estoque</p>}
                                     </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 tracking-tighter">Lead Time (Dias)</label>
-                                    <input
-                                        type="number"
-                                        value={formData.leadTime || ''}
-                                        onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
-                                        placeholder="Ex: 15"
-                                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 tracking-tighter">Importância</label>
-                                    <select
-                                        value={formData.classification || 'Q2'}
-                                        onChange={(e) => setFormData({ ...formData, classification: e.target.value as any })}
-                                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
-                                    >
-                                        <option value="Q1">Q1 (Crucial +50%)</option>
-                                        <option value="Q2">Q2 (Importante)</option>
-                                        <option value="Q3">Q3 (Normal)</option>
-                                        <option value="Q4">Q4 (Eventual)</option>
-                                    </select>
-                                </div>
-                            </div>
+                                    <div className="flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl relative">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                                            Estoque Mínimo / Segurança
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!formData.id) return toast.warning("Salve o produto primeiro para calcular com dados reais.");
+                                                    
+                                                    setIsSyncingSales(true);
+                                                    try {
+                                                        const { avgMonthlySales } = await getProductSalesStats(formData.id);
+                                                        const supplier = suppliers.find(s => s.id === formData.mainSupplierId);
+                                                        const lt = supplier?.leadTime || 0;
+                                                        
+                                                        if (lt === 0) {
+                                                            toast.warning("Vincule um fornecedor com Lead Time definido para usar a fórmula automática.");
+                                                        }
 
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
-                                <div className="flex flex-col md:flex-row gap-4">
-                                    <div className="flex flex-1 gap-2">
+                                                        const dailySales = avgMonthlySales / 30;
+                                                        const margin = 0.20; // Default 20%
+                                                        const suggested = Math.ceil((dailySales * lt) * (1 + margin)) || 5;
+                                                        
+                                                        setFormData(prev => ({ ...prev, minStock: suggested }));
+                                                        setStats({ giro: avgMonthlySales, lt });
+                                                        toast.success(`Sugerido: ${suggested} un. (Giro: ${avgMonthlySales}/mês, LT: ${lt}d)`);
+                                                    } catch (e) {
+                                                        toast.error("Erro ao calcular.");
+                                                    } finally {
+                                                        setIsSyncingSales(false);
+                                                    }
+                                                }}
+                                                className="text-[8px] text-blue-600 hover:underline flex items-center gap-1 font-black"
+                                            >
+                                                <i className={`bi ${isSyncingSales ? 'bi-hourglass-split animate-spin' : 'bi-magic'}`}></i>
+                                                Sugerir p/ Fórmula
+                                            </button>
+                                        </label>
                                         <input
                                             type="number"
                                             value={isNaN(formData.minStock as number) || formData.minStock === 0 ? '' : formData.minStock}
@@ -340,39 +285,33 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                                 const val = parseInt(e.target.value);
                                                 setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
                                             }}
-                                            className="flex-1 px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
+                                            className="w-full px-0 bg-transparent outline-none text-2xl font-black text-slate-800 dark:text-slate-200"
+                                            placeholder="0"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={calculateMinStock}
-                                            className="p-3 bg-slate-100 dark:bg-slate-800 text-blue-600 hover:bg-blue-600 hover:text-white rounded-2xl transition-all"
-                                            title="Calcular Estoque Mínimo Sugerido"
-                                        >
-                                            <i className="bi bi-calculator"></i>
-                                        </button>
-                                    </div>
-                                    
-                                    {/* Min Stock Formula Explanation */}
-                                    <div className="flex-1 p-3 bg-white/50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 text-[10px]">
-                                        <p className="font-black uppercase tracking-widest text-slate-400 mb-1">Cálculo Automático:</p>
-                                        <div className="flex flex-col gap-1 font-medium text-slate-600 dark:text-slate-300 italic">
-                                            <p>Fórmula: (Venda Diária × Lead Time) + Margem Seg.</p>
-                                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 font-bold not-italic">
-                                                <span className="text-blue-600">Venda: {(formData.avgMonthlySales || 0) / 30 > 0 ? ((formData.avgMonthlySales || 0) / 30).toFixed(2) : '0'} un/dia</span>
-                                                <span className="text-blue-600">L. Time: {formData.leadTime || 0} dias</span>
-                                                <span className="text-blue-600">Margem: {
-                                                    formData.classification === 'Q1' ? '50%' :
-                                                    formData.classification === 'Q2' ? '20%' :
-                                                    formData.classification === 'Q3' ? '15%' : '0%'
-                                                }</span>
+                                        
+                                        {stats && stats.lt > 0 && (
+                                            <div className="absolute bottom-2 left-6 right-6 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-400 border-t border-slate-50 dark:border-slate-900 pt-2">
+                                                <span>Giro: {stats.giro}/mês</span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                                <span>LT: {stats.lt}d</span>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="p-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-3xl flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                                        <i className="bi bi-exclamation-triangle-fill text-amber-600 text-xl"></i>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-amber-800 dark:text-amber-400 leading-tight uppercase tracking-widest">
+                                        O estoque e níveis de segurança de produtos com variação são gerenciados individualmente na aba "Grade".
+                                    </p>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
+                )}
                 {/* Main Supplier */}
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -404,16 +343,21 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                         onClick={() => {
                                             setFormData({ 
                                                 ...formData, 
-                                                mainSupplierId: s.id,
-                                                leadTime: s.leadTime || formData.leadTime 
+                                                mainSupplierId: s.id
                                             });
                                             setSupplierSearch(s.fullName || '');
                                             setIsSupplierDropdownOpen(false);
+                                            setStats(prev => ({ ...prev, lt: s.leadTime || 0 } as any));
                                         }}
                                         className="w-full px-5 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0"
                                     >
                                         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{s.fullName}</p>
-                                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{s.cpfCnpj || 'Sem documento'}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{s.cpfCnpj || 'Sem documento'}</p>
+                                            {(s.leadTime ?? 0) > 0 && (
+                                                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[8px] font-black uppercase">LT: {s.leadTime}d</span>
+                                            )}
+                                        </div>
                                     </button>
                                 ))}
                             </div>
@@ -423,7 +367,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl">
                         <i className="bi bi-info-circle-fill text-blue-500"></i>
                         <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 leading-tight">
-                            Vincule o fornecedor para automatizar o cálculo de Lead Time e pedidos de compra.
+                                                     Vincule o fornecedor para automatizar o cálculo de Lead Time e pedidos de compra. O Lead Time é definido no cadastro do fornecedor.
                         </p>
                     </div>
                 </div>

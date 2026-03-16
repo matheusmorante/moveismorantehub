@@ -4,6 +4,7 @@ export type Person = {
     id?: string;
     personType: 'PF' | 'PJ'; // Pessoa Física ou Jurídica
     fullName: string; // Nome ou Razão Social
+    socialName?: string; // Nome Social (específico PF)
     companyName?: string; // Razão Social (específico PJ)
     tradeName?: string; // Nome Fantasia (específico PJ)
     cpfCnpj?: string;

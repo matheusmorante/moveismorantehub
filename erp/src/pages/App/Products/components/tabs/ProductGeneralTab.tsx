@@ -108,15 +108,27 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     placeholder="Ex: UN, KG, M..."
                     icon="bi-box-seam"
                 />
-                <SmartInput
-                    label="Marca / Fabricante"
-                    value={formData.brand || ""}
-                    onValueChange={(val) => setFormData({ ...formData, brand: val })}
-                    tableName="products"
-                    columnName="brand"
-                    placeholder="Ex: Kappesberg, Henn..."
-                    icon="bi-award"
-                />
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Marca / Fabricante <span className="text-red-500">*</span></label>
+                        <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, noBrand: !prev.noBrand }))}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noBrand ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            <i className={`bi ${formData.noBrand ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> {formData.noBrand ? 'Mostrar' : 'Ocultar'}
+                        </button>
+                    </div>
+                    <SmartInput
+                        value={formData.brand || ""}
+                        onValueChange={(val) => setFormData({ ...formData, brand: val })}
+                        tableName="products"
+                        columnName="brand"
+                        placeholder="Ex: Kappesberg, Henn..."
+                        icon="bi-award"
+                        required
+                    />
+                </div>
 
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
@@ -322,43 +334,88 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                             <div className="flex flex-col gap-1.5">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura</span>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, noWidth: !prev.noWidth }))}
+                                        className={`text-[7px] font-black uppercase tracking-tight px-1 py-0.5 rounded transition-colors ${formData.noWidth ? 'bg-amber-100 text-amber-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                    >
+                                        {formData.noWidth ? 'Mostrar' : 'Ocultar'}
+                                    </button>
+                                </div>
                                 <input
                                     type="number"
-                                    value={isNaN(formData.width as number) || formData.width === 0 ? '' : formData.width}
+                                    value={formData.noWidth || isNaN(formData.width as number) || formData.width === 0 ? '' : formData.width}
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
                                         setFormData({ ...formData, width: isNaN(val) ? 0 : val });
                                     }}
-                                    placeholder="L"
-                                    className="w-full px-3 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-center"
+                                    disabled={formData.noWidth}
+                                    placeholder={formData.noWidth ? "---" : "L"}
+                                    className={`w-full px-3 py-3 rounded-xl text-xs font-bold text-center border transition-all ${formData.noWidth ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura</span>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, noHeight: !prev.noHeight }))}
+                                        className={`text-[7px] font-black uppercase tracking-tight px-1 py-0.5 rounded transition-colors ${formData.noHeight ? 'bg-amber-100 text-amber-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                    >
+                                        {formData.noHeight ? 'Mostrar' : 'Ocultar'}
+                                    </button>
+                                </div>
                                 <input
                                     type="number"
-                                    value={isNaN(formData.height as number) || formData.height === 0 ? '' : formData.height}
+                                    value={formData.noHeight || isNaN(formData.height as number) || formData.height === 0 ? '' : formData.height}
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
                                         setFormData({ ...formData, height: isNaN(val) ? 0 : val });
                                     }}
-                                    placeholder="A"
-                                    className="w-full px-3 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-center"
+                                    disabled={formData.noHeight}
+                                    placeholder={formData.noHeight ? "---" : "A"}
+                                    className={`w-full px-3 py-3 rounded-xl text-xs font-bold text-center border transition-all ${formData.noHeight ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund.</span>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund.</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, noDepth: !prev.noDepth }))}
+                                        className={`text-[7px] font-black uppercase tracking-tight px-1 py-0.5 rounded transition-colors ${formData.noDepth ? 'bg-amber-100 text-amber-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                    >
+                                        {formData.noDepth ? 'Mostrar' : 'Ocultar'}
+                                    </button>
+                                </div>
                                 <input
                                     type="number"
-                                    value={isNaN(formData.depth as number) || formData.depth === 0 ? '' : formData.depth}
+                                    value={formData.noDepth || isNaN(formData.depth as number) || formData.depth === 0 ? '' : formData.depth}
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
                                         setFormData({ ...formData, depth: isNaN(val) ? 0 : val });
                                     }}
-                                    placeholder="P"
-                                    className="w-full px-3 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-center"
+                                    disabled={formData.noDepth}
+                                    placeholder={formData.noDepth ? "---" : "P"}
+                                    className={`w-full px-3 py-3 rounded-xl text-xs font-bold text-center border transition-all ${formData.noDepth ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
                                 />
+                            </div>
+                        </div>
+
+                        {/* Dimensions Preview */}
+                        <div className="mt-2 p-4 bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Visualização do Resultado Final</label>
+                            <div className="flex items-center gap-2">
+                                <div className="px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-black text-slate-700 dark:text-slate-200 tracking-tight flex-1">
+                                    {[
+                                        !formData.noWidth && formData.width ? `L ${formData.width}CM` : null,
+                                        !formData.noHeight && formData.height ? `A ${formData.height}CM` : null,
+                                        !formData.noDepth && formData.depth ? `P ${formData.depth}CM` : null
+                                    ].filter(Boolean).join(' X ') || <span className="text-slate-300 dark:text-slate-600 font-bold italic">DIMENSÕES NÃO INFORMADAS</span>}
+                                </div>
+                                <i className="bi bi-eye-fill text-slate-300 dark:text-slate-700 text-lg"></i>
                             </div>
                         </div>
 

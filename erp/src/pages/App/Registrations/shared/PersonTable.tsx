@@ -36,7 +36,7 @@ interface ColumnDef {
 
 const COLUMNS_DEF: ColumnDef[] = [
     { key: 'id', label: 'ID' },
-    { key: 'fullName', label: 'Nome Completo' },
+    { key: 'fullName', label: 'Nome / Razão Social' },
     { key: 'cpfCnpj', label: 'CPF/CNPJ' },
     { key: 'email', label: 'E-mail' },
     { key: 'phone', label: 'Telefone' },

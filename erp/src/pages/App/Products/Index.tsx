@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
 import ProductFilters from "./ProductFilters";
 import ProductList from "./ProductList";
 import ProductFormModal from "./ProductFormModal";
 import Product, { ProductVisibilitySettings } from "../../types/product.type";
 import { Link } from "react-router-dom";
 import PriceHistoryModal from "./PriceHistoryModal";
-import { bulkConvertToVariations } from "@/pages/utils/productService";
+import { bulkConvertToVariations, cleanupOldDrafts } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 import VariationFormModal from "./VariationFormModal";
 import StockLaunchModal from "../Stock/components/StockLaunchModal";
@@ -24,6 +25,7 @@ interface ProductFiltersData {
 const Products = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
+    const [isDraftOpen, setIsDraftOpen] = useState(false);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [showSettings, setShowSettings] = useState(false);
@@ -32,11 +34,16 @@ const Products = () => {
     const [categoryTree, setCategoryTree] = useState<any>(null);
     const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
 
+
     // Variation Modal State
     const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
     const [editingVariation, setEditingVariation] = useState<Variation | null>(null);
     const [variationParentProduct, setVariationParentProduct] = useState<Product | null>(null);
-    const [initialFormData, setInitialFormData] = useState<Partial<Product> | null>(null);
+    const [initialFormData, setInitialFormData] = useState<any>(null);
+
+    useEffect(() => {
+        cleanupOldDrafts();
+    }, []);
 
     // Stock Launch Modal State
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -87,6 +94,8 @@ const Products = () => {
 
     const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: false }), [filters]);
     const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, isDraft: false }), [filters]);
+    const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true }), [filters]);
+
 
     return (
         <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
@@ -200,12 +209,24 @@ const Products = () => {
                             </button>
 
                             <button
-                                onClick={() => setIsTrashOpen(true)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
+                                onClick={() => { setIsTrashOpen(true); setIsDraftOpen(false); }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border ${isTrashOpen ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500'}`}
                             >
-                                <i className="bi bi-pause-circle"></i>
-                                Desativados
+                                <i className="bi bi-trash"></i>
+                                Lixeira
                             </button>
+
+                            <button
+                                onClick={() => { setIsDraftOpen(!isDraftOpen); setIsTrashOpen(false); }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border ${isDraftOpen
+                                    ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/30'
+                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-800 hover:text-amber-500'
+                                    }`}
+                            >
+                                <i className={`bi ${isDraftOpen ? 'bi-file-earmark-text-fill' : 'bi-file-earmark-text'}`}></i>
+                                Rascunhos
+                            </button>
+
 
                             <Link
                                 to="/registrations/variations"
@@ -296,40 +317,37 @@ const Products = () => {
                     </div>
 
                     <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
-                        <ProductList
-                            onEdit={(p: any) => {
-                                if (p.isVariation) {
-                                    // It's a variation. We need to find the parent to get the actual variation object 
-                                    // and the parent's data for sync.
-                                    // Since p is synthetic, we find the real variation in p.variations if available, 
-                                    // but useProducts flattens it.
-                                    // Actually, we can just find the parent in a list or pass it.
-                                    // Better: let's use the ID to find the parent.
-                                    setVariationParentProduct(p); // p has parent data too in synthetic object
-                                    const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                    setEditingVariation(actualVariation || p);
-                                    setIsVariationModalOpen(true);
-                                } else {
-                                    setEditingProduct(p);
-                                    setIsFormModalOpen(true);
-                                }
-                            }}
-                            onShowHistory={(p) => { setHistoryProduct(p); setIsHistoryModalOpen(true); }}
-                            onLaunchStock={(p: any) => {
-                                if (p.isVariation) {
-                                    const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                    setStockLaunchTarget({ variation: actualVariation || p });
-                                } else {
-                                    setStockLaunchTarget({ product: p });
-                                }
-                                setIsStockModalOpen(true);
-                            }}
-                            filters={activeFilters}
-                            visibilitySettings={visibilitySettings}
-                            onToggleColumn={toggleVisibility}
-                            onSort={handleSort}
-                            categoryTree={categoryTree}
-                        />
+                <ProductList
+                    filters={isTrashOpen ? trashFilters : isDraftOpen ? draftFilters : activeFilters}
+                    visibilitySettings={visibilitySettings}
+                    onEdit={(p: any) => {
+                        if (p.isVariation) {
+                            setVariationParentProduct(p);
+                            const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
+                            setEditingVariation(actualVariation || (p as any));
+                            setIsVariationModalOpen(true);
+                        } else {
+                            setEditingProduct(p);
+                            setIsFormModalOpen(true);
+                        }
+                    }}
+                    onShowHistory={(p) => { setHistoryProduct(p); setIsHistoryModalOpen(true); }}
+                    onLaunchStock={(p: any) => {
+                        if (p.isVariation) {
+                            const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
+                            setStockLaunchTarget({ variation: actualVariation || p });
+                        } else {
+                            setStockLaunchTarget({ product: p });
+                        }
+                        setIsStockModalOpen(true);
+                    }}
+                    onToggleColumn={toggleVisibility}
+                    onSort={handleSort}
+                    categoryTree={categoryTree}
+                />
+
+
+
                     </div>
                 </div>
             </div>
@@ -356,7 +374,7 @@ const Products = () => {
                                     if (p.isVariation) {
                                         setVariationParentProduct(p);
                                         const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                        setEditingVariation(actualVariation || p);
+                                        setEditingVariation(actualVariation || (p as any));
                                         setIsVariationModalOpen(true);
                                     } else {
                                         setEditingProduct(p);
@@ -378,7 +396,10 @@ const Products = () => {
                                 onToggleColumn={toggleVisibility}
                                 onSort={handleSort}
                                 categoryTree={categoryTree}
+                                title="Produtos Desativados"
+                                onCloseTrash={() => setIsTrashOpen(false)}
                             />
+
                         </div>
                     </div>
                 </div>

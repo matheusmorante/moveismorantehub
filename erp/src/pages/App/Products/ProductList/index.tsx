@@ -13,9 +13,12 @@ interface ProductListProps {
     onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
     onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
     categoryTree?: any;
+    title?: string;
+    onCloseTrash?: () => void;
 };
 
-const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree }: ProductListProps) => {
+const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash }: ProductListProps) => {
+
     const {
         products,
         loading,
@@ -78,8 +81,29 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
     }
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col h-full">
+            {(title || onCloseTrash) && (
+                <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
+                    <div className="flex items-center gap-3">
+                        {title && <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{title}</h2>}
+                        {products.length > 0 && (
+                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                                {totalItems} itens
+                            </span>
+                        )}
+                    </div>
+                    {onCloseTrash && (
+                        <button 
+                            onClick={onCloseTrash}
+                            className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-xl transition-all"
+                        >
+                            <i className="bi bi-x-lg"></i>
+                        </button>
+                    )}
+                </div>
+            )}
             <div className="p-4 md:p-8">
+
                 <ProductTable
                     products={products}
                     onEdit={onEdit}

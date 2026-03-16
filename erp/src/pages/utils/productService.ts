@@ -61,11 +61,10 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.observations !== undefined) data.observations = product.observations;
     if (product.parentId !== undefined) data.parent_id = product.parentId;
     if (product.isVariation !== undefined) data.is_variation = product.isVariation;
-
-    // Intelligence Fields
-    if (product.leadTime !== undefined) data.lead_time = product.leadTime;
-    if (product.avgMonthlySales !== undefined) data.avg_monthly_sales = product.avgMonthlySales;
-    if (product.classification !== undefined) data.classification = product.classification;
+    if (product.noWidth !== undefined) data.no_width = product.noWidth;
+    if (product.noHeight !== undefined) data.no_height = product.noHeight;
+    if (product.noDepth !== undefined) data.no_depth = product.noDepth;
+    if (product.noBrand !== undefined) data.no_brand = product.noBrand;
 
     return data;
 };
@@ -127,11 +126,10 @@ const mapFromDB = (data: any): Product => {
         observations: data.observations,
         parentId: data.parent_id,
         isVariation: data.is_variation,
-
-        // Intelligence Fields
-        leadTime: data.lead_time,
-        avgMonthlySales: data.avg_monthly_sales,
-        classification: data.classification
+        noWidth: data.no_width,
+        noHeight: data.no_height,
+        noDepth: data.no_depth,
+        noBrand: data.no_brand
     };
 };
 
@@ -147,8 +145,8 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
                 .select(LIGHT_COLUMNS)
                 .order('description', { ascending: true });
 
-            if (error && error.message?.includes("column")) {
-                console.warn("Colunas leves não encontradas no cache (ex: product_categories etc), tentando fallback...");
+            if (error && (error.message?.includes("column") || error.code === '42703')) {
+                console.warn("[ProductService] Colunas leves não encontradas no cache (42703), tentando fallback...");
                 // Fallback to basic fetch
                 const res = await supabase.from(TABLE_NAME)
                     .select('id, code, description, brand, category, unit_price, cost_price, stock, item_type, created_at, active, deleted, images, variations')
@@ -284,10 +282,33 @@ export const saveProduct = async (product: Product): Promise<string> => {
     try {
         const dbProduct = mapToDB(product);
         // Supabase serial ID will handle the auto-increment
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from(TABLE_NAME)
             .insert([dbProduct])
             .select();
+
+        // Fail-safe: If insert fails due to missing columns
+        if (error && (error.message?.includes("column") || error.message?.includes("schema cache") || error.code === '42703')) {
+            console.warn("[ProductService] Schema mismatch on insert. Retrying without newer columns...", error.message);
+            
+            const safeDBProduct = { ...dbProduct };
+            const fieldsToStrip = [
+                'width', 'height', 'depth', 'weight', 'pkg_width', 'pkg_height', 'pkg_depth',
+                'lead_time', 'avg_monthly_sales', 'classification',
+                'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
+                'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
+                'no_width', 'no_height', 'no_depth', 'no_brand'
+            ];
+            fieldsToStrip.forEach(field => delete (safeDBProduct as any)[field]);
+            
+            const { data: retryData, error: retryError } = await supabase
+                .from(TABLE_NAME)
+                .insert([safeDBProduct])
+                .select();
+            
+            data = retryData;
+            error = retryError;
+        }
 
         if (error) throw error;
 
@@ -313,27 +334,24 @@ export const saveProduct = async (product: Product): Promise<string> => {
                 }
             }
 
-            /* 
-            // Se houver estoque inicial, registra como uma 'entrada' FIFO
-            // Removido conforme solicitação: usuário prefere fazer inventário manual
-            const initialQuantity = Number(product.stock || product.initialStock || 0);
-            if (initialQuantity > 0) {
+            // Lançamento de Estoque Inicial (Entrada)
+            if (product.launchInitialStock && Number(product.stock) > 0) {
                 try {
+                    const { saveInventoryMove } = await import('./inventoryService');
                     await saveInventoryMove({
                         productId: newId,
                         productDescription: product.description || "Estoque Inicial",
                         type: 'entry',
-                        quantity: initialQuantity,
-                        date: product.createdAt || new Date().toISOString(),
-                        label: 'Inventário de Saldo Inicial',
-                        unitCost: product.costPrice || 0,
-                        observation: 'Estoque Inicial (Saldo inicial no cadastro)'
-                    }, 0); // initial stock assumes 0 previous stock
+                        quantity: Number(product.stock),
+                        unitCost: product.finalPurchasePrice || product.costPrice || 0,
+                        date: new Date().toISOString(),
+                        label: 'ESTOQUE INICIAL',
+                        observation: 'Lançamento automático de estoque inicial no cadastro do produto.'
+                    }, 0); 
                 } catch (stockError) {
                     console.error("Erro ao registrar estoque inicial:", stockError);
                 }
             }
-            */
 
             return newId;
         }
@@ -389,13 +407,16 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
             console.warn("[ProductService] Schema cache issue detected. Retrying without extended details...", error.message);
             
             // Lista de colunas que podem não existir no schema cache ainda
-            const legacyFields = [
+            const unsafeFields = [
+                'width', 'height', 'depth', 'weight', 'pkg_width', 'pkg_height', 'pkg_depth',
+                'lead_time', 'avg_monthly_sales', 'classification',
                 'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
-                'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation'
+                'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
+                'no_width', 'no_height', 'no_depth', 'no_brand'
             ];
             
             const safeDBProduct = { ...dbProduct };
-            legacyFields.forEach(field => delete (safeDBProduct as any)[field]);
+            unsafeFields.forEach(field => delete (safeDBProduct as any)[field]);
             
             const { error: retryError } = await supabase
                 .from(TABLE_NAME)
@@ -882,3 +903,21 @@ export const bulkConvertToVariations = async (): Promise<{ success: number, fail
         throw error;
     }
 };
+
+export const cleanupOldDrafts = async () => {
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .delete()
+            .eq('is_draft', true)
+            .lt('updated_at', sevenDaysAgo.toISOString());
+            
+        if (error) throw error;
+    } catch (error) {
+        console.error("Erro ao limpar rascunhos antigos:", error);
+    }
+};
+

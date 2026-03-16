@@ -34,10 +34,13 @@ export const useProducts = (filters?: any) => {
                 // Filter by Deleted or Draft status
                 if (showTrash) {
                     if (!product.deleted) return false;
-                } else if (isDraft) {
-                    if (!product.isDraft || product.deleted) return false;
                 } else {
-                    if (product.deleted || product.isDraft) return false;
+                    // Always show active/draft items that are not deleted in the main list
+                    if (product.deleted) return false;
+                    
+                    // If the user explicitly requested drafts (via isDraft filter), 
+                    // we can still respect it, but the default main list now Includes them.
+                    if (isDraft && !product.isDraft) return false;
                 }
 
                 if (!filters) return true;
