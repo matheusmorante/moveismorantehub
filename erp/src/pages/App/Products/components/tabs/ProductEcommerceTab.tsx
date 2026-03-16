@@ -4,8 +4,8 @@ import Product from '../../../../types/product.type';
 interface ProductEcommerceTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    activeEcommerceSubTab: 'photos' | 'descriptions' | 'logistics';
-    setActiveEcommerceSubTab: React.Dispatch<React.SetStateAction<'photos' | 'descriptions' | 'logistics'>>;
+    activeEcommerceSubTab: 'vitrine' | 'photos' | 'descriptions' | 'logistics';
+    setActiveEcommerceSubTab: React.Dispatch<React.SetStateAction<'vitrine' | 'photos' | 'descriptions' | 'logistics'>>;
     isDraggingPhoto: boolean;
     setIsDraggingPhoto: React.Dispatch<React.SetStateAction<boolean>>;
     handleFileChange: (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => void;
@@ -37,6 +37,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             {/* Sub-tabs Navigation */}
             <div className="flex gap-4 p-1 bg-slate-100 dark:bg-slate-950/50 rounded-2xl self-start">
                 {[
+                    { id: 'vitrine', label: 'Dashboard Vitrine', icon: 'bi-grid-1x2-fill' },
                     { id: 'photos', label: 'Fotos', icon: 'bi-images' },
                     { id: 'descriptions', label: 'Descrição / Canais', icon: 'bi-pencil-square' },
                     { id: 'logistics', label: 'Logística / Frete', icon: 'bi-truck' },
@@ -55,6 +56,104 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     </button>
                 ))}
             </div>
+
+            {/* VITRINE DASHBOARD */}
+            {activeEcommerceSubTab === 'vitrine' && (
+                <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* SITE / ECOMMERCE READINESS */}
+                        <div className={`p-8 rounded-[3rem] border transition-all ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'bg-amber-500/5 border-amber-500/10' : 'bg-emerald-500/5 border-emerald-500/10'}`}>
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl shadow-lg ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-emerald-500 text-white shadow-emerald-500/20'}`}>
+                                        <i className="bi bi-globe"></i>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Canais E-commerce (Site)</h4>
+                                        <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                            {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'Não Apto para Sincronizar' : 'Apto para Sincronizar'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'Pendente' : 'Completo'}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Checklist Site</p>
+                                <ul className="space-y-3">
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${formData.ecommerceDescription ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${formData.ecommerceDescription ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Descrição Otimizada para SEO</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${formData.images?.length ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${formData.images?.length ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Galeria de Fotos (Mín. 1)</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${formData.unitPrice && formData.unitPrice > 0 ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${formData.unitPrice && formData.unitPrice > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Valor de Venda Definido</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${(formData.pkgWidth && formData.pkgHeight && formData.pkgDepth && formData.weight) ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${(formData.pkgWidth && formData.pkgHeight && formData.pkgDepth && formData.weight) ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Dimensões e Peso de Envio</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* WHATSAPP READINESS */}
+                        <div className={`p-8 rounded-[3rem] border transition-all ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'bg-amber-500/5 border-amber-500/10' : 'bg-emerald-500/5 border-emerald-500/10'}`}>
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl shadow-lg ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-emerald-500 text-white shadow-emerald-500/20'}`}>
+                                        <i className="bi bi-whatsapp"></i>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Catálogo WhatsApp Business</h4>
+                                        <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                            {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Não Apto para Sincronizar' : 'Apto para Sincronizar'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Pendente' : 'Completo'}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Checklist WhatsApp</p>
+                                <ul className="space-y-3">
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${formData.whatsappDescription ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${formData.whatsappDescription ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Descrição para Venda Direta</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${formData.images?.length ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${formData.images?.length ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Fotos do Produto</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${formData.unitPrice && formData.unitPrice > 0 ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${formData.unitPrice && formData.unitPrice > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Preço de Venda</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <i className={`bi ${(formData.line || formData.hasNoLine) ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
+                                        <span className={`text-xs font-bold ${(formData.line || formData.hasNoLine) ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Vínculo de Modelo / Linha</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] border border-slate-100 dark:border-slate-800 text-center">
+                        <i className="bi bi-info-circle text-2xl text-slate-400 mb-4 block"></i>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 max-w-lg mx-auto leading-relaxed">
+                            O status "Apto" garante que os campos obrigatórios para cada canal estão preenchidos. A sincronização efetiva ocorre através das rotinas de integração.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* PHOTOS SUB-TAB */}
             {activeEcommerceSubTab === 'photos' && (

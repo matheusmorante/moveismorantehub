@@ -49,20 +49,21 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         Dashboard
                     </Link>
 
-                    {/* Produtos */}
+                    {/* Produtos e Serviços */}
                     <div className="flex flex-col">
                         <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products')}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-box-seam text-lg"></i>
-                                Produtos
+                                Produtos e Serviços
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'products' ? 'rotate-180' : ''}`}></i>
                         </button>
                         {activeMenu === 'products' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Lista</Link>
+                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Lista de Produtos e Serviços</Link>
                                 <Link to="/registrations/whatsapp-marketplace" onClick={onClose} className={mobileSubLinkClass}><i className="bi bi-whatsapp mr-1 text-green-500"></i> Marketplace WhatsApp</Link>
                                 <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Categorias e Ambientes</Link>
+                                <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>Atributos e Valores</Link>
                             </div>
                         )}
                     </div>

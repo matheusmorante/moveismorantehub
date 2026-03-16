@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useMemo } from "react";
 import SalesOrderFormSection from "./SalesOrderFormSection";
 import { useSalesOrderForm } from "./useSalesOrderForm";
 import Order from "../../types/order.type";
@@ -62,47 +62,68 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                 className="bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[95vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Modal Header */}
-                <div className="px-10 py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
-                    <div className="flex items-center gap-5">
-                        <div className="bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-100 dark:shadow-blue-900/20">
-                            <i className="bi bi-pencil-square text-white text-xl" />
+                {/* Modal Header - SLIM VERSION */}
+                <div className="px-10 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-blue-600 p-2.5 rounded-xl shadow-lg shadow-blue-100 dark:shadow-blue-900/20">
+                            <i className="bi bi-pencil-square text-white text-lg" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Editar Pedido</h2>
-                            <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">
-                                ID do Pedido: <span className="text-blue-600 dark:text-blue-400">{order.id}</span> • Data: {order.date}
+                            <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Editar Pedido</h2>
+                            <p className="text-[9px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-0.5">
+                                #{order.id} • {(() => {
+                                    try {
+                                        const date = new Date(order.date);
+                                        return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    } catch {
+                                        return order.date;
+                                    }
+                                })()}
                             </p>
                         </div>
                     </div>
+
+                    {/* Stepper Implementation */}
+                    <div className="flex items-center gap-2 md:gap-8">
+                        {[
+                            { step: 1, icon: 'bi-box-seam', label: 'Itens' },
+                            { step: 2, icon: 'bi-person-badge', label: 'Cliente' },
+                            { step: 3, icon: 'bi-truck', label: 'Entrega' },
+                            { step: 4, icon: 'bi-check2-circle', label: 'Resumo' }
+                        ].map((s) => (
+                            <div 
+                                key={s.step}
+                                onClick={() => form.actions.jumpToStep(s.step)}
+                                className={`flex items-center gap-2 cursor-pointer transition-all ${
+                                    form.state.currentStep === s.step 
+                                    ? 'text-blue-600 dark:text-blue-400 scale-105' 
+                                    : form.state.currentStep > s.step 
+                                    ? 'text-emerald-500' 
+                                    : 'text-slate-300 dark:text-slate-700 hover:text-slate-400'
+                                }`}
+                            >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 transition-all ${
+                                    form.state.currentStep === s.step 
+                                    ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm' 
+                                    : form.state.currentStep > s.step 
+                                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                                    : 'border-slate-100 dark:border-slate-800 bg-transparent'
+                                }`}>
+                                    <i className={`bi ${s.icon} ${form.state.currentStep === s.step ? 'text-lg' : 'text-md'}`} />
+                                </div>
+                                <span className="hidden lg:block text-[10px] font-black uppercase tracking-widest">
+                                    {s.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
                     <div className="flex items-center gap-3">
-                        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mr-4">
-                            <button
-                                onClick={() => setView('form')}
-                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    view === 'form' 
-                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                                    : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                Dados
-                            </button>
-                            <button
-                                onClick={() => setView('timeline')}
-                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    view === 'timeline' 
-                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                                    : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                Linha do Tempo
-                            </button>
-                        </div>
                         <button
                             onClick={onClose}
-                            className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-2xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 active:scale-95"
+                            className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 active:scale-95"
                         >
-                            <i className="bi bi-x-lg text-xl" />
+                            <i className="bi bi-x-lg text-lg" />
                         </button>
                     </div>
                 </div>

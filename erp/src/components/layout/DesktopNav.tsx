@@ -29,7 +29,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 Dashboard
             </Link>
 
-            {/* Produtos */}
+            {/* Produtos e Serviços */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('products')}
@@ -37,14 +37,15 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             >
                 <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products')}>
                     <i className="bi bi-box-seam"></i>
-                    Produtos
+                    Produtos e Serviços
                     <i className={chevronClass(activeMenu === 'products')}></i>
                 </button>
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista</Link>
+                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Produtos e Serviços</Link>
                         <Link to="/registrations/whatsapp-marketplace" onClick={() => setActiveMenu(null)} className={dropdownItemClass}><i className="bi bi-whatsapp mr-1 text-green-500"></i> Marketplace WhatsApp</Link>
                         <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Categorias e Ambientes</Link>
+                        <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Atributos e Valores</Link>
                     </div>
                 )}
             </div>

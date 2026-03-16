@@ -62,6 +62,11 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.parentId !== undefined) data.parent_id = product.parentId;
     if (product.isVariation !== undefined) data.is_variation = product.isVariation;
 
+    // Intelligence Fields
+    if (product.leadTime !== undefined) data.lead_time = product.leadTime;
+    if (product.avgMonthlySales !== undefined) data.avg_monthly_sales = product.avgMonthlySales;
+    if (product.classification !== undefined) data.classification = product.classification;
+
     return data;
 };
 
@@ -121,33 +126,66 @@ const mapFromDB = (data: any): Product => {
         supplierRef: data.supplier_ref,
         observations: data.observations,
         parentId: data.parent_id,
-        isVariation: data.is_variation
+        isVariation: data.is_variation,
+
+        // Intelligence Fields
+        leadTime: data.lead_time,
+        avgMonthlySales: data.avg_monthly_sales,
+        classification: data.classification
     };
 };
 
+const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at, product_categories(category_id)";
+
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
-    // Initial fetch
-    supabase.from(TABLE_NAME)
-        .select('*, product_categories(category_id)')
-        .order('description', { ascending: true })
-        .then(({ data, error }: { data: any, error: any }) => {
-            if (data && !error) {
-                callback(data.map(mapFromDB));
-            } else if (error) {
-                console.error("Erro ao buscar produtos iniciais:", error);
+    let currentProducts: Product[] = [];
+
+    const fetchInitial = async () => {
+        try {
+            // Try light fetch first
+            let { data, error } = await supabase.from(TABLE_NAME)
+                .select(LIGHT_COLUMNS)
+                .order('description', { ascending: true });
+
+            if (error && error.message?.includes("column")) {
+                console.warn("Colunas leves não encontradas no cache (ex: product_categories etc), tentando fallback...");
+                // Fallback to basic fetch
+                const res = await supabase.from(TABLE_NAME)
+                    .select('id, code, description, brand, category, unit_price, cost_price, stock, item_type, created_at, active, deleted, images, variations')
+                    .order('description', { ascending: true });
+                data = res.data;
+                error = res.error;
+            }
+
+            if (!error && data) {
+                currentProducts = data.map(mapFromDB);
+                callback(currentProducts);
+            } else {
+                console.error("Erro fatal também no fallback ao buscar produtos iniciais:", error);
                 callback([]);
             }
-        });
+        } catch (err) {
+            console.error("Erro critico de exceção ao buscar produtos:", err);
+            callback([]);
+        }
+    };
+
+    fetchInitial();
 
     const channel = supabase.channel('products_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
-            // Re-fetch all on any change to keep sorting simple
-            supabase.from(TABLE_NAME)
-                .select('*, product_categories(category_id)')
-                .order('description', { ascending: true })
-                .then(({ data }: { data: any }) => {
-                    if (data) callback(data.map(mapFromDB));
-                });
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
+            if (payload.eventType === 'INSERT') {
+                const newProduct = mapFromDB(payload.new);
+                currentProducts = [...currentProducts, newProduct].sort((a, b) => a.description.localeCompare(b.description));
+                callback(currentProducts);
+            } else if (payload.eventType === 'UPDATE') {
+                const updatedProduct = mapFromDB(payload.new);
+                currentProducts = currentProducts.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p);
+                callback(currentProducts);
+            } else if (payload.eventType === 'DELETE') {
+                currentProducts = currentProducts.filter(p => p.id !== String(payload.old.id));
+                callback(currentProducts);
+            }
         })
         .subscribe();
 
@@ -156,7 +194,88 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
     };
 };
 
+/**
+ * Busca um produto completo com todos os campos (para edição)
+ */
+export const getFullProduct = async (id: string): Promise<Product | null> => {
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('*, product_categories(category_id)')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data ? mapFromDB(data) : null;
+    } catch (error) {
+        console.error("Erro ao buscar produto completo:", error);
+        return null;
+    }
+};
+
+/**
+ * Verifica se um SKU/Código já existe no sistema (em produtos ou variações)
+ */
+export const checkSkuUniqueness = async (sku: string, excludeProductId?: string): Promise<{ exists: boolean, productDescription?: string }> => {
+    if (!sku) return { exists: false };
+
+    // 1. Verificar em produtos (campo code)
+    let productQuery = supabase.from(TABLE_NAME)
+        .select('id, description, code')
+        .eq('code', sku)
+        .eq('deleted', false);
+    
+    if (excludeProductId) {
+        productQuery = productQuery.neq('id', excludeProductId);
+    }
+
+    const { data: productMatch } = await productQuery.maybeSingle();
+    if (productMatch) {
+        return { exists: true, productDescription: productMatch.description };
+    }
+
+    // 2. Verificar em variações (field JSON)
+    // Usamos o operador @> para buscar no array de variações
+    const { data: variationMatch } = await supabase.from(TABLE_NAME)
+        .select('id, description, variations')
+        .eq('deleted', false)
+        .filter('variations', 'cs', `[{"sku": "${sku}"}]`);
+
+    if (variationMatch && variationMatch.length > 0) {
+        // Filtrar o próprio produto se necessário (já que a query cs não aceita neq facilmente combinada)
+        const realMatch = excludeProductId 
+            ? variationMatch.filter((v: any) => String(v.id) !== String(excludeProductId))
+            : variationMatch;
+            
+        if (realMatch.length > 0) {
+            return { exists: true, productDescription: realMatch[0].description };
+        }
+    }
+
+    return { exists: false };
+};
+
 export const saveProduct = async (product: Product): Promise<string> => {
+    // Validação de SKU Global antes de salvar
+    if (product.code) {
+        const { exists, productDescription } = await checkSkuUniqueness(product.code, product.id);
+        if (exists) {
+            throw new Error(`O código (SKU) "${product.code}" já está em uso no produto: ${productDescription}`);
+        }
+    }
+
+    // Validar SKUs das variações
+    if (product.variations && product.variations.length > 0) {
+        for (const v of product.variations) {
+            if (v.sku) {
+                const { exists, productDescription } = await checkSkuUniqueness(v.sku, product.id);
+                if (exists) {
+                    throw new Error(`A variação "${v.name}" usa o SKU "${v.sku}" que já pertence ao produto: ${productDescription}`);
+                }
+            }
+        }
+    }
+
     if (product.id) {
         await updateProduct(product.id, product);
         return product.id;
@@ -228,6 +347,26 @@ export const saveProduct = async (product: Product): Promise<string> => {
 };
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
+    // Validação de SKU Global antes de atualizar
+    if (productToUpdate.code) {
+        const { exists, productDescription } = await checkSkuUniqueness(productToUpdate.code, id);
+        if (exists) {
+            throw new Error(`O código (SKU) "${productToUpdate.code}" já está em uso no produto: ${productDescription}`);
+        }
+    }
+
+    // Validar SKUs das variações se estiverem sendo atualizadas
+    if (productToUpdate.variations && productToUpdate.variations.length > 0) {
+        for (const v of productToUpdate.variations) {
+            if (v.sku) {
+                const { exists, productDescription } = await checkSkuUniqueness(v.sku, id);
+                if (exists) {
+                    throw new Error(`A variação "${v.name}" usa o SKU "${v.sku}" que já pertence ao produto: ${productDescription}`);
+                }
+            }
+        }
+    }
+
     try {
         // Fetch current product for history log
         const { data: currentItem, error: fetchError } = await supabase
@@ -239,10 +378,33 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
         if (fetchError) throw fetchError;
 
         const dbProduct = mapToDB(productToUpdate);
-        const { error } = await supabase
+        let { error } = await supabase
             .from(TABLE_NAME)
             .update(dbProduct)
             .eq('id', id);
+
+        // Fail-safe: If update fails due to missing columns (common after schema changes),
+        // try to update without the newer dimension/detail columns.
+        if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
+            console.warn("[ProductService] Schema cache issue detected. Retrying without extended details...", error.message);
+            
+            // Lista de colunas que podem não existir no schema cache ainda
+            const legacyFields = [
+                'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
+                'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation'
+            ];
+            
+            const safeDBProduct = { ...dbProduct };
+            legacyFields.forEach(field => delete (safeDBProduct as any)[field]);
+            
+            const { error: retryError } = await supabase
+                .from(TABLE_NAME)
+                .update(safeDBProduct)
+                .eq('id', id);
+            
+            error = retryError;
+            // Nota: reload de schema via RPC removido (função não existe no projeto).
+        }
 
         if (error) throw error;
 
@@ -611,5 +773,112 @@ export const getProductByCode = async (code: string): Promise<{ product: Product
     } catch (error) {
         console.error("Erro ao buscar produto por código:", error);
         return null;
+    }
+};
+/**
+ * Busca estat├¡sticas de venda de um produto nos ├║ltimos 90 dias para calcular o giro mensal
+ */
+export const getProductSalesStats = async (productId: string, variationId?: string): Promise<{ avgMonthlySales: number }> => {
+    try {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+        let query = supabase
+            .from('orders')
+            .select('order_data')
+            .eq('deleted', false)
+            .gte('created_at', ninetyDaysAgo.toISOString());
+
+        // We use contains to find orders with this product
+        if (variationId) {
+            query = query.contains('order_data', { items: [{ productId, variationId }] });
+        } else {
+            query = query.contains('order_data', { items: [{ productId }] });
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        if (!data) return { avgMonthlySales: 0 };
+
+        let totalQty = 0;
+        data.forEach((row: any) => {
+            const items = row.order_data?.items || [];
+            items.forEach((item: any) => {
+                if (item.productId === productId && (!variationId || item.variationId === variationId)) {
+                    totalQty += item.quantity || 0;
+                }
+            });
+        });
+
+        // Avg per month (90 days = 3 months)
+        return { avgMonthlySales: Math.round(totalQty / 3) };
+    } catch (error) {
+        console.error("Erro ao buscar estatísticas de venda:", error);
+        return { avgMonthlySales: 0 };
+    }
+};
+
+/**
+ * Converte todos os produtos simples (sem variações) para o modelo de variações
+ * criando uma variação padrão "COR: BRANCO" herdando os dados do pai.
+ */
+export const bulkConvertToVariations = async (): Promise<{ success: number, fails: number }> => {
+    try {
+        // 1. Buscar produtos simples que não foram deletados
+        const { data: simpleProducts, error: fetchError } = await supabase
+            .from(TABLE_NAME)
+            .select('*')
+            .eq('has_variations', false)
+            .eq('deleted', false);
+
+        if (fetchError) throw fetchError;
+        if (!simpleProducts || simpleProducts.length === 0) return { success: 0, fails: 0 };
+
+        let success = 0;
+        let fails = 0;
+
+        for (const p of simpleProducts) {
+            try {
+                const variationId = crypto.randomUUID();
+                const defaultVariation: Variation = {
+                    id: variationId,
+                    name: "COR: BRANCO",
+                    sku: p.code || `SKU-${variationId.substring(0, 8)}`,
+                    stock: Number(p.stock || 0),
+                    unitPrice: Number(p.unit_price || 0),
+                    costPrice: Number(p.cost_price || 0),
+                    active: true,
+                    condition: p.condition || 'novo',
+                    attributes: [{ name: 'COR', value: 'BRANCO' }],
+                    syncWithParent: true,
+                    syncUnitPrice: true,
+                    syncCostPrice: true,
+                    syncCondition: true
+                };
+
+                const { error: updateError } = await supabase
+                    .from(TABLE_NAME)
+                    .update({
+                        has_variations: true,
+                        variations: [defaultVariation],
+                        code: null,
+                        stock: 0,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', p.id);
+
+                if (updateError) throw updateError;
+                success++;
+            } catch (err) {
+                console.error(`Falha ao converter produto ${p.id}:`, err);
+                fails++;
+            }
+        }
+
+        return { success, fails };
+    } catch (error) {
+        console.error("Erro crítico na conversão em massa:", error);
+        throw error;
     }
 };

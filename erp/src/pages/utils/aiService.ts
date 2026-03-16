@@ -23,6 +23,13 @@ async function callAIBackend(endpoint: string, body: any) {
             body: JSON.stringify(body)
         });
 
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const text = await response.text();
+            console.error(`AI Backend returned non-JSON response (${endpoint}):`, text.substring(0, 200));
+            throw new Error(`AI Backend Error: Servidor retornou formato inválido (HTML/Texto). Verifique se o backend está rodando em ${AI_BACKEND_URL}`);
+        }
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.error || "AI Backend Error");
@@ -71,7 +78,11 @@ export const aiService = {
         differential?: string;
     }) {
         if (!data.description) throw new Error("Título base/descrição é obrigatório");
-        return await callAIBackend("generate-marketplace-title", data);
+        const result = await callAIBackend("generate-marketplace-title", data);
+        if (result && result.title) {
+            result.title = result.title.toUpperCase();
+        }
+        return result;
     },
 
     async generateProductDescription(data: { 
@@ -85,7 +96,11 @@ export const aiService = {
         notIncluded?: string;
         type: 'whatsapp' | 'ecommerce' 
     }) {
-        return await callAIBackend("generate-product-description", data);
+        const result = await callAIBackend("generate-product-description", data);
+        if (result && result.description) {
+            result.description = result.description.toUpperCase();
+        }
+        return result;
     },
 
     async suggestCategory(title: string, categories: string[]) {

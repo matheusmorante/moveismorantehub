@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Product, { Variation, FiscalInfo } from "../../types/product.type";
 import Person from "../../types/person.type";
-import { saveProduct } from '@/pages/utils/productService';
+import { saveProduct, getFullProduct } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from "react-toastify";
@@ -22,6 +22,7 @@ import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
 import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
+import ProductConversionModal from "./components/ProductConversionModal";
 
 interface ProductFormModalProps {
     isOpen: boolean;
@@ -53,11 +54,19 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                 </button>
                 <input
                     value={v.name}
-                    onChange={(e) => updateVariation(v.id, 'name', e.target.value.toUpperCase())}
-                    className="w-full bg-transparent border-none outline-none text-sm font-bold dark:text-slate-200"
-                    placeholder="EX: AZUL / P"
+                    readOnly
+                    className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-400 dark:text-slate-500 cursor-default"
+                    placeholder="VARIAÇÃO GERADA"
                 />
             </div>
+        </td>
+        <td className="px-6 py-4">
+            <input
+                value={v.sku}
+                onChange={(e) => updateVariation(v.id, 'sku', e.target.value.toUpperCase())}
+                className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent focus:border-blue-500"
+                placeholder="SKU"
+            />
         </td>
         <td className="px-6 py-4">
             <div className="flex items-center gap-2">
@@ -133,7 +142,7 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
 
 const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: ProductFormModalProps) => {
     const [activeTab, setActiveTab] = useState<'geral' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal'>('geral');
-    const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'photos' | 'descriptions' | 'logistics'>('photos');
+    const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'vitrine' | 'photos' | 'descriptions' | 'logistics'>('vitrine');
     const [loading, setLoading] = useState(false);
     const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
     const [isGeneratingComboName, setIsGeneratingComboName] = useState(false);
@@ -144,16 +153,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [suggestPricesResults, setSuggestPricesResults] = useState<{ low: any, medium: any, high: any } | null>(null);
     const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
     const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
-    const [bulkVariationOptions, setBulkVariationOptions] = useState<{ name: string, values: string }[]>([
-        { name: 'Cor', values: '' },
-        { name: 'Tamanho', values: '' }
-    ]);
+    const [bulkVariationOptions, setBulkVariationOptions] = useState<{ name: string, values: string[] }[]>([]);
     const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
     const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
     const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
     const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [availableCategories, setAvailableCategories] = useState<{ id: string, name: string, parent_id?: string | null }[]>([]);
+    const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
 
     const [formData, setFormData] = useState<Partial<Product>>({
         description: "",
@@ -187,16 +194,35 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     });
 
     useEffect(() => {
-        if (product) {
-            setFormData(product);
-        } else if (initialData) {
-            setFormData(prev => ({ ...prev, ...initialData }));
-        }
-    }, [product, initialData]);
+        let isMounted = true;
+        const loadFullData = async () => {
+            if (product?.id && isOpen) {
+                const full = await getFullProduct(product.id);
+                if (full && isMounted) {
+                    setFormData(full);
+                }
+            } else if (product) {
+                setFormData(product);
+            } else if (initialData) {
+                setFormData(prev => ({ ...prev, ...initialData }));
+            }
+        };
+        loadFullData();
+        return () => { isMounted = false; };
+    }, [product, initialData, isOpen]);
 
     useEffect(() => {
         const fetchSuppliers = async () => {
-            const { data } = await supabase.from('people').select('*').eq('is_supplier', true).eq('company_id', (await supabase.auth.getUser()).data.user?.user_metadata.company_id);
+            const { data: { user } } = await supabase.auth.getUser();
+            const companyId = user?.user_metadata?.company_id;
+            
+            let query = supabase.from('people').select('*').eq('person_type', 'suppliers');
+            
+            if (companyId) {
+                query = query.eq('company_id', companyId);
+            }
+
+            const { data } = await query.order('full_name');
             if (data) setSuppliers(data);
         };
         fetchSuppliers();
@@ -396,7 +422,20 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 material: formData.material,
                 differential: formData.mainDifferential
             });
-            setSuggestPricesResults(suggestions);
+
+            // Calculate margins locally if not provided by AI
+            const processedSuggestions = { ...suggestions };
+            (Object.keys(processedSuggestions) as Array<keyof typeof processedSuggestions>).forEach(tier => {
+                if (processedSuggestions[tier] && !processedSuggestions[tier].margin) {
+                    const price = processedSuggestions[tier].price;
+                    const cost = formData.finalPurchasePrice || 0;
+                    if (cost > 0) {
+                        processedSuggestions[tier].margin = Math.round(((price / cost) - 1) * 100);
+                    }
+                }
+            });
+
+            setSuggestPricesResults(processedSuggestions);
             toast.info("Sugestões de preço geradas!");
         } catch (error) {
             console.error(error);
@@ -446,27 +485,41 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const generateBulkVariations = () => {
         setIsGeneratingBulk(true);
         setTimeout(() => {
-            const attributes = bulkVariationOptions.filter(o => o.name && o.values);
-            const combinations: any[] = [{}];
+            const attributes = bulkVariationOptions.filter(o => o.name && o.values.length > 0);
+            if (attributes.length === 0) {
+                setIsGeneratingBulk(false);
+                return;
+            }
+
+            // Generate Cartesian Product
+            // Start with an array containing one empty combination object
+            let combinations: any[] = [{}];
 
             attributes.forEach(attr => {
-                const values = attr.values.split(',').map(v => v.trim());
                 const newCombinations: any[] = [];
                 combinations.forEach(combo => {
-                    values.forEach(val => {
+                    attr.values.forEach(val => {
+                        // Create a new combination for each value of the current attribute
                         newCombinations.push({ ...combo, [attr.name]: val });
                     });
                 });
-                combinations.length = 0;
-                combinations.push(...newCombinations);
+                combinations = newCombinations;
             });
 
             const newVars: Variation[] = combinations.map(combo => {
-                const name = Object.values(combo).join(' / ').toUpperCase();
+                // Generate name in formal pattern: "COLOR: BLUE / SIZE: LARGE"
+                // Sort keys to maintain consistency
+                const sortedKeys = Object.keys(combo).sort();
+                const nameParts = sortedKeys.map(key => `${key.toUpperCase()}: ${String(combo[key]).toUpperCase()}`);
+                const name = nameParts.join(' / ');
+                
+                // SKU suffix based on values only
+                const skuSuffix = sortedKeys.map(key => String(combo[key]).toUpperCase().replace(/\s+/g, '')).join('-');
+                
                 return {
                     id: Math.random().toString(36).substr(2, 9),
                     name,
-                    sku: "",
+                    sku: formData.code ? `${formData.code}-${skuSuffix}` : "",
                     unitPrice: formData.unitPrice || 0,
                     costPrice: formData.costPrice || 0,
                     stock: 0,
@@ -475,7 +528,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     syncDescription: true,
                     images: [],
                     active: true,
-                    attributes: [],
+                    attributes: Object.entries(combo).map(([name, value]) => ({ name, value: String(value) })),
                     comboItems: []
                 };
             });
@@ -486,8 +539,73 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 hasVariations: true
             }));
             setIsGeneratingBulk(false);
+            setBulkVariationOptions([]); // Clear selector after generation
             toast.success(`${newVars.length} variações geradas com sucesso!`);
-        }, 1000);
+        }, 800);
+    };
+
+    const validateProductActivation = (data: Partial<Product>) => {
+        const missing: string[] = [];
+        if (!data.description) missing.push("Título do Produto");
+        
+        // Ecommerce Content
+        if (!data.ecommerceDescription) missing.push("Descrição E-commerce (Aba Marketplace)");
+        if (!data.whatsappDescription) missing.push("Descrição WhatsApp (Aba Marketplace)");
+        
+        // Characteristics
+        if (!data.brand) missing.push("Marca / Fabricante");
+        if (!data.line && !data.hasNoLine) missing.push("Modelo / Linha (ou marque 'Sem Modelo')");
+        if (!data.material) missing.push("Material");
+        if (!data.colors) missing.push("Cores Disponíveis");
+        
+        // SupplyChain / Financial
+        if (!data.mainSupplierId) missing.push("Fornecedor Principal (Aba Estoque)");
+        if (!data.costPrice || data.costPrice <= 0) missing.push("Preço de Custo (Aba Estoque/Geral)");
+        if (!data.unitPrice || data.unitPrice <= 0) missing.push("Preço de Venda (Aba Geral)");
+        
+        // Visual
+        if (!data.images || data.images.length === 0) missing.push("Pelo menos uma Foto (Aba Marketplace)");
+        
+        // Logistics / Dimensions
+        if (!data.width || data.width <= 0) missing.push("Largura (Aba Geral)");
+        if (!data.height || data.height <= 0) missing.push("Altura (Aba Geral)");
+        if (!data.depth || data.depth <= 0) missing.push("Profundidade (Aba Geral)");
+        if (!data.weight || data.weight <= 0) missing.push("Peso Bruto (Aba Marketplace)");
+        
+        return missing;
+    };
+
+    const handleToggleActive = () => {
+        if (!formData.active) {
+            // Attempting to Activate
+            const missing = validateProductActivation(formData);
+            if (missing.length > 0) {
+                toast.error(
+                    <div>
+                        <p className="font-black text-[10px] uppercase mb-2">Requisitos de Ativação Pendentes:</p>
+                        <ul className="list-disc list-inside text-[9px] font-bold space-y-1">
+                            {missing.map((m, i) => <li key={i}>{m}</li>)}
+                        </ul>
+                    </div>,
+                    { autoClose: 8000 }
+                );
+                return;
+            }
+        }
+        setFormData({ ...formData, active: !formData.active });
+    };
+
+    const regenerateAllVariationSkus = () => {
+        if (!formData.code) return toast.error("O código do pai é necessário para gerar os SKUs das variações");
+        
+        setFormData(prev => ({
+            ...prev,
+            variations: prev.variations?.map(v => ({
+                ...v,
+                sku: `${prev.code}-${v.name.toUpperCase().replace(/\s+/g, '').replace(/\//g, '-')}`
+            }))
+        }));
+        toast.success("SKUs das variações atualizados!");
     };
 
     const handleSubmit = async () => {
@@ -547,10 +665,31 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
         setLoading(true);
         try {
-            const savedProduct = { ...formData, itemType: formData.itemType || 'product', isDraft: false } as Product;
-            await saveProduct(savedProduct);
+            // Normalização para MAIÚSCULAS global
+            const normalizedData = { 
+                ...formData, 
+                description: formData.description?.toUpperCase(),
+                marketplaceTitle: formData.marketplaceTitle?.toUpperCase(),
+                brand: formData.brand?.toUpperCase(),
+                line: formData.line?.toUpperCase(),
+                material: formData.material?.toUpperCase(),
+                colors: formData.colors?.toUpperCase(),
+                variations: formData.variations?.map(v => ({
+                    ...v,
+                    name: v.name.toUpperCase(),
+                    sku: v.sku.toUpperCase(),
+                    attributes: v.attributes?.map(a => ({
+                        name: a.name.toUpperCase(),
+                        value: a.value.toUpperCase()
+                    }))
+                })),
+                itemType: formData.itemType || 'product', 
+                isDraft: false 
+            } as Product;
+
+            await saveProduct(normalizedData);
             toast.success(product ? "Atualizado com sucesso!" : "Criado com sucesso!");
-            if (onSuccess) onSuccess(savedProduct);
+            if (onSuccess) onSuccess(normalizedData);
             onClose();
         } catch (error) {
             toast.error("Erro ao salvar o produto.");
@@ -591,8 +730,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         {[
                             { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
                             { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
-                            { id: 'variacoes', label: 'Variações / Grade', icon: 'bi-grid-3x3-gap' },
-                            { id: 'ecommerce', label: 'Marketplace/Ecommerce', icon: 'bi-cart-check' },
+                            { id: 'variacoes', label: 'Atributos / Grade', icon: 'bi-grid-3x3-gap' },
+                            { id: 'ecommerce', label: 'Vitrine / E-commerce / Marketplace', icon: 'bi-cart-check' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ].map(tab => (
                             <button
@@ -648,6 +787,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             isCombo={formData.isCombo || false}
                             onEditCombo={setEditingVariationComboId}
                             onEdit={setEditingVariationId}
+                            regenerateAllSkus={regenerateAllVariationSkus}
                         />
                     )}
 
@@ -682,13 +822,24 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 {/* Footer Buttons */}
                 <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-between gap-3 shrink-0">
                     <div className="flex items-center">
-                        <div className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${formData.active ? 'bg-emerald-500' : 'bg-slate-300'}`} onClick={() => setFormData({ ...formData, active: !formData.active })}>
+                        <div className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${formData.active ? 'bg-emerald-500' : 'bg-slate-300'}`} onClick={handleToggleActive}>
                             <div className={`w-3 h-3 bg-white rounded-full transition-transform ${formData.active ? 'translate-x-5' : 'translate-x-0'}`} />
                         </div>
-                        <span className="ml-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Ativo no Catálogo</span>
+                        <span className="ml-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Ativo no Catálogo (Anúncios)</span>
                     </div>
 
                     <div className="flex gap-3">
+                        {!formData.hasVariations && !formData.isCombo && formData.id && (
+                            <button
+                                type="button"
+                                onClick={() => setIsConversionModalOpen(true)}
+                                className="px-6 py-3 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                title="Transformar este produto simples em um produto com grade de varia├º├╡es"
+                            >
+                                <i className="bi bi-layers-fill"></i> Converter para Varia├º├úo
+                            </button>
+                        )}
+
                         <button
                             onClick={onClose}
                             className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95"
@@ -713,6 +864,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     onClose={() => setEditingVariationId(null)}
                     variation={formData.variations?.find(v => v.id === editingVariationId) || null}
                     parentProduct={{
+                        id: formData.id,
                         unitPrice: formData.unitPrice || 0,
                         costPrice: formData.costPrice || 0,
                         isCombo: formData.isCombo || false
@@ -822,6 +974,19 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             </div>
                         </div>
                     </div>
+                )}
+                
+                {isConversionModalOpen && (
+                    <ProductConversionModal
+                        isOpen={isConversionModalOpen}
+                        onClose={() => setIsConversionModalOpen(false)}
+                        formData={formData}
+                        onConvert={(updated) => {
+                            setFormData(updated);
+                            setActiveTab('variacoes');
+                            toast.success("Produto convertido! O c├│digo e estoque agora est├úo na primeira varia├º├úo.");
+                        }}
+                    />
                 )}
             </div>
         </div>

@@ -17,6 +17,8 @@ type SalesOrderFormSectionProps = {
 const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
+    const { currentStep } = state;
+
     return (
         <form
             className="flex flex-col w-full h-full bg-white dark:bg-slate-900 relative transition-colors duration-300 overflow-hidden"
@@ -25,120 +27,197 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-0 custom-scrollbar">
                 <FormHeader
-                    currentOrderId={state.currentOrderId}
+                    currentOrder={state.currentOrder}
                     onClearForm={actions.clearForm}
                     orderDate={state.orderDate}
                     setOrderDate={actions.setOrderDate}
                     isSavingDraft={state.isSavingDraft}
                 />
 
-                {/* Main Form Content */}
-                <div className="grid grid-cols-1 xl:grid-cols-3 2xl:grid-cols-4 gap-8 items-start pb-10">
-                    {/* Left Column - Items & Payments */}
-                    <div className="xl:col-span-2 2xl:col-span-3 flex flex-col gap-8">
-                        <SectionCard
-                            icon="bi bi-box-seam"
-                            iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
-                            title="Itens do Pedido"
-                            subtitle="Produtos e serviços selecionados"
-                        >
-                            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
-                                <ItemsTable
-                                    items={state.items}
-                                    setItems={actions.setItems}
-                                    summary={state.itemsSummary}
-                                    deliveryMethod={state.shipping.deliveryMethod}
+                {/* Wizard Steps Content */}
+                <div className="max-w-[1400px] mx-auto pb-10">
+                    {currentStep === 1 && (
+                        <div className="grid grid-cols-1 xl:grid-cols-1 gap-8 items-start animate-fade-in">
+                            <SectionCard
+                                icon="bi bi-box-seam"
+                                iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
+                                title="Itens do Pedido"
+                                subtitle="Produtos e serviços selecionados"
+                            >
+                                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
+                                    <ItemsTable
+                                        items={state.items}
+                                        setItems={actions.setItems}
+                                        summary={state.itemsSummary}
+                                        deliveryMethod={state.shipping.deliveryMethod}
+                                        errors={state.errors}
+                                    />
+                                </div>
+                            </SectionCard>
+                        </div>
+                    )}
+
+                    {currentStep === 2 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start animate-fade-in">
+                            <SectionCard
+                                icon="bi bi-person-workspace"
+                                iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
+                                title="Atendimento"
+                                className="bg-white dark:bg-slate-900"
+                            >
+                                <Seller
+                                    seller={state.seller}
+                                    setSeller={actions.setSeller}
                                     errors={state.errors}
                                 />
-                            </div>
-                        </SectionCard>
+                            </SectionCard>
 
-                        <SectionCard
-                            icon="bi bi-credit-card-2-front"
-                            iconBg="bg-indigo-600 shadow-indigo-100 dark:shadow-indigo-900/20"
-                            title="Condições de Pagamento"
-                            subtitle="Formas e prazos acordados"
-                        >
-                            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
-                                <PaymentsTable
-                                    payments={state.payments}
-                                    setPayments={actions.setPayments}
-                                    summary={state.paymentsSummary}
-                                />
-                            </div>
-                        </SectionCard>
-                    </div>
-
-                    {/* Right Column - Customer & Shipping */}
-                    <div className="flex flex-col gap-8">
-                        <SectionCard
-                            icon="bi bi-person-workspace"
-                            iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
-                            title="Atendimento"
-                            className="bg-white dark:bg-slate-900"
-                        >
-                            <Seller
-                                seller={state.seller}
-                                setSeller={actions.setSeller}
-                                errors={state.errors}
-                            />
-                        </SectionCard>
-
-                        <SectionCard
-                            icon="bi bi-person-badge"
-                            iconBg="bg-purple-600 shadow-purple-100 dark:shadow-purple-900/20"
-                            title="Dados do Cliente"
-                            className="bg-white dark:bg-slate-900"
-                        >
-                            <PersonalInfos
-                                customerData={state.customerData}
-                                setCustomerData={actions.setCustomerData}
-                                errors={state.errors}
-                            />
-                        </SectionCard>
-
-                        <SectionCard
-                            icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
-                            iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
-                            title={isPickup ? "Retirada" : "Entrega"}
-                            className="bg-white dark:bg-slate-900 transition-colors duration-300"
-                        >
-                            <div className="space-y-8">
-                                <ShippingInputs
-                                    shipping={state.shipping}
-                                    setShipping={actions.setShipping}
+                            <SectionCard
+                                icon="bi bi-person-badge"
+                                iconBg="bg-purple-600 shadow-purple-100 dark:shadow-purple-900/20"
+                                title="Cliente"
+                                className="bg-white dark:bg-slate-900"
+                            >
+                                <PersonalInfos
                                     customerData={state.customerData}
-                                    isCalculatingDistance={state.isCalculatingDistance}
-                                    onAutoCalculateDistance={() => actions.handleAutoCalculateDistance(state.customerData.fullAddress)}
+                                    setCustomerData={actions.setCustomerData}
                                     errors={state.errors}
                                 />
-                            </div>
-                        </SectionCard>
+                            </SectionCard>
+                        </div>
+                    )}
 
-                        <SectionCard
-                            icon="bi bi-exclamation-triangle-fill"
-                            iconBg="bg-amber-600 shadow-amber-100 dark:shadow-amber-900/20"
-                            title="Avisos Importantes"
-                            className="bg-white dark:bg-slate-900"
-                        >
-                            <NoticeInput
-                                value={state.observation}
-                                onChange={(val) => actions.setObservation(val)}
-                                placeholder="Destaque pontos críticos ou raros do pedido..."
-                            />
-                        </SectionCard>
-                    </div>
+                    {currentStep === 3 && (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start animate-fade-in">
+                            <div className="space-y-8">
+                                <SectionCard
+                                    icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
+                                    iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
+                                    title={isPickup ? "Dados da Retirada" : "Dados da Entrega"}
+                                    className="bg-white dark:bg-slate-900 transition-colors duration-300"
+                                >
+                                    <ShippingInputs
+                                        shipping={state.shipping}
+                                        setShipping={actions.setShipping}
+                                        customerData={state.customerData}
+                                        isCalculatingDistance={state.isCalculatingDistance}
+                                        onAutoCalculateDistance={() => actions.handleAutoCalculateDistance(state.customerData.fullAddress)}
+                                        errors={state.errors}
+                                    />
+                                </SectionCard>
+
+                                <SectionCard
+                                    icon="bi bi-exclamation-triangle-fill"
+                                    iconBg="bg-amber-600 shadow-amber-100 dark:shadow-amber-900/20"
+                                    title="Avisos e Observações"
+                                    className="bg-white dark:bg-slate-900"
+                                >
+                                    <NoticeInput
+                                        value={state.observation}
+                                        onChange={(val) => actions.setObservation(val)}
+                                        placeholder="Destaque pontos críticos ou raros do pedido..."
+                                    />
+                                </SectionCard>
+                            </div>
+
+                            <SectionCard
+                                icon="bi bi-credit-card-2-front"
+                                iconBg="bg-indigo-600 shadow-indigo-100 dark:shadow-indigo-900/20"
+                                title="Condição de Pagamento"
+                                subtitle="Formas e prazos acordados"
+                            >
+                                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
+                                    <PaymentsTable
+                                        payments={state.payments}
+                                        setPayments={actions.setPayments}
+                                        summary={state.paymentsSummary}
+                                    />
+                                </div>
+                            </SectionCard>
+                        </div>
+                    )}
+
+                    {currentStep === 4 && (
+                        <div className="animate-fade-in bg-white dark:bg-slate-900 rounded-3xl p-10 border border-slate-100 dark:border-slate-800 text-center">
+                             <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <i className="bi bi-check-all text-4xl" />
+                             </div>
+                             <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Quase lá!</h2>
+                             <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto">Confira os detalhes abaixo e clique em finalizar para registrar o pedido no sistema.</p>
+                             
+                             {/* Mini Summary could go here */}
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-left border border-slate-100 dark:border-slate-800 mb-8">
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Cliente</h4>
+                                    <p className="text-sm font-bold">{state.customerData.fullName || 'Não informado'}</p>
+                                </div>
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total</h4>
+                                    <p className="text-sm font-bold text-blue-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}</p>
+                                </div>
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Vendedor</h4>
+                                    <p className="text-sm font-bold">{state.seller || 'Não informado'}</p>
+                                </div>
+                             </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Fixed Footer */}
-            <FormFooter
-                currentOrder={state.currentOrder}
-                totalOrderValue={state.paymentsSummary.totalOrderValue}
-                isSaving={state.isSaving}
-                onCompleteOrder={actions.handleCompleteOrder}
-                buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Finalizar"}
-            />
+            {/* Wizard Navigation Footer */}
+            <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/95 backdrop-blur-md py-6 px-8 shrink-0 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)]">
+                <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        {currentStep > 1 && (
+                            <button
+                                type="button"
+                                onClick={actions.goToPrevStep}
+                                className="px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2"
+                            >
+                                <i className="bi bi-arrow-left" /> Anterior
+                            </button>
+                        )}
+                        <div className="hidden md:flex flex-col">
+                             <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">Etapa {currentStep} de 4</span>
+                             <div className="flex gap-1 mt-1">
+                                {[1,2,3,4].map(s => (
+                                    <div key={s} className={`w-8 h-1 rounded-full ${s <= currentStep ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`} />
+                                ))}
+                             </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="bg-slate-50 dark:bg-slate-800/80 px-5 py-2 rounded-xl border border-slate-100 dark:border-slate-800 mr-4">
+                            <span className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Total</span>
+                            <span className="text-lg font-black italic text-slate-800 dark:text-slate-100 tracking-tighter">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}
+                            </span>
+                        </div>
+
+                        {currentStep < 4 ? (
+                            <button
+                                type="button"
+                                onClick={actions.goToNextStep}
+                                className="px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 dark:shadow-blue-900/20 transition-all flex items-center gap-2 active:scale-95"
+                            >
+                                Próximo <i className="bi bi-arrow-right text-lg" />
+                            </button>
+                        ) : (
+                            <FormFooter
+                                currentOrder={state.currentOrder}
+                                totalOrderValue={state.paymentsSummary.totalOrderValue}
+                                isSaving={state.isSaving}
+                                onCompleteOrder={actions.handleCompleteOrder}
+                                buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Finalizar Pedido"}
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            <style dangerouslySetInnerHTML={{ __html: `@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }` }} />
         </form>
     );
 };

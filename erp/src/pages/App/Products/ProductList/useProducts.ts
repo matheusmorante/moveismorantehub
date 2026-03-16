@@ -91,18 +91,24 @@ export const useProducts = (filters?: any) => {
             const variationsFromIndependent = independentVars.filter(v => v.parentId === product.id);
             const actuallyHasVariations = product.hasVariations || variationsFromIndependent.length > 0;
             
-            flattened.push({ ...product, isParent: actuallyHasVariations });
+            // Se tem variações, o pai não exibe código/sku (vira apenas um agrupador)
+            flattened.push({ 
+                ...product, 
+                isParent: actuallyHasVariations,
+                code: actuallyHasVariations ? "" : product.code 
+            });
 
             // 1. Child Rows from JSON field
             if (product.hasVariations && product.variations) {
-                product.variations.forEach((v: any) => {
+                product.variations.forEach((v: any, index: number) => {
                     const child = {
                         ...product,
-                        id: `${product.id}_${v.sku}`,
+                        id: `${product.id}_${v.sku || index}`,
                         sku: v.sku,
+                        code: v.sku, // Garantir que a coluna 'C├│digo' use o SKU da varia├º├úo
                         description: v.syncDescription ? `${product.description} - ${v.name}` : v.name,
-                        unitPrice: v.unitPrice,
-                        costPrice: v.costPrice,
+                        unitPrice: typeof v.unitPrice !== 'undefined' ? v.unitPrice : v.unit_price,
+                        costPrice: typeof v.costPrice !== 'undefined' ? v.costPrice : (typeof v.cost_price !== 'undefined' ? v.cost_price : product.costPrice),
                         stock: v.stock,
                         active: v.active,
                         images: v.images || [],
@@ -126,7 +132,8 @@ export const useProducts = (filters?: any) => {
 
                 flattened.push({
                     ...v,
-                    sku: vCode, // map code to sku for consistency in variation display
+                    sku: vCode, 
+                    code: vCode, // Garantir consist├¬ncia na exibi├º├úo do c├│digo
                     isVariation: true,
                     parentId: product.id,
                     description: v.description.includes(product.description) ? v.description : `${product.description} - ${v.description}`

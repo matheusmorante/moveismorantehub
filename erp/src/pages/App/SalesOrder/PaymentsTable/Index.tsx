@@ -2,6 +2,7 @@ import React from "react";
 import Body from "./Body";
 import Footer from "./Footer";
 import { PaymentsSummary, Payment } from "../../../types/payments.type";
+import { useWindowSize } from "../../../../hooks/useWindowSize";
 
 type Props = {
     payments: Payment[],
@@ -10,6 +11,8 @@ type Props = {
 }
 
 const PaymentsTable = ({ payments, setPayments, summary }: Props) => {
+    const { width } = useWindowSize();
+    const isMobile = width <= 900;
 
     const addPayment = () => {
         setPayments((prev: Payment[]) => {
@@ -21,6 +24,35 @@ const PaymentsTable = ({ payments, setPayments, summary }: Props) => {
                 status: ''
             }]
         })
+    }
+
+    if (isMobile) {
+        return (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center px-1">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Pagamentos</h3>
+                    <button
+                        type="button"
+                        onClick={addPayment}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+                    >
+                        <i className="bi bi-plus-lg" />
+                        Add Pagamento
+                    </button>
+                </div>
+
+                <Body
+                    payments={payments}
+                    setPayments={setPayments}
+                    summary={summary}
+                    isMobile={isMobile}
+                />
+
+                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                    <Footer summary={summary} isMobile={isMobile} />
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -52,11 +84,13 @@ const PaymentsTable = ({ payments, setPayments, summary }: Props) => {
                     </th>
                 </tr>
             </thead>
-            <Body payments={payments} setPayments={setPayments} summary={summary} />
+            <Body payments={payments} setPayments={setPayments} summary={summary} isMobile={isMobile} />
             <Footer
                 summary={summary}
+                isMobile={isMobile}
             />
         </table>
-    )
-}
-export default PaymentsTable;
+    );
+};
+
+export default PaymentsTable;

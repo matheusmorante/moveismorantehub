@@ -123,7 +123,7 @@ export const buttons: OrderButton[] = [
         key: "stockWithdrawal",
         icon: "bi-box-arrow-right",
         action: "STOCK_WITHDRAWAL",
-        label: "Lançar Saída",
+        label: "Lançar Estoque",
         color: "text-orange-600 hover:bg-orange-50",
         tooltip: "Lançar saída de estoque manualmente para este pedido",
         orderTypes: ['sale']
@@ -132,7 +132,7 @@ export const buttons: OrderButton[] = [
         key: "stockReversal",
         icon: "bi-arrow-counterclockwise",
         action: "STOCK_REVERSAL",
-        label: "Estornar Saída",
+        label: "Estornar Estoque",
         color: "text-blue-600 hover:bg-blue-50",
         tooltip: "Estornar (devolver) itens para o estoque",
         orderTypes: ['sale']

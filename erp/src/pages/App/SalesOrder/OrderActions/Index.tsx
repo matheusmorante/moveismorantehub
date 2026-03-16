@@ -6,7 +6,7 @@ import { validateOrder } from "../../../utils/validations";
 import { toast } from "react-toastify";
 
 
-const OrderActions = ({ order }: { order: Order }) => {
+const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'form' | 'list' }) => {
   const [localClicked, setLocalClicked] = useState<IsButtonsClicked>(order.isButtonsClicked || {
     printReceipt: false,
     printShippingOrder: false,
@@ -15,7 +15,9 @@ const OrderActions = ({ order }: { order: Order }) => {
     sendCustomerOrder: false,
     sendCustomerReviews: false,
     stockWithdrawal: false,
-    stockReversal: false
+    stockReversal: false,
+    printShippingLabel: false,
+    printProductLabel: false
   });
 
   async function markClicked(key: keyof IsButtonsClicked) {
@@ -44,9 +46,32 @@ const OrderActions = ({ order }: { order: Order }) => {
   const orderType = order.orderType || 'sale';
 
   // Filter buttons: show only buttons that match orderType (or no orderTypes restriction)
-  const visibleButtons = buttons.filter(btn => 
-    !btn.orderTypes || btn.orderTypes.includes(orderType)
-  );
+  const visibleButtons = buttons.filter(btn => {
+    // Basic order type restriction
+    if (btn.orderTypes && !btn.orderTypes.includes(orderType)) return false;
+
+    // Form-specific restrictions
+    if (context === 'form') {
+      // Hide stock actions and labels in form mode
+      if (['STOCK_WITHDRAWAL', 'STOCK_REVERSAL', 'PRINT_SHIPPING_LABEL', 'PRINT_PRODUCT_LABEL'].includes(btn.action)) return false;
+      
+      // Evaluation button only in Pickup or Fullfilled
+      if (btn.action === 'SEND_CUSTOMER_REVIEWS') {
+        const isPickup = order.shipping?.deliveryMethod === 'pickup';
+        const isFulfilled = order.status === 'fulfilled';
+        if (!isPickup && !isFulfilled) return false;
+      }
+    }
+
+    // Toggle logic for stock (only in list mode or general)
+    if (context === 'list') {
+        const stockLaunched = order.status === 'scheduled' || order.status === 'fulfilled'; // Simplified check
+        if (btn.action === 'STOCK_WITHDRAWAL' && stockLaunched) return false;
+        if (btn.action === 'STOCK_REVERSAL' && !stockLaunched) return false;
+    }
+
+    return true;
+  });
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-6">

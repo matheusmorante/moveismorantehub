@@ -6,9 +6,10 @@ interface Props {
     payments: Payment[];
     setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
     summary: PaymentsSummary;
+    isMobile?: boolean;
 }
 
-const Body = ({ payments, setPayments, summary }: Props) => {
+const Body = ({ payments, setPayments, summary, isMobile }: Props) => {
     const toggleFeeType = (idx: number) => {
         setPayments((prev: Payment[]) => {
             const newPayments = [...prev];
@@ -51,22 +52,28 @@ const Body = ({ payments, setPayments, summary }: Props) => {
         })
     };
 
+    const content = payments.map((payment, idx) => (
+        <BodyRow
+            key={idx}
+            onToggleFeeType={() => toggleFeeType(idx)}
+            onChange={changePayments}
+            onDelete={() => deletePayment(idx)}
+            payment={payment}
+            summary={summary}
+            idx={idx}
+            isMobile={isMobile}
+        />
+    ));
+
+    if (isMobile) {
+        return <div className="space-y-4">{content}</div>;
+    }
+
     return (
         <tbody>
-            {payments.map((payment, idx) => (
-                <BodyRow
-                    key={idx}
-                    onToggleFeeType={() => toggleFeeType(idx)}
-                    onChange={changePayments}
-                    onDelete={() => deletePayment(idx)}
-                    payment={payment}
-                    summary={summary}
-                    idx={idx}
-                />
-            ))}
+            {content}
         </tbody>
     )
 }
-
 
 export default Body;

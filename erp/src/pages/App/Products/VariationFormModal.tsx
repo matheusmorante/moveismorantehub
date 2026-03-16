@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
-import Product, { Variation } from "../../types/product.type";
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import Product, { Variation } from '../../types/product.type';
 import { saveVariation } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
+import { generateProductCode } from '@/pages/utils/formatters';
 
 interface VariationFormModalProps {
     isOpen: boolean;
@@ -82,10 +84,13 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
         } : null);
     };
 
-    return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl h-[90vh] md:h-auto max-h-[95vh] rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col">
+    return createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+            <div 
+                className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden"
+                style={{ height: 'min(85vh, 700px)' }}
+            >
                 {/* Header */}
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
                     <div>
@@ -107,7 +112,8 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-6">
+                <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+                    <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0">
                         <div className="flex flex-col gap-4">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center justify-between">
@@ -204,7 +210,26 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">SKU / Código Único</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center justify-between">
+                                    SKU / Código Único
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!formData.name && !parentProduct.description) {
+                                                return toast.warning("Defina o nome da variação primeiro");
+                                            }
+                                            const base = parentProduct.description || "PROD";
+                                            const varName = formData.name ? ` ${formData.name}` : "";
+                                            const newCode = generateProductCode(`${base}${varName}`);
+                                            setFormData({ ...formData, sku: newCode });
+                                            toast.info(`SKU Sugerido: ${newCode}`);
+                                        }}
+                                        className="p-1 px-2 border border-slate-100 dark:border-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                        title="Sugerir SKU"
+                                    >
+                                        <i className="bi bi-magic mr-1"></i> Sugerir
+                                    </button>
+                                </label>
                                 <input
                                     type="text"
                                     value={formData.sku}
@@ -434,8 +459,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                             </div>
                         </div>
                     </div>
+                    </div>
 
-                    <div className="flex gap-4 mt-auto shrink-0">
+                    <div className="p-8 border-t border-slate-50 dark:border-slate-800 flex gap-4 shrink-0 bg-white dark:bg-slate-900">
                         <button
                             type="button"
                             onClick={onClose}
@@ -454,7 +480,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 </form>
             </div>
         </div>
-    );
+    , document.body);
 };
 
 export default VariationFormModal;

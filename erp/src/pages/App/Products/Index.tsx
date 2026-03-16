@@ -5,6 +5,8 @@ import ProductFormModal from "./ProductFormModal";
 import Product, { ProductVisibilitySettings } from "../../types/product.type";
 import { Link } from "react-router-dom";
 import PriceHistoryModal from "./PriceHistoryModal";
+import { bulkConvertToVariations } from "@/pages/utils/productService";
+import { toast } from "react-toastify";
 import VariationFormModal from "./VariationFormModal";
 import StockLaunchModal from "../Stock/components/StockLaunchModal";
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
@@ -106,10 +108,10 @@ const Products = () => {
                     <div className="flex items-start xl:items-center gap-4 xl:gap-6">
                         <div>
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Produtos
+                                Produtos e Serviços
                             </h1>
                             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Portfólio de Itens e Gestão de Estoque
+                                Catálogo de Produtos, Serviços e Gestão de Estoque
                             </p>
                         </div>
                     </div>
@@ -210,7 +212,7 @@ const Products = () => {
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                             >
                                 <i className="bi bi-ui-radios"></i>
-                                Configurar Variações
+                                Gerenciar Atributos e Valores
                             </Link>
 
                             <button
@@ -222,51 +224,74 @@ const Products = () => {
                             </button>
                         </div>
 
-                        <div className="relative">
+                        <div className="flex gap-3">
                             <button
-                                onClick={() => setShowSettings(!showSettings)}
-                                className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest ${showSettings
-                                    ? 'border-blue-200 text-blue-600 dark:border-blue-800'
-                                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
-                                    }`}
+                                onClick={async () => {
+                                    if (window.confirm("ATENÇÃO: Isso converterá TODOS os produtos simples para o modelo de variações (COR: BRANCO). Esta ação não pode ser desfeita. Deseja continuar?")) {
+                                        const loadingToast = toast.info("Convertendo produtos... Aguarde.", { autoClose: false });
+                                        try {
+                                            const { success, fails } = await bulkConvertToVariations();
+                                            toast.dismiss(loadingToast);
+                                            toast.success(`Conversão concluída! ${success} fixados, ${fails} falhas.`);
+                                            // Forçar recarregamento da página ou estado se necessário, mas as subscriptions devem cuidar disso
+                                        } catch (err) {
+                                            toast.dismiss(loadingToast);
+                                            toast.error("Erro crítico na conversão em massa.");
+                                        }
+                                    }
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/40"
                             >
-                                <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
-                                Visualização
+                                <i className="bi bi-magic"></i>
+                                Converter Simples p/ Variação (Bulk)
                             </button>
 
-                            {showSettings && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
-                                    <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {[
-                                                { key: 'code', label: 'Código' },
-                                                { key: 'description', label: 'Título do Produto' },
-                                                { key: 'category', label: 'Categoria' },
-                                                { key: 'createdAt', label: 'Data Criação' },
-                                                { key: 'costPrice', label: 'Preço de Custo' },
-                                                { key: 'unitPrice', label: 'Preço de Venda' },
-                                                { key: 'stock', label: 'Estoque' },
-                                                { key: 'actions', label: 'Ações' },
-                                            ].map((col) => (
-                                                <button
-                                                    key={col.key}
-                                                    onClick={() => toggleVisibility(col.key as keyof ProductVisibilitySettings)}
-                                                    className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
-                                                >
-                                                    <span className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}>
-                                                        {col.label}
-                                                    </span>
-                                                    <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}>
-                                                        <div className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                    </div>
-                                                </button>
-                                            ))}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowSettings(!showSettings)}
+                                    className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest ${showSettings
+                                        ? 'border-blue-200 text-blue-600 dark:border-blue-800'
+                                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
+                                        }`}
+                                >
+                                    <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                                    Visualização
+                                </button>
+
+                                {showSettings && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+                                        <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
+                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {[
+                                                    { key: 'code', label: 'Código' },
+                                                    { key: 'description', label: 'Título do Produto' },
+                                                    { key: 'category', label: 'Categoria' },
+                                                    { key: 'createdAt', label: 'Data Criação' },
+                                                    { key: 'costPrice', label: 'Preço de Custo' },
+                                                    { key: 'unitPrice', label: 'Preço de Venda' },
+                                                    { key: 'stock', label: 'Estoque' },
+                                                    { key: 'actions', label: 'Ações' },
+                                                ].map((col) => (
+                                                    <button
+                                                        key={col.key}
+                                                        onClick={() => toggleVisibility(col.key as keyof ProductVisibilitySettings)}
+                                                        className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
+                                                    >
+                                                        <span className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}>
+                                                            {col.label}
+                                                        </span>
+                                                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                                                            <div className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                </>
-                            )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -319,7 +344,7 @@ const Products = () => {
                                 <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
                                     Produtos Desativados
                                 </h2>
-                                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Gerencie produtos e serviços desativados</p>
+                                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Gerencie produtos e serviços desativados (Lixeira)</p>
                             </div>
                             <button onClick={() => setIsTrashOpen(false)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                                 <i className="bi bi-x-lg text-xl"></i>

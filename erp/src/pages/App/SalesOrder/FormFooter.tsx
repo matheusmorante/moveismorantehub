@@ -50,7 +50,7 @@ const FormFooter = ({ currentOrder, totalOrderValue, isSaving, onCompleteOrder, 
 
                 {/* Actions Row - Full Width and Centered */}
                 <div className="w-full pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
-                    <OrderActions order={currentOrder} />
+                    <OrderActions order={currentOrder} context="form" />
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 import React from "react";
 import BodyRow from "./BodyRow";
-import { Item, ItemsSummary } from "../../../types/items.type";
+import { Item } from "../../../types/items.type";
 import Product, { Variation } from "../../../types/product.type";
 import { sanitizeItem } from "../../../utils/sanitization";
 import { ValidationErrors } from "../../../utils/validations";
@@ -10,9 +10,10 @@ interface Props {
     setItems: React.Dispatch<React.SetStateAction<Item[]>>;
     deliveryMethod: 'delivery' | 'pickup';
     errors: ValidationErrors;
+    isMobile?: boolean;
 }
 
-const Body = ({ items, setItems, deliveryMethod, errors }: Props) => {
+const Body = ({ items, setItems, deliveryMethod, errors, isMobile }: Props) => {
     const toggleDiscountType = (idx: number) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
@@ -89,12 +90,7 @@ const Body = ({ items, setItems, deliveryMethod, errors }: Props) => {
                 let comboStockMultiplier = typeof value === 'string' ? parseFloat(value) : value;
                 if (isNaN(comboStockMultiplier)) comboStockMultiplier = 1;
 
-                // This logic is a bit brittle as it relies on position.
-                // Ideally each ci would have a base multiplier stored.
-                // For simplicity, we assume the next items with isComboItem=true belong to this combo.
                 while (nextIdx < newItems.length && newItems[nextIdx].isComboItem) {
-                    // Update linked item quantity - this part is hard without the original component ratio
-                    // For now, we just update the root.
                     nextIdx++;
                 }
             }
@@ -121,25 +117,26 @@ const Body = ({ items, setItems, deliveryMethod, errors }: Props) => {
         });
     };
 
-    return (
-        <tbody>
-            {
-                items.map((item, idx) => (
-                    <BodyRow
-                        key={`${idx}-${item.productId || 'empty'}`}
-                        item={item}
-                        idx={idx}
-                        onChange={changeItems}
-                        onSelectProduct={onSelectProduct}
-                        onToggleDiscountType={() => toggleDiscountType(idx)}
-                        onDelete={() => deleteItem(idx)}
-                        deliveryMethod={deliveryMethod}
-                        errors={errors}
-                    />
-                ))
-            }
-        </tbody>
-    )
+    const content = items.map((item, idx) => (
+        <BodyRow
+            key={`${idx}-${item.productId || 'empty'}`}
+            item={item}
+            idx={idx}
+            onChange={changeItems}
+            onSelectProduct={onSelectProduct}
+            onToggleDiscountType={() => toggleDiscountType(idx)}
+            onDelete={() => deleteItem(idx)}
+            deliveryMethod={deliveryMethod}
+            errors={errors}
+            isMobile={isMobile}
+        />
+    ));
+
+    if (isMobile) {
+        return <div className="space-y-4">{content}</div>;
+    }
+
+    return <tbody>{content}</tbody>;
 };
 
 export default Body;

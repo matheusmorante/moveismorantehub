@@ -75,21 +75,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const handleSession = async (session: any) => {
             if (!active) return;
             
-            if (session?.user) {
-                setUser(session.user);
-                
-                // Cleanup URL hash if it contains auth tokens
+            const newUser = session?.user || null;
+            setUser(newUser);
+
+            if (newUser) {
+                // Cleanup URL hash
                 if (window.location.hash.includes('access_token=')) {
                     window.history.replaceState(null, '', window.location.pathname + window.location.search);
                 }
 
-                try {
-                    await fetchProfile(session.user.id);
-                } finally {
-                    if (active) setLoading(false);
+                // Only fetch if profile is missing or user changed
+                if (!profile || profile.id !== newUser.id) {
+                    try {
+                        await fetchProfile(newUser.id);
+                    } finally {
+                        if (active) setLoading(false);
+                    }
+                } else {
+                    setLoading(false);
                 }
             } else {
-                setUser(null);
                 setProfile(null);
                 setLoading(false);
             }

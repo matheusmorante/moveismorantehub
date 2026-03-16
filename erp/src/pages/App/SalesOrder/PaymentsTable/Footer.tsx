@@ -3,9 +3,41 @@ import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 
 interface Props {
     summary: PaymentsSummary,
+    isMobile?: boolean;
 }
 
-const Footer = ({ summary }: Props) => {
+const Footer = ({ summary, isMobile }: Props) => {
+
+    if (isMobile) {
+        return (
+            <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">V. T. das Taxas</span>
+                    <span className="text-sm font-bold text-slate-600">
+                        <CurrencyDisplay value={summary.totalPaymentsFee} />
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">V. T. do Pedido</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                        <CurrencyDisplay value={summary.totalOrderValue} />
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Valor Total Pago</span>
+                    <span className="text-sm font-bold text-green-600">
+                        <CurrencyDisplay value={summary.totalAmountPaid} />
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Valor Restante</span>
+                    <span className="text-sm font-bold text-orange-600">
+                        <CurrencyDisplay value={summary.amountRemaining} />
+                    </span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <tfoot className="border-t-2 border-slate-100">

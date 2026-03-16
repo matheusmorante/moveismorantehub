@@ -84,6 +84,7 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
     const [assistanceServiceValue, setAssistanceServiceValue] = useState(0);
     const [assistanceCost, setAssistanceCost] = useState(0);
     const [linkedOrderId, setLinkedOrderId] = useState("");
+    const [currentStep, setCurrentStep] = useState(1);
     const lastCalculatedAddressRef = useRef<string>("");
 
     // Auto-save control
@@ -96,15 +97,15 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
     // Stable state ref for callbacks
     const latestState = useRef({
         currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
-        orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId
+        orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
     });
 
     useEffect(() => {
         latestState.current = {
             currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
-            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId
+            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
         };
-    }, [currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft, orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId]);
+    }, [currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft, orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep]);
 
     const getOrderData = useCallback((newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'): Order => {
         const s = latestState.current;
@@ -437,7 +438,8 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
         isValidForCompletion,
         errors,
         orderDate,
-    }), [items, shipping, payments, customerData, observation, seller, marketingOrigin, currentOrderId, status, isSaving, isSavingDraft, isCalculatingDistance, itemsSummary, paymentsSummary, currentOrder, isValidForCompletion, errors, orderDate]);
+        currentStep,
+    }), [items, shipping, payments, customerData, observation, seller, marketingOrigin, currentOrderId, status, isSaving, isSavingDraft, isCalculatingDistance, itemsSummary, paymentsSummary, currentOrder, isValidForCompletion, errors, orderDate, currentStep]);
 
     const actions = useMemo(() => ({
         setItems,
@@ -482,6 +484,9 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
         setErrors,
         validateOrder,
         setOrderDate,
+        goToNextStep: () => setCurrentStep(prev => Math.min(prev + 1, 4)),
+        goToPrevStep: () => setCurrentStep(prev => Math.max(prev - 1, 1)),
+        jumpToStep: (step: number) => setCurrentStep(step),
     }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm]);
 
     return { state, actions };

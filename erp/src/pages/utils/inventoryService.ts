@@ -5,12 +5,15 @@ import { updateProduct } from '@/pages/utils/productService';
 const TABLE_NAME = "inventory_moves";
 
 export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => void) => {
+    let currentMoves: InventoryMove[] = [];
+
     supabase.from(TABLE_NAME)
         .select('*')
         .order('date', { ascending: false })
-        .then(({ data, error }) => {
+        .then(({ data, error }: { data: any, error: any }) => {
             if (data && !error) {
-                callback(data.map(mapFromDB));
+                currentMoves = data.map(mapFromDB);
+                callback(currentMoves);
             } else if (error) {
                 console.error("Erro ao buscar lançamentos iniciais:", error);
                 callback([]);
@@ -18,13 +21,19 @@ export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => 
         });
 
     const channel = supabase.channel('inventory_moves_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
-            supabase.from(TABLE_NAME)
-                .select('*')
-                .order('date', { ascending: false })
-                .then(({ data }) => {
-                    if (data) callback(data.map(mapFromDB));
-                });
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
+            if (payload.eventType === 'INSERT') {
+                const newMove = mapFromDB(payload.new);
+                currentMoves = [newMove, ...currentMoves].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                callback(currentMoves);
+            } else if (payload.eventType === 'UPDATE') {
+                const updatedMove = mapFromDB(payload.new);
+                currentMoves = currentMoves.map(m => m.id === updatedMove.id ? updatedMove : m);
+                callback(currentMoves);
+            } else if (payload.eventType === 'DELETE') {
+                currentMoves = currentMoves.filter(m => m.id !== String(payload.old.id));
+                callback(currentMoves);
+            }
         })
         .subscribe();
 
@@ -78,12 +87,41 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
 
 export const deleteInventoryMove = async (id: string): Promise<void> => {
     try {
+        const { data: move } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
+        if (!move) return;
+
         const { error } = await supabase
             .from(TABLE_NAME)
             .delete()
             .eq('id', id);
 
         if (error) throw error;
+
+        // Revert stock
+        const { data: p } = await supabase.from('products').select('*').eq('id', move.product_id).single();
+        if (!p) return;
+
+        let newTotalStock = Number(p.stock || 0);
+        let updatedVariations = p.variations ? [...p.variations] : [];
+
+        if (move.variation_id && updatedVariations.length > 0) {
+            const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variation_id));
+            if (vIdx !== -1) {
+                let vStock = Number(updatedVariations[vIdx].stock || 0);
+                if (move.type === 'entry') vStock -= move.quantity;
+                else if (move.type === 'withdrawal') vStock += move.quantity;
+                updatedVariations[vIdx].stock = vStock;
+            }
+            newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
+        } else {
+            if (move.type === 'entry') newTotalStock -= move.quantity;
+            else if (move.type === 'withdrawal') newTotalStock += move.quantity;
+        }
+
+        await updateProduct(move.product_id, { 
+            stock: newTotalStock,
+            variations: updatedVariations.length > 0 ? updatedVariations : undefined
+        });
     } catch (error) {
         console.error("Erro ao deletar lançamento de estoque: ", error);
         throw error;
@@ -92,6 +130,9 @@ export const deleteInventoryMove = async (id: string): Promise<void> => {
 
 export const updateInventoryMove = async (id: string, updates: Partial<InventoryMove>): Promise<void> => {
     try {
+        const { data: oldMove } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
+        if (!oldMove) throw new Error("Move not found");
+
         const dbUpdates: any = {};
         if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
         if (updates.unitCost !== undefined) dbUpdates.unit_cost = updates.unitCost;
@@ -106,6 +147,38 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
             .eq('id', id);
 
         if (error) throw error;
+
+        // If quantity changed, update product stock
+        if (updates.quantity !== undefined && Number(updates.quantity) !== Number(oldMove.quantity)) {
+            const { data: p } = await supabase.from('products').select('*').eq('id', oldMove.product_id).single();
+            if (!p) return;
+
+            const diff = Number(updates.quantity) - Number(oldMove.quantity);
+            let newTotalStock = Number(p.stock || 0);
+            let updatedVariations = p.variations ? [...p.variations] : [];
+
+            if (oldMove.variation_id && updatedVariations.length > 0) {
+                const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(oldMove.variation_id));
+                if (vIdx !== -1) {
+                    let vStock = Number(updatedVariations[vIdx].stock || 0);
+                    if (oldMove.type === 'entry') vStock += diff;
+                    else if (oldMove.type === 'withdrawal') vStock -= diff;
+                    else if (oldMove.type === 'balance') vStock = Number(updates.quantity);
+                    
+                    updatedVariations[vIdx].stock = vStock;
+                }
+                newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
+            } else {
+                if (oldMove.type === 'entry') newTotalStock += diff;
+                else if (oldMove.type === 'withdrawal') newTotalStock -= diff;
+                else if (oldMove.type === 'balance') newTotalStock = Number(updates.quantity);
+            }
+
+            await updateProduct(oldMove.product_id, { 
+                stock: newTotalStock,
+                variations: updatedVariations.length > 0 ? updatedVariations : undefined
+            });
+        }
     } catch (error) {
         console.error("Erro ao atualizar lançamento de estoque:", error);
         throw error;
@@ -159,17 +232,17 @@ export const getAvailableLots = async (productId: string, variationId?: string):
 
         // 3. Calculate balance per entry
         const usedByLot: Record<string, number> = {};
-        withdrawals?.forEach(w => {
+        withdrawals?.forEach((w: any) => {
             usedByLot[w.parent_move_id] = (usedByLot[w.parent_move_id] || 0) + Number(w.quantity);
         });
 
         const availableLots = (entries || [])
-            .map(e => {
+            .map((e: any) => {
                 const move = mapFromDB(e);
                 const used = usedByLot[e.id] || 0;
                 return { ...move, balance: move.quantity - used };
             })
-            .filter(lot => lot.balance > 0);
+            .filter((lot: any) => lot.balance > 0);
 
         return availableLots;
     } catch (error) {

@@ -4,6 +4,7 @@ import ProductCard from "./ProductCard";
 import Product, { ProductVisibilitySettings } from "../../../types/product.type";
 import { useAutoScroll } from "../../../utils/useAutoScroll";
 import { getSettings } from '@/pages/utils/settingsService';
+import { useWindowSize } from "../../../../hooks/useWindowSize";
 
 interface ProductTableProps {
     products: Product[];
@@ -52,6 +53,8 @@ const ProductTable = ({
     selectedProducts, onToggleSelection, onSelectAll, onClearSelection,
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree
 }: ProductTableProps) => {
+    const { width } = useWindowSize();
+    const isMobile = width <= 900;
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
 
@@ -159,8 +162,8 @@ const ProductTable = ({
                 </div>
             )}
 
-            {/* Desktop Table View */}
-            <div className="hidden lg:block">
+            {/* View Switcher based on isMobile */}
+            {!isMobile ? (
                 <div ref={containerRef} className="overflow-x-auto overflow-y-auto max-h-[70vh] custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800">
                     <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900">
@@ -257,36 +260,36 @@ const ProductTable = ({
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="lg:hidden grid grid-cols-1 gap-4 overflow-y-auto pb-4">
-                {products.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                        <i className="bi bi-search text-4xl mb-3 opacity-20" />
-                        <p className="text-sm font-bold uppercase tracking-widest">Nenhum produto encontrado</p>
-                    </div>
-                ) : (
-                    products.map((product) => (
-                        <ProductCard
-                            key={product.id}
-                            product={product}
-                            onEdit={onEdit}
-                            onLaunchStock={onLaunchStock}
-                            onDelete={onDelete}
-                            onRestore={onRestore}
-                            onPermanentDelete={onPermanentDelete}
-                            onToggleActive={onToggleActive}
-                            showTrash={showTrash}
-                            isSelected={selectedProducts.includes(product.id!)}
-                            onToggleSelection={() => onToggleSelection(product.id!)}
-                            categoryTree={categoryTree}
-                        />
-                    ))
-                )}
-            </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4 overflow-y-auto pb-4">
+                    {products.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                            <i className="bi bi-search text-4xl mb-3 opacity-20" />
+                            <p className="text-sm font-bold uppercase tracking-widest">Nenhum produto encontrado</p>
+                        </div>
+                    ) : (
+                        products.map((product) => (
+                            <ProductCard
+                                key={product.id}
+                                product={product}
+                                onEdit={onEdit}
+                                onLaunchStock={onLaunchStock}
+                                onDelete={onDelete}
+                                onRestore={onRestore}
+                                onPermanentDelete={onPermanentDelete}
+                                onToggleActive={onToggleActive}
+                                showTrash={showTrash}
+                                isSelected={selectedProducts.includes(product.id!)}
+                                onToggleSelection={() => onToggleSelection(product.id!)}
+                                categoryTree={categoryTree}
+                            />
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 };
+
 
 export default ProductTable;

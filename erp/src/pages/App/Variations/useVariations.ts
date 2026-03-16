@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import VariationType from "../../types/variation.type";
-import { subscribeToVariations, moveToTrash } from "../../utils/variationService";
+import { subscribeToVariations, moveToTrash, checkVariationUsage } from "../../utils/variationService";
 import { toast } from "react-toastify";
 
 export const useVariations = () => {
@@ -17,11 +17,25 @@ export const useVariations = () => {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        try {
-            await moveToTrash(id);
-            toast.success("Variação movida para a lixeira.");
-        } catch {
-            toast.error("Erro ao apagar variação.");
+        
+        const variation = variations.find(v => v.id === id);
+        if (!variation) return;
+
+        if (window.confirm(`Tem certeza que deseja apagar o atributo "${variation.name}"?`)) {
+            try {
+                // Check if any product is using this attribute
+                const isUsed = await checkVariationUsage(variation.name);
+                if (isUsed) {
+                    toast.warning(`Não é possível excluir o atributo "${variation.name}" pois ele está vinculado a um ou mais produtos.`);
+                    return;
+                }
+
+                await moveToTrash(id);
+                toast.success("Atributo movido para a lixeira.");
+            } catch (error) {
+                console.error(error);
+                toast.error("Erro ao apagar atributo.");
+            }
         }
     };
 

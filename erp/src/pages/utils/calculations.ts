@@ -108,3 +108,48 @@ export const currencyToNumber = (currency: string): number => {
     const num = Number(currency.replace(/[^\d.]/g, ''));
     return isNaN(num) ? 0 : num;
 };
+
+/**
+ * Calcula o Peso Cubado (Dimensional Weight)
+ * @param height Altura em cm
+ * @param width Largura em cm
+ * @param depth Profundidade em cm
+ * @param divisor Divisor volumétrico (padrão 6000 para a maioria das transportadoras)
+ */
+export const calculateDIM = (height: number, width: number, depth: number, divisor: number = 6000): number => {
+    if (!height || !width || !depth) return 0;
+    return (height * width * depth) / divisor;
+};
+
+/**
+ * Verifica se o produto exige envio via Transportadora de Carga Pesada (LTL)
+ */
+export const checkLTLRequirement = (data: { 
+    height?: number, 
+    width?: number, 
+    depth?: number, 
+    weight?: number 
+}): { required: boolean; reasons: string[] } => {
+    const reasons: string[] = [];
+    const h = data.height || 0;
+    const w = data.width || 0;
+    const d = data.depth || 0;
+    const weight = data.weight || 0;
+
+    // Critérios básicos para LTL (Móveis/Carga Pesada)
+    if (weight > 30) reasons.push("Peso superior a 30kg");
+    if (h > 150 || w > 150 || d > 150) reasons.push("Dimensão superior a 150cm");
+    
+    // Volume em m3
+    const volumeM3 = (h * w * d) / 1000000;
+    if (volumeM3 > 0.25) reasons.push("Volume superior a 0.25m³");
+
+    // Peso Cubado
+    const dimWeight = calculateDIM(h, w, d);
+    if (dimWeight > 30) reasons.push(`Peso cubado (${dimWeight.toFixed(1)}kg) superior a 30kg`);
+
+    return {
+        required: reasons.length > 0,
+        reasons
+    };
+};

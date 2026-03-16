@@ -1,79 +1,56 @@
 import React from "react";
+import Order from "../../types/order.type";
 
 interface FormHeaderProps {
-    currentOrderId?: string;
+    currentOrder?: Order | null;
     onClearForm: () => void;
     orderDate: string;
     setOrderDate: (date: string) => void;
-    isSavingDraft?: boolean;
+    isSavingDraft: boolean;
 }
 
-const FormHeader = ({ currentOrderId, onClearForm, orderDate, setOrderDate, isSavingDraft }: FormHeaderProps) => (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-8 border-b border-slate-100 dark:border-slate-800 mb-10 pt-8">
+const FormHeader = ({ currentOrder, onClearForm, orderDate, setOrderDate, isSavingDraft }: FormHeaderProps) => (
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-4 border-b border-slate-100 dark:border-slate-800 mb-6 pt-4">
         <div className="flex flex-wrap items-end gap-6 w-full md:w-auto order-2 md:order-1">
-            {currentOrderId && (
+            {currentOrder && (
                 <button
                     onClick={(e) => {
                         e.preventDefault();
                         onClearForm();
                     }}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl transition-all font-black text-xs uppercase tracking-widest border border-slate-200 dark:border-slate-700 h-[42px]"
-                    title="Limpar formulário e iniciar novo pedido"
+                    className="flex items-center gap-2.5 px-5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-blue-50 dark:hover:bg-blue-900/20 active:scale-95 shadow-sm"
                 >
-                    <i className="bi bi-plus-circle" /> Novo Pedido
+                    <i className="bi bi-plus-lg" /> Novo Pedido
                 </button>
             )}
         </div>
 
         <div className="flex flex-col gap-2 order-1 md:order-2 md:text-right w-full md:w-auto">
-            {currentOrderId ? (
-                <>
-                    <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                        Detalhes do Pedido
-                    </h3>
-                    <div className="flex flex-col md:items-end gap-1">
-                        <p className="text-xs uppercase font-black text-slate-400 dark:text-slate-500 tracking-[0.2em]">
-                            Pedido #{currentOrderId}
-                        </p>
-                        <p className={`text-[10px] uppercase font-black tracking-widest mt-1 transition-all duration-300 ${isSavingDraft ? 'text-blue-500 opacity-100' : 'text-slate-400 dark:text-slate-500 opacity-0'}`}>
-                            <i className="bi bi-cloud-arrow-up-fill mr-1.5 animate-bounce" />
-                            Salvando rascunho...
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                            <i className="bi bi-calendar-event text-slate-400 dark:text-slate-500"></i>
+            <div className="flex flex-col md:items-end gap-1">
+                {/* Simple Save Status indicator instead of large buttons */}
+                <div className="flex items-center gap-4">
+                    {isSavingDraft && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse border border-slate-200/50 dark:border-slate-700/50">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Salvando rascunho...</span>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i className="bi bi-calendar-event text-blue-500 text-xs" />
+                            </div>
                             <input
-                                type="datetime-local"
+                                type="date"
                                 value={orderDate}
                                 onChange={(e) => setOrderDate(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 w-fit"
-                                title="Data e Hora da Venda"
+                                className="pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-blue-500/20 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                             />
                         </div>
                     </div>
-                </>
-            ) : (
-                <>
-                    <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                        Novo Pedido
-                    </h3>
-                    <div className="flex flex-col md:items-end gap-1">
-                        <p className={`text-[10px] uppercase font-black tracking-widest mt-1 transition-all duration-300 ${isSavingDraft ? 'text-blue-500 opacity-100' : 'text-slate-400 dark:text-slate-500 opacity-0'}`}>
-                            <i className="bi bi-cloud-arrow-up-fill mr-1.5 animate-bounce" />
-                            Salvando rascunho...
-                        </p>
-                        <div className="flex items-center gap-2 mt-2 w-full md:justify-end">
-                            <i className="bi bi-calendar-event text-slate-400 dark:text-slate-500"></i>
-                            <input
-                                type="datetime-local"
-                                value={orderDate}
-                                onChange={(e) => setOrderDate(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 w-fit"
-                                title="Data e Hora da Venda"
-                            />
-                        </div>
-                    </div>
-                </>
-            )}
+                </div>
+            </div>
         </div>
     </div>
 );

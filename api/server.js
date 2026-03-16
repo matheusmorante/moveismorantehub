@@ -202,6 +202,58 @@ app.post('/api/suggest-prices', async (req, res) => {
     }
 });
 
+app.post('/api/suggest-category', async (req, res) => {
+    try {
+        const { title, categories } = req.body;
+        addLog("CATEGORY_SUGGESTION", `Sugerindo categoria para: ${title}`);
+
+        const systemPrompt = `Você é um classificador de produtos para um sistema de e-commerce e ERP de móveis chamado Móveis Morante.
+        Dada uma lista de categorias disponíveis e o título do produto, retorne o nome exato da categoria mais adequada da lista.
+        
+        Produto: ${title}
+        Categorias disponíveis: ${categories.join(', ')}
+        
+        Retorne APENAS um objeto JSON válido com a seguinte estrutura:
+        {"category": "NOME DA CATEGORIA AQUI"}
+        
+        Se nenhuma categoria se encaixar perfeitamente, retorne "null" ou a mais próxima.`;
+
+        const answer = await safePrompt("Verifique a melhor categoria.", systemPrompt);
+        
+        const jsonMatch = answer.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                res.json(JSON.parse(jsonMatch[0]));
+            } catch (e) {
+                res.status(500).json({ error: "IA retornou formato inválido" });
+            }
+        } else {
+            res.status(500).json({ error: "IA não retornou JSON" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/generate-combo-name', async (req, res) => {
+    try {
+        const { items } = req.body;
+        addLog("COMBO_NAME", `Gerando nome de combo`);
+
+        const systemPrompt = `Você é um copywriter para e-commerce de móveis.
+        Crie um nome atraente e comercial para um KIT/COMBO formado por estes itens:
+        ${items}
+        
+        O nome deve começar com "Kit" ou "Conjunto", e ser descritivo mas curto (máx 60 caracteres). Tudo em MAIÚSCULAS.
+        Retorne APENAS o nome gerado, sem aspas, sem markdown.`;
+
+        const answer = await safePrompt("Gere o nome do kit agora.", systemPrompt);
+        res.json({ name: answer.trim().toUpperCase() });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/api/ai-chat', async (req, res) => {
     try {
         const { message, systemPrompt } = req.body;

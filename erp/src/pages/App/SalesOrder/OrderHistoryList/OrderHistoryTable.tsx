@@ -4,6 +4,7 @@ import OrderHistoryCard from "./OrderHistoryCard";
 import Order, { VisibilitySettings } from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { useAutoScroll } from "../../../utils/useAutoScroll";
+import { useWindowSize } from "../../../../hooks/useWindowSize";
 
 interface OrderHistoryTableProps {
     orders: Order[];
@@ -50,6 +51,8 @@ const OrderHistoryTable = ({
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection
 }: OrderHistoryTableProps) => {
+    const { width } = useWindowSize();
+    const isMobile = width <= 900;
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
     const allIdsOnPage = (orders || []).filter(o => o && o.id).map(o => o.id!) as string[];
@@ -156,8 +159,8 @@ const OrderHistoryTable = ({
                 </div>
             )}
 
-            {/* Desktop Table View */}
-            <div className="hidden lg:block">
+            {/* View Switcher based on isMobile */}
+            {!isMobile ? (
                 <div ref={containerRef} className="overflow-x-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -268,33 +271,32 @@ const OrderHistoryTable = ({
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="lg:hidden grid grid-cols-1 gap-4 overflow-y-auto pb-4">
-                {orders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                        <i className="bi bi-search text-4xl mb-3 opacity-20" />
-                        <p className="text-sm font-bold uppercase tracking-widest">Nenhum pedido encontrado</p>
-                    </div>
-                ) : (
-                    orders.map((order) => (
-                        <OrderHistoryCard
-                            key={order.id}
-                            order={order}
-                            onEdit={onEdit}
-                            onDelete={onDelete}
-                            onRestore={onRestore}
-                            onPermanentDelete={onPermanentDelete}
-                            onAction={onAction}
-                            onStatusUpdate={onStatusUpdate}
-                            showTrash={showTrash}
-                            isSelected={selectedOrders.includes(order.id!)}
-                            onToggleSelection={() => onToggleSelection(order.id!)}
-                        />
-                    ))
-                )}
-            </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4 overflow-y-auto pb-4">
+                    {orders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                            <i className="bi bi-search text-4xl mb-3 opacity-20" />
+                            <p className="text-sm font-bold uppercase tracking-widest">Nenhum pedido encontrado</p>
+                        </div>
+                    ) : (
+                        orders.map((order) => (
+                            <OrderHistoryCard
+                                key={order.id}
+                                order={order}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onRestore={onRestore}
+                                onPermanentDelete={onPermanentDelete}
+                                onAction={onAction}
+                                onStatusUpdate={onStatusUpdate}
+                                showTrash={showTrash}
+                                isSelected={selectedOrders.includes(order.id!)}
+                                onToggleSelection={() => onToggleSelection(order.id!)}
+                            />
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 };

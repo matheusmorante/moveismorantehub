@@ -435,7 +435,7 @@ RESPOSTA NO FORMATO JSON:
             address: false,
         },
         product: {
-            code: false,
+            code: true,
             brand: false,
             costPrice: false,
             minStock: false,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { supabase } from '../utils/supabaseConfig';
 import { toast } from 'react-toastify';
 
 const ResetPassword = () => {

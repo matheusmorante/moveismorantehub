@@ -1,6 +1,7 @@
 import React from 'react';
 import Product from '../../../../types/product.type';
 import SmartInput from '../../../../../components/SmartInput';
+import { calculateDIM, checkLTLRequirement } from '../../../../utils/calculations';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import { toast } from 'react-toastify';
 import { generateProductCode } from '../../../../utils/formatters';
@@ -79,14 +80,23 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             <i className="bi bi-magic"></i> Sugerir SKU
                         </button>
                     </div>
-                    <SmartInput
-                        value={formData.code}
-                        onValueChange={(val) => setFormData({ ...formData, code: val.toUpperCase() })}
-                        tableName="products"
-                        columnName="code"
-                        placeholder="Ex: PROD-001"
-                        icon="bi-upc-scan"
-                    />
+                    {formData.hasVariations ? (
+                        <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-2xl">
+                            <i className="bi bi-info-circle-fill text-blue-600"></i>
+                            <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 leading-tight">
+                                Este produto possui variações. O SKU é definido individualmente em cada variação na aba "Variações".
+                            </p>
+                        </div>
+                    ) : (
+                        <SmartInput
+                            value={formData.code}
+                            onValueChange={(val) => setFormData({ ...formData, code: val.toUpperCase() })}
+                            tableName="products"
+                            columnName="code"
+                            placeholder="Ex: PROD-001"
+                            icon="bi-upc-scan"
+                        />
+                    )}
                 </div>
                 <SmartInput
                     label="Unidade de Medida"
@@ -196,8 +206,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <input
                     type="number"
                     step="0.01"
-                    value={formData.unitPrice}
-                    onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) })}
+                    value={isNaN(formData.unitPrice as number) ? '' : formData.unitPrice}
+                    onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setFormData({ ...formData, unitPrice: isNaN(val) ? 0 : val });
+                    }}
                     className="w-full px-4 py-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-lg font-black text-blue-600 dark:text-blue-400"
                 />
             </div>
@@ -250,12 +263,22 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             </h5>
                         </div>
                         <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Linha ou Modelo</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Modelo / Linha <span className="text-red-500">*</span></label>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, hasNoLine: !formData.hasNoLine, line: !formData.hasNoLine ? '' : formData.line })}
+                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.hasNoLine ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    <i className={`bi ${formData.hasNoLine ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> Sem Modelo / Linha
+                                </button>
+                            </div>
                             <input
                                 value={formData.line || ''}
                                 onChange={(e) => setFormData({ ...formData, line: e.target.value })}
-                                placeholder="Ex: Linha Premium Lux"
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                disabled={formData.hasNoLine}
+                                placeholder={formData.hasNoLine ? "NÃO APLICÁVEL" : "Ex: Modelo Premium Lux"}
+                                className={`w-full px-4 py-3 border rounded-xl text-xs font-bold transition-all ${formData.hasNoLine ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500'}`}
                             />
                         </div>
                         <div className="flex flex-col gap-2">
@@ -289,14 +312,24 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
 
                     {/* Dimensions */}
                     <div className="flex flex-col gap-4">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dimensões Totais (cm)</label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dimensões Totais (cm)</label>
+                            {formData.width && formData.height && formData.depth && (
+                                <span className="text-[9px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg uppercase tracking-tighter">
+                                    Peso Cubado: {calculateDIM(formData.height, formData.width, formData.depth).toFixed(2)}kg
+                                </span>
+                            )}
+                        </div>
                         <div className="grid grid-cols-3 gap-3">
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura</span>
                                 <input
                                     type="number"
-                                    value={formData.width || ''}
-                                    onChange={(e) => setFormData({ ...formData, width: parseFloat(e.target.value) })}
+                                    value={isNaN(formData.width as number) || formData.width === 0 ? '' : formData.width}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, width: isNaN(val) ? 0 : val });
+                                    }}
                                     placeholder="L"
                                     className="w-full px-3 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-center"
                                 />
@@ -305,8 +338,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura</span>
                                 <input
                                     type="number"
-                                    value={formData.height || ''}
-                                    onChange={(e) => setFormData({ ...formData, height: parseFloat(e.target.value) })}
+                                    value={isNaN(formData.height as number) || formData.height === 0 ? '' : formData.height}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, height: isNaN(val) ? 0 : val });
+                                    }}
                                     placeholder="A"
                                     className="w-full px-3 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-center"
                                 />
@@ -315,13 +351,41 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund.</span>
                                 <input
                                     type="number"
-                                    value={formData.depth || ''}
-                                    onChange={(e) => setFormData({ ...formData, depth: parseFloat(e.target.value) })}
+                                    value={isNaN(formData.depth as number) || formData.depth === 0 ? '' : formData.depth}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, depth: isNaN(val) ? 0 : val });
+                                    }}
                                     placeholder="P"
                                     className="w-full px-3 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-center"
                                 />
                             </div>
                         </div>
+
+                        {/* LTL Alert */}
+                        {(() => {
+                            const ltl = checkLTLRequirement({
+                                height: formData.height,
+                                width: formData.width,
+                                depth: formData.depth,
+                                weight: formData.weight
+                            });
+                            if (ltl.required) {
+                                return (
+                                    <div className="mt-2 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-2xl animate-in slide-in-from-top-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <i className="bi bi-truck text-orange-600"></i>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Alerta de Carga Pesada (LTL)</span>
+                                        </div>
+                                        <ul className="text-[9px] font-bold text-orange-700/70 dark:text-orange-400 list-disc list-inside">
+                                            {ltl.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                                        </ul>
+                                        <p className="text-[8px] mt-2 text-orange-600/50 uppercase font-black italic">Considere enviar via transportadora especializada.</p>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
                 </div>
 

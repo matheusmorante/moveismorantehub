@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Variation, ComboItem } from "../../../types/product.type";
 import { toast } from "react-toastify";
 import { uploadFile } from "../../../utils/storageService";
 import ComboItemSelector from "./ComboItemSelector";
 import SmartInput from "../../../../components/SmartInput";
+import { generateProductCode } from '@/pages/utils/formatters';
+import { getProductSalesStats } from "../../../utils/productService";
+import VariationType from "../../../types/variation.type";
+import { subscribeToVariations } from "../../../utils/variationService";
 
 interface VariationEditModalProps {
     isOpen: boolean;
     onClose: () => void;
     variation: Variation | null;
     parentProduct?: {
+        id?: string;
         unitPrice: number;
         costPrice: number;
         isCombo?: boolean;
@@ -20,7 +26,16 @@ interface VariationEditModalProps {
 const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave }: VariationEditModalProps) => {
     const [localVariation, setLocalVariation] = useState<Variation | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isSyncingSales, setIsSyncingSales] = useState(false);
     const [activeTab, setActiveTab] = useState<'geral' | 'financeiro' | 'fotos' | 'combo'>('geral');
+    const [availableVariations, setAvailableVariations] = useState<VariationType[]>([]);
+
+    useEffect(() => {
+        const unsubscribe = subscribeToVariations((data) => {
+            setAvailableVariations(data.filter(v => v.active && !v.deleted));
+        });
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         if (variation) {
@@ -73,10 +88,49 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave 
         onClose();
     };
 
-    return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col max-h-[85vh]">
+    const calculateMinStock = () => {
+        const lt = localVariation.leadTime || 0;
+        const sales = localVariation.avgMonthlySales || 0;
+        const cls = localVariation.classification || 'Q2';
+        
+        if (lt && sales) {
+            let margin = 0.15; // Q3
+            if (cls === 'Q1') margin = 0.5;
+            else if (cls === 'Q2') margin = 0.2;
+            else if (cls === 'Q4') margin = 0;
+            const suggested = Math.ceil(((sales / 30) * lt) * (1 + margin));
+            handleChange('minStock', suggested);
+            toast.success(`Estoque M├¡nimo sugerido: ${suggested}`);
+        } else {
+            toast.warning("Preencha Lead Time e Giro Mensal");
+        }
+    };
+
+    const handleSyncSales = async () => {
+        if (!parentProduct?.id) {
+            toast.warning("Salve o produto primeiro para sincronizar com vendas reais.");
+            return;
+        }
+
+        setIsSyncingSales(true);
+        try {
+            const { avgMonthlySales } = await getProductSalesStats(parentProduct.id, localVariation.id);
+            handleChange('avgMonthlySales', avgMonthlySales);
+            toast.success(`Giro mensal atualizado: ${avgMonthlySales} un/m├¬s.`);
+        } catch (error) {
+            toast.error("Erro ao sincronizar vendas.");
+        } finally {
+            setIsSyncingSales(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+            <div 
+                className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden" 
+                style={{ height: 'min(85vh, 700px)' }}
+            >
                 
                 {/* Header */}
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
@@ -114,21 +168,134 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave 
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto min-h-0 p-8 custom-scrollbar">
                     {activeTab === 'geral' && (
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome da Variação</label>
-                                    <input
-                                        value={localVariation.name}
-                                        onChange={(e) => handleChange('name', e.target.value.toUpperCase())}
-                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
-                                        placeholder="EX: COR: AZUL / TAM: G"
-                                    />
+                                <div className="space-y-4 col-span-1 md:col-span-2 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Composição da Variação (Modelo Cartesiano)</h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const attrs = [...(localVariation.attributes || [])];
+                                                attrs.push({ name: '', value: '' });
+                                                handleChange('attributes', attrs);
+                                            }}
+                                            className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 transition-colors"
+                                        >
+                                            + Add Atributo
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        {(localVariation.attributes || []).map((attr, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-left-1">
+                                                <div className="space-y-2">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atributo</label>
+                                                    <select
+                                                        value={attr.name}
+                                                        onChange={(e) => {
+                                                            const newAttrs = [...localVariation.attributes!];
+                                                            newAttrs[idx] = { ...newAttrs[idx], name: e.target.value, value: '' };
+                                                            
+                                                            // Update variation name
+                                                            const sortedKeys = newAttrs.filter(a => a.name).sort((a, b) => a.name.localeCompare(b.name));
+                                                            const name = sortedKeys.map(a => `${a.name.toUpperCase()}: ${a.value.toUpperCase() || '?'}`).join(' / ');
+                                                            
+                                                            setLocalVariation(prev => prev ? ({
+                                                                ...prev,
+                                                                name: name || '',
+                                                                attributes: newAttrs
+                                                            }) : null);
+                                                        }}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-xs"
+                                                    >
+                                                        <option value="">Selecione...</option>
+                                                        {availableVariations.map(v => (
+                                                            <option key={v.id} value={v.name}>{v.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2 relative">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Valor</label>
+                                                    <div className="flex gap-2">
+                                                        <select
+                                                            disabled={!attr.name}
+                                                            value={attr.value}
+                                                            onChange={(e) => {
+                                                                const newAttrs = [...localVariation.attributes!];
+                                                                newAttrs[idx] = { ...newAttrs[idx], value: e.target.value };
+                                                                
+                                                                // Update variation name
+                                                                const sortedKeys = newAttrs.filter(a => a.name).sort((a, b) => a.name.localeCompare(b.name));
+                                                                const name = sortedKeys.map(a => `${a.name.toUpperCase()}: ${a.value.toUpperCase()}`).join(' / ');
+
+                                                                setLocalVariation(prev => prev ? ({
+                                                                    ...prev,
+                                                                    name: name || '',
+                                                                    attributes: newAttrs
+                                                                }) : null);
+                                                            }}
+                                                            className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-xs disabled:opacity-50"
+                                                        >
+                                                            <option value="">Selecione...</option>
+                                                            {availableVariations.find(v => v.name === attr.name)?.options.map(o => (
+                                                                <option key={o.id} value={o.value}>{o.value}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newAttrs = localVariation.attributes!.filter((_, i) => i !== idx);
+                                                                const sortedKeys = newAttrs.filter(a => a.name).sort((a, b) => a.name.localeCompare(b.name));
+                                                                const name = sortedKeys.map(a => `${a.name.toUpperCase()}: ${a.value.toUpperCase()}`).join(' / ');
+                                                                
+                                                                setLocalVariation(prev => prev ? ({
+                                                                    ...prev,
+                                                                    name: name || '',
+                                                                    attributes: newAttrs
+                                                                }) : null);
+                                                            }}
+                                                            className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <i className="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome Gerado (Read-only)</label>
+                                        <input
+                                            value={localVariation.name}
+                                            readOnly
+                                            className="w-full bg-slate-100 dark:bg-slate-800/50 px-4 py-3 rounded-xl border border-transparent outline-none font-black text-sm text-slate-500"
+                                            placeholder="GERADO AUTOMATICAMENTE"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">SKU / Código</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                                        SKU / Código
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (!localVariation.name) {
+                                                    return toast.warning("Defina o nome da variação primeiro para gerar o SKU");
+                                                }
+                                                const newCode = generateProductCode(localVariation.name);
+                                                handleChange('sku', newCode);
+                                                toast.info(`SKU Sugerido: ${newCode}`);
+                                            }}
+                                            className="p-1 px-2 border border-slate-100 dark:border-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            title="Sugerir SKU"
+                                        >
+                                            <i className="bi bi-magic mr-1"></i> Sugerir
+                                        </button>
+                                    </label>
                                     <input
                                         value={localVariation.sku}
                                         onChange={(e) => handleChange('sku', e.target.value.toUpperCase())}
@@ -206,19 +373,78 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave 
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estoque Atual</label>
                                     <input
                                         type="number"
-                                        value={localVariation.stock}
-                                        onChange={(e) => handleChange('stock', parseInt(e.target.value))}
+                                        value={localVariation.stock || 0}
+                                        onChange={(e) => handleChange('stock', parseInt(e.target.value) || 0)}
                                         className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
+                                        <button
+                                            type="button"
+                                            onClick={calculateMinStock}
+                                            className="text-[8px] font-black text-blue-600 hover:underline px-2"
+                                        >
+                                            <i className="bi bi-calculator mr-1"></i> Sugerir
+                                        </button>
+                                    </div>
                                     <input
                                         type="number"
-                                        value={localVariation.minStock}
-                                        onChange={(e) => handleChange('minStock', parseInt(e.target.value))}
+                                        value={localVariation.minStock || 0}
+                                        onChange={(e) => handleChange('minStock', parseInt(e.target.value) || 0)}
                                         className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
                                     />
+                                </div>
+                            </div>
+
+                            <div className="p-6 bg-slate-50/50 dark:bg-slate-950/20 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-bold">Inteligência de Reposição</h4>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Giro Mensal</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="number"
+                                                value={localVariation.avgMonthlySales || ''}
+                                                onChange={(e) => handleChange('avgMonthlySales', parseInt(e.target.value) || 0)}
+                                                className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800 text-xs font-bold"
+                                                placeholder="Giro/M├¬s"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleSyncSales}
+                                                disabled={isSyncingSales}
+                                                className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                                                title="Sincronizar com hist├│rico de vendas (90 dias)"
+                                            >
+                                                <i className={`bi ${isSyncingSales ? 'bi-hourglass-split animate-spin' : 'bi-arrow-repeat'}`}></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Lead Time</label>
+                                        <input
+                                            type="number"
+                                            value={localVariation.leadTime || ''}
+                                            onChange={(e) => handleChange('leadTime', parseInt(e.target.value) || 0)}
+                                            className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800 text-xs font-bold"
+                                            placeholder="Dias"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Classe</label>
+                                        <select
+                                            value={localVariation.classification || 'Q2'}
+                                            onChange={(e) => handleChange('classification', e.target.value)}
+                                            className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800 text-xs font-bold"
+                                        >
+                                            <option value="Q1">Q1 (Crucial 50%)</option>
+                                            <option value="Q2">Q2 (Importante 20%)</option>
+                                            <option value="Q3">Q3 (Normal 15%)</option>
+                                            <option value="Q4">Q4 (Irrelevante 0%)</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -286,7 +512,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave 
                 </div>
             </div>
         </div>
-    );
+    , document.body);
 };
 
 export default VariationEditModal;

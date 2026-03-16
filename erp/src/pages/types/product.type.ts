@@ -20,8 +20,10 @@ export type Variation = {
     finalPurchasePrice?: number;
     minStock?: number;
     comboItems?: ComboItem[];
-    showroomStock?: number;
-    warehouseStock?: number;
+    // Intelligence Fields
+    leadTime?: number;
+    avgMonthlySales?: number;
+    classification?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
 };
 
 export type FiscalInfo = {
@@ -67,8 +69,6 @@ export type Product = {
     finalPurchasePrice?: number; // (costPrice + freight) * (1 + ipi/100) aprox.
     initialStock?: number;
     stock?: number;
-    showroomStock?: number;
-    warehouseStock?: number;
     minStock?: number;
     unit: string;
     active: boolean;
@@ -130,6 +130,13 @@ export type Product = {
 
     // Adicional
     observations?: string;
+    sku?: string;
+
+    // Intelligence Fields
+    leadTime?: number;
+    avgMonthlySales?: number;
+    classification?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    hasNoLine?: boolean;
 };
 
 export type ProductNotificationConfig = {

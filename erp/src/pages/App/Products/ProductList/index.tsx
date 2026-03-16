@@ -58,7 +58,7 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Carregando produtos...</p>
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Sincronizando catálogo...</p>
             </div>
         );
     }
@@ -70,8 +70,8 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
                     <i className="bi bi-box-seam text-4xl text-slate-200 dark:text-slate-800"></i>
                 </div>
                 <div className="text-center">
-                    <p className="text-slate-500 dark:text-slate-400 font-bold">Nenhum produto encontrado</p>
-                    <p className="text-slate-400 dark:text-slate-600 text-xs">Tente ajustar seus filtros ou adicione um novo produto.</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-bold">Nenhum item encontrado</p>
+                    <p className="text-slate-400 dark:text-slate-600 text-xs">Tente ajustar seus filtros ou adicione um novo produto ou serviço.</p>
                 </div>
             </div>
         );
@@ -108,7 +108,7 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
                 <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-slate-50 dark:border-slate-800 pt-6">
                     <div className="flex items-center gap-4">
                         <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-                            Mostrando {products.length} de {totalItems} produtos
+                            Exibindo {products.length} de {totalItems} itens
                         </span>
                         <div className="flex items-center gap-2">
                             <select
@@ -116,7 +116,7 @@ const ProductList = ({ onEdit, onShowHistory, onLaunchStock, filters, visibility
                                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
                                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none"
                             >
-                                {[10, 25, 50, 100, 300, 500].map(size => <option key={size} value={size}>{size} por pág.</option>)}
+                                {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size} por página</option>)}
                             </select>
                         </div>
                     </div>

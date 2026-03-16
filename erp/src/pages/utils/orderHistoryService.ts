@@ -274,59 +274,84 @@ export const updateOrder = async (
         const newStatus = orderToUpdate.status;
 
         if (newStatus && oldStatus !== newStatus) {
-            await supabase.from('order_status_history').insert([{
-                order_id: id,
-                old_status: oldStatus || null,
-                new_status: newStatus,
-                changed_by: (orderToUpdate as any).seller || (merged as any).seller || 'system'
-            }]);
+            try {
+                await supabase.from('order_status_history').insert([{
+                    order_id: id,
+                    old_status: oldStatus || null,
+                    new_status: newStatus,
+                    changed_by: (orderToUpdate as any).seller || (merged as any).seller || 'system'
+                }]);
+            } catch (historyErr) {
+                console.error("[OrderUpdate] Erro ao gravar histórico de status:", historyErr);
+            }
 
             const { inventoryAutomation } = getSettings();
 
             // Auto-withdrawal: new status triggers stock deduction and stock wasn't processed yet
             if (!merged.stockProcessed && inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus)) {
-                const updatedOrder = await handleStockAndBusinessRules(id, { ...merged, status: newStatus });
-                if (updatedOrder.stockProcessed) {
-                    await supabase
-                        .from(TABLE_NAME)
-                        .update({ order_data: { ...merged, status: newStatus, stockProcessed: true }, updated_at: new Date().toISOString() })
-                        .eq('id', id);
+                try {
+                    const updatedOrder = await handleStockAndBusinessRules(id, { ...merged, status: newStatus });
+                    if (updatedOrder.stockProcessed) {
+                        await supabase
+                            .from(TABLE_NAME)
+                            .update({ 
+                                order_data: { ...merged, status: newStatus, stockProcessed: true }, 
+                                updated_at: new Date().toISOString() 
+                            })
+                            .eq('id', id);
+                    }
+                } catch (stockErr) {
+                    console.error("[OrderUpdate] Erro ao processar estoque automática (saída):", stockErr);
                 }
             }
 
             // Auto-reversal: order is being cancelled and stock was already processed
             if (newStatus === 'cancelled' && merged.stockProcessed && inventoryAutomation?.autoReverseOnCancel) {
-                const items = merged.items || [];
-                for (const item of items) {
-                    if (item.productId) {
-                        const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
-                        const currentStock = p?.stock || 0;
-                        await saveInventoryMove({
-                            productId: item.productId,
-                            variationId: item.variationId,
-                            productDescription: item.description,
-                            type: 'entry', // reversal = re-entry
-                            quantity: item.quantity,
-                            date: new Date().toISOString(),
-                            label: 'Estorno',
-                            observation: `Cancelamento do Pedido #${id}`
-                        }, currentStock);
+                try {
+                    const items = merged.items || [];
+                    for (const item of items) {
+                        if (item.productId) {
+                            const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
+                            const currentStock = p?.stock || 0;
+                            await saveInventoryMove({
+                                productId: item.productId,
+                                variationId: item.variationId,
+                                productDescription: item.description,
+                                type: 'entry', // reversal = re-entry
+                                quantity: item.quantity,
+                                date: new Date().toISOString(),
+                                label: 'Estorno',
+                                observation: `Cancelamento do Pedido #${id}`
+                            }, currentStock);
+                        }
                     }
+                    // Mark as unprocessed after reversal
+                    await supabase
+                        .from(TABLE_NAME)
+                        .update({ 
+                            order_data: { ...merged, status: newStatus, stockProcessed: false }, 
+                            updated_at: new Date().toISOString() 
+                        })
+                        .eq('id', id);
+                } catch (reversalErr) {
+                    console.error("[OrderUpdate] Erro ao estornar estoque:", reversalErr);
                 }
-                // Mark as unprocessed after reversal
-                await supabase
-                    .from(TABLE_NAME)
-                    .update({ order_data: { ...merged, status: newStatus, stockProcessed: false }, updated_at: new Date().toISOString() })
-                    .eq('id', id);
             }
         } else if (!merged.stockProcessed) {
             // No status change but stock may still need processing (e.g. status was already 'scheduled' on save)
-            const updatedOrder = await handleStockAndBusinessRules(id, merged);
-            if (updatedOrder.stockProcessed) {
-                await supabase
-                    .from(TABLE_NAME)
-                    .update({ order_data: { ...merged, stockProcessed: true }, updated_at: new Date().toISOString() })
-                    .eq('id', id);
+            try {
+                const updatedOrder = await handleStockAndBusinessRules(id, merged);
+                if (updatedOrder.stockProcessed) {
+                    await supabase
+                        .from(TABLE_NAME)
+                        .update({ 
+                            order_data: { ...merged, stockProcessed: true }, 
+                            updated_at: new Date().toISOString() 
+                        })
+                        .eq('id', id);
+                }
+            } catch (stockErr) {
+                console.error("[OrderUpdate] Erro ao processar estoque (manutenção):", stockErr);
             }
         }
     } catch (error) {

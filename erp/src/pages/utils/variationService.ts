@@ -10,6 +10,40 @@ const mapFromDB = (data: any): VariationType => ({
     updatedAt: data.updated_at
 });
 
+export const checkVariationUsage = async (attributeName: string, optionValue?: string): Promise<boolean> => {
+    try {
+        // Query products that have variations with the given attribute and optionally value
+        // The variations are stored in a JSONB column 'variations' which is an array of objects
+        // Each object in 'variations' has an 'attributes' array
+        
+        const { data, error } = await supabase
+            .from('products')
+            .select('id, description')
+            .not('variations', 'is', null);
+
+        if (error) throw error;
+        if (!data) return false;
+
+        return data.some((product: any) => {
+            if (!product.variations || !Array.isArray(product.variations)) return false;
+            
+            return product.variations.some((v: any) => {
+                if (!v.attributes || !Array.isArray(v.attributes)) return false;
+                
+                return v.attributes.some((attr: any) => {
+                    if (optionValue) {
+                        return attr.name === attributeName && attr.value === optionValue;
+                    }
+                    return attr.name === attributeName;
+                });
+            });
+        });
+    } catch (error) {
+        console.error("Erro ao verificar uso da variação:", error);
+        return false;
+    }
+};
+
 export const subscribeToVariations = (callback: (variations: VariationType[]) => void) => {
     // Initial fetch
     supabase.from(TABLE_NAME)

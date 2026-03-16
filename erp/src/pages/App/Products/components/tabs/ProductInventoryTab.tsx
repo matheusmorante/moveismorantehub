@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Product from '../../../../types/product.type';
-import SmartInput from '../../../../../components/SmartInput';
+import Person from '../../../../types/person.type';
+import DropdownPortal from '../../../../../components/shared/DropdownPortal';
 import { toast } from 'react-toastify';
+import { getProductSalesStats } from '../../../../utils/productService';
 
 interface ProductInventoryTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    suppliers: any[];
+    suppliers: Person[];
     handleSuggestPrices: () => void;
     isSuggestingPrices: boolean;
     suggestPricesResults: { low: any, medium: any, high: any } | null;
@@ -20,6 +22,66 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     isSuggestingPrices,
     suggestPricesResults
 }) => {
+    const [supplierSearch, setSupplierSearch] = useState('');
+    const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+    const [isSyncingSales, setIsSyncingSales] = useState(false);
+    const supplierInputRef = useRef<HTMLDivElement>(null);
+
+    // Initialize search with current supplier name
+    useEffect(() => {
+        if (formData.mainSupplierId && suppliers.length > 0) {
+            const current = suppliers.find(s => s.id === formData.mainSupplierId);
+            if (current) setSupplierSearch(current.fullName || '');
+        }
+    }, [formData.mainSupplierId, suppliers]);
+
+    const filteredSuppliers = suppliers.filter(s => 
+        (s.fullName || '').toLowerCase().includes(supplierSearch.toLowerCase())
+    );
+
+    const calculateMinStock = () => {
+        const leadTime = formData.leadTime || 0;
+        const avgMonthlySales = formData.avgMonthlySales || 0;
+        const classification = formData.classification || 'Q2';
+
+        if (leadTime === 0 || avgMonthlySales === 0) {
+            toast.warning("Preencha Lead Time e Venda Mensal para calcular.");
+            return;
+        }
+
+        // Formula: (Venda Mensal / 30 * Lead Time) + Margin
+        const dailySales = avgMonthlySales / 30;
+        let baseMinStock = dailySales * leadTime;
+
+        // Security Margin
+        let margin = 0.15; // Default 15%
+        if (classification === 'Q1') margin = 0.50;
+        else if (classification === 'Q2') margin = 0.20;
+        else if (classification === 'Q4') margin = 0;
+
+        const totalMinStock = Math.ceil(baseMinStock * (1 + margin));
+        setFormData({ ...formData, minStock: totalMinStock });
+        toast.success(`Estoque M├¡nimo sugerido: ${totalMinStock} unidades.`);
+    };
+
+    const handleSyncSales = async () => {
+        if (!formData.id) {
+            toast.warning("Salve o produto primeiro para sincronizar com vendas reais.");
+            return;
+        }
+
+        setIsSyncingSales(true);
+        try {
+            const { avgMonthlySales } = await getProductSalesStats(formData.id);
+            setFormData(prev => ({ ...prev, avgMonthlySales }));
+            toast.success(`Giro mensal atualizado: ${avgMonthlySales} un/m├¬s (baseado nos ├║ltimos 90 dias).`);
+        } catch (error) {
+            toast.error("Erro ao sincronizar vendas.");
+        } finally {
+            setIsSyncingSales(false);
+        }
+    };
+
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Cost Composition */}
@@ -37,8 +99,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         <input
                             type="number"
                             step="0.01"
-                            value={formData.costPrice}
-                            onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
+                            value={isNaN(formData.costPrice as number) || formData.costPrice === 0 ? '' : formData.costPrice}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setFormData({ ...formData, costPrice: isNaN(val) ? 0 : val });
+                            }}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                         />
                     </div>
@@ -47,8 +112,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         <input
                             type="number"
                             step="0.1"
-                            value={formData.ipiPercent}
-                            onChange={(e) => setFormData({ ...formData, ipiPercent: parseFloat(e.target.value) })}
+                            value={isNaN(formData.ipiPercent as number) || formData.ipiPercent === 0 ? '' : formData.ipiPercent}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setFormData({ ...formData, ipiPercent: isNaN(val) ? 0 : val });
+                            }}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                         />
                     </div>
@@ -57,8 +125,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         <input
                             type="number"
                             step="0.01"
-                            value={formData.freightCost}
-                            onChange={(e) => setFormData({ ...formData, freightCost: parseFloat(e.target.value) })}
+                            value={isNaN(formData.freightCost as number) || formData.freightCost === 0 ? '' : formData.freightCost}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setFormData({ ...formData, freightCost: isNaN(val) ? 0 : val });
+                            }}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                         />
                     </div>
@@ -170,63 +241,124 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <i className="bi bi-box-seam text-blue-600"></i> Gestão de Estoque
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Showroom</label>
-                            <input
-                                type="number"
-                                value={formData.showroomStock || 0}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    setFormData({ 
-                                        ...formData, 
-                                        showroomStock: val,
-                                        stock: val + (formData.warehouseStock || 0)
-                                    });
-                                }}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                            />
+                    
+                    {formData.hasVariations ? (
+                        <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl">
+                            <div className="flex items-center gap-3 mb-2">
+                                <i className="bi bi-info-circle-fill text-blue-600"></i>
+                                <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400">Gestão por Variação</h5>
+                            </div>
+                            <p className="text-[10px] font-bold text-blue-600/70 dark:text-blue-400/70 leading-relaxed">
+                                Este produto possui variações. O estoque atual e o estoque mínimo são gerenciados individualmente para cada variação na aba "Variações".
+                            </p>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Depósito</label>
-                            <input
-                                type="number"
-                                value={formData.warehouseStock || 0}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    setFormData({ 
-                                        ...formData, 
-                                        warehouseStock: val,
-                                        stock: (formData.showroomStock || 0) + val
-                                    });
-                                }}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                            />
+                    ) : (
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-600 transition-colors">Estoque Atual</label>
+                                <input
+                                    type="number"
+                                    value={isNaN(formData.stock as number) || formData.stock === 0 ? '' : formData.stock}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
+                                    }}
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-black text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        value={isNaN(formData.minStock as number) || formData.minStock === 0 ? '' : formData.minStock}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
+                                        }}
+                                        className="flex-1 px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={calculateMinStock}
+                                        className="p-3 bg-slate-100 dark:bg-slate-800 text-blue-600 hover:bg-blue-600 hover:text-white rounded-2xl transition-all"
+                                        title="Calcular Estoque Mínimo Sugerido"
+                                    >
+                                        <i className="bi bi-calculator"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-600 transition-colors">Estoque Total</label>
-                            <input
-                                type="number"
-                                value={formData.stock}
-                                readOnly
-                                className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-black text-blue-600 dark:text-blue-400 cursor-not-allowed"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
-                            <input
-                                type="number"
-                                value={formData.minStock}
-                                onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) })}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-22xl">
-                        <i className="bi bi-info-circle text-amber-500"></i>
-                        <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-tight">
-                            O sistema enviará notificações quando o estoque atingir o nível mínimo.
+                    )}
+
+                    <div className="p-6 bg-slate-100/50 dark:bg-slate-900/30 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                            <i className="bi bi-lightning-charge-fill text-yellow-500"></i> Inteligência de Reposição
                         </p>
+                        
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Giro Mensal (Vendas)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        value={formData.avgMonthlySales || ''}
+                                        onChange={(e) => setFormData({ ...formData, avgMonthlySales: parseInt(e.target.value) || 0 })}
+                                        placeholder="Ex: 50"
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSyncSales}
+                                        disabled={isSyncingSales}
+                                        className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                                        title="Sincronizar com hist├│rico de vendas (90 dias)"
+                                    >
+                                        <i className={`bi ${isSyncingSales ? 'bi-hourglass-split animate-spin' : 'bi-arrow-repeat'}`}></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Lead Time (Dias)</label>
+                                <input
+                                    type="number"
+                                    value={formData.leadTime || ''}
+                                    onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
+                                    placeholder="Ex: 15"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Importância</label>
+                                <select
+                                    value={formData.classification || 'Q2'}
+                                    onChange={(e) => setFormData({ ...formData, classification: e.target.value as any })}
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                >
+                                    <option value="Q1">Q1 (Crucial +30%)</option>
+                                    <option value="Q2">Q2 (Importante)</option>
+                                    <option value="Q3">Q3 (Normal)</option>
+                                    <option value="Q4">Q4 (Eventual)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <p className="text-[8px] font-black tracking-widest text-slate-400 uppercase mb-2">Impacto no Estoque Mínimo (Margem de Segurança):</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {[
+                                    { id: 'Q1', label: 'Crucial (+50%)', color: 'text-rose-600' },
+                                    { id: 'Q2', label: 'Importante (+20%)', color: 'text-orange-500' },
+                                    { id: 'Q3', label: 'Normal (+15%)', color: 'text-blue-500' },
+                                    { id: 'Q4', label: 'Irrelevante (0%)', color: 'text-slate-400' }
+                                ].map(item => (
+                                    <div key={item.id} className="flex flex-col p-2 bg-white dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800">
+                                        <span className={`text-[9px] font-black ${item.color}`}>{item.id}</span>
+                                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">{item.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -235,27 +367,53 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <i className="bi bi-truck text-blue-600"></i> Fornecedor Principal
                     </h4>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Selecione o Fornecedor</label>
-                        <select
-                            value={formData.mainSupplierId || ''}
-                            onChange={(e) => setFormData({ ...formData, mainSupplierId: e.target.value })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                        >
-                            <option value="">Nenhum selecionado</option>
-                            {suppliers.map(s => (
-                                <option key={s.id} value={s.id}>{s.name || s.social_name}</option>
-                            ))}
-                        </select>
+                    <div className="flex flex-col gap-2 relative" ref={supplierInputRef}>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Buscar Fornecedor</label>
+                        <div className="relative">
+                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input
+                                type="text"
+                                value={supplierSearch}
+                                onChange={(e) => {
+                                    setSupplierSearch(e.target.value);
+                                    setIsSupplierDropdownOpen(true);
+                                }}
+                                onFocus={() => setIsSupplierDropdownOpen(true)}
+                                placeholder="Digite o nome do fornecedor..."
+                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                            />
+                        </div>
+
+                        <DropdownPortal anchorRef={supplierInputRef} isOpen={isSupplierDropdownOpen && filteredSuppliers.length > 0}>
+                            <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">
+                                {filteredSuppliers.map(s => (
+                                    <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setFormData({ 
+                                                ...formData, 
+                                                mainSupplierId: s.id,
+                                                leadTime: s.leadTime || formData.leadTime 
+                                            });
+                                            setSupplierSearch(s.fullName || '');
+                                            setIsSupplierDropdownOpen(false);
+                                        }}
+                                        className="w-full px-5 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0"
+                                    >
+                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{s.fullName}</p>
+                                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{s.cpfCnpj || 'Sem documento'}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        </DropdownPortal>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ref. Fornecedor</label>
-                        <input
-                            value={formData.supplierRef || ''}
-                            onChange={(e) => setFormData({ ...formData, supplierRef: e.target.value })}
-                            placeholder="Ex: REF-ABC-123"
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
-                        />
+                    
+                    <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl">
+                        <i className="bi bi-info-circle-fill text-blue-500"></i>
+                        <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 leading-tight">
+                            Vincule o fornecedor para automatizar o cálculo de Lead Time e pedidos de compra.
+                        </p>
                     </div>
                 </div>
             </div>
