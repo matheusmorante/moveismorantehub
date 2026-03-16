@@ -421,51 +421,40 @@ const AIChatAssistant = () => {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-4">
+        <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-6">
             {isOpen && (
-                <div className="w-[380px] h-[550px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-slide-up">
-                    <header className="p-6 bg-indigo-600 text-white flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center overflow-hidden">
+                <div className="w-[420px] h-[650px] glass-card rounded-[3.5rem] shadow-premium-lg flex flex-col overflow-hidden animate-reveal border border-white/40 dark:border-slate-800/40">
+                    <header className="p-8 bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600 text-white flex items-center justify-between relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="w-16 h-16 rounded-[1.5rem] bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                                 {aiAvatar ? (
                                     <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
                                 ) : (
-                                    <i className="bi bi-robot text-2xl"></i>
+                                    <i className="bi bi-robot text-3xl"></i>
                                 )}
                             </div>
                             <div>
-                                <h4 className="font-black text-sm uppercase tracking-widest">{aiName}</h4>
+                                <h4 className="font-black text-xl tracking-tighter leading-none mb-1">{aiName}</h4>
                                 <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    <span className="text-[10px] uppercase font-bold text-white/70">Online</span>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
+                                    <span className="text-[10px] uppercase font-black tracking-widest text-white/80">Pro Master AI</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 relative z-10">
                             <button
                                 onClick={toggleCallMode}
-                                className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${isCallMode ? 'bg-red-500 text-white animate-pulse' : 'text-white/40 hover:text-white/60'}`}
+                                className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${isCallMode ? 'bg-white text-red-600 shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                                 title={isCallMode ? "Desligar Chamada" : "Iniciar Chamada de Voz"}
                             >
-                                <i className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'}`}></i>
-                                {isCallMode && <span className="text-[10px] font-black uppercase">Em Call</span>}
+                                <i className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'} text-lg`}></i>
                             </button>
                             <button
-                                onClick={() => setShowPreviewModal(!showPreviewModal)}
-                                className={`p-2 rounded-lg transition-all ${showPreviewModal ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'}`}
-                                title={"Ver Rascunho"}
+                                onClick={() => setIsOpen(false)}
+                                className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
                             >
-                                <i className="bi bi-card-checklist"></i>
-                            </button>
-                            <button
-                                onClick={toggleAutoSpeak}
-                                className={`p-2 rounded-lg transition-all ${isAutoSpeakEnabled ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'}`}
-                                title={isAutoSpeakEnabled ? "Desativar Voz" : "Ativar Voz"}
-                            >
-                                <i className={`bi ${isAutoSpeakEnabled ? 'bi-volume-up-fill' : 'bi-volume-mute'}`}></i>
-                            </button>
-                            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
-                                <i className="bi bi-dash-lg"></i>
+                                <i className="bi bi-dash-lg text-xl"></i>
                             </button>
                         </div>
                     </header>

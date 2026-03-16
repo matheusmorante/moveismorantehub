@@ -14,52 +14,68 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
     const isPickup = form.state.shipping.deliveryMethod === 'pickup';
     const isEditing = false; // We can add an isEditing prop later if NewSaleOrder handles edit, but currently OrderEditModal does it.
 
-    // Wrap handleSaveOrder to include onClose and onSaveSuccess
-    const originalHandleSaveOrder = form.actions.handleSaveOrder;
+    // Wrap save actions to include onClose and onSaveSuccess
     const handleSave = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
-        const result = await originalHandleSaveOrder(e);
+        const result = await form.actions.handleSaveOrder(e);
         if (result) {
             onSaveSuccess(typeof result === 'string' ? result : undefined);
             onClose();
         }
         return result;
-    }, [originalHandleSaveOrder, onSaveSuccess, onClose]);
+    }, [form.actions, onSaveSuccess, onClose]);
+
+    const handleComplete = useCallback(async (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        const result = await form.actions.handleCompleteOrder(e);
+        if (result) {
+            onSaveSuccess(typeof result === 'string' ? result : undefined);
+            onClose();
+        }
+        return result;
+    }, [form.actions, onSaveSuccess, onClose]);
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-10 bg-slate-900/60 backdrop-blur-md animate-fade-in"
             onClick={onClose}
         >
             <div
-                className="bg-white w-full h-full md:w-[95vw] md:h-[95vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border md:border-white/20"
+                className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl w-full h-full md:w-[98vw] md:h-[96vh] rounded-none md:rounded-[3.5rem] shadow-premium-lg flex flex-col overflow-hidden animate-reveal border-0 md:border md:border-white/20 dark:md:border-slate-800"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className={`px-10 py-5 border-b flex justify-between items-center transition-colors duration-300 shrink-0 ${isPickup ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800' : 'bg-slate-50 border-slate-100 dark:bg-slate-900/50 dark:border-slate-800'}`}>
-                    <div className="flex items-center gap-4">
-                        <div className={`p-2.5 rounded-xl shadow-lg transition-colors duration-300 ${isPickup ? 'bg-emerald-600 shadow-emerald-100 dark:shadow-emerald-900/20' : 'bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20'}`}>
-                            <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-lg`} />
+                <div className={`px-12 py-7 border-b flex justify-between items-center transition-all duration-500 shrink-0 ${isPickup ? 'bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30' : 'bg-slate-50/30 border-slate-100/50 dark:bg-slate-900/30 dark:border-slate-800/50'}`}>
+                    <div className="flex items-center gap-6">
+                        <div className={`w-14 h-14 flex items-center justify-center rounded-[1.5rem] shadow-premium transition-all duration-500 ${isPickup ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-blue-600 shadow-blue-500/20'}`}>
+                            <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-2xl`} />
                         </div>
                         <div>
-                            <h2 className={`text-xl font-black tracking-tight transition-colors duration-300 ${isPickup ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-100'}`}>
+                            <h2 className={`text-2xl font-black tracking-tight transition-colors duration-500 ${isPickup ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
                                 {isPickup ? 'Novo Pedido de Retirada' : 'Novo Pedido de Entrega'}
                             </h2>
-                            <p className={`text-[9px] uppercase font-black tracking-widest mt-0.5 transition-colors duration-300 ${isPickup ? 'text-emerald-700/60 dark:text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>
-                                {isPickup ? 'REGISTRAR NOVA RETIRADA' : 'REGISTRAR NOVA VENDA E ENTREGA'}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className={`text-[9px] uppercase font-black tracking-[0.2em] px-2 py-0.5 rounded-full ${isPickup ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'}`}>
+                                    Fluxo Pro Master
+                                </span>
+                                <span className="text-[9px] uppercase font-bold tracking-widest text-slate-400">
+                                    • {isPickup ? 'REGISTRAR RETIRADA EM LOJA' : 'VENDA DIRETA COM ENTREGA'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <OrderStepper 
-                        currentStep={form.state.currentStep} 
-                        jumpToStep={form.actions.jumpToStep} 
-                    />
+                    <div className="flex-1 max-w-2xl mx-12">
+                        <OrderStepper 
+                            currentStep={form.state.currentStep} 
+                            jumpToStep={form.actions.jumpToStep} 
+                        />
+                    </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
                             onClick={onClose}
-                            className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 active:scale-95"
+                            className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90"
                         >
                             <i className="bi bi-x-lg text-lg" />
                         </button>
@@ -72,7 +88,8 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                         ...form,
                         actions: {
                             ...form.actions,
-                            handleSaveOrder: handleSave
+                            handleSaveOrder: handleSave,
+                            handleCompleteOrder: handleComplete
                         }
                     }} />
                 </div>

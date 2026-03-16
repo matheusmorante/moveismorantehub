@@ -15,6 +15,16 @@ export const stringifyFullAddress = (
         .join(', ')
 };
 
+export const stringifyMapAddress = (
+    address: CustomerData['fullAddress'] | null | undefined
+) => {
+    if (!address) return '';
+    const { street, number, neighborhood, city } = address;
+    return [street, number, neighborhood, city]
+        .filter(Boolean)
+        .join(', ')
+};
+
 export const stringifyFullAddressWithObservation = (
     address: CustomerData['fullAddress'] | null | undefined
 ) => {

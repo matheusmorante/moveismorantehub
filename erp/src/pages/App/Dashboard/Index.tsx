@@ -98,47 +98,55 @@ export default function Dashboard() {
     const todayStr = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 
     return (
-        <div className="max-w-[1700px] mx-auto space-y-8 animate-fade-in px-4 py-8">
+        <div className="max-w-[1700px] mx-auto space-y-10 animate-reveal px-4 lg:px-10 py-10">
             {/* Page Header */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-600 rounded-2xl shadow-xl shadow-blue-200 dark:shadow-blue-900/20">
-                            <i className="bi bi-speedometer2 text-white text-2xl"></i>
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="space-y-4">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-blue-600 rounded-[2rem] shadow-premium-lg shadow-blue-500/20 flex items-center justify-center group-hover:rotate-12 transition-transform duration-500">
+                            <i className="bi bi-speedometer2 text-white text-3xl"></i>
                         </div>
-                        <h1 className="text-3xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                            Dash<span className="text-blue-600">board</span>
-                        </h1>
+                        <div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <h1 className="text-4xl xl:text-5xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">
+                                    Dash<span className="text-blue-600">board</span>
+                                </h1>
+                                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                    Master Live
+                                </span>
+                            </div>
+                            <p className="text-sm text-slate-400 font-bold uppercase tracking-[0.2em]">Painel de Controle e Inteligência de Vendas</p>
+                        </div>
                         <button
                             onClick={() => setShowConfig(!showConfig)}
-                            className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-blue-600 transition-all hover:rotate-90"
+                            className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-blue-600 transition-all hover:rotate-90 shadow-premium-sm"
                         >
-                            <i className="bi bi-gear-fill text-lg"></i>
+                            <i className="bi bi-gear-fill text-xl"></i>
                         </button>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
                     {period === 'custom' && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm animate-fade-in">
-                            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 bg-transparent" />
-                            <span className="text-slate-300">-</span>
-                            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 bg-transparent" />
+                        <div className="flex items-center gap-3 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl p-2.5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm animate-reveal">
+                            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-1 text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none" />
+                            <span className="text-slate-300">/</span>
+                            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-1 text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none" />
                         </div>
                     )}
-                    <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex items-center gap-1 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                    <div className="bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-[1.75rem] flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto no-scrollbar shadow-inner">
                         {PERIODS.map((p) => (
                             <button
                                 key={p.value}
                                 onClick={() => setPeriod(p.value)}
-                                className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${period === p.value ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`whitespace-nowrap px-6 py-2.5 rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 active:scale-95 ${period === p.value ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-premium-sm ring-1 ring-slate-100 dark:ring-slate-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                             >
                                 {p.label}
                             </button>
                         ))}
                     </div>
-                    <div className="px-5 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-3 text-slate-500 font-black text-[10px] uppercase tracking-widest">
-                        <i className="bi bi-calendar3 text-blue-500"></i>
+                    <div className="px-6 py-3 bg-white dark:bg-slate-900 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm flex items-center gap-4 text-slate-500 font-black text-[10px] uppercase tracking-widest group">
+                        <i className="bi bi-calendar3 text-blue-500 group-hover:scale-110 transition-transform"></i>
                         {todayStr}
                     </div>
                 </div>
@@ -146,7 +154,7 @@ export default function Dashboard() {
 
             {/* Metrics */}
             {visibility.stats && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-8">
                     <StatsCard
                         title="Faturamento" value={formatCurrency(stats.totalSales)} icon="currency-dollar"
                         trend={trends.sales.trend} trendValue={trends.sales.value} color="bg-blue-600"
@@ -166,7 +174,7 @@ export default function Dashboard() {
             )}
 
             {/* Central Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 {visibility.revenueChart && (
                     <div className="lg:col-span-2">
                         <ChartContainer title="Evolução de Faturamento" subtitle={`Desempenho no período atual (${period})`}>
@@ -179,49 +187,54 @@ export default function Dashboard() {
 
             {/* Heatmap Section */}
             {visibility.heatmap && (
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                <div className="space-y-6 animate-reveal">
+                    <div className="flex items-center justify-between px-2">
                         <div>
-                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Radar Geográfico de Lucro</h3>
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Concentração de vendas por bairro</p>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-tight">Radar Geográfico de Lucro</h3>
+                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Concentração de vendas e performance por região</p>
+                        </div>
+                        <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl shadow-premium-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center text-blue-600">
+                           <i className="bi bi-geo-alt-fill text-xl"></i>
                         </div>
                     </div>
-                    <ProfitHeatMap orders={filteredOrders} />
+                    <div className="rounded-[3rem] overflow-hidden shadow-premium border border-slate-100 dark:border-slate-800">
+                        <ProfitHeatMap orders={filteredOrders} />
+                    </div>
                 </div>
             )}
 
             {/* Bottom Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-10">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-10 pb-16">
                 {visibility.statusChart && (
-                    <ChartContainer title="Mix de Status" subtitle="Distribuição dos pedidos">
+                    <ChartContainer title="Mix de Status" subtitle="Distribuição analítica dos pedidos">
                         <div className="relative h-64 flex items-center justify-center">
                             <SimplePieChart data={statusData} />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{stats.totalOrdersCount}</span>
-                                <span className="text-[10px] font-black uppercase text-slate-400">Total</span>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mb-4">
+                                <span className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">{stats.totalOrdersCount}</span>
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Total</span>
                             </div>
                         </div>
                     </ChartContainer>
                 )}
 
                 {visibility.reports && (
-                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-sm">
-                        <div className="flex justify-between items-start mb-6">
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-10 flex flex-col justify-between shadow-premium hover:shadow-premium-lg transition-all duration-500 group">
+                        <div className="flex justify-between items-start mb-10">
                             <div>
-                                <h4 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">Relatórios Detalhes</h4>
-                                <p className="text-sm text-slate-400 font-medium">Análise de fluxo e geração de documentos.</p>
+                                <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2 leading-tight">Relatórios Detalhes</h4>
+                                <p className="text-sm text-slate-400 font-medium">Análise preditiva de fluxo e documentos inteligentes.</p>
                             </div>
-                            <button className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-colors">
-                                <i className="bi bi-file-earmark-bar-graph text-xl"></i>
+                            <button className="w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-500 flex items-center justify-center shadow-sm">
+                                <i className="bi bi-file-earmark-bar-graph text-2xl"></i>
                             </button>
                         </div>
-                        <div className="h-32 flex items-end gap-2 px-2">
+                        <div className="h-32 flex items-end gap-3 px-2">
                             {salesOverTime.slice(-15).map((d, i) => {
                                 const maxVal = Math.max(...salesOverTime.map(x => x.valor), 1);
                                 const h = (d.valor / maxVal) * 100;
                                 return (
-                                    <div key={i} className="flex-1 bg-blue-500/10 dark:bg-blue-500/5 rounded-t-xl relative group">
-                                        <div className="absolute bottom-0 left-0 w-full bg-blue-600/80 rounded-t-xl transition-all duration-500 group-hover:bg-blue-500" style={{ height: `${Math.max(h, 5)}%` }}></div>
+                                    <div key={i} className="flex-1 bg-slate-100 dark:bg-slate-800/50 rounded-t-2xl relative group/bar overflow-hidden">
+                                        <div className="absolute bottom-0 left-0 w-full bg-blue-600/60 rounded-t-2xl transition-all duration-1000 group-hover:bg-blue-600 delay-[i*50ms]" style={{ height: `${Math.max(h, 8)}%` }}></div>
                                     </div>
                                 )
                             })}
@@ -230,17 +243,17 @@ export default function Dashboard() {
                 )}
 
                 {visibility.quickAction && (
-                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
-                        <i className="bi bi-rocket-takeoff absolute -right-4 -bottom-4 text-9xl text-white/10 -rotate-12 group-hover:scale-110 transition-transform duration-700"></i>
+                    <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 p-10 rounded-[3rem] text-white shadow-premium-lg flex flex-col justify-between relative overflow-hidden group hover:scale-[1.02] transition-all duration-500">
+                        <i className="bi bi-rocket-takeoff absolute -right-6 -bottom-6 text-[12rem] text-white/5 -rotate-12 group-hover:scale-125 group-hover:rotate-0 transition-transform duration-1000"></i>
                         <div className="relative z-10">
-                            <h3 className="text-2xl font-black mb-2">Nova Venda</h3>
-                            <p className="text-blue-100 text-sm font-medium opacity-80 leading-relaxed">Inicie um novo pedido agora e agilize seu atendimento.</p>
+                            <h3 className="text-3xl font-black mb-3 tracking-tight">Nova Venda</h3>
+                            <p className="text-blue-100/70 text-sm font-bold uppercase tracking-widest leading-relaxed">Fast Track Checkout Pro</p>
                         </div>
                         <button
                             onClick={() => window.location.href = '/sales-order'}
-                            className="relative z-10 w-full bg-white text-blue-700 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:shadow-2xl transition-all active:scale-95"
+                            className="relative z-10 w-full bg-white text-blue-700 py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95"
                         >
-                            Começar
+                            Lançar Pedido
                         </button>
                     </div>
                 )}

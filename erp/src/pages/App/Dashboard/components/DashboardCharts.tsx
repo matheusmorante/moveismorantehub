@@ -11,10 +11,15 @@ export interface StatusDistribution {
 }
 
 export const ChartContainer = ({ title, subtitle, children }: { title: string, subtitle?: string, children: React.ReactNode }) => (
-    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
-        <div className="mb-8">
-            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{title}</h3>
-            {subtitle && <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">{subtitle}</p>}
+    <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-premium hover:shadow-premium-lg transition-all duration-500 animate-reveal group">
+        <div className="mb-10 flex justify-between items-start">
+            <div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-tight">{title}</h3>
+                {subtitle && <p className="text-slate-400 dark:text-slate-500 text-[11px] font-bold uppercase tracking-wider mt-1">{subtitle}</p>}
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+                <i className="bi bi-graph-up text-lg"></i>
+            </div>
         </div>
         <div className="h-[250px] w-full relative">
             {children}

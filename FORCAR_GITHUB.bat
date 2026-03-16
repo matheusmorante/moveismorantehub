@@ -1,9 +1,0 @@
-@echo off
-echo Limpando travas do Git...
-if exist .git\index.lock del .git\index.lock
-echo Fazendo Commit...
-git commit -m "chore: force reset sync"
-echo Enviando para o GitHub (Forçado)...
-git push origin main -f
-echo Processo Concluido!
-pause

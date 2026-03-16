@@ -3,27 +3,84 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --brand-blue: #2563eb;
+    --brand-blue-deep: #1e40af;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   /* Melhorando o contraste do modo Light */
   body:not(.dark) {
     @apply text-slate-800;
   }
 
   body:not(.dark) .text-slate-400 {
-    color: #64748b; /* slate-500 equivalent for better visibility */
+    color: #64748b; 
   }
 
   body:not(.dark) .text-slate-300 {
-    color: #94a3b8; /* slate-400 equivalent for better visibility */
+    color: #94a3b8;
   }
 
   body:not(.dark) .border-slate-100 {
-    border-color: #e2e8f0; /* slate-200 for clearer borders */
+    border-color: #e2e8f0;
+  }
+}
+
+@layer components {
+  /* Pro Master Premium Shadows */
+  .shadow-premium-sm {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 1px 0 rgba(0,0,0,0.02);
+  }
+  
+  .shadow-premium {
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+  }
+
+  .shadow-premium-lg {
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.1), 0 10px 20px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .shadow-premium-lg {
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.3), 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Glassmorphism */
+  .glass-card {
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/20 dark:border-white/5;
+  }
+
+  .glass-header {
+    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100/50 dark:border-slate-800/50;
+  }
+
+  /* Modern Bento Grid Item */
+  .bento-item {
+    @apply rounded-[2rem] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden 
+           hover:shadow-premium transition-all duration-500 hover:border-blue-500/20;
+  }
+
+  /* Interactive Elements */
+  .btn-pro {
+    @apply px-6 py-2.5 rounded-2xl font-bold transition-all duration-300 active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  .btn-pro-primary {
+    @apply btn-pro bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30;
+  }
+
+  .btn-pro-ghost {
+    @apply btn-pro bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700;
   }
 }
 
 /* Custom scrollbar Improvements */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -38,3 +95,13 @@
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #334155;
 }
+
+/* Animations */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-reveal {
+  animation: reveal 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

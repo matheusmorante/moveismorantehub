@@ -107,7 +107,8 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                             ...form,
                             actions: {
                                 ...form.actions,
-                                handleSaveOrder: handleUpdate
+                                handleSaveOrder: handleUpdate,
+                                handleCompleteOrder: handleUpdate
                             }
                         }} />
                     ) : (

@@ -1,6 +1,6 @@
 import CustomerData from "../types/customerData.type"
 import { AddressViaCep } from "../types/fullAddress.type";
-import { stringifyFullAddress } from "./formatters";
+import { stringifyFullAddress, stringifyMapAddress } from "./formatters";
 import { getSettings } from '@/pages/utils/settingsService';
 
 // ─── Neighborhood/City Coordinates mapping ───────────────────────────────────
@@ -27,7 +27,7 @@ export const getNeighborhoodCoords = (neighborhood?: string, city?: string) => {
 export const getShippingRouteUrl = (fullAddress: CustomerData['fullAddress']) => {
     const settings = getSettings();
     const originString = settings.companyAddress;
-    const destinationString = stringifyFullAddress(fullAddress);
+    const destinationString = stringifyMapAddress(fullAddress);
 
     const originURI = encodeURIComponent(originString);
     const destinationURI = encodeURIComponent(destinationString);
@@ -80,7 +80,8 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
     if (typeof address === 'string') {
         addressString = address;
     } else {
-        addressString = `${address.street}, ${address.number ? address.number + ', ' : ''}${address.city} - PR`;
+        const { street, number, neighborhood, city } = address;
+        addressString = [street, number, neighborhood, city].filter(Boolean).join(', ') + ' - PR';
     }
 
     const encodedAddress = encodeURIComponent(addressString);

@@ -43,8 +43,8 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
             const distance = isNaN(numValue) ? undefined : numValue;
             let value = prev.value;
 
-            // Auto-calculate freight if distance is valid and rate is configured
-            if (distance !== undefined && settings.freightPerKm > 0) {
+            // Auto-calculate freight if distance is valid, rate is configured AND auto-calculate is enabled
+            if (prev.autoCalculateValue && distance !== undefined && settings.freightPerKm > 0) {
                 value = distance * settings.freightPerKm;
             }
 
