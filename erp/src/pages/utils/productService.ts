@@ -265,65 +265,74 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
 };
 
 /**
- * Verifica se um SKU/Código já existe no sistema (em produtos ou variações)
+ * Verifica se múltiplos SKUs já existem no sistema (em produtos ou variações) de uma vez só.
+ * Otimiza a performance de salvamento permitindo validar todos os SKUs em 2 chamadas ao banco.
  */
-export const checkSkuUniqueness = async (sku: string, excludeProductId?: string): Promise<{ exists: boolean, productDescription?: string }> => {
-    if (!sku) return { exists: false };
+export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?: string): Promise<{ [sku: string]: string }> => {
+    const uniqueSkus = Array.from(new Set(skus.filter(s => s && s.trim() !== "")));
+    if (uniqueSkus.length === 0) return {};
 
-    // 1. Verificar em produtos (campo code)
-    let productQuery = supabase.from(TABLE_NAME)
-        .select('id, description, code')
-        .eq('code', sku)
-        .eq('deleted', false);
-    
-    if (excludeProductId) {
-        productQuery = productQuery.neq('id', excludeProductId);
+    const duplicates: { [sku: string]: string } = {};
+
+    try {
+        // 1. Verificar em produtos (campo code)
+        let productQuery = supabase.from(TABLE_NAME)
+            .select('id, description, code')
+            .in('code', uniqueSkus)
+            .eq('deleted', false);
+        
+        if (excludeProductId) productQuery = productQuery.neq('id', excludeProductId);
+
+        const { data: productMatches } = await productQuery;
+        productMatches?.forEach((p: any) => {
+            duplicates[p.code] = p.description;
+        });
+
+        // 2. Verificar em variações (field JSON)
+        // Infelizmente Supabase/PostgREST não suporta muito bem um "ANY" dentro de um array de objetos JSON direto na clause in.
+        // Como o volume de SKUs por produto raramente passa de 50-100, verificaremos via .or() com @> ou simplesmente via um RPC se necessário.
+        // Abordagem via .or() para ser compatível sem criar novas funcoes SQL:
+        const filterOr = uniqueSkus.map(s => `variations.cs.[{"sku": "${s}"}]`).join(',');
+        
+        let variationQuery = supabase.from(TABLE_NAME)
+            .select('id, description, variations')
+            .eq('deleted', false)
+            .or(filterOr);
+
+        if (excludeProductId) variationQuery = variationQuery.neq('id', excludeProductId);
+
+        const { data: variationMatches } = await variationQuery;
+        variationMatches?.forEach((p: any) => {
+            const vrs = p.variations || [];
+            uniqueSkus.forEach(s => {
+                if (!duplicates[s] && vrs.some((v: any) => v.sku === s)) {
+                    duplicates[s] = p.description;
+                }
+            });
+        });
+    } catch (err) {
+        console.error("[ProductService] Erro na verificação em lote de SKUs:", err);
     }
 
-    const { data: productMatch } = await productQuery.maybeSingle();
-    if (productMatch) {
-        return { exists: true, productDescription: productMatch.description };
-    }
-
-    // 2. Verificar em variações (field JSON)
-    // Usamos o operador @> para buscar no array de variações
-    const { data: variationMatch } = await supabase.from(TABLE_NAME)
-        .select('id, description, variations')
-        .eq('deleted', false)
-        .filter('variations', 'cs', `[{"sku": "${sku}"}]`);
-
-    if (variationMatch && variationMatch.length > 0) {
-        // Filtrar o próprio produto se necessário (já que a query cs não aceita neq facilmente combinada)
-        const realMatch = excludeProductId 
-            ? variationMatch.filter((v: any) => String(v.id) !== String(excludeProductId))
-            : variationMatch;
-            
-        if (realMatch.length > 0) {
-            return { exists: true, productDescription: realMatch[0].description };
-        }
-    }
-
-    return { exists: false };
+    return duplicates;
 };
 
 export const saveProduct = async (product: Product): Promise<string> => {
-    // Validação de SKU Global antes de salvar
-    if (product.code) {
-        const { exists, productDescription } = await checkSkuUniqueness(product.code, product.id);
-        if (exists) {
-            throw new Error(`O código (SKU) "${product.code}" já está em uso no produto: ${productDescription}`);
-        }
+    // 1. Identificar todos os SKUs que precisam de validação
+    const skusToValidate: string[] = [];
+    if (product.code) skusToValidate.push(product.code);
+    if (product.variations?.length) {
+        product.variations.forEach(v => { if (v.sku) skusToValidate.push(v.sku); });
     }
 
-    // Validar SKUs das variações
-    if (product.variations && product.variations.length > 0) {
-        for (const v of product.variations) {
-            if (v.sku) {
-                const { exists, productDescription } = await checkSkuUniqueness(v.sku, product.id);
-                if (exists) {
-                    throw new Error(`A variação "${v.name}" usa o SKU "${v.sku}" que já pertence ao produto: ${productDescription}`);
-                }
-            }
+    // 2. Validação em LOTE (Apenas 1 ou 2 requisições em vez de N)
+    if (skusToValidate.length > 0) {
+        const duplicates = await checkSkusUniquenessBatch(skusToValidate, product.id);
+        const duplicateSkus = Object.keys(duplicates);
+        if (duplicateSkus.length > 0) {
+            const firstSku = duplicateSkus[0];
+            const desc = duplicates[firstSku];
+            throw new Error(`O código (SKU) "${firstSku}" já está em uso no produto: ${desc}`);
         }
     }
 
@@ -370,30 +379,34 @@ export const saveProduct = async (product: Product): Promise<string> => {
 
         if (data && data[0]) {
             const newId = String(data[0].id);
+            const secondaryPromises: Promise<any>[] = [];
+
             if (product.categoryIds && product.categoryIds.length > 0) {
                 const links = product.categoryIds.map(cid => ({ product_id: newId, category_id: cid }));
-                await supabase.from('product_categories').insert(links);
+                secondaryPromises.push(supabase.from('product_categories').insert(links));
             }
 
             // Lógica de CRM: Se o produto for 'salvado' ou 'usado', busca interessados
             const condition = product.condition?.toLowerCase();
             if (condition === 'salvado' || condition === 'usado') {
-                try {
-                    const matches = await crmIntelligenceService.findMatchingDesires(product.description);
-                    for (const match of matches) {
-                        if (match.id) {
-                            await crmIntelligenceService.registerMatch(match.id, newId);
+                secondaryPromises.push((async () => {
+                    try {
+                        const matches = await crmIntelligenceService.findMatchingDesires(product.description);
+                        for (const match of matches) {
+                            if (match.id) await crmIntelligenceService.registerMatch(match.id, newId);
                         }
+                    } catch (crmError) {
+                        console.error("Erro CRM:", crmError);
                     }
-                } catch (crmError) {
-                    console.error("Erro ao processar inteligência de CRM no build do produto:", crmError);
-                }
+                })());
             }
 
-            // Lançamento de Estoque Inicial (Entrada) - Legado (campo único)
-            if (product.launchInitialStock && Number(product.stock) > 0) {
-                try {
-                    const { saveInventoryMove } = await import('./inventoryService');
+            // Lançamento de Estoque Inicial
+            secondaryPromises.push((async () => {
+                const { saveInventoryMove } = await import('./inventoryService');
+                
+                // Legado
+                if (product.launchInitialStock && Number(product.stock) > 0) {
                     await saveInventoryMove({
                         productId: newId,
                         productDescription: product.description || "Estoque Inicial",
@@ -402,17 +415,12 @@ export const saveProduct = async (product: Product): Promise<string> => {
                         unitCost: product.finalPurchasePrice || product.costPrice || 0,
                         date: new Date().toISOString(),
                         label: 'ESTOQUE INICIAL',
-                        observation: 'Lançamento automático de estoque inicial no cadastro do produto.'
-                    }, 0); 
-                } catch (stockError) {
-                    console.error("Erro ao registrar estoque inicial:", stockError);
+                        observation: 'Lançamento automático de estoque inicial.'
+                    }, 0).catch(console.error);
                 }
-            }
 
-            // Lançamento de Estoque Inicial (Entrada) - Novo (Múltiplas Entradas)
-            if (product.initialStockEntries && product.initialStockEntries.length > 0) {
-                try {
-                    const { saveInventoryMove } = await import('./inventoryService');
+                // Múltiplas Entradas
+                if (product.initialStockEntries?.length) {
                     for (const entry of product.initialStockEntries) {
                         if (entry.quantity > 0) {
                             await saveInventoryMove({
@@ -423,21 +431,15 @@ export const saveProduct = async (product: Product): Promise<string> => {
                                 unitCost: entry.finalUnitCost || entry.unitCost,
                                 date: new Date().toISOString(),
                                 label: 'ESTOQUE INICIAL',
-                                observation: 'Lançamento via entradas múltiplas de estoque inicial.'
-                            }, 0);
+                                observation: 'Entrada múltipla.'
+                            }, 0).catch(console.error);
                         }
                     }
-                } catch (stockError) {
-                    console.error("Erro ao registrar estoque inicial múltiplo:", stockError);
                 }
-            }
 
-            // Lançamento de Estoque Inicial (Variações)
-            if (product.variations && product.variations.length > 0) {
-                try {
-                    const { saveInventoryMove } = await import('./inventoryService');
+                // Variações
+                if (product.variations?.length) {
                     for (const v of product.variations) {
-                        // Legado
                         if (v.launchInitialStock && Number(v.initialStock) > 0) {
                             await saveInventoryMove({
                                 productId: newId,
@@ -448,12 +450,10 @@ export const saveProduct = async (product: Product): Promise<string> => {
                                 unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
                                 date: new Date().toISOString(),
                                 label: 'ESTOQUE INICIAL',
-                                observation: `Lançamento automático de estoque inicial da variação ${v.name}.`
-                            }, 0);
+                                observation: `Estoque da variação ${v.name}.`
+                            }, 0).catch(console.error);
                         }
-
-                        // Novo (Múltiplas Entradas)
-                        if (v.initialStockEntries && v.initialStockEntries.length > 0) {
+                        if (v.initialStockEntries?.length) {
                             for (const entry of v.initialStockEntries) {
                                 if (entry.quantity > 0) {
                                     await saveInventoryMove({
@@ -465,17 +465,18 @@ export const saveProduct = async (product: Product): Promise<string> => {
                                         unitCost: entry.finalUnitCost || entry.unitCost,
                                         date: new Date().toISOString(),
                                         label: 'ESTOQUE INICIAL',
-                                        observation: `Entrada múltipla: ${v.name}.`
-                                    }, 0);
+                                        observation: `Entrada múltipla variação.`
+                                    }, 0).catch(console.error);
                                 }
                             }
                         }
                     }
-                } catch (stockError) {
-                    console.error("Erro ao registrar estoque inicial das variações:", stockError);
                 }
-            }
+            })());
 
+            // Executar tudo em paralelo para não travar o retorno do ID
+            Promise.all(secondaryPromises).catch(err => console.error("Erro em operações secundárias:", err));
+            
             return newId;
         }
         return "";
@@ -488,23 +489,19 @@ export const saveProduct = async (product: Product): Promise<string> => {
 };
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
-    // Validação de SKU Global antes de atualizar
-    if (productToUpdate.code) {
-        const { exists, productDescription } = await checkSkuUniqueness(productToUpdate.code, id);
-        if (exists) {
-            throw new Error(`O código (SKU) "${productToUpdate.code}" já está em uso no produto: ${productDescription}`);
-        }
+    // 1. Identificar SKUs para validar (Somente se mudaram)
+    const skusToValidate: string[] = [];
+    if (productToUpdate.code) skusToValidate.push(productToUpdate.code);
+    if (productToUpdate.variations?.length) {
+        productToUpdate.variations.forEach(v => { if (v.sku) skusToValidate.push(v.sku); });
     }
 
-    // Validar SKUs das variações se estiverem sendo atualizadas
-    if (productToUpdate.variations && productToUpdate.variations.length > 0) {
-        for (const v of productToUpdate.variations) {
-            if (v.sku) {
-                const { exists, productDescription } = await checkSkuUniqueness(v.sku, id);
-                if (exists) {
-                    throw new Error(`A variação "${v.name}" usa o SKU "${v.sku}" que já pertence ao produto: ${productDescription}`);
-                }
-            }
+    if (skusToValidate.length > 0) {
+        const duplicates = await checkSkusUniquenessBatch(skusToValidate, id);
+        const duplicateSkus = Object.keys(duplicates);
+        if (duplicateSkus.length > 0) {
+            const firstSku = duplicateSkus[0];
+            throw new Error(`O código (SKU) "${firstSku}" já está em uso no produto: ${duplicates[firstSku]}`);
         }
     }
 
@@ -562,7 +559,9 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
 
         if (error) throw error;
 
-        // Price History Logic
+        const secondaryPromises: Promise<any>[] = [];
+
+        // Price History Logic (Pode ser paralelo)
         const oldUnitPrice = Number(currentItem.unit_price);
         const newUnitPrice = productToUpdate.unitPrice !== undefined ? Number(productToUpdate.unitPrice) : oldUnitPrice;
         const oldCostPrice = Number(currentItem.cost_price);
@@ -573,35 +572,37 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
             if (oldUnitPrice !== newUnitPrice && oldCostPrice === newCostPrice) changeType = 'unit_price';
             else if (oldUnitPrice === newUnitPrice && oldCostPrice !== newCostPrice) changeType = 'cost_price';
 
-            await supabase.from('product_price_history').insert([{
+            secondaryPromises.push(supabase.from('product_price_history').insert([{
                 product_id: id,
                 old_unit_price: oldUnitPrice,
                 new_unit_price: newUnitPrice,
                 old_cost_price: oldCostPrice,
                 new_cost_price: newCostPrice,
                 change_type: changeType
-            }]);
+            }]));
         }
 
         if (productToUpdate.categoryIds !== undefined) {
-            await supabase.from('product_categories').delete().eq('product_id', id);
-            if (productToUpdate.categoryIds.length > 0) {
-                const links = productToUpdate.categoryIds.map(cid => ({ product_id: id, category_id: cid }));
-                await supabase.from('product_categories').insert(links);
-            }
+            secondaryPromises.push((async () => {
+                await supabase.from('product_categories').delete().eq('product_id', id);
+                if (productToUpdate.categoryIds!.length > 0) {
+                    const links = productToUpdate.categoryIds!.map(cid => ({ product_id: id, category_id: cid }));
+                    await supabase.from('product_categories').insert(links);
+                }
+            })());
         }
 
         // --- Code Sync Logic ---
-        // If code changed or variations changed, update linked orders
         const oldCode = currentItem.code;
         const newCode = dbProduct.code;
         const variationsChanged = productToUpdate.variations !== undefined;
 
         if ((newCode && oldCode !== newCode) || variationsChanged) {
-            syncCodesInOrders(id, newCode || oldCode, productToUpdate.variations).catch(e => 
-                console.error("Erro ao sincronizar códigos nas vendas:", e)
-            );
+            secondaryPromises.push(syncCodesInOrders(id, newCode || oldCode, productToUpdate.variations));
         }
+
+        // Não wait por esses processos para não segurar o usuário
+        Promise.all(secondaryPromises).catch(e => console.error("Erro em processos paralelos de update:", e));
     } catch (error: any) {
         console.error("Erro ao atualizar o produto:", error.message || error);
         if (error.details) console.error("Detalhes do erro:", error.details);

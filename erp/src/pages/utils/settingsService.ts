@@ -408,7 +408,7 @@ RESPOSTA NO FORMATO JSON:
     whatsappTemplates: {
         reviewRequest: 'Olá! Sua entrega correu bem? 🚚\n\nPoderia avaliar sua última compra e nosso atendimento? É rapidinho e nos ajuda muito! Clique aqui:\n{{reviewUrl}}',
         orderConfirmation: '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n*Anote aí, a sua entrega está agendada para:* \n{{deliveryDate}} | {{deliveryTime}}\n\n*Endereço:* \n{{address}}\n\n*Itens:* \n{{items}}\n\n*Valor Total:* R$ {{totalValue}}\n\n*Pagamento:* \n{{payments}}',
-        deliveryInfo: '____________________\n\n*Novo Pedido para {{customerName}}* 📦\n\n𝐈𝐌𝐏𝐎𝐑𝐓𝐀𝐍𝐓𝐄:\n{{observation}}\n\n🗓️ *Agendamento:*\n{{deliveryDate}} | {{deliveryTime}}\n\n📞 *Contato:*\n{{phone}}\n\n🏠 *Endereço:*\n{{address}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Total:* R$ {{totalValue}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}',
+        deliveryInfo: '____________________\n\n*Novo Pedido para {{customerName}}* 📦\n\n𝐈𝐌𝐏𝐎𝐑𝐓𝐀𝐍𝐓𝐄:\n{{observation}}\n\n🗓️ *Agendamento:*\n{{deliveryDate}} | {{deliveryTime}}\n\n📞 *Contato:*\n{{phone}}\n\n🏠 *Endereço:*\n{{address}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Total:* R$ {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}',
         assistanceConfirmation: '*Olá {{customerName}}!* 🔧\n\nSeu atendimento de assistência técnica foi confirmado! \n\n🗓️ *Data:* {{assistanceDate}}\n🕒 *Horário:* {{assistanceTime}}\n\n📋 *Descrição do serviço:*\n{{assistanceDescription}}\n\n📞 *Nosso contato:* {{companyPhone}}\n\nEm caso de dúvidas, entre em contato!'
     },
     receiptConfig: {

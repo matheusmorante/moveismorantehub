@@ -35,7 +35,17 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     isGeneratingComboName
 }) => {
     const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand", "complement"]).filter((k: string) => k !== 'supplierRef' && k !== 'type');
-    const draggableParts = titleOrder as string[];
+    
+    // Só mostrar o bloco 'complement' se ele tiver conteúdo ou se for explicitamente desmarcado pelo usuário (embora automático seja melhor)
+    const draggableParts = titleOrder.filter(k => {
+        if (k === 'complement' && !formData.titleComplement) return false;
+        // Se for um campo extra, verificar se existe e tem valor
+        if (k.startsWith('extra_')) {
+            const field = formData.extraFields?.find(f => f.id === k);
+            return !!field && !!field.value;
+        }
+        return true;
+    }) as string[];
 
     const isPartIncluded = (key: string) => {
         if (key === 'line') return formData.includeLine !== false;
@@ -43,6 +53,10 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         if (key === 'complement') return formData.includeComplement !== false;
         if (key === 'type') return formData.includeType !== false;
         if (key === 'environment') return formData.includeEnvironment !== false;
+        if (key.startsWith('extra_')) {
+            const field = formData.extraFields?.find(f => f.id === key);
+            return field?.includeInTitle !== false;
+        }
         return true;
     };
 
@@ -52,10 +66,13 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             const isIncluded = isPartIncluded(key);
             
             if (key === "line") next.includeLine = !isIncluded;
-            if (key === "brand") next.includeBrand = !isIncluded;
-            if (key === "complement") next.includeComplement = !isIncluded;
-            if (key === "type") next.includeType = !isIncluded;
-            if (key === "environment") next.includeEnvironment = !isIncluded;
+            else if (key === "brand") next.includeBrand = !isIncluded;
+            else if (key === "complement") next.includeComplement = !isIncluded;
+            else if (key === "type") next.includeType = !isIncluded;
+            else if (key === "environment") next.includeEnvironment = !isIncluded;
+            else if (key.startsWith('extra_')) {
+                next.extraFields = prev.extraFields?.map(f => f.id === key ? { ...f, includeInTitle: !isIncluded } : f);
+            }
             
             next.description = generateAutoTitle(next);
             return next;
@@ -69,9 +86,18 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         const [reorderedItem] = newDraggableParts.splice(result.source.index, 1);
         newDraggableParts.splice(result.destination.index, 0, reorderedItem);
         
-        const newFullOrder = [...newDraggableParts];
-        
+        // RECONSTRUIR A ORDEM SEM PERDER OS BLOCOS OCULTOS
+        // Pegamos a ordem base original e reordenamos apenas os que estão visíveis
         setFormData(prev => {
+            const currentFullOrder = prev.titleOrder || ["type", "environment", "line", "brand", "complement"];
+            
+            // Filtra os que não estavam no draggableParts (visíveis)
+            const visibleKeys = new Set(newDraggableParts);
+            const hiddenKeys = currentFullOrder.filter(k => k !== 'type' && !visibleKeys.has(k));
+            
+            // Nova ordem: Type (sempre primeiro) + Novos Visíveis + Escondidos no final
+            const newFullOrder = ["type", ...newDraggableParts, ...hiddenKeys];
+            
             const next = { ...prev, titleOrder: newFullOrder as string[] };
             next.description = generateAutoTitle(next);
             return next;
@@ -79,12 +105,16 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     };
 
     const getPartLabel = (key: string) => {
+        if (key.startsWith('extra_')) {
+            const field = formData.extraFields?.find(f => f.id === key);
+            return field ? `${field.label}: ${field.value}` : key;
+        }
         switch(key) {
             case 'type': return 'Tipo';
             case 'environment': return 'Ambiente';
             case 'line': return 'Linha';
             case 'brand': return 'Marca';
-            case 'complement': return 'Adicional';
+            case 'complement': return formData.titleComplement || 'Bloco Adicional';
             default: return key;
         }
     };
@@ -349,7 +379,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-2 md:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Título Adicional</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bloco Adicional</label>
                         <SmartInput
                             value={formData.titleComplement || ""}
                             onValueChange={(val) => setFormData(prev => {
@@ -480,293 +510,381 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     className="w-full px-4 py-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-lg font-black text-blue-600 dark:text-blue-400"
                 />
             </div>
-
-            {/* Technical Details */}
             {formData.itemType === 'product' && (
                 <div className="md:col-span-2 mt-4 bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-8">
-                <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-rulers text-blue-600"></i> Detalhes Técnicos / Dimensões
-                    </h4>
-                    <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Essas informações enriquecem a descrição gerada pela IA</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Material */}
-                    <div className="flex flex-col gap-4">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Material do Móvel</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal', 'Outro'].map(mat => (
-                                <button
-                                    key={mat}
-                                    type="button"
-                                    onClick={() => {
-                                        if (mat === 'Outro') {
-                                            setFormData({ ...formData, material: '' });
-                                        } else {
-                                            setFormData({ ...formData, material: mat });
-                                        }
-                                    }}
-                                    className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-all ${((mat !== 'Outro' && formData.material === mat) || (mat === 'Outro' && !['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal'].includes(formData.material || ''))) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-500 hover:border-blue-300'}`}
-                                >
-                                    {mat}
-                                </button>
-                            ))}
-                        </div>
-                        {(!['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal'].includes(formData.material || '') || formData.material === '') && (
-                            <input
-                                value={formData.material || ''}
-                                onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-                                placeholder="Digite o material personalizado..."
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
-                            />
-                        )}
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <i className="bi bi-rulers text-blue-600"></i> Detalhes Técnicos / Dimensões
+                        </h4>
+                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Essas informações enriquecem a descrição gerada pela IA</p>
                     </div>
 
-                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-                        <div className="md:col-span-2">
-                            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2">
-                                <i className="bi bi-magic"></i> Refinamento para IA (Estilo Magalu)
-                            </h5>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Referência Fornecedor (Interno)</label>
-                            <input
-                                value={formData.supplierRef || ''}
-                                onChange={(e) => setFormData({ ...formData, supplierRef: e.target.value.toUpperCase() })}
-                                placeholder="Ex: 12345-A"
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold uppercase"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Diferencial Principal (Copy)</label>
-                            <input
-                                value={formData.mainDifferential || ''}
-                                onChange={(e) => setFormData({ ...formData, mainDifferential: e.target.value })}
-                                placeholder="Ex: Dobradiças com amortecimento"
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cores Disponíveis <span className="text-red-500">*</span></label>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(prev => ({ ...prev, noColors: !prev.noColors, colors: !prev.noColors ? '' : prev.colors }))}
-                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noColors ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                >
-                                    <i className={`bi ${formData.noColors ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i> {formData.noColors ? 'Informar Cor' : 'Não Informar'}
-                                </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Material */}
+                        <div className="flex flex-col gap-4">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Material do Móvel</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal', 'Outro'].map(mat => (
+                                    <button
+                                        key={mat}
+                                        type="button"
+                                        onClick={() => mat === 'Outro' ? setFormData({ ...formData, material: '' }) : setFormData({ ...formData, material: mat })}
+                                        className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-all ${((mat !== 'Outro' && formData.material === mat) || (mat === 'Outro' && !['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal'].includes(formData.material || ''))) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-500 hover:border-blue-300'}`}
+                                    >
+                                        {mat}
+                                    </button>
+                                ))}
                             </div>
-                            <input
-                                value={formData.noColors ? 'NÃO INFORMADO' : (formData.colors || '')}
-                                onChange={(e) => setFormData({ ...formData, colors: e.target.value })}
-                                disabled={formData.noColors}
-                                placeholder={formData.noColors ? "NÃO APLICÁVEL" : "Ex: Off White / Castanho"}
-                                className={`w-full px-4 py-3 border rounded-xl text-xs font-bold transition-all ${formData.noColors ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500'}`}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">O que NÃO acompanha</label>
-                            <input
-                                value={formData.notIncluded || ''}
-                                onChange={(e) => setFormData({ ...formData, notIncluded: e.target.value })}
-                                placeholder="Ex: Tampo, pia e eletros"
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Dimensions */}
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dimensões Totais (cm)</label>
-                            {formData.width && formData.height && formData.depth && (
-                                <span className="text-[9px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg uppercase tracking-tighter">
-                                    Peso Cubado: {calculateDIM(formData.height, formData.width, formData.depth).toFixed(2)}kg
-                                </span>
+                            {(!['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal'].includes(formData.material || '') || formData.material === '') && (
+                                <input
+                                    value={formData.material || ''}
+                                    onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                                    placeholder="Digite o material personalizado..."
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                />
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura {!formData.noWidth && <span className="text-red-500">*</span>}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, noWidth: !prev.noWidth, width: !prev.noWidth ? 0 : prev.width }))}
-                                        className={`p-1 rounded-md transition-all ${formData.noWidth ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
-                                        title={formData.noWidth ? 'Mostrar campo' : 'Ocultar campo'}
-                                    >
-                                        <i className={`bi ${formData.noWidth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
-                                    </button>
-                                </div>
-                                {!formData.noWidth ? (
-                                    <input
-                                        type="number"
-                                        value={(!formData.width || isNaN(formData.width as number)) ? '' : formData.width}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            setFormData({ ...formData, width: isNaN(val) ? 0 : val });
-                                        }}
-                                        placeholder="L"
-                                        required
-                                        className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                ) : (
-                                    <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
-                                )}
+
+                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                            <div className="md:col-span-2">
+                                <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2">
+                                    <i className="bi bi-magic"></i> Refinamento para IA (Estilo Magalu)
+                                </h5>
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura {!formData.noHeight && <span className="text-red-500">*</span>}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, noHeight: !prev.noHeight, height: !prev.noHeight ? 0 : prev.height }))}
-                                        className={`p-1 rounded-md transition-all ${formData.noHeight ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
-                                        title={formData.noHeight ? 'Mostrar campo' : 'Ocultar campo'}
-                                    >
-                                        <i className={`bi ${formData.noHeight ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
-                                    </button>
-                                </div>
-                                {!formData.noHeight ? (
-                                    <input
-                                        type="number"
-                                        value={(!formData.height || isNaN(formData.height as number)) ? '' : formData.height}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            setFormData({ ...formData, height: isNaN(val) ? 0 : val });
-                                        }}
-                                        placeholder="A"
-                                        required
-                                        className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                ) : (
-                                    <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
-                                )}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Referência Fornecedor (Interno)</label>
+                                <input
+                                    value={formData.supplierRef || ''}
+                                    onChange={(e) => setFormData({ ...formData, supplierRef: e.target.value.toUpperCase() })}
+                                    placeholder="Ex: 12345-A"
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold uppercase"
+                                />
                             </div>
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Diferencial Principal (Copy)</label>
+                                <input
+                                    value={formData.mainDifferential || ''}
+                                    onChange={(e) => setFormData({ ...formData, mainDifferential: e.target.value })}
+                                    placeholder="Ex: Dobradiças com amortecimento"
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund. {!formData.noDepth && <span className="text-red-500">*</span>}</span>
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cores Disponíveis <span className="text-red-500">*</span></label>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, noDepth: !prev.noDepth, depth: !prev.noDepth ? 0 : prev.depth }))}
-                                        className={`p-1 rounded-md transition-all ${formData.noDepth ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
-                                        title={formData.noDepth ? 'Mostrar campo' : 'Ocultar campo'}
+                                        onClick={() => setFormData(prev => ({ ...prev, noColors: !prev.noColors, colors: !prev.noColors ? '' : prev.colors }))}
+                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noColors ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                                     >
-                                        <i className={`bi ${formData.noDepth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                                        <i className={`bi ${formData.noColors ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i> {formData.noColors ? 'Informar Cor' : 'Não Informar'}
                                     </button>
                                 </div>
-                                {!formData.noDepth ? (
-                                    <input
-                                        type="number"
-                                        value={(!formData.depth || isNaN(formData.depth as number)) ? '' : formData.depth}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            setFormData({ ...formData, depth: isNaN(val) ? 0 : val });
-                                        }}
-                                        placeholder="P"
-                                        required
-                                        className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                ) : (
-                                    <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
-                                )}
+                                <input
+                                    value={formData.noColors ? 'NÃO INFORMADO' : (formData.colors || '')}
+                                    onChange={(e) => setFormData({ ...formData, colors: e.target.value })}
+                                    disabled={formData.noColors}
+                                    placeholder={formData.noColors ? "NÃO APLICÁVEL" : "Ex: Off White / Castanho"}
+                                    className={`w-full px-4 py-3 border rounded-xl text-xs font-bold transition-all ${formData.noColors ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500'}`}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">O que NÃO acompanha</label>
+                                <input
+                                    value={formData.notIncluded || ''}
+                                    onChange={(e) => setFormData({ ...formData, notIncluded: e.target.value })}
+                                    placeholder="Ex: Tampo, pia e eletros"
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                />
                             </div>
                         </div>
 
-                        {/* Dimensions Preview */}
-                        <div className="mt-2 p-4 bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Visualização do Resultado Final</label>
-                            <div className="flex items-center gap-2">
-                                <div className="px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-black text-slate-700 dark:text-slate-200 tracking-tight flex-1">
-                                    {[
-                                        !formData.noWidth && formData.width ? `L ${formData.width}CM` : null,
-                                        !formData.noHeight && formData.height ? `A ${formData.height}CM` : null,
-                                        !formData.noDepth && formData.depth ? `P ${formData.depth}CM` : null
-                                    ].filter(Boolean).join(' X ') || <span className="text-slate-300 dark:text-slate-600 font-bold italic">DIMENSÕES NÃO INFORMADAS</span>}
-                                </div>
-                                <i className="bi bi-eye-fill text-slate-300 dark:text-slate-700 text-lg"></i>
+                        {/* Dimensions */}
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dimensões Totais (cm)</label>
+                                {formData.width && formData.height && formData.depth && (
+                                    <span className="text-[9px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg uppercase tracking-tighter">
+                                        Peso Cubado: {calculateDIM(formData.height, formData.width, formData.depth).toFixed(2)}kg
+                                    </span>
+                                )}
                             </div>
-                        </div>
-
-                        {/* LTL Alert */}
-                        {(() => {
-                            const ltl = checkLTLRequirement({
-                                height: formData.height,
-                                width: formData.width,
-                                depth: formData.depth,
-                                weight: formData.weight
-                            });
-                            if (ltl.required) {
-                                return (
-                                    <div className="mt-2 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-2xl animate-in slide-in-from-top-2">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <i className="bi bi-truck text-orange-600"></i>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Alerta de Carga Pesada (LTL)</span>
-                                        </div>
-                                        <ul className="text-[9px] font-bold text-orange-700/70 dark:text-orange-400 list-disc list-inside">
-                                            {ltl.reasons.map((r, i) => <li key={i}>{r}</li>)}
-                                        </ul>
-                                        <p className="text-[8px] mt-2 text-orange-600/50 uppercase font-black italic">Considere enviar via transportadora especializada.</p>
+                            <div className="grid grid-cols-3 gap-3">
+                                {/* Largura */}
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura {!formData.noWidth && <span className="text-red-500">*</span>}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, noWidth: !prev.noWidth, width: !prev.noWidth ? 0 : prev.width }))}
+                                            className={`p-1 rounded-md transition-all ${formData.noWidth ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
+                                            title={formData.noWidth ? 'Ocultar' : 'Mostrar'}
+                                        >
+                                            <i className={`bi ${formData.noWidth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                                        </button>
                                     </div>
-                                );
-                            }
-                            return null;
-                        })()}
+                                    {!formData.noWidth ? (
+                                        <input
+                                            type="number"
+                                            value={(!formData.width || isNaN(formData.width as number)) ? '' : formData.width}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                setFormData({ ...formData, width: isNaN(val) ? 0 : val });
+                                            }}
+                                            placeholder="L"
+                                            required
+                                            className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
+                                        />
+                                    ) : (
+                                        <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
+                                    )}
+                                </div>
+
+                                {/* Altura */}
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura {!formData.noHeight && <span className="text-red-500">*</span>}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, noHeight: !prev.noHeight, height: !prev.noHeight ? 0 : prev.height }))}
+                                            className={`p-1 rounded-md transition-all ${formData.noHeight ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
+                                            title={formData.noHeight ? 'Ocultar' : 'Mostrar'}
+                                        >
+                                            <i className={`bi ${formData.noHeight ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                                        </button>
+                                    </div>
+                                    {!formData.noHeight ? (
+                                        <input
+                                            type="number"
+                                            value={(!formData.height || isNaN(formData.height as number)) ? '' : formData.height}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                setFormData({ ...formData, height: isNaN(val) ? 0 : val });
+                                            }}
+                                            placeholder="A"
+                                            required
+                                            className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
+                                        />
+                                    ) : (
+                                        <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
+                                    )}
+                                </div>
+
+                                {/* Profundidade */}
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund. {!formData.noDepth && <span className="text-red-500">*</span>}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, noDepth: !prev.noDepth, depth: !prev.noDepth ? 0 : prev.depth }))}
+                                            className={`p-1 rounded-md transition-all ${formData.noDepth ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
+                                            title={formData.noDepth ? 'Ocultar' : 'Mostrar'}
+                                        >
+                                            <i className={`bi ${formData.noDepth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                                        </button>
+                                    </div>
+                                    {!formData.noDepth ? (
+                                        <input
+                                            type="number"
+                                            value={(!formData.depth || isNaN(formData.depth as number)) ? '' : formData.depth}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                setFormData({ ...formData, depth: isNaN(val) ? 0 : val });
+                                            }}
+                                            placeholder="P"
+                                            required
+                                            className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
+                                        />
+                                    ) : (
+                                        <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Dimensions Preview */}
+                            <div className="mt-2 p-4 bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Visualização do Resultado Final</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-black text-slate-700 dark:text-slate-200 tracking-tight flex-1">
+                                        {[
+                                            !formData.noWidth && formData.width ? `L ${formData.width}CM` : null,
+                                            !formData.noHeight && formData.height ? `A ${formData.height}CM` : null,
+                                            !formData.noDepth && formData.depth ? `P ${formData.depth}CM` : null
+                                        ].filter(Boolean).join(' X ') || <span className="text-slate-300 dark:text-slate-600 font-bold italic">DIMENSÕES NÃO INFORMADAS</span>}
+                                    </div>
+                                    <i className="bi bi-eye-fill text-slate-300 dark:text-slate-700 text-lg"></i>
+                                </div>
+                            </div>
+
+                            {/* LTL Alert */}
+                            {(() => {
+                                const ltl = checkLTLRequirement({
+                                    height: formData.height,
+                                    width: formData.width,
+                                    depth: formData.depth,
+                                    weight: formData.weight
+                                });
+                                if (ltl.required) {
+                                    return (
+                                        <div className="mt-2 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-2xl animate-in slide-in-from-top-2">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <i className="bi bi-truck text-orange-600"></i>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Alerta de Carga Pesada (LTL)</span>
+                                            </div>
+                                            <ul className="text-[9px] font-bold text-orange-700/70 dark:text-orange-400 list-disc list-inside">
+                                                {ltl.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                                            </ul>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+
+                        {/* Extra Dimensions */}
+                        <div className="flex flex-col gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between">
+                                <div className="flex flex-col">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Medições Adicionais (Máx. 10)</label>
+                                    <p className="text-[9px] text-slate-400 italic">Ex: "Altura até o assento", "80cm"</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const current = formData.extraDimensions || [];
+                                        if (current.length < 10) {
+                                            setFormData({ ...formData, extraDimensions: [...current, { label: '', value: '' }] });
+                                        }
+                                    }}
+                                    className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-xl hover:bg-blue-100 transition-all"
+                                >
+                                    <i className="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {formData.extraDimensions?.map((dim, idx) => (
+                                    <div key={idx} className="flex gap-2 items-center">
+                                        <input
+                                            value={dim.label || ''}
+                                            onChange={(e) => {
+                                                const next = [...(formData.extraDimensions || [])];
+                                                next[idx].label = e.target.value;
+                                                setFormData({ ...formData, extraDimensions: next });
+                                            }}
+                                            placeholder="Label"
+                                            className="flex-1 px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs"
+                                        />
+                                        <input
+                                            value={dim.value || ''}
+                                            onChange={(e) => {
+                                                const next = [...(formData.extraDimensions || [])];
+                                                next[idx].value = e.target.value;
+                                                setFormData({ ...formData, extraDimensions: next });
+                                            }}
+                                            placeholder="Valor"
+                                            className="w-24 px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = formData.extraDimensions?.filter((_, i) => i !== idx);
+                                                setFormData({ ...formData, extraDimensions: next });
+                                            }}
+                                            className="text-red-400 hover:text-red-600 p-1"
+                                        >
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
+            )}
 
-                {/* Extra Dimensions */}
-                <div className="flex flex-col gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            {/* Extra Fields (Dynamic Blocks for Title) */}
+            <div className="md:col-span-2">
+                <div className="bg-blue-50/20 dark:bg-blue-900/5 p-8 rounded-[2.5rem] border border-blue-100/30 dark:border-blue-900/20 flex flex-col gap-6">
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Medições Adicionais (Máx. 10)</label>
-                            <p className="text-[9px] text-slate-400 italic">Ex: "Altura até o assento", "80cm"</p>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
+                                <i className="bi bi-plus-square-fill"></i> Campos Adicionais (Blocos de Título)
+                            </h4>
+                            <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-widest">Estes campos podem ser usados como blocos no título e aparecem na descrição</p>
                         </div>
                         <button
                             type="button"
                             onClick={() => {
-                                const current = formData.extraDimensions || [];
-                                if (current.length < 10) {
-                                    setFormData({ ...formData, extraDimensions: [...current, { label: '', value: '' }] });
-                                }
+                                const current = formData.extraFields || [];
+                                const newId = `extra_${Date.now()}`;
+                                const newField = { id: newId, label: 'Novo Campo', value: '', includeInTitle: true };
+                                
+                                setFormData(prev => {
+                                    const next = { 
+                                        ...prev, 
+                                        extraFields: [...current, newField],
+                                        titleOrder: [...(prev.titleOrder || ["type", "environment", "line", "brand", "complement"]), newId]
+                                    };
+                                    next.description = generateAutoTitle(next);
+                                    return next;
+                                });
                             }}
-                            className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-xl hover:bg-blue-100 transition-all"
+                            className="bg-blue-600 text-white p-2 px-4 rounded-xl hover:bg-blue-700 transition-all text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20"
                         >
-                            <i className="bi bi-plus-lg"></i>
+                            + Adicionar Bloco
                         </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {formData.extraDimensions?.map((dim, idx) => (
-                            <div key={idx} className="flex gap-2 items-center">
-                                <input
-                                    value={dim.label || ''}
-                                    onChange={(e) => {
-                                        const next = [...(formData.extraDimensions || [])];
-                                        next[idx].label = e.target.value;
-                                        setFormData({ ...formData, extraDimensions: next });
-                                    }}
-                                    placeholder="Label (ex: Assento)"
-                                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs"
-                                />
-                                <input
-                                    value={dim.value || ''}
-                                    onChange={(e) => {
-                                        const next = [...(formData.extraDimensions || [])];
-                                        next[idx].value = e.target.value;
-                                        setFormData({ ...formData, extraDimensions: next });
-                                    }}
-                                    placeholder="Valor (ex: 45cm)"
-                                    className="w-24 px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs"
-                                />
+                        {formData.extraFields?.map((field, idx) => (
+                            <div key={field.id} className="flex gap-2 items-end bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm animate-in zoom-in-95">
+                                <div className="flex-1 flex flex-col gap-1.5">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Nome do Bloco</label>
+                                    <input
+                                        value={field.label}
+                                        onChange={(e) => {
+                                            const nextFields = [...(formData.extraFields || [])];
+                                            nextFields[idx] = { ...nextFields[idx], label: e.target.value };
+                                            setFormData(prev => {
+                                                const next = { ...prev, extraFields: nextFields };
+                                                next.description = generateAutoTitle(next);
+                                                return next;
+                                            });
+                                        }}
+                                        placeholder="Ex: Material..."
+                                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                    />
+                                </div>
+                                <div className="flex-1 flex flex-col gap-1.5">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Valor</label>
+                                    <input
+                                        value={field.value}
+                                        onChange={(e) => {
+                                            const nextFields = [...(formData.extraFields || [])];
+                                            nextFields[idx] = { ...nextFields[idx], value: e.target.value };
+                                            setFormData(prev => {
+                                                const next = { ...prev, extraFields: nextFields };
+                                                next.description = generateAutoTitle(next);
+                                                return next;
+                                            });
+                                        }}
+                                        placeholder="Ex: Vidro..."
+                                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                    />
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        const next = formData.extraDimensions?.filter((_, i) => i !== idx);
-                                        setFormData({ ...formData, extraDimensions: next });
+                                        setFormData(prev => {
+                                            const nextFields = (prev.extraFields || []).filter(f => f.id !== field.id);
+                                            const nextOrder = (prev.titleOrder || []).filter(k => k !== field.id);
+                                            const next = { ...prev, extraFields: nextFields, titleOrder: nextOrder };
+                                            next.description = generateAutoTitle(next);
+                                            return next;
+                                        });
                                     }}
-                                    className="text-red-400 hover:text-red-600 p-1"
+                                    className="h-10 w-10 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                                 >
                                     <i className="bi bi-trash"></i>
                                 </button>
@@ -775,11 +893,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     </div>
                 </div>
             </div>
-            )}
-
 
             {/* Observations */}
-            <div className="md:col-span-2 mt-4">
+            <div className="md:col-span-2">
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                         Observações Internas (Não visível no marketplace)

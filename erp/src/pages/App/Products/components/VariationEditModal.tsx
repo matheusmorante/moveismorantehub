@@ -25,6 +25,7 @@ interface VariationEditModalProps {
         costPrice: number;
         isCombo?: boolean;
         mainSupplierId?: string;
+        images?: string[];
     };
 
 
@@ -106,31 +107,18 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
     };
 
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-
-        setLoading(true);
-        try {
-            const uploadedUrls: string[] = [];
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const fileName = `variation-${Date.now()}-${file.name}`;
-                const url = await uploadFile(file, fileName);
-                uploadedUrls.push(url);
-            }
-            handleChange('images', [...(localVariation.images || []), ...uploadedUrls]);
-            toast.success("Imagens enviadas!");
-        } catch (error) {
-            console.error("Erro ao enviar imagem:", error);
-            toast.error("Falha ao enviar imagem.");
-        } finally {
-            setLoading(false);
+    const toggleGalleryImage = (url: string) => {
+        const currentImages = localVariation.images || [];
+        const isSelected = currentImages.includes(url);
+        
+        let nextImages;
+        if (isSelected) {
+            nextImages = currentImages.filter(img => img !== url);
+        } else {
+            nextImages = [...currentImages, url];
         }
-    };
-
-    const removeImage = (index: number) => {
-        handleChange('images', localVariation.images?.filter((_, i) => i !== index));
+        
+        handleChange('images', nextImages);
     };
 
     const handleSave = () => {
@@ -339,8 +327,8 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     </label>
                                     <input
                                         value={localVariation.sku}
-                                        onChange={(e) => handleChange('sku', e.target.value.toUpperCase())}
-                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
+                                        readOnly
+                                        className="w-full bg-slate-100 dark:bg-slate-800/50 px-4 py-3 rounded-xl border border-transparent outline-none font-black text-sm text-slate-500 cursor-default"
                                         placeholder="SKU-VAR-001"
                                     />
                                 </div>
@@ -437,22 +425,22 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custo {localVariation.launchInitialStock ? '' : '(Manual)'}</label>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleChange('syncCostPrice', !localVariation.syncCostPrice)}
-                                            className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${localVariation.syncCostPrice ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
-                                        >
-                                            {localVariation.syncCostPrice ? 'Sincronizado' : 'Manual'}
-                                        </button>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preço de Custo (Atual)</label>
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400">
+                                            <i className="bi bi-info-circle text-[8px]"></i>
+                                            <span className="text-[8px] font-black uppercase tracking-widest">Via Estoque</span>
+                                        </div>
                                     </div>
                                     <input
                                         type="number"
-                                        disabled={localVariation.syncCostPrice || localVariation.launchInitialStock}
+                                        readOnly
                                         value={localVariation.syncCostPrice ? parentProduct?.costPrice : (localVariation.launchInitialStock ? localVariation.finalPurchasePrice : localVariation.costPrice)}
-                                        onChange={(e) => handleChange('costPrice', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm disabled:opacity-50"
+                                        className="w-full bg-slate-50 dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 outline-none font-bold text-sm text-slate-400 cursor-not-allowed"
+                                        title="O preço de custo é definido automaticamente pelas entradas de estoque"
                                     />
+                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic mt-1">
+                                        * Este valor reflete a última entrada ou o custo inicial de lançamento
+                                    </p>
                                 </div>
                             </div>
 
@@ -507,30 +495,54 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
                     {activeTab === 'fotos' && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                {localVariation.images?.map((url, idx) => (
-                                    <div key={idx} className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
-                                        <img src={url} alt={`Var ${idx}`} className="w-full h-full object-cover" />
-                                        <button
-                                            onClick={() => removeImage(idx)}
-                                            className="absolute top-2 right-2 w-8 h-8 bg-white/90 dark:bg-slate-900/90 text-red-500 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                                        >
-                                            <i className="bi bi-trash" />
-                                        </button>
-                                    </div>
-                                ))}
-                                <label className="cursor-pointer aspect-square rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-950 transition-all text-slate-400">
-                                    {loading ? (
-                                        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                        <>
-                                            <i className="bi bi-plus-lg text-xl" />
-                                            <span className="text-[8px] font-black uppercase tracking-widest text-center">Add Foto</span>
-                                        </>
-                                    )}
-                                    <input type="file" className="hidden" multiple onChange={handleFileChange} />
-                                </label>
+                            <div className="flex flex-col gap-2">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Galeria do Produto Pai</h4>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">Selecione abaixo as fotos que representarão esta variação na vitrine.</p>
                             </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {parentProduct?.images && parentProduct.images.length > 0 ? (
+                                    parentProduct.images.map((url, idx) => {
+                                        const isSelected = localVariation.images?.includes(url);
+                                        return (
+                                            <div 
+                                                key={idx} 
+                                                onClick={() => toggleGalleryImage(url)}
+                                                className={`relative group aspect-square rounded-2xl overflow-hidden cursor-pointer transition-all border-4 ${isSelected ? 'border-blue-600 scale-95 shadow-lg shadow-blue-500/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                                            >
+                                                <img src={url} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                                                
+                                                {isSelected && (
+                                                    <div className="absolute top-2 right-2 w-6 h-6 bg-blue-600 text-white rounded-lg flex items-center justify-center animate-in zoom-in duration-300 shadow-md">
+                                                        <i className="bi bi-check-lg" />
+                                                    </div>
+                                                )}
+
+                                                <div className={`absolute inset-0 bg-blue-600/10 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="col-span-full py-12 flex flex-col items-center justify-center gap-4 bg-slate-50 dark:bg-slate-950 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
+                                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-300">
+                                            <i className="bi bi-images text-2xl"></i>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Galeria Vazia</p>
+                                            <p className="text-[9px] text-slate-300 font-bold uppercase tracking-tighter mt-1">Adicione fotos na aba principal do produto pai primeiro.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {localVariation.images && localVariation.images.length > 0 && (
+                                <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 flex items-center gap-3">
+                                    <i className="bi bi-info-circle-fill text-blue-600 text-sm"></i>
+                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                                        {localVariation.images.length} {localVariation.images.length === 1 ? 'Foto selecionada' : 'Fotos selecionadas'} para esta variação.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 

@@ -38,7 +38,7 @@ function extractJSON(text) {
     }
 }
 
-app.get('/', (req, res) => res.send("AI Server is running (v7 - Gemini Flash-Lite)"));
+app.get('/', (req, res) => res.send("AI Server is running (v8 - Gemini 2.5 Flash)"));
 app.get('/api/logs', (req, res) => res.json(logs));
 
 async function safePrompt(prompt, systemPrompt = null) {

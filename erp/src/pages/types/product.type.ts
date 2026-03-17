@@ -140,6 +140,9 @@ export type Product = {
     // Fiscal
     fiscal?: FiscalInfo;
     
+    // Additional Fields (Dynamic blocks)
+    extraFields?: { id: string; label: string; value: string; includeInTitle?: boolean }[];
+    
     // Supplier Details
     supplierId?: string;
     mainSupplierId?: string; // Same as supplierId? Keeping for UI compatibility

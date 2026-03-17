@@ -79,8 +79,8 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
         <td className="px-6 py-4">
             <input
                 value={v.sku || ''}
-                onChange={(e) => updateVariation(v.id, 'sku', e.target.value.toUpperCase())}
-                className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent focus:border-blue-500"
+                readOnly
+                className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent cursor-default opacity-80"
                 placeholder="SKU"
             />
         </td>
@@ -105,20 +105,12 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
         </td>
         <td className="px-6 py-4">
             <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => updateVariation(v.id, 'syncCostPrice', !v.syncCostPrice)}
-                    className={`p-1 rounded-md transition-colors ${v.syncCostPrice ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
-                    title="Sincronizar custo com pai"
-                >
-                    <i className={`bi ${v.syncCostPrice ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
-                </button>
                 <input
                     type="number"
                     value={v.costPrice}
-                    disabled={v.syncCostPrice}
-                    onChange={(e) => updateVariation(v.id, 'costPrice', parseFloat(e.target.value))}
-                    className={`bg-transparent border-none outline-none text-sm font-medium w-24 ${v.syncCostPrice ? 'text-slate-400' : 'text-slate-500'}`}
+                    readOnly
+                    title="O preço de custo é definido pelas entradas de estoque"
+                    className="bg-transparent border-none outline-none text-sm font-medium w-24 text-slate-400 cursor-not-allowed"
                 />
             </div>
         </td>
@@ -327,6 +319,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 parts.push(currentData.brand);
             } else if (key === "complement" && currentData.includeComplement && currentData.titleComplement) {
                 parts.push(currentData.titleComplement);
+            } else {
+                // Check dynamic extra fields
+                const extraField = currentData.extraFields?.find(f => f.id === key);
+                if (extraField && extraField.value) {
+                    parts.push(extraField.value);
+                }
             }
         });
 
@@ -832,22 +830,40 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const regenerateAllVariationSkus = () => {
-        if (!formData.code) return toast.error("O código do pai é necessário para gerar os SKUs das variações");
-        
-        setFormData(prev => ({
-            ...prev,
-            variations: prev.variations?.map(v => {
-                let newSku = `${prev.code}-${v.name.toUpperCase().replace(/\s+/g, '')}`;
-                if (newSku.length > 6) {
-                    newSku = newSku.substring(0, 6);
+        setFormData(prev => {
+            if (!prev.variations) return prev;
+            
+            const existingSkus = new Set<string>();
+            const newVariations = prev.variations.map((v, idx) => {
+                // Se já tem SKU e NÃO é um placeholder genérico, mantém ele e marca como usado
+                const isGeneric = !v.sku || v.sku.startsWith('NEW-VAR') || v.sku.includes('-NEW');
+                
+                if (!isGeneric) {
+                    existingSkus.add(v.sku.toUpperCase());
+                    return v;
                 }
-                return {
-                    ...v,
-                    sku: newSku
-                };
-            })
-        }));
-        toast.success("SKUs das variações atualizados!");
+                
+                let base = prev.code || 'PROD';
+                let suffix = v.name ? v.name.toUpperCase().replace(/\s+/g, '') : `V${idx + 1}`;
+                
+                // Tenta gerar um SKU único
+                let newSku = `${base}-${suffix}`;
+                if (newSku.length > 50) newSku = newSku.substring(0, 50);
+                
+                let counter = 1;
+                let candidate = newSku;
+                while (existingSkus.has(candidate.toUpperCase())) {
+                    const countStr = `-${counter}`;
+                    candidate = newSku.substring(0, 50 - countStr.length) + countStr;
+                    counter++;
+                }
+                
+                existingSkus.add(candidate.toUpperCase());
+                return { ...v, sku: candidate };
+            });
+            return { ...prev, variations: newVariations };
+        });
+        toast.info("SKUs das variações regenerados com exclusividade.");
     };
 
     const handleSubmit = async (isDraft: boolean = false): Promise<boolean> => {
@@ -859,7 +875,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
 
         if (isDraft && !finalDescription) {
-            // If it's a draft and description is missing, provide a placeholder
             finalDescription = `[RASCUNHO S-TÍTULO] ${new Date().toLocaleDateString()}`;
         }
         
@@ -868,12 +883,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             const normalizedData = { 
                 ...formData, 
                 description: finalDescription,
-                isDraft: isDraft && !formData.id ? true : isDraft ? formData.isDraft : false,
+                isDraft: isDraft, // Se chamou via auto-save ou rascunho, marca como rascunho
                 lastAutoSave: isDraft ? new Date().toISOString() : undefined
             } as Product;
 
             await saveProduct(normalizedData);
-            hasChanged.current = false; // Reset before close
+            hasChanged.current = false;
             if (!isDraft) toast.success(product ? "Atualizado com sucesso!" : "Criado com sucesso!");
             if (onSuccess) onSuccess(normalizedData);
             onClose();
@@ -883,7 +898,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             console.error(error);
             return false;
         } finally {
-            setLoading(true); // Manter bloqueado um pouco mais para evitar duplo clique? Não, vamos resetar
             setLoading(false);
         }
     };
@@ -892,10 +906,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         const isNewOrDraft = !formData.id || formData.isDraft;
 
         if (hasChanged.current && !loading && isNewOrDraft) {
+            // Se o usuário clicar fora ou fechar, tentamos salvar como rascunho
             const saved = await handleSubmit(true);
             if (!saved) {
-                // Se falhou o auto-save, perguntamos se o usuário quer descartar
-                if (window.confirm("Não foi possível salvar as alterações (SKU duplicado ou campos obrigatórios). Deseja sair assim mesmo e descartar as alterações?")) {
+                if (window.confirm("Não foi possível salvar o rascunho. Deseja sair e descartar as alterações?")) {
                     onClose();
                 }
             }
@@ -1048,6 +1062,13 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         )}
 
                         <button
+                            onClick={handleCloseWithAutoSave}
+                            className="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                        >
+                            <i className="bi bi-pencil-square"></i> Salvar como Rascunho
+                        </button>
+
+                        <button
                             onClick={onClose}
                             className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95"
                         >
@@ -1079,7 +1100,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         unitPrice: formData.unitPrice || 0,
                         costPrice: formData.costPrice || 0,
                         isCombo: formData.isCombo || false,
-                        mainSupplierId: formData.mainSupplierId
+                        mainSupplierId: formData.mainSupplierId,
+                        images: formData.images || []
                     }}
 
                     onSave={(updatedVar) => {

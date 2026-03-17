@@ -10,7 +10,7 @@ const TFoot = ({ summary }: Props) => {
          <tfoot>
             <tr>
                 <th>Valor Total de Juros</th>
-                <th>Valor do Pedido</th>
+                <th>Total do Pedido</th>
             </tr>
             <tr>
                 <td>
@@ -18,6 +18,18 @@ const TFoot = ({ summary }: Props) => {
                 </td>
                 <td>
                     <CurrencyDisplay value={summary.totalOrderValue} />
+                </td>
+            </tr>
+            <tr>
+                <th>Total Pago</th>
+                <th>Saldo Restante</th>
+            </tr>
+            <tr>
+                <td>
+                    <CurrencyDisplay value={summary.totalAmountPaid} />
+                </td>
+                <td>
+                    <CurrencyDisplay value={summary.amountRemaining} />
                 </td>
             </tr>
         </tfoot>

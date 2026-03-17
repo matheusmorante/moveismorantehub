@@ -27,6 +27,7 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{phone}}/g, customer.phone || "Não informado")
         .replace(/{{address}}/g, stringifyFullAddressWithObservation(customer.fullAddress))
         .replace(/{{items}}/g, stringifyItemsWithValues(order.items || []))
+        .replace(/{{payments}}/g, stringifyPayments(order.payments || []))
         .replace(/{{totalValue}}/g, (order.paymentsSummary.totalOrderValue || 0).toString())
         .replace(/{{observation}}/g, order.observation || "Sem observações")
         .replace(/{{routeUrl}}/g, customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");

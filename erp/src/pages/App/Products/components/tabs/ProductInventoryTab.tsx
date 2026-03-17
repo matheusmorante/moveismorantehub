@@ -173,14 +173,18 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                             type="number"
                                             value={(formData.stock === null || formData.stock === undefined || isNaN(formData.stock as number)) ? '' : formData.stock}
                                             disabled={true}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value);
-                                                setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
-                                            }}
                                             className="w-full px-0 bg-transparent outline-none text-2xl font-black text-blue-600 dark:text-blue-400 cursor-not-allowed"
                                             placeholder="0"
                                         />
                                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* {isEditing ? 'Ajuste via Lançamentos de Movimentação' : 'Valor definido via "Lançamento de Entrada Inicial" acima'}</p>
+                                    </div>
+                                    <div className={`flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl opacity-70`}>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preço de Custo (Visualização)</label>
+                                        <div className="flex items-center gap-1 text-2xl font-black text-slate-600 dark:text-slate-400">
+                                            <span className="text-sm">R$</span>
+                                            <span>{(formData.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* Definido automaticamente pelas entradas de estoque</p>
                                     </div>
                                     <div className="flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl relative">
                                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">

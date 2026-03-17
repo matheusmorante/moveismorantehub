@@ -38,11 +38,13 @@ export const validatePayments = (
         }
     });
 
-    if (Math.abs(amountRemaining) > 0.01) {
+    if (!payments || payments.length === 0) {
+        errors['payments_summary'] = "Informe ao menos uma forma de pagamento.";
+    } else if (Math.abs(amountRemaining) > 0.01) {
         if (amountRemaining > 0) {
             errors['payments_summary'] = `Ainda há R$ ${amountRemaining.toFixed(2).replace('.', ',')} a ser declarado.`;
         } else {
-            errors['payments_summary'] = `O valor ultrapassou R$ ${Math.abs(amountRemaining).toFixed(2).replace('.', ',')}.`;
+            errors['payments_summary'] = `O valor pago ultrapassou o total em R$ ${Math.abs(amountRemaining).toFixed(2).replace('.', ',')}.`;
         }
     }
 
