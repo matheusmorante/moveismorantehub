@@ -5,6 +5,9 @@ import { saveVariation } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 import { generateProductCode } from '@/pages/utils/formatters';
 import InitialStockList from './components/InitialStockList';
+import AttributeSelectionModal from './components/AttributeSelectionModal';
+import AttributeManagementModal from './components/AttributeManagementModal';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface VariationFormModalProps {
     isOpen: boolean;
@@ -18,6 +21,8 @@ interface VariationFormModalProps {
 const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variation, onSuccess }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState<Variation | null>(null);
+    const [isAttrSelectionOpen, setIsAttrSelectionOpen] = useState(false);
+    const [isAttrManagementOpen, setIsAttrManagementOpen] = useState(false);
 
     useEffect(() => {
         if (variation) {
@@ -45,6 +50,16 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
             setFormData(prev => prev ? { ...prev, finalPurchasePrice: Number(final.toFixed(2)) } : null);
         }
     }, [formData?.costPrice, formData?.freightCost, formData?.freightType, formData?.ipiPercent]);
+
+    const onDragEnd = (result: DropResult) => {
+        if (!result.destination || !formData) return;
+        
+        const nextAttrs = Array.from(formData.attributes || []);
+        const [reorderedItem] = nextAttrs.splice(result.source.index, 1);
+        nextAttrs.splice(result.destination.index, 0, reorderedItem);
+        
+        setFormData({ ...formData, attributes: nextAttrs } as Variation);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -121,56 +136,74 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                 Atributos (Ex: Cor, Tamanho)
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        const newAttrs = [...(formData.attributes || []), { name: "", value: "" }];
-                                        setFormData({ ...formData, attributes: newAttrs });
-                                    }}
+                                    onClick={() => setIsAttrSelectionOpen(true)}
                                     className="p-1 px-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                                 >
                                     <i className="bi bi-plus-lg mr-1"></i> Adicionar
                                 </button>
                             </label>
 
-                            <div className="flex flex-col gap-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar">
-                                {(formData.attributes || []).length === 0 && (
-                                    <p className="text-[10px] text-slate-400 italic py-2">Nenhum atributo definido.</p>
-                                )}
-                                {(formData.attributes || []).map((attr, idx) => (
-                                    <div key={idx} className="flex gap-2 items-center animate-in slide-in-from-left-2 duration-200">
-                                        <input
-                                            type="text"
-                                            placeholder="Nome (Ex: Cor)"
-                                            value={attr.name}
-                                            onChange={(e) => {
-                                                const newAttrs = [...(formData.attributes || [])];
-                                                newAttrs[idx].name = e.target.value;
-                                                setFormData({ ...formData, attributes: newAttrs });
-                                            }}
-                                            className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-blue-500/50 transition-all"
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Valor (Ex: Azul)"
-                                            value={attr.value}
-                                            onChange={(e) => {
-                                                const newAttrs = [...(formData.attributes || [])];
-                                                newAttrs[idx].value = e.target.value;
-                                                setFormData({ ...formData, attributes: newAttrs });
-                                            }}
-                                            className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-blue-500/50 transition-all"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setFormData({ ...formData, attributes: formData.attributes?.filter((_, i) => i !== idx) });
-                                            }}
-                                            className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                            <DragDropContext onDragEnd={onDragEnd}>
+                                <Droppable droppableId="attributes-list">
+                                    {(provided) => (
+                                        <div 
+                                            {...provided.droppableProps}
+                                            ref={provided.innerRef}
+                                            className="flex flex-col gap-2 min-h-[50px]"
                                         >
-                                            <i className="bi bi-trash3 text-xs"></i>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
+                                            {(formData.attributes || []).length === 0 && (
+                                                <p className="text-[10px] text-slate-400 italic py-2">Nenhum atributo definido.</p>
+                                            )}
+                                            {(formData.attributes || []).map((attr, idx) => (
+                                                <Draggable key={`${attr.name}-${idx}`} draggableId={`${attr.name}-${idx}`} index={idx}>
+                                                    {(provided, snapshot) => (
+                                                        <div 
+                                                            ref={provided.innerRef}
+                                                            {...provided.draggableProps}
+                                                            className={`flex gap-2 items-center animate-in slide-in-from-left-2 duration-200 bg-white dark:bg-slate-900 rounded-xl transition-all ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500/20 z-50' : ''}`}
+                                                        >
+                                                            <div 
+                                                                {...provided.dragHandleProps}
+                                                                className="flex items-center justify-center p-2 text-slate-300 hover:text-blue-500 cursor-grab active:cursor-grabbing"
+                                                            >
+                                                                <i className="bi bi-grip-vertical text-lg"></i>
+                                                            </div>
+                                                            <div className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-bold text-slate-500">
+                                                                {attr.name}
+                                                            </div>
+                                                            <div className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-bold">
+                                                                {attr.value}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newAttrs = [...(formData.attributes || [])];
+                                                                    newAttrs[idx].showName = !newAttrs[idx].showName;
+                                                                    setFormData({ ...formData, attributes: newAttrs });
+                                                                }}
+                                                                className={`p-1.5 rounded-lg transition-colors ${attr.showName !== false ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                                title={attr.showName !== false ? "Ocultar nome no título" : "Mostrar nome no título"}
+                                                            >
+                                                                <i className={`bi ${attr.showName !== false ? 'bi-eye-fill' : 'bi-eye-slash'}`}></i>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setFormData({ ...formData, attributes: formData.attributes?.filter((_, i) => i !== idx) });
+                                                                }}
+                                                                className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                            >
+                                                                <i className="bi bi-trash3 text-xs"></i>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </Draggable>
+                                            ))}
+                                            {provided.placeholder}
+                                        </div>
+                                    )}
+                                </Droppable>
+                            </DragDropContext>
                         </div>
 
                         <div className="flex flex-col gap-6">
@@ -183,7 +216,10 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             type="button"
                                             onClick={() => {
                                                 if ((formData.attributes || []).length > 0) {
-                                                    const autoName = formData.attributes!.map(a => a.value).filter(v => v).join(' / ');
+                                                    const autoName = formData.attributes!.map(a => {
+                                                        const val = a.value.toUpperCase();
+                                                        return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
+                                                    }).join(' ');
                                                     if (autoName) setFormData({ ...formData, name: autoName });
                                                 }
                                             }}
@@ -207,7 +243,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20"
-                                    placeholder="Ex: Azul / P"
+                                    placeholder="Ex: AZUL P"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
@@ -458,10 +494,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                             <input
                                 type="number"
                                 value={formData.stock || 0}
-                                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-100 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900"
-                                disabled={(!!variation?.id && !formData.launchInitialStock) || formData.launchInitialStock}
+                                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                disabled={true}
+                                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 font-bold transition-all cursor-not-allowed"
+                                placeholder="0"
                             />
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight italic mt-1">* Ajuste via Lançamentos de Movimentação</p>
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Alerta (Mín)</label>
@@ -514,6 +552,24 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     </div>
                 </form>
             </div>
+            <AttributeSelectionModal 
+                isOpen={isAttrSelectionOpen}
+                onClose={() => setIsAttrSelectionOpen(false)}
+                onSelect={(attr) => {
+                    const exists = formData.attributes?.some(a => a.name === attr.name);
+                    if (exists) return toast.warning("Este atributo já foi adicionado.");
+                    setFormData({ ...formData, attributes: [...(formData.attributes || []), { ...attr, showName: true }] });
+                }}
+                onManageAttributes={() => {
+                    setIsAttrSelectionOpen(false);
+                    setIsAttrManagementOpen(true);
+                }}
+            />
+
+            <AttributeManagementModal 
+                isOpen={isAttrManagementOpen}
+                onClose={() => setIsAttrManagementOpen(false)}
+            />
         </div>
     , document.body);
 };

@@ -17,7 +17,7 @@ export type Variation = {
     costPrice?: number;
     active: boolean;
     condition?: 'novo' | 'usado' | 'salvado' | '';
-    attributes: { name: string; value: string }[];
+    attributes: { name: string; value: string; showName?: boolean }[];
     syncWithParent?: boolean; // Legacy/Global
     syncUnitPrice?: boolean;
     syncCostPrice?: boolean;
@@ -161,8 +161,21 @@ export type Product = {
     noWidth?: boolean;
     noDepth?: boolean;
     noBrand?: boolean;
+    noColors?: boolean;
     launchInitialStock?: boolean;
     initialStockEntries?: InitialStockEntry[];
+
+    // Dynamic Title Rules
+    productTypeId?: string;
+    productTypeName?: string;
+    environment?: string;
+    includeEnvironment?: boolean;
+    includeLine?: boolean;
+    includeBrand?: boolean;
+    includeSupplierRef?: boolean;
+    titleComplement?: string;
+    includeComplement?: boolean;
+    titleOrder?: string[]; // e.g. ["type", "environment", "line", "brand", "supplierRef", "complement"]
 };
 
 export type ProductNotificationConfig = {

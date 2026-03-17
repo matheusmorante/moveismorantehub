@@ -4,6 +4,7 @@ import Person from "../../types/person.type";
 import { saveProduct, getFullProduct } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { toast } from "react-toastify";
 import { compressImage, compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
@@ -20,11 +21,19 @@ import CategorySearchModal from "./CategorySearchModal";
 import ProductGeneralTab from "./components/tabs/ProductGeneralTab";
 import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
+import { generateProductCode } from '@/pages/utils/formatters';
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
 import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
 import ProductConversionModal from "./components/ProductConversionModal";
 import CartesianVariationModal from "./components/CartesianVariationModal";
+import ProductTypeManagementModal from "./components/ProductTypeManagementModal";
 
+// [x] Novo: Regras Dinâmicas de Título de Produto
+//     - [x] Atualizar `product.type.ts` e `productService.ts`
+//     - [x] Criar CRUD de Tipos de Móveis (`ProductTypeManagementModal.tsx`)
+//     - [x] Implementar interface de reordenação no `ProductFormModal.tsx`
+//     - [x] Atualizar geração de título automática nos modais
+//     - [x] Validar reordenação e composição final
 interface ProductFormModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -57,7 +66,7 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                 <div className="flex flex-col">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
                     <input
-                        value={v.name}
+                        value={v.name || ''}
 
                         readOnly
                         className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default"
@@ -69,7 +78,7 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
 
         <td className="px-6 py-4">
             <input
-                value={v.sku}
+                value={v.sku || ''}
                 onChange={(e) => updateVariation(v.id, 'sku', e.target.value.toUpperCase())}
                 className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent focus:border-blue-500"
                 placeholder="SKU"
@@ -149,6 +158,7 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
 
 const INITIAL_FORM_DATA: Partial<Product> = {
     description: "",
+    code: "",
     unit: "UN",
     unitPrice: 0,
     costPrice: 0,
@@ -176,7 +186,24 @@ const INITIAL_FORM_DATA: Partial<Product> = {
         cfop: "5102",
         icmsPercent: 0
     },
-    launchInitialStock: false
+    launchInitialStock: false,
+    line: "",
+    brand: "",
+    colors: "",
+    material: "",
+    mainDifferential: "",
+    notIncluded: "",
+    supplierRef: "",
+    observations: "",
+    productTypeId: "",
+    productTypeName: "",
+    environment: "",
+    includeEnvironment: true,
+    includeLine: true,
+    includeBrand: true,
+    includeComplement: true,
+    titleComplement: "",
+    titleOrder: ["type", "environment", "line", "brand", "complement"]
 };
 
 const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: ProductFormModalProps) => {
@@ -199,8 +226,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
     const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
     const [suppliers, setSuppliers] = useState<Person[]>([]);
-    const [availableCategories, setAvailableCategories] = useState<{ id: string, name: string, parent_id?: string | null }[]>([]);
+    const [availableCategories, setAvailableCategories] = useState<any[]>([]);
     const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
+    const [isProductTypeModalOpen, setIsProductTypeModalOpen] = useState(false);
+    const [productTypes, setProductTypes] = useState<{ id: string, name: string }[]>([]);
 
     const [formData, setFormData] = useState<Partial<Product>>({
         ...INITIAL_FORM_DATA,
@@ -265,22 +294,53 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 if (v.syncDescription !== false) { // Default to true or if explicitly true
                     const attrParts = v.attributes?.map(a => {
                         const val = a.value.toUpperCase();
-                        return v.hideAttributeNames ? val : `${a.name.toUpperCase()}:${val}`;
-                    }).join(' / ');
+                        return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
+                    }).join(' ');
+                    
+                    // NEW: Prefix with parent description
                     const newName = attrParts ? `${prev.description} ${attrParts}` : prev.description!;
                     return { ...v, name: newName.toUpperCase() };
                 }
                 return v;
             });
 
-
-            
             // Only update if something actually changed to avoid loops
             if (JSON.stringify(updatedVars) === JSON.stringify(prev.variations)) return prev;
             
             return { ...prev, variations: updatedVars };
         });
     }, [formData.description]);
+
+    const generateAutoTitle = useCallback((currentData: Partial<Product>) => {
+        const order = currentData.titleOrder || ["type", "environment", "line", "brand"];
+        const parts: string[] = [];
+
+        order.forEach(key => {
+            if (key === "type" && currentData.productTypeName) {
+                parts.push(currentData.productTypeName);
+            } else if (key === "environment" && currentData.includeEnvironment && currentData.environment) {
+                parts.push(currentData.environment);
+            } else if (key === "line" && currentData.includeLine && currentData.line) {
+                parts.push(currentData.line);
+            } else if (key === "brand" && currentData.includeBrand && currentData.brand) {
+                parts.push(currentData.brand);
+            } else if (key === "complement" && currentData.includeComplement && currentData.titleComplement) {
+                parts.push(currentData.titleComplement);
+            }
+        });
+
+        return parts.join(' ').toUpperCase().trim();
+    }, []);
+
+    // Fetch product types
+    useEffect(() => {
+        if (!isOpen) return;
+        const fetchProductTypes = async () => {
+            const { data } = await supabase.from('product_types').select('id, name').order('name');
+            if (data) setProductTypes(data);
+        };
+        fetchProductTypes();
+    }, [isOpen, isProductTypeModalOpen]);
 
 
 
@@ -292,8 +352,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         });
 
         const fetchCategories = async () => {
-            const { data } = await supabase.from('categories').select('id, name, parent_id').order('name');
-            if (data) setAvailableCategories(data);
+             try {
+                const data = await fetchGroupsAndCategories();
+                setAvailableCategories(data.categories);
+             } catch (error) {
+                console.error("Erro ao carregar categorias:", error);
+             }
         };
         fetchCategories();
 
@@ -546,6 +610,34 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     };
 
+    const handleFieldChange = (field: keyof Product, value: any) => {
+        setFormData(prev => {
+            const next = { ...prev, [field]: value };
+            
+            // Auto-gerar SKU do produto se estiver vazio e o título for digitado
+            if (field === 'description' && !next.id && (!next.code || next.code.trim() === '')) {
+                next.code = generateProductCode(value);
+            }
+            
+            return next;
+        });
+        hasChanged.current = true;
+    };
+
+    const handleSaveVariation = (updatedVar: Variation) => {
+        const isDuplicate = (formData.variations || []).some(v => v.id !== updatedVar.id && v.sku?.toUpperCase() === updatedVar.sku?.toUpperCase());
+        if (isDuplicate) {
+            toast.error(`O SKU "${updatedVar.sku}" já está em uso em outra variação.`);
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            variations: (prev.variations || []).map(v => v.id === updatedVar.id ? updatedVar : v)
+        }));
+        setEditingVariationId(null);
+    };
+
     const updateVariation = (id: string, field: keyof Variation, value: any) => {
         setFormData(prev => ({
             ...prev,
@@ -554,19 +646,29 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const addVariation = () => {
+        const baseName = "NOVA VARIAÇÃO";
+        const existingSkus = new Set((formData.variations || []).map(v => v.sku?.toUpperCase()));
+        
+        let newSku = formData.code ? `${formData.code}-NEW` : "NEW-VAR";
+        let counter = 1;
+        while (existingSkus.has(newSku.toUpperCase())) {
+            const suffix = `-${counter}`;
+            newSku = (formData.code ? `${formData.code}-NEW` : "NEW-VAR").substring(0, 50 - suffix.length) + suffix;
+            counter++;
+        }
+
         const newVar: Variation = {
             id: Math.random().toString(36).substr(2, 9),
-            name: "",
-            sku: "",
+            name: baseName,
+            sku: newSku,
             unitPrice: formData.unitPrice || 0,
             costPrice: formData.costPrice || 0,
             stock: 0,
+            images: [],
+            active: true,
             syncUnitPrice: true,
             syncCostPrice: true,
             syncDescription: true,
-            hideAttributeNames: false,
-            images: [],
-            active: true,
             attributes: [],
             comboItems: []
 
@@ -585,7 +687,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         });
     };
 
-    const generateBulkVariations = (options: { name: string, values: string[] }[], hideAttributeNames: boolean = false) => {
+    const generateBulkVariations = (options: { name: string, values: string[], showName: boolean }[]) => {
         setIsGeneratingBulk(true);
         setTimeout(() => {
             const attributes = options.filter(o => o.name && o.values.length > 0);
@@ -595,36 +697,36 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             }
 
             // Generate Cartesian Product
-            // Start with an array containing one empty combination object
             let combinations: any[] = [{}];
 
             attributes.forEach(attr => {
                 const newCombinations: any[] = [];
                 combinations.forEach(combo => {
                     attr.values.forEach(val => {
-                        // Create a new combination for each value of the current attribute
-                        newCombinations.push({ ...combo, [attr.name]: val });
+                        newCombinations.push({ 
+                            ...combo, 
+                            [attr.name]: { value: val, showName: attr.showName } 
+                        });
                     });
                 });
                 combinations = newCombinations;
             });
 
             const newVars: Variation[] = combinations.map(combo => {
-                // Generate name based on preference
                 const sortedKeys = Object.keys(combo).sort();
                 const attrParts = sortedKeys.map(key => {
-                    const val = String(combo[key]).toUpperCase();
-                    return hideAttributeNames ? val : `${key.toUpperCase()}:${val}`;
-                }).join(' / ');
-                const name = `${formData.description || ''} ${attrParts}`.toUpperCase();
+                    const attrData = combo[key];
+                    const val = String(attrData.value).toUpperCase();
+                    return attrData.showName ? `${key.toUpperCase()}:${val}` : val;
+                }).join(' ');
+                const name = attrParts.toUpperCase();
 
-                // SKU suffix based on values only
-                const skuSuffix = sortedKeys.map(key => String(combo[key]).toUpperCase().replace(/\s+/g, '')).join('-');
+                const skuSuffix = sortedKeys.map(key => String(combo[key].value).toUpperCase().replace(/\s+/g, '')).join('-');
                 
-                // Limit SKU to 6 characters if possible, or truncate suffix
                 let finalSku = formData.code ? `${formData.code}-${skuSuffix}` : skuSuffix;
-                if (finalSku.length > 6) {
-                    finalSku = finalSku.substring(0, 6);
+                // [FIX] Aumentado limite de SKU para evitar duplicidade óbvia (6 era muito pouco)
+                if (finalSku.length > 50) {
+                    finalSku = finalSku.substring(0, 50);
                 }
                 
                 return {
@@ -637,18 +739,34 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     syncUnitPrice: true,
                     syncCostPrice: true,
                     syncDescription: true,
-                    hideAttributeNames: hideAttributeNames,
                     images: [],
                     active: true,
-                    attributes: Object.entries(combo).map(([name, value]) => ({ name, value: String(value) })),
+                    attributes: Object.entries(combo).map(([name, data]: [string, any]) => ({ 
+                        name, 
+                        value: String(data.value),
+                        showName: data.showName
+                    })),
                     comboItems: []
                 };
             });
 
+            // [FIX] Verificação de SKUs duplicados internamente antes de adicionar
+            const existingSkus = new Set((formData.variations || []).map(v => v.sku?.toUpperCase()));
+            const deduplicatedNewVars = newVars.map(v => {
+                let currentSku = v.sku;
+                let counter = 1;
+                while (existingSkus.has(currentSku.toUpperCase())) {
+                    const suffix = `-${counter}`;
+                    currentSku = v.sku.substring(0, 50 - suffix.length) + suffix;
+                    counter++;
+                }
+                existingSkus.add(currentSku.toUpperCase());
+                return { ...v, sku: currentSku };
+            });
 
             setFormData(prev => ({
                 ...prev,
-                variations: [...(prev.variations || []), ...newVars],
+                variations: [...(prev.variations || []), ...deduplicatedNewVars],
                 hasVariations: true
             }));
             setIsGeneratingBulk(false);
@@ -666,10 +784,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         if (!data.whatsappDescription) missing.push("Descrição WhatsApp (Aba Marketplace)");
         
         // Characteristics
-        if (!data.brand) missing.push("Marca / Fabricante");
+        if (!data.brand && !data.noBrand) missing.push("Marca / Fabricante (ou marque 'Ocultar')");
         if (!data.line && !data.hasNoLine) missing.push("Modelo / Linha (ou marque 'Sem Modelo')");
         if (!data.material) missing.push("Material");
-        if (!data.colors) missing.push("Cores Disponíveis");
+        if (!data.colors && !data.noColors) missing.push("Cores Disponíveis (ou marque 'Não Informar')");
         
         // SupplyChain / Financial
         if (!data.mainSupplierId) missing.push("Fornecedor Principal (Aba Estoque)");
@@ -714,7 +832,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         setFormData(prev => ({
             ...prev,
             variations: prev.variations?.map(v => {
-                let newSku = `${prev.code}-${v.name.toUpperCase().replace(/\s+/g, '').replace(/\//g, '-')}`;
+                let newSku = `${prev.code}-${v.name.toUpperCase().replace(/\s+/g, '')}`;
                 if (newSku.length > 6) {
                     newSku = newSku.substring(0, 6);
                 }
@@ -727,26 +845,26 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         toast.success("SKUs das variações atualizados!");
     };
 
-    const handleSubmit = async (isDraft: boolean = false) => {
+    const handleSubmit = async (isDraft: boolean = false): Promise<boolean> => {
         let finalDescription = formData.description;
-        
-        if (!finalDescription) {
-            if (isDraft) {
-                // If it's a draft, we allow it with a placeholder
-                finalDescription = `[RASCUNHO S-TÍTULO] ${new Date().toLocaleDateString()}`;
-            } else {
-                toast.error("O título do produto é obrigatório.");
-                return;
-            }
+
+        if (!isDraft && !finalDescription) {
+            toast.error("O título do produto é obrigatório.");
+            return false;
+        }
+
+        if (isDraft && !finalDescription) {
+            // If it's a draft and description is missing, provide a placeholder
+            finalDescription = `[RASCUNHO S-TÍTULO] ${new Date().toLocaleDateString()}`;
         }
         
-        // ... (rest of validation) ...
         setLoading(true);
         try {
             const normalizedData = { 
                 ...formData, 
                 description: finalDescription,
-                isDraft: isDraft 
+                isDraft: isDraft && !formData.id ? true : isDraft ? formData.isDraft : false,
+                lastAutoSave: isDraft ? new Date().toISOString() : undefined
             } as Product;
 
             await saveProduct(normalizedData);
@@ -754,18 +872,28 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (!isDraft) toast.success(product ? "Atualizado com sucesso!" : "Criado com sucesso!");
             if (onSuccess) onSuccess(normalizedData);
             onClose();
+            return true;
         } catch (error: any) {
-            if (!isDraft) toast.error(`Erro ao salvar o produto: ${error.message || "Erro desconhecido"}`);
+            toast.error(`Erro ao salvar: ${error.message || "Erro desconhecido"}`);
             console.error(error);
+            return false;
         } finally {
+            setLoading(true); // Manter bloqueado um pouco mais para evitar duplo clique? Não, vamos resetar
             setLoading(false);
         }
     };
 
     const handleCloseWithAutoSave = async () => {
-        if (hasChanged.current && !loading) {
-            // Auto-save as draft even if description is missing (handleSubmit handles it)
-            await handleSubmit(true);
+        const isNewOrDraft = !formData.id || formData.isDraft;
+
+        if (hasChanged.current && !loading && isNewOrDraft) {
+            const saved = await handleSubmit(true);
+            if (!saved) {
+                // Se falhou o auto-save, perguntamos se o usuário quer descartar
+                if (window.confirm("Não foi possível salvar as alterações (SKU duplicado ou campos obrigatórios). Deseja sair assim mesmo e descartar as alterações?")) {
+                    onClose();
+                }
+            }
         } else {
             onClose();
         }
@@ -823,14 +951,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
                     {activeTab === 'geral' && (
                         <ProductGeneralTab
+                            onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
+                            suppliers={suppliers}
+                            isService={formData.itemType === 'service'}
+                            productTypes={productTypes}
+                            onOpenProductTypeModal={() => setIsProductTypeModalOpen(true)}
+                            generateAutoTitle={generateAutoTitle}
                             formData={formData}
                             setFormData={setFormData}
                             availableCategories={availableCategories}
-                            isGeneratingCategory={isGeneratingCategory}
-                            handleGenerateCategory={handleGenerateCategory}
                             handleGenerateComboName={handleGenerateComboName}
                             isGeneratingComboName={isGeneratingComboName}
-                            onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
                         />
                     )}
 
@@ -959,20 +1090,40 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     onClose={() => setIsCategorySearchOpen(false)}
                     categories={availableCategories}
                     selectedIds={formData.categoryIds || []}
-                    onSelect={(id) => {
-                        setFormData(prev => {
-                            const ids = prev.categoryIds || [];
-                            if (ids.includes(id)) {
-                                return { ...prev, categoryIds: ids.filter(i => i !== id) };
+                    onSelect={(cid) => {
+                        const cat = availableCategories.find(c => c.id === cid);
+                        const isSelected = formData.categoryIds?.includes(cid);
+                        
+                        const newIds = isSelected 
+                            ? formData.categoryIds?.filter(id => id !== cid) 
+                            : [...(formData.categoryIds || []), cid];
+                        
+                        // Auto-detect environment from selected categories
+                        let detectedEnv = formData.environment;
+                        
+                        // Find root parents (environments) of the selected categories
+                        if (newIds && newIds.length > 0) {
+                            const selectedCats = availableCategories.filter(c => newIds.includes(c.id));
+                            
+                            // Priority 1: If the selected category is itself a root (Environment)
+                            const rootSelected = selectedCats.find(c => !c.parents || c.parents.length === 0);
+                            if (rootSelected) {
+                                detectedEnv = rootSelected.name;
                             } else {
-                                const cat = availableCategories.find(c => c.id === id);
-                                let nextIds = [...ids, id];
-                                if (cat?.parent_id && !nextIds.includes(cat.parent_id)) {
-                                    nextIds.push(cat.parent_id);
+                                // Priority 2: Find the name of the first parent of the first selected category
+                                const firstCat = selectedCats[0];
+                                if (firstCat && firstCat.parents && firstCat.parents.length > 0) {
+                                    const parentCat = availableCategories.find(c => c.id === firstCat.parents[0]);
+                                    if (parentCat) detectedEnv = parentCat.name;
                                 }
-                                return { ...prev, categoryIds: nextIds };
                             }
-                        });
+                        }
+
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            categoryIds: newIds,
+                            environment: detectedEnv 
+                        }));
                     }}
                 />
 
@@ -1071,6 +1222,11 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     onClose={() => setIsCartesianModalOpen(false)}
                     isGenerating={isGeneratingBulk}
                     onGenerate={generateBulkVariations}
+                />
+
+                <ProductTypeManagementModal
+                    isOpen={isProductTypeModalOpen}
+                    onClose={() => setIsProductTypeModalOpen(false)}
                 />
             </div>
         </div>

@@ -7,15 +7,14 @@ import { toast } from "react-toastify";
 interface CartesianVariationModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onGenerate: (attributes: { name: string, values: string[] }[], hideAttributeNames: boolean) => void;
+    onGenerate: (attributes: { name: string, values: string[], showName: boolean }[]) => void;
     isGenerating: boolean;
 
 }
 
 const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: CartesianVariationModalProps) => {
     const [availableVariations, setAvailableVariations] = useState<VariationType[]>([]);
-    const [selectedOptions, setSelectedOptions] = useState<{ name: string, values: string[] }[]>([]);
-    const [hideAttributeNames, setHideAttributeNames] = useState(false);
+    const [selectedOptions, setSelectedOptions] = useState<{ name: string, values: string[], showName: boolean }[]>([]);
 
 
     useEffect(() => {
@@ -30,7 +29,7 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
     if (!isOpen) return null;
 
     const handleAddAttribute = () => {
-        setSelectedOptions([...selectedOptions, { name: '', values: [] }]);
+        setSelectedOptions([...selectedOptions, { name: '', values: [], showName: true }]);
     };
 
     const handleAttributeChange = (idx: number, attrName: string) => {
@@ -57,7 +56,7 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
             toast.warning("Selecione pelo menos um atributo e um valor.");
             return;
         }
-        onGenerate(validOptions, hideAttributeNames);
+        onGenerate(validOptions);
         setSelectedOptions([]); // Reset for next time
 
     };
@@ -78,16 +77,11 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setHideAttributeNames(!hideAttributeNames)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${hideAttributeNames ? 'bg-blue-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600'}`}
-                            title={hideAttributeNames ? "Mostrando apenas valores nos títulos" : "Mostrar nomes dos atributos nos títulos"}
+                        <button 
+                            disabled={isGenerating}
+                            onClick={onClose} 
+                            className="p-2 text-slate-400 hover:text-red-500 disabled:opacity-30 transition-colors bg-slate-50 dark:bg-slate-800 rounded-xl"
                         >
-                            <i className={`bi ${hideAttributeNames ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
-                            {hideAttributeNames ? 'Ocultar Nomes Ativo' : 'Ocultar Nomes Atributos'}
-                        </button>
-                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 dark:bg-slate-800 rounded-xl">
                             <i className="bi bi-x-lg"></i>
                         </button>
                     </div>
@@ -102,18 +96,33 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
                             <div key={idx} className="bg-slate-50 dark:bg-slate-950/20 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-left-2 transition-all">
                                 <div className="flex gap-4 items-start">
                                     <div className="flex-1 space-y-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atributo</label>
-                                            <select
-                                                value={opt.name}
-                                                onChange={(e) => handleAttributeChange(idx, e.target.value)}
-                                                className="w-full bg-white dark:bg-slate-950 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200"
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex-1 space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atributo</label>
+                                                <select
+                                                    value={opt.name}
+                                                    onChange={(e) => handleAttributeChange(idx, e.target.value)}
+                                                    className="w-full bg-white dark:bg-slate-950 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200"
+                                                >
+                                                    <option value="">Selecione...</option>
+                                                    {availableVariations.map(v => (
+                                                        <option key={v.id} value={v.name}>{v.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const next = [...selectedOptions];
+                                                    next[idx].showName = !next[idx].showName;
+                                                    setSelectedOptions(next);
+                                                }}
+                                                className={`mt-6 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${opt.showName ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
+                                                title={opt.showName ? "Mostrar nome no título" : "Ocultar nome no título"}
                                             >
-                                                <option value="">Selecione...</option>
-                                                {availableVariations.map(v => (
-                                                    <option key={v.id} value={v.name}>{v.name}</option>
-                                                ))}
-                                            </select>
+                                                <i className={`bi ${opt.showName ? 'bi-eye-fill' : 'bi-eye-slash-fill'} mr-1.5`}></i>
+                                                {opt.showName ? "Mostrar Nome" : "Ocultar Nome"}
+                                            </button>
                                         </div>
 
                                         <div className="space-y-2">
@@ -168,7 +177,8 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
                 <div className="p-8 border-t border-slate-50 dark:border-slate-800 flex gap-4 shrink-0 bg-white dark:bg-slate-900">
                     <button
                         onClick={onClose}
-                        className="flex-1 py-4 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                        disabled={isGenerating}
+                        className="flex-1 py-4 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] disabled:opacity-50"
                     >
                         Cancelar
                     </button>

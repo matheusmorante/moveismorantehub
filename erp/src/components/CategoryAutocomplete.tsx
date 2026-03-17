@@ -5,7 +5,7 @@ import DropdownPortal from './shared/DropdownPortal';
 interface Category {
     id: string;
     name: string;
-    parent_id?: string | null;
+    parents?: string[];
 }
 
 interface CategoryAutocompleteProps {
@@ -34,8 +34,16 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
 
     useEffect(() => {
         const fetchAll = async () => {
-            const { data } = await supabase.from('categories').select('id, name, parent_id').order('name');
-            if (data) setAllCategories(data);
+            const { data: cats } = await supabase.from('categories').select('id, name').order('name');
+            const { data: rels } = await supabase.from('category_relationships').select('child_id, parent_id');
+            
+            if (cats) {
+                const mapped: Category[] = cats.map((c: any) => ({
+                    ...c,
+                    parents: rels?.filter((r: any) => r.child_id === c.id).map((r: any) => r.parent_id) || []
+                }));
+                setAllCategories(mapped);
+            }
         };
         fetchAll();
     }, []);
@@ -52,9 +60,8 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
 
     useEffect(() => {
         if (query.trim() === "") {
-            // Show top-level categories or common ones as suggestions when empty?
-            // For now, let's show top-level categories if no query
-            setSuggestions(allCategories.filter(c => !c.parent_id).slice(0, 10));
+            // Show root categories if no query
+            setSuggestions(allCategories.filter(c => !c.parents || c.parents.length === 0).slice(0, 10));
             return;
         }
 
@@ -139,9 +146,9 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                                 >
                                     <div className="flex flex-col">
                                         <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
-                                        {cat.parent_id && (
+                                        {cat.parents && cat.parents.length > 0 && (
                                             <span className="text-[9px] uppercase font-black text-slate-400">
-                                                {allCategories.find(c => c.id === cat.parent_id)?.name || 'Outra'} &gt; Subcategoria
+                                                {allCategories.find(c => c.id === cat.parents![0])?.name || 'Outro'} &gt; Subtipo
                                             </span>
                                         )}
                                     </div>
@@ -152,7 +159,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                     ) : (
                         <div className="p-8 text-center">
                             <i className="bi bi-search text-2xl text-slate-200 mb-2 block"></i>
-                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Nenhuma categoria encontrada</p>
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Nenhum tipo de móvel encontrado</p>
                         </div>
                     )}
                 </div>

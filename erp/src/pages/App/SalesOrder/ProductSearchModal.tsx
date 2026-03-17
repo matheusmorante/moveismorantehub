@@ -165,7 +165,7 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                                 {filtered.slice(0, 50).map((item) => {
                                     const { p, v, key } = item;
-                                    const displayName = v ? `${p.description} - ${v.name}` : p.description;
+                                    const displayName = v ? v.name.replace(/\s*\/\s*/g, ' ') : p.description;
                                     const displayCode = v?.sku || p.code || "---";
                                     const displayPrice = (priceType === 'cost' ? (v?.costPrice || p.costPrice) : (v?.unitPrice || p.unitPrice)) || 0;
                                     const displayStock = v ? (v.stock || 0) : (p.stock || 0);

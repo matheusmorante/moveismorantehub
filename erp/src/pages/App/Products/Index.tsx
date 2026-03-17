@@ -100,6 +100,40 @@ const Products = () => {
     const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, isDraft: false }), [filters]);
     const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true }), [filters]);
 
+    const handleDuplicate = (product: Product) => {
+        // Deep clone to avoid mutating the original product
+        const duplicate: any = JSON.parse(JSON.stringify(product));
+        
+        // Clear primary identifiers
+        delete duplicate.id;
+        delete duplicate.code;
+        delete duplicate.createdAt;
+        delete duplicate.updatedAt;
+        
+        // Reset stock and status
+        duplicate.stock = 0;
+        duplicate.initialStock = 0;
+        duplicate.isDraft = true;
+        duplicate.active = true;
+        duplicate.description = `${duplicate.description} (Cópia)`;
+        
+        // Clear variation specific identifiers
+        if (duplicate.variations && duplicate.variations.length > 0) {
+            duplicate.variations = duplicate.variations.map((v: any) => ({
+                ...v,
+                id: Math.random().toString(36).substr(2, 9), // Temp ID for UI mapping
+                sku: "", // Clear SKU so user provides a new one
+                stock: 0,
+                initialStock: 0,
+                initialStockEntries: []
+            }));
+        }
+
+        setEditingProduct(null);
+        setInitialFormData(duplicate);
+        setIsFormModalOpen(true);
+        toast.info("Produto duplicado! Revise os dados e salve para concluir.");
+    };
 
     return (
         <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
@@ -320,6 +354,7 @@ const Products = () => {
                     }}
                     onToggleColumn={toggleVisibility}
                     onSort={handleSort}
+                    onDuplicate={handleDuplicate}
                     categoryTree={categoryTree}
                     ref={productListRef}
                     onRefresh={() => productListRef.current?.refresh()}

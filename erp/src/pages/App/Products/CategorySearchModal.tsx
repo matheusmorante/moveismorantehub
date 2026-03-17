@@ -3,7 +3,7 @@ import React, { useState, useMemo } from "react";
 interface Category {
     id: string;
     name: string;
-    parent_id?: string | null;
+    parents?: string[];
 }
 
 interface Props {
@@ -56,7 +56,7 @@ const CategorySearchModal = ({ isOpen, onClose, categories, onSelect, selectedId
                 <div className="flex-1 overflow-y-auto max-h-[40vh] p-4 space-y-2 custom-scrollbar">
                     {filtered.map(cat => {
                         const isSelected = selectedIds.includes(cat.id);
-                        const isSub = !!cat.parent_id;
+                        const isEnv = !cat.parents || cat.parents.length === 0;
                         return (
                             <button
                                 key={cat.id}
@@ -64,9 +64,13 @@ const CategorySearchModal = ({ isOpen, onClose, categories, onSelect, selectedId
                                 className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all ${isSelected ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400'}`}
                             >
                                 <div className="flex items-center gap-3">
-                                    {isSub && <i className="bi bi-arrow-return-right text-[10px] opacity-40"></i>}
-                                    <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'dark:text-slate-200'}`}>{cat.name}</span>
-                                    {isSub && <span className="text-[9px] uppercase font-black opacity-40 tracking-widest pl-2">Sub</span>}
+                                    <div className={`w-2 h-2 rounded-full ${isEnv ? 'bg-emerald-500' : 'bg-blue-400'}`}></div>
+                                    <div className="flex flex-col items-start translate-y-[-1px]">
+                                        <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'dark:text-slate-200'}`}>{cat.name}</span>
+                                        <span className={`text-[8px] font-black uppercase tracking-widest opacity-60`}>
+                                            {isEnv ? 'Ambiente' : 'Categoria'}
+                                        </span>
+                                    </div>
                                 </div>
                                 {isSelected ? <i className="bi bi-check-circle-fill"></i> : <i className="bi bi-plus-circle opacity-20"></i>}
                             </button>

@@ -58,7 +58,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
         (s.fullName || '').toLowerCase().includes(supplierSearch.toLowerCase())
     );
 
-    const isEditing = !!formData.id;
+    const isEditing = !!formData.id && !formData.isDraft;
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -70,7 +70,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <i className="bi bi-box-seam-fill text-blue-600 text-xl"></i>
                         </div>
                         <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Estoque Inicial?</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Entrada Inicial?</h4>
                             <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Deseja cadastrar o saldo inicial e custos agora?</p>
                         </div>
                     </div>
@@ -89,7 +89,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6 animate-in zoom-in-95 duration-300">
                     <div className="flex items-center justify-between mb-2">
                         <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançamento de Estoque por Lotes</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançamento de Entrada Inicial</h4>
                             <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Lançamento múltiplo de quantidades e seus respectivos custos</p>
                         </div>
                     </div>
@@ -168,19 +168,19 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             {!formData.hasVariations ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className={`flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl ${isEditing ? 'opacity-70' : ''}`}>
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isEditing ? 'Estoque Atual' : 'Saldo de Lotes'}</label>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isEditing ? 'Estoque Atual' : 'Saldo de Lançamentos'}</label>
                                         <input
                                             type="number"
-                                            value={isNaN(formData.stock as number) || formData.stock === 0 ? '' : formData.stock}
-                                            disabled={isEditing || formData.launchInitialStock}
+                                            value={(formData.stock === null || formData.stock === undefined || isNaN(formData.stock as number)) ? '' : formData.stock}
+                                            disabled={true}
                                             onChange={(e) => {
                                                 const val = parseInt(e.target.value);
                                                 setFormData({ ...formData, stock: isNaN(val) ? 0 : val });
                                             }}
-                                            className="w-full px-0 bg-transparent outline-none text-2xl font-black text-blue-600 dark:text-blue-400"
+                                            className="w-full px-0 bg-transparent outline-none text-2xl font-black text-blue-600 dark:text-blue-400 cursor-not-allowed"
                                             placeholder="0"
                                         />
-                                        {(isEditing || formData.launchInitialStock) && <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* {isEditing ? 'Ajuste via Lançamentos de Estoque' : 'Editado via Lotes acima'}</p>}
+                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* {isEditing ? 'Ajuste via Lançamentos de Movimentação' : 'Valor definido via "Lançamento de Entrada Inicial" acima'}</p>
                                     </div>
                                     <div className="flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl relative">
                                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
@@ -221,12 +221,12 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                         </label>
                                         <input
                                             type="number"
-                                            value={isNaN(formData.minStock as number) || formData.minStock === 0 ? '' : formData.minStock}
+                                            value={(formData.minStock === null || formData.minStock === undefined || isNaN(formData.minStock as number)) ? '' : formData.minStock}
                                             onChange={(e) => {
                                                 const val = parseInt(e.target.value);
                                                 setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
                                             }}
-                                            className="w-full px-0 bg-transparent outline-none text-2xl font-black text-slate-800 dark:text-slate-200"
+                                            className="w-full px-0 bg-transparent outline-none text-2xl font-black text-amber-600 dark:text-amber-500"
                                             placeholder="0"
                                         />
                                         

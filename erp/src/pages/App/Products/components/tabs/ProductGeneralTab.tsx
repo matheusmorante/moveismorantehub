@@ -1,64 +1,342 @@
 import React from 'react';
-import Product from '../../../../types/product.type';
-import SmartInput from '../../../../../components/SmartInput';
+import { Product } from '@/pages/types/product.type';
+import SmartInput from '@/components/SmartInput';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { calculateDIM, checkLTLRequirement } from '../../../../utils/calculations';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import { toast } from 'react-toastify';
 import { generateProductCode } from '../../../../utils/formatters';
 
 interface ProductGeneralTabProps {
+    onOpenCategorySearch: () => void;
+    suppliers: any[];
+    isService: boolean;
+    productTypes: { id: string, name: string }[];
+    onOpenProductTypeModal: () => void;
+    generateAutoTitle: (currentData: Partial<Product>) => string;
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     availableCategories: any[];
-    isGeneratingCategory: boolean;
-    handleGenerateCategory: () => void;
     handleGenerateComboName: () => void;
     isGeneratingComboName: boolean;
-    onOpenCategorySearch: () => void;
 }
 
 const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
+    onOpenCategorySearch,
+    suppliers,
+    isService,
+    productTypes,
+    onOpenProductTypeModal,
+    generateAutoTitle,
     formData,
     setFormData,
     availableCategories,
-    isGeneratingCategory,
-    handleGenerateCategory,
     handleGenerateComboName,
-    isGeneratingComboName,
-    onOpenCategorySearch
+    isGeneratingComboName
 }) => {
+    const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand"]).filter((k: string) => k !== 'supplierRef');
+    const draggableParts = titleOrder.filter((k: string) => k !== 'type');
+
+    const handleToggleTitlePart = (key: string) => {
+        setFormData((prev: Partial<Product>) => {
+            const next = { ...prev };
+            if (key === "line") next.includeLine = !prev.includeLine;
+            if (key === "brand") next.includeBrand = !prev.includeBrand;
+            if (key === "complement") next.includeComplement = !prev.includeComplement;
+            
+            // Auto update description
+            next.description = generateAutoTitle(next);
+            return next;
+        });
+    };
+
+    const onDragEnd = (result: DropResult) => {
+        if (!result.destination) return;
+        
+        const newDraggableParts = Array.from(draggableParts);
+        const [reorderedItem] = newDraggableParts.splice(result.source.index, 1);
+        newDraggableParts.splice(result.destination.index, 0, reorderedItem);
+        
+        // Reconstruct the full order: type is always first
+        const newFullOrder = ["type", ...newDraggableParts];
+        
+        setFormData(prev => {
+            const next = { ...prev, titleOrder: newFullOrder };
+            next.description = generateAutoTitle(next);
+            return next;
+        });
+    };
+
+    const getPartLabel = (key: string) => {
+        switch(key) {
+            case 'type': return 'Tipo';
+            case 'environment': return 'Ambiente';
+            case 'line': return 'Linha';
+            case 'brand': return 'Marca';
+            case 'complement': return 'Adicional';
+            default: return key;
+        }
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Title */}
-            <div className="md:col-span-2 relative group uppercase font-black">
-                <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
-                        Título do Produto <span className="text-red-500">*</span>
-                    </label>
-                    {formData.isCombo && (
-                        <button
-                            type="button"
-                            onClick={handleGenerateComboName}
-                            disabled={isGeneratingComboName}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${isGeneratingComboName ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-purple-100 text-purple-600 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400'}`}
-                            title="Gerar nome atraente com IA"
-                        >
-                            {isGeneratingComboName ? (
-                                <span className="flex items-center gap-1"><i className="bi bi-hourglass-split animate-spin"></i> Gerando...</span>
-                            ) : (
-                                <span className="flex items-center gap-1"><i className="bi bi-magic"></i> Sugerir Nome com IA</span>
+            {/* Title Section */}
+            {!isService && (
+                <div className="md:col-span-2 bg-slate-50/30 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
+                    <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
+                            Título do Produto (Montagem Automática) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                            {formData.isCombo && (
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateComboName}
+                                    disabled={isGeneratingComboName}
+                                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter bg-purple-100 text-purple-600 hover:bg-purple-200 transition-all shadow-sm"
+                                >
+                                    {isGeneratingComboName ? (
+                                        <span className="flex items-center gap-1"><i className="bi bi-hourglass-split animate-spin"></i> Gerando...</span>
+                                    ) : (
+                                        <span className="flex items-center gap-1"><i className="bi bi-magic"></i> Sugerir com IA</span>
+                                    )}
+                                </button>
                             )}
-                        </button>
-                    )}
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-lg border border-blue-100 dark:border-blue-800">PREVIEW</span>
+                        </div>
+                    </div>
+                    
+                    <input
+                        readOnly
+                        value={formData.description || ''}
+                        className="w-full px-6 py-5 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl outline-none text-xl font-black text-slate-800 dark:text-slate-100 shadow-sm"
+                        placeholder="Título será gerado automaticamente..."
+                    />
+
+                    <DragDropContext onDragEnd={onDragEnd}>
+                        <Droppable droppableId="title-parts" direction="horizontal">
+                            {(provided) => (
+                                <div 
+                                    {...provided.droppableProps}
+                                    ref={provided.innerRef}
+                                    className="flex items-center gap-2 mt-2 flex-wrap"
+                                >
+                                    {/* Fixed Type Block */}
+                                    <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-1 rounded-2xl gap-2 shrink-0 shadow-sm opacity-80 cursor-default">
+                                        <div className="flex items-center justify-center w-6 h-6 text-blue-400">
+                                            <i className="bi bi-pin-fill text-xs"></i>
+                                        </div>
+                                        <div className="flex flex-col min-w-[70px]">
+                                            <span className="text-[7px] font-black text-blue-400 uppercase leading-none mb-0.5">Fixo (1)</span>
+                                            <span className="text-[9px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-tighter">Tipo</span>
+                                        </div>
+                                        <div className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-100 dark:bg-blue-800 rounded-xl">
+                                            <i className="bi bi-lock-fill text-[10px]"></i>
+                                        </div>
+                                    </div>
+
+                                    {draggableParts.map((key, idx) => (
+                                        <Draggable key={key} draggableId={key} index={idx}>
+                                            {(provided, snapshot) => (
+                                                <div 
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    className={`flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-1 rounded-2xl gap-2 shrink-0 group/part shadow-sm transition-shadow ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500/50 scale-105 z-50' : ''}`}
+                                                >
+                                                    <div className="flex items-center justify-center w-6 h-6 text-slate-300 group-hover/part:text-blue-500 transition-colors">
+                                                        <i className="bi bi-grip-vertical text-lg"></i>
+                                                    </div>
+                                                    <div className="flex flex-col min-w-[70px]">
+                                                        <span className="text-[7px] font-black text-slate-400 uppercase leading-none mb-0.5">Bloco {idx + 2}</span>
+                                                        <span className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">{getPartLabel(key)}</span>
+                                                    </div>
+                                                    {key !== 'type' && key !== 'environment' && (
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => handleToggleTitlePart(key)}
+                                                            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${((key === 'line' && formData.includeLine) || (key === 'brand' && formData.includeBrand) || (key === 'complement' && formData.includeComplement)) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-300'}`}
+                                                        >
+                                                            <i className={`bi ${((key === 'line' && formData.includeLine) || (key === 'brand' && formData.includeBrand) || (key === 'complement' && formData.includeComplement)) ? 'bi-check-lg' : 'bi-dash-lg'}`}></i>
+                                                        </button>
+                                                    )}
+                                                    {key === 'environment' && (
+                                                        <div className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-xl" title="Automático via Categoria">
+                                                            <i className="bi bi-magic text-[10px]"></i>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                </div>
+                            )}
+                        </Droppable>
+                    </DragDropContext>
                 </div>
-                <input
-                    required
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
-                    className="w-full px-4 py-4 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold text-slate-700 dark:text-slate-200"
-                    placeholder={formData.isCombo ? "Ex: JOGO DE JANTAR MODERNO 4 CADEIRAS" : "Ex: CAMISETA ALGODÃO EGÍPCIO PREMIUM"}
-                />
-            </div>
+            )}
+
+            {isService && (
+                <div className="md:col-span-2 flex flex-col gap-2">
+                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
+                        Nome do Serviço <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                        value={formData.description || ''}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
+                        className="w-full px-6 py-5 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl outline-none text-xl font-black text-slate-800 dark:text-slate-100 shadow-sm"
+                        placeholder="Ex: MONTAGEM DE COZINHA"
+                    />
+                </div>
+            )}
+
+            {/* Selection Row */}
+            {!isService && (
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-6 gap-6">
+                    <div className="flex flex-col gap-2 md:col-span-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Móvel / Categorias <span className="text-red-500">*</span></label>
+                            <button type="button" onClick={onOpenProductTypeModal} className="text-[9px] text-blue-600 font-bold hover:underline">Novo Tipo</button>
+                        </div>
+                        <CategoryAutocomplete
+                            selectedIds={formData.categoryIds || []}
+                            onSelect={(cat) => {
+                                setFormData(prev => {
+                                    const ids = prev.categoryIds || [];
+                                    if (ids.includes(cat.id)) return prev;
+                                    
+                                    let nextIds = [...ids, cat.id];
+                                    const next = { ...prev, categoryIds: nextIds };
+                                    
+                                    // Se for a primeira categoria ou se clicou em um Tipo de Móvel direto do autocomplete
+                                    // Tentar identificar se o que foi selecionado deve ser o "Tipo Principal" (productTypeName)
+                                    // Para simplificar, o BFS do autocomplete retornará o nome da categoria selecionada.
+                                    
+                                    // Auto-detect environment (root category)
+                                    let detectedEnv = prev.environment;
+                                    const selectedCats = availableCategories.filter(c => nextIds.includes(c.id) || c.id === cat.id);
+                                    
+                                    const rootFound = selectedCats.find(c => !c.parents || c.parents.length === 0);
+                                    if (rootFound) {
+                                        detectedEnv = rootFound.name;
+                                    } else {
+                                        const firstCat = selectedCats[0] || cat;
+                                        if (firstCat && firstCat.parents && firstCat.parents.length > 0) {
+                                            const parentCat = availableCategories.find(c => c.id === firstCat.parents[0]);
+                                            if (parentCat) detectedEnv = parentCat.name;
+                                        }
+                                    }
+
+                                    // Definir o nome do tipo baseado na categoria mais recente selecionada (se não tiver um ainda ou se o usuário mudar)
+                                    next.productTypeName = cat.name.toUpperCase();
+                                    next.productTypeId = cat.id; // Usamos o ID da categoria como ID do tipo para manter o vínculo
+                                    
+                                    next.environment = detectedEnv;
+                                    next.includeEnvironment = true;
+                                    next.description = generateAutoTitle(next);
+                                    return next;
+                                });
+                            }}
+                            onRemove={(id) => {
+                                setFormData(prev => {
+                                    const nextIds = prev.categoryIds?.filter(i => i !== id) || [];
+                                    const next = { ...prev, categoryIds: nextIds };
+                                    
+                                    // Se removeu o que era o tipo atual, pegar o próximo se existir
+                                    if (prev.productTypeId === id) {
+                                        if (nextIds.length > 0) {
+                                            const nextCat = availableCategories.find(c => c.id === nextIds[0]);
+                                            next.productTypeId = nextIds[0];
+                                            next.productTypeName = nextCat?.name.toUpperCase() || '';
+                                        } else {
+                                            next.productTypeId = undefined;
+                                            next.productTypeName = '';
+                                        }
+                                    }
+                                    
+                                    next.description = generateAutoTitle(next);
+                                    return next;
+                                });
+                            }}
+                            onSearch={onOpenCategorySearch}
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-2 md:col-span-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Linha / Modelo <span className="text-red-500">*</span></label>
+                            <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ 
+                                    ...prev, 
+                                    hasNoLine: !prev.hasNoLine, 
+                                    line: !prev.hasNoLine ? '' : prev.line,
+                                    includeLine: prev.hasNoLine 
+                                }))}
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.hasNoLine ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            >
+                                <i className={`bi ${formData.hasNoLine ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> Sem Modelo
+                            </button>
+                        </div>
+                        <SmartInput
+                            value={formData.line || ""}
+                            onValueChange={(val) => setFormData(prev => {
+                                const next = { ...prev, line: val.toUpperCase() };
+                                next.description = generateAutoTitle(next);
+                                return next;
+                            })}
+                            disabled={formData.hasNoLine}
+                            tableName="products"
+                            columnName="line"
+                            placeholder={formData.hasNoLine ? "NÃO APLICÁVEL" : "EX: JK, POP, COPA"}
+                            icon="bi-layout-text-window-reverse"
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-2 md:col-span-1">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Marca <span className="text-red-500">*</span></label>
+                            <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, noBrand: !prev.noBrand }))}
+                                className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tighter transition-all ${formData.noBrand ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            >
+                                <i className={`bi ${formData.noBrand ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> {formData.noBrand ? 'Sim' : 'Não'}
+                            </button>
+                        </div>
+                        <SmartInput
+                            value={formData.brand || ""}
+                            onValueChange={(val) => setFormData(prev => {
+                                const next = { ...prev, brand: val.toUpperCase() };
+                                next.description = generateAutoTitle(next);
+                                return next;
+                            })}
+                            tableName="products"
+                            columnName="brand"
+                            placeholder="Marca"
+                            icon="bi-award"
+                            required
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-2 md:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Título Adicional</label>
+                        <SmartInput
+                            value={formData.titleComplement || ""}
+                            onValueChange={(val) => setFormData(prev => {
+                                const next = { ...prev, titleComplement: val.toUpperCase() };
+                                next.description = generateAutoTitle(next);
+                                return next;
+                            })}
+                            tableName="products"
+                            columnName="title_complement"
+                            placeholder="EX: C/ LED"
+                            icon="bi-plus-circle"
+                        />
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-2 gap-6 md:col-span-2">
                 <div className="flex flex-col gap-2">
@@ -89,7 +367,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         </div>
                     ) : (
                         <SmartInput
-                            value={formData.code}
+                            value={formData.code || ''}
                             onValueChange={(val) => {
                                 const newCode = val.toUpperCase();
                                 if (newCode.length <= 6) {
@@ -105,82 +383,19 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         />
                     )}
                 </div>
-                <SmartInput
-                    label="Unidade de Medida"
-                    value={formData.unit || "UN"}
-                    onValueChange={(val) => setFormData({ ...formData, unit: val.toUpperCase() })}
-                    patterns={["UN", "KG", "M", "CX", "PC", "PAR", "L"]}
-                    tableName="products"
-                    columnName="unit"
-                    placeholder="Ex: UN, KG, M..."
-                    icon="bi-box-seam"
-                />
-                {formData.itemType === 'product' && (
-                    <>
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Marca / Fabricante <span className="text-red-500">*</span></label>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(prev => ({ ...prev, noBrand: !prev.noBrand }))}
-                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noBrand ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                >
-                                    <i className={`bi ${formData.noBrand ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> {formData.noBrand ? 'Mostrar' : 'Ocultar'}
-                                </button>
-                            </div>
-                            <SmartInput
-                                value={formData.brand || ""}
-                                onValueChange={(val) => setFormData({ ...formData, brand: val })}
-                                tableName="products"
-                                columnName="brand"
-                                placeholder="Ex: Kappesberg, Henn..."
-                                icon="bi-award"
-                                required
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categorias associadas <span className="text-red-500">*</span></label>
-                                <button
-                                    type="button"
-                                    onClick={handleGenerateCategory}
-                                    disabled={isGeneratingCategory}
-                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${isGeneratingCategory ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'}`}
-                                    title="Sugerir categorias com IA"
-                                >
-                                    {isGeneratingCategory ? (
-                                        <span className="flex items-center gap-1"><i className="bi bi-hourglass-split animate-spin"></i> Analisando...</span>
-                                    ) : (
-                                        <span className="flex items-center gap-1"><i className="bi bi-magic"></i> Sugerir com IA</span>
-                                    )}
-                                </button>
-                            </div>
-                            <CategoryAutocomplete
-                                selectedIds={formData.categoryIds || []}
-                                onSelect={(cat) => {
-                                    setFormData(prev => {
-                                        const ids = prev.categoryIds || [];
-                                        if (ids.includes(cat.id)) return prev;
-                                        
-                                        let nextIds = [...ids, cat.id];
-                                        if (cat.parent_id && !nextIds.includes(cat.parent_id)) {
-                                            nextIds.push(cat.parent_id);
-                                        }
-                                        return { ...prev, categoryIds: nextIds };
-                                    });
-                                }}
-                                onRemove={(id) => {
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        categoryIds: prev.categoryIds?.filter(i => i !== id)
-                                    }));
-                                }}
-                                onSearch={onOpenCategorySearch}
-                            />
-                        </div>
-                    </>
+                {!isService && (
+                    <SmartInput
+                        label="Unidade Comercial"
+                        value={formData.unit || "UN"}
+                        onValueChange={(val) => setFormData({ ...formData, unit: val.toUpperCase() })}
+                        patterns={["UN", "KG", "M", "CX", "PC", "PAR", "L"]}
+                        tableName="products"
+                        columnName="unit"
+                        placeholder="Ex: UN, KG, M..."
+                        icon="bi-box-seam"
+                    />
                 )}
+                {/* Condition removed from here if it was redundant, but checking code above */}
 
                 {/* Condition */}
                 {formData.itemType === 'product' && (
@@ -229,7 +444,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <input
                     type="number"
                     step="0.01"
-                    value={isNaN(formData.unitPrice as number) ? '' : formData.unitPrice}
+                    value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setFormData({ ...formData, unitPrice: isNaN(val) ? 0 : val });
@@ -287,22 +502,12 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             </h5>
                         </div>
                         <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Modelo / Linha <span className="text-red-500">*</span></label>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, hasNoLine: !formData.hasNoLine, line: !formData.hasNoLine ? '' : formData.line })}
-                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.hasNoLine ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                >
-                                    <i className={`bi ${formData.hasNoLine ? 'bi-check-circle-fill' : 'bi-circle'}`}></i> Sem Modelo / Linha
-                                </button>
-                            </div>
+                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Referência Fornecedor (Interno)</label>
                             <input
-                                value={formData.line || ''}
-                                onChange={(e) => setFormData({ ...formData, line: e.target.value })}
-                                disabled={formData.hasNoLine}
-                                placeholder={formData.hasNoLine ? "NÃO APLICÁVEL" : "Ex: Modelo Premium Lux"}
-                                className={`w-full px-4 py-3 border rounded-xl text-xs font-bold transition-all ${formData.hasNoLine ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500'}`}
+                                value={formData.supplierRef || ''}
+                                onChange={(e) => setFormData({ ...formData, supplierRef: e.target.value.toUpperCase() })}
+                                placeholder="Ex: 12345-A"
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold uppercase"
                             />
                         </div>
                         <div className="flex flex-col gap-2">
@@ -315,12 +520,22 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cores Disponíveis</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cores Disponíveis <span className="text-red-500">*</span></label>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, noColors: !prev.noColors, colors: !prev.noColors ? '' : prev.colors }))}
+                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.noColors ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    <i className={`bi ${formData.noColors ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i> {formData.noColors ? 'Informar Cor' : 'Não Informar'}
+                                </button>
+                            </div>
                             <input
-                                value={formData.colors || ''}
+                                value={formData.noColors ? 'NÃO INFORMADO' : (formData.colors || '')}
                                 onChange={(e) => setFormData({ ...formData, colors: e.target.value })}
-                                placeholder="Ex: Off White / Castanho"
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
+                                disabled={formData.noColors}
+                                placeholder={formData.noColors ? "NÃO APLICÁVEL" : "Ex: Off White / Castanho"}
+                                className={`w-full px-4 py-3 border rounded-xl text-xs font-bold transition-all ${formData.noColors ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500'}`}
                             />
                         </div>
                         <div className="flex flex-col gap-2">
@@ -347,72 +562,87 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         <div className="grid grid-cols-3 gap-3">
                             <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Largura {!formData.noWidth && <span className="text-red-500">*</span>}</span>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, noWidth: !prev.noWidth }))}
-                                        className={`text-[7px] font-black uppercase tracking-tight px-1 py-0.5 rounded transition-colors ${formData.noWidth ? 'bg-amber-100 text-amber-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                        onClick={() => setFormData(prev => ({ ...prev, noWidth: !prev.noWidth, width: !prev.noWidth ? 0 : prev.width }))}
+                                        className={`p-1 rounded-md transition-all ${formData.noWidth ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
+                                        title={formData.noWidth ? 'Mostrar campo' : 'Ocultar campo'}
                                     >
-                                        {formData.noWidth ? 'Mostrar' : 'Ocultar'}
+                                        <i className={`bi ${formData.noWidth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
                                     </button>
                                 </div>
-                                <input
-                                    type="number"
-                                    value={formData.noWidth || isNaN(formData.width as number) || formData.width === 0 ? '' : formData.width}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        setFormData({ ...formData, width: isNaN(val) ? 0 : val });
-                                    }}
-                                    disabled={formData.noWidth}
-                                    placeholder={formData.noWidth ? "---" : "L"}
-                                    className={`w-full px-3 py-3 rounded-xl text-xs font-bold text-center border transition-all ${formData.noWidth ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
-                                />
+                                {!formData.noWidth ? (
+                                    <input
+                                        type="number"
+                                        value={(!formData.width || isNaN(formData.width as number)) ? '' : formData.width}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            setFormData({ ...formData, width: isNaN(val) ? 0 : val });
+                                        }}
+                                        placeholder="L"
+                                        required
+                                        className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
+                                    />
+                                ) : (
+                                    <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
+                                )}
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Altura {!formData.noHeight && <span className="text-red-500">*</span>}</span>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, noHeight: !prev.noHeight }))}
-                                        className={`text-[7px] font-black uppercase tracking-tight px-1 py-0.5 rounded transition-colors ${formData.noHeight ? 'bg-amber-100 text-amber-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                        onClick={() => setFormData(prev => ({ ...prev, noHeight: !prev.noHeight, height: !prev.noHeight ? 0 : prev.height }))}
+                                        className={`p-1 rounded-md transition-all ${formData.noHeight ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
+                                        title={formData.noHeight ? 'Mostrar campo' : 'Ocultar campo'}
                                     >
-                                        {formData.noHeight ? 'Mostrar' : 'Ocultar'}
+                                        <i className={`bi ${formData.noHeight ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
                                     </button>
                                 </div>
-                                <input
-                                    type="number"
-                                    value={formData.noHeight || isNaN(formData.height as number) || formData.height === 0 ? '' : formData.height}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        setFormData({ ...formData, height: isNaN(val) ? 0 : val });
-                                    }}
-                                    disabled={formData.noHeight}
-                                    placeholder={formData.noHeight ? "---" : "A"}
-                                    className={`w-full px-3 py-3 rounded-xl text-xs font-bold text-center border transition-all ${formData.noHeight ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
-                                />
+                                {!formData.noHeight ? (
+                                    <input
+                                        type="number"
+                                        value={(!formData.height || isNaN(formData.height as number)) ? '' : formData.height}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            setFormData({ ...formData, height: isNaN(val) ? 0 : val });
+                                        }}
+                                        placeholder="A"
+                                        required
+                                        className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
+                                    />
+                                ) : (
+                                    <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
+                                )}
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund.</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Profund. {!formData.noDepth && <span className="text-red-500">*</span>}</span>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, noDepth: !prev.noDepth }))}
-                                        className={`text-[7px] font-black uppercase tracking-tight px-1 py-0.5 rounded transition-colors ${formData.noDepth ? 'bg-amber-100 text-amber-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                        onClick={() => setFormData(prev => ({ ...prev, noDepth: !prev.noDepth, depth: !prev.noDepth ? 0 : prev.depth }))}
+                                        className={`p-1 rounded-md transition-all ${formData.noDepth ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-500'}`}
+                                        title={formData.noDepth ? 'Mostrar campo' : 'Ocultar campo'}
                                     >
-                                        {formData.noDepth ? 'Mostrar' : 'Ocultar'}
+                                        <i className={`bi ${formData.noDepth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
                                     </button>
                                 </div>
-                                <input
-                                    type="number"
-                                    value={formData.noDepth || isNaN(formData.depth as number) || formData.depth === 0 ? '' : formData.depth}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        setFormData({ ...formData, depth: isNaN(val) ? 0 : val });
-                                    }}
-                                    disabled={formData.noDepth}
-                                    placeholder={formData.noDepth ? "---" : "P"}
-                                    className={`w-full px-3 py-3 rounded-xl text-xs font-bold text-center border transition-all ${formData.noDepth ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
-                                />
+                                {!formData.noDepth ? (
+                                    <input
+                                        type="number"
+                                        value={(!formData.depth || isNaN(formData.depth as number)) ? '' : formData.depth}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            setFormData({ ...formData, depth: isNaN(val) ? 0 : val });
+                                        }}
+                                        placeholder="P"
+                                        required
+                                        className="w-full px-3 py-3 rounded-xl text-xs font-bold text-center border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 transition-all"
+                                    />
+                                ) : (
+                                    <div className="w-full px-3 py-3 rounded-xl text-[9px] font-black text-center bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase tracking-tighter">Oculto</div>
+                                )}
                             </div>
                         </div>
 
@@ -483,7 +713,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         {formData.extraDimensions?.map((dim, idx) => (
                             <div key={idx} className="flex gap-2 items-center">
                                 <input
-                                    value={dim.label}
+                                    value={dim.label || ''}
                                     onChange={(e) => {
                                         const next = [...(formData.extraDimensions || [])];
                                         next[idx].label = e.target.value;
@@ -493,7 +723,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     className="flex-1 px-3 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs"
                                 />
                                 <input
-                                    value={dim.value}
+                                    value={dim.value || ''}
                                     onChange={(e) => {
                                         const next = [...(formData.extraDimensions || [])];
                                         next[idx].value = e.target.value;

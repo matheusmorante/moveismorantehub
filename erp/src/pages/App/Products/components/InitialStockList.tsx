@@ -42,13 +42,13 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-                <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Lotes de Entrada Inicial</h5>
+                <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Lançamento de Entrada Inicial</h5>
                 <button
                     type="button"
                     onClick={addEntry}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20"
                 >
-                    <i className="bi bi-plus-lg"></i> Adicionar Lote
+                    <i className="bi bi-plus-lg"></i> Adicionar Lançamento
                 </button>
             </div>
 
@@ -57,7 +57,7 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
                     <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-300">
                         <i className="bi bi-box-seam text-2xl"></i>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nenhum lote adicionado.<br/>Clique no botão acima para lançar o estoque inicial.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nenhum lançamento adicionado.<br/>Clique no botão acima para fazer o lançamento de entrada inicial.</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">

@@ -19,6 +19,7 @@ interface ProductCardProps {
     onToggleSelection?: () => void;
     categoryTree?: any;
     onRefresh?: () => void;
+    onDuplicate?: (product: Product) => void;
 }
 
 const ProductCard = ({
@@ -34,7 +35,8 @@ const ProductCard = ({
     isSelected,
     onToggleSelection,
     categoryTree,
-    onRefresh
+    onRefresh,
+    onDuplicate
 }: ProductCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isMigrationModalOpen, setIsMigrationModalOpen] = React.useState(false);
@@ -234,6 +236,16 @@ const ProductCard = ({
                                         >
                                             <i className="bi bi-clock-history text-amber-500" />
                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
+                                        </button>
+                                    )}
+
+                                    {!product.isVariation && onDuplicate && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDuplicate(product); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50 mt-1"
+                                        >
+                                            <i className="bi bi-copy text-indigo-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Duplicar Produto</span>
                                         </button>
                                     )}
 

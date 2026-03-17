@@ -22,6 +22,7 @@ interface ProductRowProps {
     onToggleSelection?: () => void;
     categoryTree?: any;
     onRefresh?: () => void;
+    onDuplicate?: (product: Product) => void;
 }
 
 const ProductRow = ({
@@ -39,7 +40,8 @@ const ProductRow = ({
     isSelected,
     onToggleSelection,
     categoryTree,
-    onRefresh
+    onRefresh,
+    onDuplicate
 }: ProductRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isMigrationModalOpen, setIsMigrationModalOpen] = React.useState(false);
@@ -248,6 +250,16 @@ const ProductRow = ({
                                                     <i className="bi bi-pencil-fill text-blue-500" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar Detalhes</span>
                                                 </button>
+
+                                                {!product.isVariation && onDuplicate && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDuplicate(product); }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                    >
+                                                        <i className="bi bi-copy text-indigo-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Duplicar Produto</span>
+                                                    </button>
+                                                )}
 
                                                 {onShowHistory && !product.isParent && (
                                                     <button

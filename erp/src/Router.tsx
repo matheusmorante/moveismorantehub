@@ -12,6 +12,7 @@ import OrderPage from './pages/OrderPage';
 import Products from './pages/App/Products/Index';
 import Categories from './pages/App/Products/Categories/Index';
 import Settings from './pages/App/Settings';
+import ProductTypes from './pages/App/Products/ProductTypes/Index';
 import Customers from './pages/App/Customers/Index';
 import Suppliers from './pages/App/Suppliers/Index';
 import Employees from './pages/App/Employees/Index';
@@ -104,6 +105,7 @@ function Router() {
             <Route path='/registrations/products' element={<Products />} />
             <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />
             <Route path='/registrations/product-categories' element={<Categories />} />
+            <Route path='/registrations/product-types' element={<ProductTypes />} />
             <Route path='/stock' element={<Stock />} />
             <Route path='/stock/purchases' element={<PurchasesPage />} />
             <Route path='/stock/label-printing' element={<LabelPrinting />} />

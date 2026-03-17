@@ -66,6 +66,19 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.noHeight !== undefined) data.no_height = product.noHeight;
     if (product.noDepth !== undefined) data.no_depth = product.noDepth;
     if (product.noBrand !== undefined) data.no_brand = product.noBrand;
+    if (product.noColors !== undefined) data.no_colors = product.noColors;
+
+    // Dynamic Title fields
+    if (product.productTypeId !== undefined) data.product_type_id = product.productTypeId;
+    if (product.productTypeName !== undefined) data.product_type_name = product.productTypeName;
+    if (product.environment !== undefined) data.environment = product.environment;
+    if (product.includeEnvironment !== undefined) data.include_environment = product.includeEnvironment;
+    if (product.includeLine !== undefined) data.include_line = product.includeLine;
+    if (product.includeBrand !== undefined) data.include_brand = product.includeBrand;
+    if (product.includeSupplierRef !== undefined) data.include_supplier_ref = product.includeSupplierRef;
+    if (product.titleComplement !== undefined) data.title_complement = product.titleComplement;
+    if (product.includeComplement !== undefined) data.include_complement = product.includeComplement;
+    if (product.titleOrder !== undefined) data.title_order = product.titleOrder;
 
     return data;
 };
@@ -73,35 +86,47 @@ const mapToDB = (product: Partial<Product>) => {
 const mapFromDB = (data: any): Product => {
     return {
         id: String(data.id),
-        code: data.code,
-        description: data.description,
-        brand: data.brand,
-        category: data.category,
-        condition: data.condition || '',
-        unitPrice: Number(data.unit_price),
-        costPrice: Number(data.cost_price),
+        code: data.code || '',
+        description: data.description || '',
+        brand: data.brand || '',
+        category: data.category || '',
+        condition: data.condition || 'novo',
+        unitPrice: Number(data.unit_price || 0),
+        costPrice: Number(data.cost_price || 0),
         freightType: data.freight_type || 'fixed',
-        freightCost: Number(data.freight_cost),
-        ipiPercent: Number(data.ipi_percent),
-        finalPurchasePrice: Number(data.final_purchase_price),
-        initialStock: Number(data.initial_stock),
-        stock: Number(data.stock),
-        minStock: Number(data.min_stock),
-        unit: data.unit,
-        active: data.active,
-        isDraft: data.is_draft,
-        deleted: data.deleted,
-        supplierId: data.supplier_id,
-        images: data.images,
-        ecommerceDescription: data.ecommerce_description,
-        whatsappDescription: data.whatsapp_description,
-        whatsappTemplate: data.whatsapp_template,
-        ecommerceTemplate: data.ecommerce_template,
-        hasVariations: data.has_variations,
-        variations: data.variations,
+        freightCost: Number(data.freight_cost || 0),
+        ipiPercent: Number(data.ipi_percent || 0),
+        finalPurchasePrice: Number(data.final_purchase_price || 0),
+        initialStock: Number(data.initial_stock || 0),
+        stock: Number(data.stock || 0),
+        minStock: Number(data.min_stock || 0),
+        unit: data.unit || 'UN',
+        active: data.active ?? true,
+        isDraft: data.is_draft ?? false,
+        deleted: data.deleted ?? false,
+        supplierId: data.supplier_id || '',
+        images: data.images || [],
+        ecommerceDescription: data.ecommerce_description || '',
+        whatsappDescription: data.whatsapp_description || '',
+        whatsappTemplate: data.whatsapp_template || '',
+        ecommerceTemplate: data.ecommerce_template || '',
+        hasVariations: data.has_variations ?? false,
+        variations: (data.variations || []).map((v: any) => ({
+            ...v,
+            unitPrice: v.unitPrice || 0,
+            costPrice: v.costPrice || 0,
+            stock: v.stock || 0,
+            sku: v.sku || ''
+        })),
         itemType: data.item_type || 'product',
-        fiscal: data.fiscal,
-        notificationConfig: data.notification_config,
+        fiscal: {
+            ncm: data.fiscal?.ncm || '',
+            cest: data.fiscal?.cest || '',
+            ncmDescription: data.fiscal?.ncmDescription || '',
+            cfop: data.fiscal?.cfop || '5102',
+            icmsPercent: Number(data.fiscal?.icmsPercent || 0)
+        },
+        notificationConfig: data.notification_config || {},
         isCombo: data.is_combo || false,
         comboItems: data.combo_items || [],
         categoryIds: data.product_categories?.map((pc: any) => pc.category_id) || [],
@@ -109,28 +134,41 @@ const mapFromDB = (data: any): Product => {
         updatedAt: data.updated_at,
         
         // Dimensions & Details
-        width: data.width,
-        height: data.height,
-        depth: data.depth,
-        weight: data.weight,
-        pkgWidth: data.pkg_width,
-        pkgHeight: data.pkg_height,
-        pkgDepth: data.pkg_depth,
+        width: Number(data.width || 0),
+        height: Number(data.height || 0),
+        depth: Number(data.depth || 0),
+        weight: Number(data.weight || 0),
+        pkgWidth: Number(data.pkg_width || 0),
+        pkgHeight: Number(data.pkg_height || 0),
+        pkgDepth: Number(data.pkg_depth || 0),
         extraDimensions: data.extra_dimensions || [],
-        line: data.line,
-        mainDifferential: data.main_differential,
-        material: data.material,
-        colors: data.colors,
-        notIncluded: data.not_included,
-        mainSupplierId: data.main_supplier_id,
-        supplierRef: data.supplier_ref,
-        observations: data.observations,
-        parentId: data.parent_id,
-        isVariation: data.is_variation,
-        noWidth: data.no_width,
-        noHeight: data.no_height,
-        noDepth: data.no_depth,
-        noBrand: data.no_brand
+        line: data.line || '',
+        mainDifferential: data.main_differential || '',
+        material: data.material || '',
+        colors: data.colors || '',
+        notIncluded: data.not_included || '',
+        mainSupplierId: data.main_supplier_id || '',
+        supplierRef: data.supplier_ref || '',
+        observations: data.observations || '',
+        parentId: data.parent_id || '',
+        isVariation: data.is_variation ?? false,
+        noWidth: data.no_width ?? false,
+        noHeight: data.no_height ?? false,
+        noDepth: data.no_depth ?? false,
+        noBrand: data.no_brand ?? false,
+        noColors: data.no_colors ?? false,
+
+        // Dynamic Title fields
+        productTypeId: data.product_type_id || '',
+        productTypeName: data.product_type_name || '',
+        environment: data.environment || '',
+        includeEnvironment: data.include_environment ?? true,
+        includeLine: data.include_line ?? true,
+        includeBrand: data.include_brand ?? true,
+        includeSupplierRef: data.include_supplier_ref ?? false,
+        titleComplement: data.title_complement || '',
+        includeComplement: data.include_complement ?? true,
+        titleOrder: data.title_order || ["type", "environment", "line", "brand", "complement"]
     };
 };
 
@@ -298,7 +336,10 @@ export const saveProduct = async (product: Product): Promise<string> => {
                 'lead_time', 'avg_monthly_sales', 'classification',
                 'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
                 'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
-                'no_width', 'no_height', 'no_depth', 'no_brand'
+                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors',
+                'product_type_id', 'product_type_name', 'environment', 'include_environment', 
+                'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
+                'title_complement', 'include_complement'
             ];
             fieldsToStrip.forEach(field => delete (safeDBProduct as any)[field]);
             
@@ -471,20 +512,30 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
 
         // Fail-safe: If update fails due to missing columns (common after schema changes),
         // try to update without the newer dimension/detail columns.
-        if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
-            console.warn("[ProductService] Schema cache issue detected. Retrying without extended details...", error.message);
+        if (error && (error.message?.includes("column") || error.message?.includes("schema cache") || error.message?.includes("not found"))) {
+            console.warn("[ProductService] updateProduct schema issue. Retrying without extended fields...", error.message);
             
-            // Lista de colunas que podem não existir no schema cache ainda
+            // Lista abrangente de colunas que podem não existir no banco de dados ainda
             const unsafeFields = [
                 'width', 'height', 'depth', 'weight', 'pkg_width', 'pkg_height', 'pkg_depth',
                 'lead_time', 'avg_monthly_sales', 'classification',
                 'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
                 'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
-                'no_width', 'no_height', 'no_depth', 'no_brand'
+                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors',
+                'product_type_id', 'product_type_name', 'environment', 'include_environment', 
+                'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
+                'title_complement', 'include_complement'
             ];
             
             const safeDBProduct = { ...dbProduct };
-            unsafeFields.forEach(field => delete (safeDBProduct as any)[field]);
+            unsafeFields.forEach(field => {
+                if (field in (safeDBProduct as any)) {
+                    delete (safeDBProduct as any)[field];
+                }
+            });
+            
+            // Log for debugging
+            console.log("[ProductService] Cleaned payload keys:", Object.keys(safeDBProduct));
             
             const { error: retryError } = await supabase
                 .from(TABLE_NAME)
@@ -492,7 +543,6 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
                 .eq('id', id);
             
             error = retryError;
-            // Nota: reload de schema via RPC removido (função não existe no projeto).
         }
 
         if (error) throw error;

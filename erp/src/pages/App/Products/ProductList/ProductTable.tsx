@@ -29,6 +29,7 @@ interface ProductTableProps {
     onBulkPermanentDelete: () => void;
     categoryTree?: any;
     onRefresh?: () => void;
+    onDuplicate?: (product: Product) => void;
 }
 
 interface ColumnDef {
@@ -52,7 +53,7 @@ const ProductTable = ({
     products, onEdit, onShowHistory, onLaunchStock, onDelete, onRestore, onPermanentDelete, onToggleActive,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedProducts, onToggleSelection, onSelectAll, onClearSelection,
-    onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh
+    onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate
 }: ProductTableProps) => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
@@ -257,6 +258,7 @@ const ProductTable = ({
                                     onToggleSelection={() => onToggleSelection(product.id!)}
                                     categoryTree={categoryTree}
                                     onRefresh={onRefresh}
+                                    onDuplicate={onDuplicate}
                                 />
                             ))}
                         </tbody>
@@ -286,6 +288,7 @@ const ProductTable = ({
                                 onToggleSelection={() => onToggleSelection(product.id!)}
                                 categoryTree={categoryTree}
                                 onRefresh={onRefresh}
+                                onDuplicate={onDuplicate}
                             />
                         ))
                     )}

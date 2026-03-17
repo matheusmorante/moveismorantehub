@@ -309,8 +309,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 <input
                                     type="number"
                                     step="0.001"
-                                    value={formData.weight || ''}
-                                    onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) })}
+                                    value={(formData.weight === null || formData.weight === undefined || isNaN(formData.weight as number)) ? '' : formData.weight}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, weight: isNaN(val) ? 0 : val });
+                                    }}
                                     className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                                     placeholder="0.000"
                                 />
@@ -319,8 +322,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Largura Emb. (cm)</label>
                                 <input
                                     type="number"
-                                    value={formData.pkgWidth || ''}
-                                    onChange={(e) => setFormData({ ...formData, pkgWidth: parseFloat(e.target.value) })}
+                                    value={(formData.pkgWidth === null || formData.pkgWidth === undefined || isNaN(formData.pkgWidth as number)) ? '' : formData.pkgWidth}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, pkgWidth: isNaN(val) ? 0 : val });
+                                    }}
                                     className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                                     placeholder="0"
                                 />
@@ -329,8 +335,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Altura Emb. (cm)</label>
                                 <input
                                     type="number"
-                                    value={formData.pkgHeight || ''}
-                                    onChange={(e) => setFormData({ ...formData, pkgHeight: parseFloat(e.target.value) })}
+                                    value={(formData.pkgHeight === null || formData.pkgHeight === undefined || isNaN(formData.pkgHeight as number)) ? '' : formData.pkgHeight}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, pkgHeight: isNaN(val) ? 0 : val });
+                                    }}
                                     className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                                     placeholder="0"
                                 />
@@ -339,8 +348,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Profund. Emb. (cm)</label>
                                 <input
                                     type="number"
-                                    value={formData.pkgDepth || ''}
-                                    onChange={(e) => setFormData({ ...formData, pkgDepth: parseFloat(e.target.value) })}
+                                    value={(formData.pkgDepth === null || formData.pkgDepth === undefined || isNaN(formData.pkgDepth as number)) ? '' : formData.pkgDepth}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setFormData({ ...formData, pkgDepth: isNaN(val) ? 0 : val });
+                                    }}
                                     className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
                                     placeholder="0"
                                 />

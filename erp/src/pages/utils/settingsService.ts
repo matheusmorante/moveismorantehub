@@ -237,7 +237,7 @@ export const getDefaultSettings = (): AppSettings => ({
         scheduleTable: true,
     },
     showScheduleNoticeLabels: false, // Por padrão não precisa de rótulos de aviso
-    speed: 20,
+    speed: 3,
     threshold: 100,
     aiPrompts: {
         productDescription: `Você é um copywriter de marketing especialista em e-commerce da Móveis Morante.

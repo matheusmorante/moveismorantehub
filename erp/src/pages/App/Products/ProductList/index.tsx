@@ -16,13 +16,14 @@ interface ProductListProps {
     title?: string;
     onCloseTrash?: () => void;
     onRefresh?: () => void;
+    onDuplicate?: (product: Product) => void;
 };
 
 export interface ProductListRef {
     refresh: () => void;
 }
 
-const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh }, ref) => {
+const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh, onDuplicate }, ref) => {
 
     const {
         products,
@@ -137,6 +138,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                     onBulkPermanentDelete={handleBulkPermanentDelete}
                     categoryTree={categoryTree}
                     onRefresh={() => { refresh(); onRefresh?.(); }}
+                    onDuplicate={onDuplicate}
                 />
 
                 {/* Pagination */}

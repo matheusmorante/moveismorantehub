@@ -82,14 +82,27 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
         setLocalVariation(prev => prev ? ({ ...prev, [field]: value }) : null);
     };
 
-    const generateVariationName = (attrs: { name: string, value: string }[], hideNames: boolean) => {
+    const generateVariationName = (attrs: { name: string, value: string, showName?: boolean }[]) => {
         const sortedKeys = attrs.filter(a => a.name).sort((a, b) => a.name.localeCompare(b.name));
         const attrParts = sortedKeys.map(a => {
             const val = a.value.toUpperCase() || '?';
-            return hideNames ? val : `${a.name.toUpperCase()}:${val}`;
-        }).join(' / ');
+            return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
+        }).join(' ');
         const baseTitle = parentProduct?.description || '';
         return attrParts ? `${baseTitle} ${attrParts}`.toUpperCase() : baseTitle.toUpperCase();
+    };
+
+    const handleAttributesChange = (nextAttrs: any[]) => {
+        const newName = generateVariationName(nextAttrs);
+        setLocalVariation(prev => {
+            if (!prev) return null;
+            const next = { ...prev, attributes: nextAttrs, name: newName };
+            // Auto-gerar SKU se estiver vazio ou se for novo rascunho
+            if (!next.sku || next.sku.trim() === '' || next.sku.startsWith('NEW-VAR')) {
+                next.sku = generateProductCode(newName);
+            }
+            return next;
+        });
     };
 
 
@@ -237,22 +250,6 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                         <div className="flex items-center gap-4">
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    const newValue = !localVariation.hideAttributeNames;
-                                                    const newName = generateVariationName(localVariation.attributes || [], newValue);
-                                                    setLocalVariation(prev => prev ? ({
-                                                        ...prev,
-                                                        hideAttributeNames: newValue,
-                                                        name: newName
-                                                    }) : null);
-                                                }}
-                                                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${localVariation.hideAttributeNames ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800'}`}
-                                            >
-                                                <i className={`bi ${localVariation.hideAttributeNames ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
-                                                {localVariation.hideAttributeNames ? 'Nomes Ocultos' : 'Ocultar Nomes'}
-                                            </button>
-                                            <button
-                                                type="button"
                                                 onClick={() => setIsSelectionModalOpen(true)}
                                                 className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 transition-colors"
                                             >
@@ -276,23 +273,31 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                                     </div>
                                                 </div>
                                                 
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                            const newAttrs = localVariation.attributes!.filter((_, i) => i !== idx);
-                                                            const name = generateVariationName(newAttrs, !!localVariation.hideAttributeNames);
-                                                            
-                                                            setLocalVariation(prev => prev ? ({
-                                                                ...prev,
-                                                                name,
-                                                                attributes: newAttrs
-                                                            }) : null);
-                                                    }}
-                                                    className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
-                                                    title="Remover Atributo"
-                                                >
-                                                    <i className="bi bi-trash"></i>
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const nextAttrs = [...(localVariation.attributes || [])];
+                                                            nextAttrs[idx] = { ...nextAttrs[idx], showName: !nextAttrs[idx].showName };
+                                                            handleAttributesChange(nextAttrs);
+                                                        }}
+                                                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${attr.showName !== false ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                        title={attr.showName !== false ? "Ocultar nome no título" : "Mostrar nome no título"}
+                                                    >
+                                                        <i className={`bi ${attr.showName !== false ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                                const nextAttrs = localVariation.attributes!.filter((_, i) => i !== idx);
+                                                                handleAttributesChange(nextAttrs);
+                                                        }}
+                                                        className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
+                                                        title="Remover Atributo"
+                                                    >
+                                                        <i className="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -571,18 +576,14 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                     const exists = currentAttrs.find(a => a.name === attr.name);
                     
                     let newAttrs;
+                    const attrWithShowName = { ...attr, showName: true };
                     if (exists) {
-                        newAttrs = currentAttrs.map(a => a.name === attr.name ? attr : a);
+                        newAttrs = currentAttrs.map(a => a.name === attr.name ? attrWithShowName : a);
                     } else {
-                        newAttrs = [...currentAttrs, attr];
+                        newAttrs = [...currentAttrs, attrWithShowName];
                     }
                     
-                    const name = generateVariationName(newAttrs, !!localVariation.hideAttributeNames);
-                    setLocalVariation(prev => prev ? ({
-                        ...prev,
-                        name,
-                        attributes: newAttrs
-                    }) : null);
+                    handleAttributesChange(newAttrs);
                 }}
                 onManageAttributes={() => {
                     setIsSelectionModalOpen(false);

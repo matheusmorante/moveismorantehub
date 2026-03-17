@@ -62,7 +62,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
                                 <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Lista de Produtos e Serviços</Link>
                                 <Link to="/registrations/whatsapp-marketplace" onClick={onClose} className={mobileSubLinkClass}><i className="bi bi-whatsapp mr-1 text-green-500"></i> Marketplace WhatsApp</Link>
-                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Categorias e Ambientes</Link>
+                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Tipos de Móveis</Link>
                                 <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>Atributos e Valores</Link>
                             </div>
                         )}

@@ -112,7 +112,7 @@ export const useProducts = (filters?: any) => {
                         id: `${product.id}_${v.sku || index}`,
                         sku: v.sku,
                         code: v.sku, // Garantir que a coluna 'C├│digo' use o SKU da varia├º├úo
-                        description: v.syncDescription ? `${product.description} - ${v.name}` : v.name,
+                        description: v.name,
                         unitPrice: typeof v.unitPrice !== 'undefined' ? v.unitPrice : v.unit_price,
                         costPrice: typeof v.costPrice !== 'undefined' ? v.costPrice : (typeof v.cost_price !== 'undefined' ? v.cost_price : product.costPrice),
                         stock: v.stock,
@@ -142,7 +142,7 @@ export const useProducts = (filters?: any) => {
                     code: vCode, // Garantir consist├¬ncia na exibi├º├úo do c├│digo
                     isVariation: true,
                     parentId: product.id,
-                    description: v.description.includes(product.description) ? v.description : `${product.description} - ${v.description}`
+                    description: v.description
                 });
             });
         });

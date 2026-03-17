@@ -20,7 +20,7 @@ export const useAutoScroll = (
 ) => {
     const {
         threshold = 80,
-        maxSpeed = 15,
+        maxSpeed = 8,
         direction = 'both',
         enabled = true
     } = options;
@@ -72,10 +72,10 @@ export const useAutoScroll = (
                 if (direction === 'horizontal' || direction === 'both') {
                     if (x < rect.left + threshold) {
                         const ratio = Math.max(0, (rect.left + threshold - x) / threshold);
-                        scrollX = -maxSpeed * Math.pow(ratio, 1.5);
+                        scrollX = -(maxSpeed / 2) * Math.pow(ratio, 1.5); // Reduced speed (divide by 2)
                     } else if (x > rect.right - threshold) {
                         const ratio = Math.max(0, (x - (rect.right - threshold)) / threshold);
-                        scrollX = maxSpeed * Math.pow(ratio, 1.5);
+                        scrollX = (maxSpeed / 2) * Math.pow(ratio, 1.5); // Reduced speed
                     }
                 }
 
@@ -83,10 +83,10 @@ export const useAutoScroll = (
                 if (direction === 'vertical' || direction === 'both') {
                     if (y < rect.top + threshold) {
                         const ratio = Math.max(0, (rect.top + threshold - y) / threshold);
-                        scrollY = -maxSpeed * Math.pow(ratio, 1.5);
+                        scrollY = -(maxSpeed / 2) * Math.pow(ratio, 1.5); // Reduced speed
                     } else if (y > rect.bottom - threshold) {
                         const ratio = Math.max(0, (y - (rect.bottom - threshold)) / threshold);
-                        scrollY = maxSpeed * Math.pow(ratio, 1.5);
+                        scrollY = (maxSpeed / 2) * Math.pow(ratio, 1.5); // Reduced speed
                     }
                 }
 
