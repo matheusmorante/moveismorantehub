@@ -96,8 +96,9 @@ export const whatsappGraphService = {
         const { whatsappConfig } = getSettings();
         if (!whatsappConfig?.catalogId) throw new Error("Catalog ID não configurado.");
 
-        // Clean price for Meta (in cents, no decimals)
-        const priceCents = Math.round((product.unitPrice || product.price || 0) * 100);
+        // Preço limpo para Meta (em centavos, sem decimais) — suporta camelCase e snake_case
+        const rawPrice = product.unitPrice ?? product.unit_price ?? product.price ?? 0;
+        const priceCents = Math.round(Number(rawPrice) * 100);
         
         const batchRequest = {
             requests: [
@@ -152,6 +153,38 @@ export const whatsappGraphService = {
      */
     deleteProductFromCatalog: async (retailerId: string) => {
         return whatsappGraphService.syncProductToCatalog({ code: retailerId }, 'DELETE');
+    },
+
+    /**
+     * Lista as coleções (product sets) do catálogo na Meta
+     */
+    listProductSets: async (): Promise<{ id: string; name: string; filter: string }[]> => {
+        const { whatsappConfig } = getSettings();
+        if (!whatsappConfig?.catalogId) throw new Error("Catalog ID não configurado.");
+
+        const response = await fetch(
+            `https://graph.facebook.com/v18.0/${whatsappConfig.catalogId}/product_sets?fields=id,name,filter`,
+            { headers: whatsappGraphService.getHeaders() }
+        );
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message || "Erro ao listar coleções.");
+        return data.data || [];
+    },
+
+    /**
+     * Deleta uma coleção (product set) da Meta pelo ID
+     */
+    deleteProductSet: async (productSetId: string): Promise<boolean> => {
+        const response = await fetch(
+            `https://graph.facebook.com/v18.0/${productSetId}`,
+            {
+                method: 'DELETE',
+                headers: whatsappGraphService.getHeaders()
+            }
+        );
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message || "Erro ao deletar coleção.");
+        return data.success === true;
     },
 
     /**
