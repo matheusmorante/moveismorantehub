@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Product, { Variation, FiscalInfo } from "../../types/product.type";
 import Person from "../../types/person.type";
-import { saveProduct, getFullProduct } from '@/pages/utils/productService';
+import { saveProduct, getFullProduct, checkProductHasMoves } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
@@ -675,7 +675,20 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         setFormData(prev => ({ ...prev, variations: [...(prev.variations || []), newVar], hasVariations: true }));
     };
 
-    const removeVariation = (id: string) => {
+    const removeVariation = async (id: string) => {
+        // Se o produto já existe no banco, verifica se a variação tem movimentações
+        if (formData.id) {
+            try {
+                const hasMoves = await checkProductHasMoves(formData.id, id);
+                if (hasMoves) {
+                    toast.error("Esta variação possui movimentações de estoque vinculadas e não pode ser removida para preservar o histórico.");
+                    return;
+                }
+            } catch (error) {
+                console.error("Erro ao verificar movimentações da variação:", error);
+            }
+        }
+
         setFormData(prev => {
             const filtered = prev.variations?.filter(v => v.id !== id);
             return {
@@ -1082,7 +1095,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         >
                             {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                             <i className="bi bi-check-circle-fill"></i>
-                            {"Concluir Cadastro"}
+                            {product ? "Concluir Edição" : "Concluir Cadastro"}
                         </button>
                     </div>
                 </div>

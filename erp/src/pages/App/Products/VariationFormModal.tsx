@@ -216,10 +216,11 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             type="button"
                                             onClick={() => {
                                                 if ((formData.attributes || []).length > 0) {
-                                                    const autoName = formData.attributes!.map(a => {
+                                                    const attrsPart = formData.attributes!.map(a => {
                                                         const val = a.value.toUpperCase();
                                                         return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
                                                     }).join(' ');
+                                                    const autoName = `${parentProduct.description} ${attrsPart}`.trim();
                                                     if (autoName) setFormData({ ...formData, name: autoName });
                                                 }
                                             }}
@@ -499,7 +500,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                 className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 font-bold transition-all cursor-not-allowed"
                                 placeholder="0"
                             />
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight italic mt-1">* Ajuste via Lançamentos de Movimentação</p>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight italic mt-1">* Ajuste via Movimentações Manuais</p>
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Alerta (Mín)</label>

@@ -36,6 +36,7 @@ import Transactions from './pages/App/Finance/Transactions';
 import FinanceSettings from './pages/App/Finance/Settings';
 import LabelPrinting from './pages/App/Stock/LabelPrinting/Index';
 import SystemDocs from './pages/App/SystemDocs/Index';
+import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
@@ -110,6 +111,7 @@ function Router() {
             <Route path='/stock/purchases' element={<PurchasesPage />} />
             <Route path='/stock/label-printing' element={<LabelPrinting />} />
             <Route path='/design/labels' element={<LabelPrinting />} />
+            <Route path='/marketing/channel-catalog' element={<ChannelCatalog />} />
             <Route path='/registrations/services' element={<Services />} />
             <Route path='/registrations/variations' element={<Variations />} />
             <Route path='/registrations/customers' element={<Customers />} />

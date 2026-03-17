@@ -116,6 +116,11 @@ export interface AppSettings {
         autoWithdrawalOnStatus: string[]; // Statuses that trigger stock withdrawal (e.g., 'scheduled', 'fulfilled')
         autoEntryOnPurchaseStatus: string[]; // Statuses that trigger stock entry (e.g., 'completed')
         autoReverseOnCancel: boolean; // Auto-reverse stock if sales order is cancelled
+        originLabels: {
+            sales: string;
+            purchases: string;
+            adjustment: string;
+        };
     };
     requiredFields: {
         customer: {
@@ -423,7 +428,12 @@ RESPOSTA NO FORMATO JSON:
     inventoryAutomation: {
         autoWithdrawalOnStatus: ['scheduled', 'fulfilled'],
         autoEntryOnPurchaseStatus: ['completed'],
-        autoReverseOnCancel: true
+        autoReverseOnCancel: true,
+        originLabels: {
+            sales: 'Venda de Móveis',
+            purchases: 'Compra de Móveis',
+            adjustment: 'Ajuste Manual'
+        }
     },
     requiredFields: {
         customer: {

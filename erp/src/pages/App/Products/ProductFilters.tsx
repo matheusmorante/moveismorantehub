@@ -52,31 +52,15 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
             <div className="p-4 md:p-8 border-b border-slate-50 dark:border-slate-800">
                 <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
                     <i className="bi bi-filter-left text-blue-600 dark:text-blue-500"></i>
-                    Filtros
+                    Filtros Avançados
                 </h3>
-                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Refine sua busca de produtos</p>
+                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Refine por categoria e status</p>
             </div>
 
             <div className="p-4 md:p-8 flex flex-col gap-6">
-                {/* Search Inputs */}
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Busca</label>
-                        <div className="relative">
-                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
-                            <input
-                                type="text"
-                                name="search"
-                                value={filters.search}
-                                onChange={handleChange}
-                                placeholder="Título ou código..."
-                                className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Móvel</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Móvel / Categoria</label>
                         <select
                             name="category"
                             value={filters.category}
@@ -115,7 +99,6 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
                         </select>
                     </div>
                 </div>
-
             </div>
 
             <div className="mt-auto p-4 border-t border-slate-50 dark:border-slate-800">

@@ -1,6 +1,19 @@
 # Project Status & Pending Ideas
 
-## Last Update: 2026-03-16
+## Last Update: 2026-03-17
+
+### Recent Changes (2026-03-17)
+- **SKU Generation Overhaul (LLL-00000)**:
+    - **New Logic**: Implemented prefix generation (3 letters) based on Product Type and Line/Model.
+    - **Database Automation**: Created a SQL migration with a trigger (`tgr_auto_sku`) to generate sequential 5-digit numbers automatically, ensuring unique SKUs even when saved from the frontend.
+    - **Mass Migration**: Provided a script for retroactive SKU updates for all existing products.
+- **Marketing & Design Menu Re-architecture**:
+    - **Marketing Hub**: Created a dedicated "Marketing" menu in the sidebar and header.
+    - **Channel Control**: Developed the **Channel Catalog** (`ChannelCatalog.tsx`) to monitor product visibility across WhatsApp Shop and E-commerce.
+    - **WhatsApp Relocation**: Moved the WhatsApp Marketplace management from "Products" to the new "Marketing" section.
+- **Logistics & Sync Optimization**:
+    - **Optional Dimensions**: Removed the mandatory requirement for Width, Height, Depth, and Weight in the "Readiness Checklist". Products can now be synced to channels without these technical details (since delivery is internal).
+    - **WhatsApp API Logs**: Enhanced error tracking for Meta Graph API calls to capture detailed responses, facilitating the debugging of the "API access blocked" issue.
 
 ### Recent Changes (2026-03-16)
 - **Environment Cleanup & Reorganization**:

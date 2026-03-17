@@ -59,6 +59,18 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                             ${itemsHtml}
                         </tbody>
                     </table>
+                    <div style="margin-top: 20px; padding-top: 10px; border-top: 1px dashed #ccc;">
+                        <h3 style="font-size: 14px; margin-bottom: 10px;">FORMA DE PAGAMENTO</h3>
+                        <table style="font-size: 12px;">
+                            ${order.payments.map(p => `
+                                <tr>
+                                    <td>${p.method.toUpperCase()}</td>
+                                    <td style="text-align: right;">R$ ${p.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                    <td style="text-align: right; font-style: italic;">(${p.status})</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    </div>
                     <div class="footer">
                         Total do Pedido: R$ ${(order.paymentsSummary.totalOrderValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </div>
@@ -74,9 +86,13 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         console.log("Gerando Termo de Garantia para o pedido:", order.id);
     },
     'SEND_SHIPPING_ORDER': (order) => {
+        const paymentsInfo = order.payments
+            .map((p) => `- ${p.method.toUpperCase()}: R$ ${p.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${p.status})`)
+            .join("%0A");
+
         const message = `*Confirmação de Entrega*%0A%0AOlá! Seu pedido de entrega foi registrado.%0A%0A*Itens:*%0A${order.items
             .map((item) => `- ${item.description} (Qtd: ${item.quantity})`)
-            .join("%0A")}%0A%0A*Total:* ${order.paymentsSummary.totalOrderValue || 0
+            .join("%0A")}%0A%0A*Pagamento:*%0A${paymentsInfo}%0A%0A*Total:* R$ ${(order.paymentsSummary.totalOrderValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
             }%0A%0AObrigado!`;
         window.open(`https://wa.me/?text=${message}`, "_blank");
     },

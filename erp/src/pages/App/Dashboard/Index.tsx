@@ -27,7 +27,7 @@ const PERIODS: { label: string, value: Period }[] = [
 ];
 
 export default function Dashboard() {
-    const [period, setPeriod] = useState<Period>('week');
+    const [period, setPeriod] = useState<Period>('last_30_days');
     const [customStartDate, setCustomStartDate] = useState(() => {
         const d = new Date();
         d.setDate(d.getDate() - 7);

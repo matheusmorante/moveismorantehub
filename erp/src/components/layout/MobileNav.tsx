@@ -61,7 +61,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         {activeMenu === 'products' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
                                 <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Lista de Produtos e Serviços</Link>
-                                <Link to="/registrations/whatsapp-marketplace" onClick={onClose} className={mobileSubLinkClass}><i className="bi bi-whatsapp mr-1 text-green-500"></i> Marketplace WhatsApp</Link>
                                 <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Tipos de Móveis</Link>
                                 <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>Atributos e Valores</Link>
                             </div>
@@ -143,19 +142,34 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         )}
                     </div>
 
-                    {/* Design */}
+
+                    {/* Marketing */}
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('design')} className={menuBtnClass(activeMenu === 'design')}>
+                        <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing')}>
                             <div className="flex items-center gap-3">
-                                <i className="bi bi-palette-fill text-lg"></i>
-                                Design
+                                <i className="bi bi-megaphone-fill text-lg"></i>
+                                Marketing
                             </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'design' ? 'rotate-180' : ''}`}></i>
+                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'marketing' ? 'rotate-180' : ''}`}></i>
                         </button>
-                        {activeMenu === 'design' && (
+                        {activeMenu === 'marketing' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/design/labels" onClick={onClose} className={mobileSubLinkClass}>Etiquetas de Identidade</Link>
-                                <Link to="/stock/label-printing" onClick={onClose} className={mobileSubLinkClass}>Rótulos de Produtos</Link>
+                                <Link to="/registrations/whatsapp-marketplace" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-whatsapp mr-2 text-emerald-500"></i> WhatsApp Marketplace
+                                </Link>
+                                <Link to="/marketing/channel-catalog" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-eye mr-2 text-blue-500"></i> Catálogo de Canais
+                                </Link>
+                                
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Criação e Design</p>
+
+                                <Link to="/design/labels" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiquetas de Marca
+                                </Link>
+                                <Link to="/stock/label-printing" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-printer-fill mr-2 text-amber-500"></i> Rótulos de Produtos
+                                </Link>
                             </div>
                         )}
                     </div>

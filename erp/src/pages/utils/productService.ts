@@ -42,6 +42,10 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.isCombo !== undefined) data.is_combo = product.isCombo;
     if (product.comboItems !== undefined) data.combo_items = product.comboItems;
     if (product.initialStockEntries !== undefined) data.initial_stock_entries = product.initialStockEntries;
+    if (product.whatsappSync !== undefined) data.whatsapp_sync = product.whatsappSync;
+    if (product.ecommerceSync !== undefined) data.ecommerce_sync = product.ecommerceSync;
+    if (product.whatsappAutoSync !== undefined) data.whatsapp_auto_sync = product.whatsappAutoSync;
+    if (product.lastWhatsappSync !== undefined) data.last_whatsapp_sync = product.lastWhatsappSync;
     
     // Dimensions & Details
     if (product.width !== undefined) data.width = product.width;
@@ -67,6 +71,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.noDepth !== undefined) data.no_depth = product.noDepth;
     if (product.noBrand !== undefined) data.no_brand = product.noBrand;
     if (product.noColors !== undefined) data.no_colors = product.noColors;
+    if (product.hasNoLine !== undefined) data.has_no_line = product.hasNoLine;
 
     // Dynamic Title fields
     if (product.productTypeId !== undefined) data.product_type_id = product.productTypeId;
@@ -170,6 +175,7 @@ const mapFromDB = (data: any): Product => {
         noDepth: data.no_depth ?? false,
         noBrand: data.no_brand ?? false,
         noColors: data.no_colors ?? false,
+        hasNoLine: data.has_no_line ?? false,
 
         // Dynamic Title fields
         productTypeId: data.product_type_id || '',
@@ -182,7 +188,11 @@ const mapFromDB = (data: any): Product => {
         includeSupplierRef: data.include_supplier_ref ?? false,
         titleComplement: data.title_complement || '',
         includeComplement: data.include_complement ?? true,
-        titleOrder: data.title_order || ["type", "environment", "line", "brand", "complement"]
+        titleOrder: data.title_order || ["type", "environment", "line", "brand", "complement"],
+        whatsappSync: data.whatsapp_sync ?? false,
+        ecommerceSync: data.ecommerce_sync ?? false,
+        whatsappAutoSync: data.whatsapp_auto_sync ?? false,
+        lastWhatsappSync: data.last_whatsapp_sync
     };
 };
 
@@ -359,7 +369,7 @@ export const saveProduct = async (product: Product): Promise<string> => {
                 'lead_time', 'avg_monthly_sales', 'classification',
                 'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
                 'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
-                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors',
+                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors', 'has_no_line',
                 'product_type_id', 'product_type_name', 'environment', 'include_environment', 
                 'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
                 'title_complement', 'include_complement'
@@ -532,7 +542,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
                 'lead_time', 'avg_monthly_sales', 'classification',
                 'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
                 'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
-                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors',
+                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors', 'has_no_line',
                 'product_type_id', 'product_type_name', 'environment', 'include_environment', 
                 'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
                 'title_complement', 'include_complement', 'include_type',
@@ -612,6 +622,31 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
 };
 
 /**
+ * Verifica se um produto ou variação possui movimentações de estoque vinculadas
+ */
+export const checkProductHasMoves = async (productId: string, variationId?: string): Promise<boolean> => {
+    try {
+        let query = supabase
+            .from('inventory_moves')
+            .select('id')
+            .eq('product_id', productId)
+            .limit(1);
+
+        if (variationId) {
+            query = query.eq('variation_id', variationId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        return data !== null && data.length > 0;
+    } catch (error) {
+        console.error("Erro ao verificar movimentações:", error);
+        return false;
+    }
+};
+
+/**
  * Sincroniza códigos de produtos e variações em pedidos de venda existentes
  */
 const syncCodesInOrders = async (productId: string, parentCode: string, variations?: Variation[]) => {
@@ -661,6 +696,13 @@ const syncCodesInOrders = async (productId: string, parentCode: string, variatio
 
 export const moveToTrash = async (id: string): Promise<void> => {
     try {
+        // Verificar se existem movimentações de estoque vinculadas (em qualquer variação ou no pai)
+        const hasMoves = await checkProductHasMoves(id);
+
+        if (hasMoves) {
+            throw new Error("Este produto possui histórico de movimentações (entradas/saídas) e não pode ser desativado/excluído para preservar a integridade do estoque.");
+        }
+
         await updateProduct(id, {
             deleted: true,
             active: false
@@ -699,6 +741,13 @@ export const permanentDeleteProduct = async (id: string): Promise<void> => {
 
         if (linkedOrders && linkedOrders.length > 0) {
             throw new Error("Este produto possui vendas vinculadas e não pode ser excluído permanentemente. Por favor, utilize a desativação (Mover para Lixeira).");
+        }
+
+        // Verificar se existem movimentações de estoque vinculadas
+        const hasMoves = await checkProductHasMoves(id);
+
+        if (hasMoves) {
+            throw new Error("Este produto possui histórico de movimentações e não pode ser excluído permanentemente.");
         }
 
         const { error } = await supabase

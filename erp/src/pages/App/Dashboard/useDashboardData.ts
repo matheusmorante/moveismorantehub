@@ -221,8 +221,17 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             const total = dayOrders.reduce((acc, curr) => acc + (curr?.paymentsSummary?.totalOrderValue || 0), 0);
             
             let label = "";
-            if (isMonthlyChart) {
-                label = months[d.getMonth()];
+            const dd = d.getDate().toString().padStart(2, '0');
+            const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+            const aa = d.getFullYear().toString().slice(-2);
+
+            if (period === 'year' || period === 'last_semester') {
+                // Mostra primeiro dia do mês/ano
+                label = `01/${mm}/${aa}`;
+            } else if (period === 'custom') {
+                label = `${dd}/${mm}/${aa}`;
+            } else if (['week', 'month', 'last_30_days'].includes(period)) {
+                label = `${dd}/${mm}`;
             } else {
                 label = shortNames[d.getDay()];
             }

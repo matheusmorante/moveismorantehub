@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import InventoryMove from "../../../types/inventoryMove.type";
 import { subscribeToInventoryMoves, deleteInventoryMove } from '@/pages/utils/inventoryService';
 import { formatDateTime } from "../../../utils/formatters";
+import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from "react-toastify";
 import QRScannerModal from "@/components/shared/QRScannerModal";
 
@@ -10,6 +11,8 @@ const InventoryMovesHistory = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const settings = getSettings();
+    const { originLabels } = settings.inventoryAutomation;
 
     useEffect(() => {
         const unsubscribe = subscribeToInventoryMoves((data) => {
@@ -74,6 +77,7 @@ const InventoryMovesHistory = () => {
                             <th className="px-4 md:px-8 py-3 md:py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 text-center">Tipo</th>
                             <th className="px-4 md:px-8 py-3 md:py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 text-center">Quantidade</th>
                             <th className="px-4 md:px-8 py-3 md:py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 text-center">Rótulo</th>
+                            <th className="px-4 md:px-8 py-3 md:py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 text-center">Origem</th>
                             <th className="px-4 md:px-8 py-3 md:py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 text-right">Ações</th>
                         </tr>
                     </thead>
@@ -102,6 +106,22 @@ const InventoryMovesHistory = () => {
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                                         {move.label || 'Manual'}
                                     </span>
+                                </td>
+                                <td className="px-4 md:px-8 py-3 md:py-5 text-center">
+                                    {move.relatedEntityId ? (
+                                        <div className="flex flex-col items-center">
+                                            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md border ${
+                                                move.relatedEntityType === 'sales_order' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                            }`}>
+                                                {move.relatedEntityType === 'sales_order' ? originLabels.sales : originLabels.purchases}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-500 mt-1">
+                                                #{move.relatedEntityId.slice(-4)}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{originLabels.adjustment}</span>
+                                    )}
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-right">
                                     <button 

@@ -6,6 +6,7 @@ import { calculateDIM, checkLTLRequirement } from '../../../../utils/calculation
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import { toast } from 'react-toastify';
 import { generateProductCode } from '../../../../utils/formatters';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 interface ProductGeneralTabProps {
     onOpenCategorySearch: () => void;
@@ -34,6 +35,101 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     handleGenerateComboName,
     isGeneratingComboName
 }) => {
+
+    const [availableMaterials, setAvailableMaterials] = React.useState<{id: string, name: string}[]>([]);
+
+    const fetchMaterials = async () => {
+        const { data } = await supabase.from('product_materials').select('*').order('name');
+        if (data) setAvailableMaterials(data);
+    };
+
+    React.useEffect(() => {
+        fetchMaterials();
+        
+        // Refresh materials when window regains focus (e.g. after adding one in settings tab)
+        const onFocus = () => fetchMaterials();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, []);
+
+    // Sincronizar ambientes disponíveis ao carregar o produto ou mudar categorias externamente
+    React.useEffect(() => {
+        if (formData.categoryIds?.length && availableCategories.length) {
+            const roots = new Set<string>();
+            const visited = new Set<string>();
+            const find = (catId: string) => {
+                if (visited.has(catId)) return;
+                visited.add(catId);
+                const c = availableCategories.find(item => item.id === catId);
+                if (!c) return;
+                if (!c.parents || c.parents.length === 0) {
+                    roots.add(c.name);
+                } else {
+                    c.parents.forEach((pid: string) => find(pid));
+                }
+            };
+            formData.categoryIds.forEach(find);
+            const allEnvs = Array.from(roots);
+            
+            setFormData(prev => {
+                const next = { ...prev };
+                let changed = false;
+                
+                // 1. Sincronizar ambientes disponíveis
+                if (allEnvs.length > 0 && JSON.stringify(prev.availableEnvironments) !== JSON.stringify(allEnvs)) {
+                    next.availableEnvironments = allEnvs;
+                    changed = true;
+                }
+                
+                // 2. Definir ambiente padrão se vazio
+                if (!prev.environment && allEnvs.length > 0) {
+                    next.environment = allEnvs[0];
+                    changed = true;
+                }
+                
+                // 3. Definir nome de tipo básico se vazio (para produtos legados)
+                if (!prev.productTypeName && prev.categoryIds && prev.categoryIds.length > 0) {
+                    const firstNonRoot = prev.categoryIds.find(id => {
+                        const c = availableCategories.find(item => item.id === id);
+                        return c && c.parents && c.parents.length > 0;
+                    });
+                    const targetId = firstNonRoot || prev.categoryIds[0];
+                    const cat = availableCategories.find(c => c.id === targetId);
+                    if (cat) {
+                        next.productTypeName = cat.name.toUpperCase();
+                        changed = true;
+                    }
+                }
+
+                if (changed) {
+                    next.description = generateAutoTitle(next);
+                    return next;
+                }
+                return prev;
+            });
+        }
+    }, [formData.categoryIds, availableCategories]);
+
+    // [NOVO] Sincronizar campo CORES baseado nas variações
+    React.useEffect(() => {
+        if (formData.hasVariations && formData.variations?.length) {
+            const colorsSet = new Set<string>();
+            formData.variations.forEach(v => {
+                v.attributes?.forEach(attr => {
+                    const attrName = attr.name?.toUpperCase() || '';
+                    if (attrName === 'COR' && attr.value) {
+                        colorsSet.add(attr.value.toUpperCase());
+                    }
+                });
+            });
+
+            const detectedColors = Array.from(colorsSet).join(' / ');
+            if (detectedColors && detectedColors !== formData.colors) {
+                setFormData(prev => ({ ...prev, colors: detectedColors, noColors: false }));
+            }
+        }
+    }, [formData.variations, formData.hasVariations]);
+
     const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand", "complement"]).filter((k: string) => k !== 'supplierRef' && k !== 'type');
     
     // Só mostrar o bloco 'complement' se ele tiver conteúdo ou se for explicitamente desmarcado pelo usuário (embora automático seja melhor)
@@ -70,6 +166,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             else if (key === "complement") next.includeComplement = !isIncluded;
             else if (key === "type") next.includeType = !isIncluded;
             else if (key === "environment") next.includeEnvironment = !isIncluded;
+            else if (key === "supplierRef") next.includeSupplierRef = !isIncluded;
             else if (key.startsWith('extra_')) {
                 next.extraFields = prev.extraFields?.map(f => f.id === key ? { ...f, includeInTitle: !isIncluded } : f);
             }
@@ -185,18 +282,42 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
                                                     {...provided.dragHandleProps}
-                                                    className={`flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-1 rounded-2xl gap-2 shrink-0 group/part shadow-sm transition-shadow ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500/50 scale-105 z-50' : ''}`}
+                                                    className={`flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-1 rounded-2xl gap-2 shrink-0 group/part shadow-sm transition-shadow ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500/50 scale-105 z-50' : ''} ${key === 'environment' && formData.availableEnvironments && formData.availableEnvironments.length > 1 ? 'cursor-pointer' : ''}`}
+                                                    onClick={(e) => {
+                                                        if (key === 'environment' && formData.availableEnvironments && formData.availableEnvironments.length > 1) {
+                                                            // Logic to rotate or show selector
+                                                            const currentIdx = formData.availableEnvironments.indexOf(formData.environment || '');
+                                                            const nextIdx = (currentIdx + 1) % formData.availableEnvironments.length;
+                                                            const nextEnv = formData.availableEnvironments[nextIdx];
+                                                            
+                                                            setFormData(prev => {
+                                                                const next = { ...prev, environment: nextEnv };
+                                                                next.description = generateAutoTitle(next);
+                                                                return next;
+                                                            });
+                                                            toast.info(`Ambiente alterado para: ${nextEnv}`);
+                                                        }
+                                                    }}
                                                 >
                                                     <div className="flex items-center justify-center w-6 h-6 text-slate-300 group-hover/part:text-blue-500 transition-colors">
-                                                        <i className="bi bi-grip-vertical text-lg"></i>
+                                                        {key === 'environment' && formData.availableEnvironments && formData.availableEnvironments.length > 1 ? (
+                                                            <i className="bi bi-arrow-repeat text-lg text-blue-500 animate-pulse"></i>
+                                                        ) : (
+                                                            <i className="bi bi-grip-vertical text-lg"></i>
+                                                        )}
                                                     </div>
                                                      <div className="flex flex-col min-w-[70px]">
-                                                         <span className="text-[7px] font-black text-slate-400 uppercase leading-none mb-0.5">Bloco {idx + 1}</span>
-                                                         <span className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">{getPartLabel(key)}</span>
+                                                         <span className="text-[7px] font-black text-slate-400 uppercase leading-none mb-0.5">Bloco {idx + 1} {key === 'environment' && formData.availableEnvironments && formData.availableEnvironments.length > 1 && '(Trocar)'}</span>
+                                                         <span className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">
+                                                             {key === 'environment' ? (formData.environment || 'Ambiente') : getPartLabel(key)}
+                                                         </span>
                                                      </div>
                                                      <button 
                                                          type="button" 
-                                                         onClick={() => handleToggleTitlePart(key)}
+                                                         onClick={(e) => {
+                                                             e.stopPropagation();
+                                                             handleToggleTitlePart(key);
+                                                         }}
                                                          className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${isPartIncluded(key) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-300'}`}
                                                      >
                                                          <i className={`bi ${isPartIncluded(key) ? 'bi-check-lg' : 'bi-dash-lg'}`}></i>
@@ -244,31 +365,47 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     
                                     let nextIds = [...ids, cat.id];
                                     const next = { ...prev, categoryIds: nextIds };
-                                    
-                                    // Se for a primeira categoria ou se clicou em um Tipo de Móvel direto do autocomplete
-                                    // Tentar identificar se o que foi selecionado deve ser o "Tipo Principal" (productTypeName)
-                                    // Para simplificar, o BFS do autocomplete retornará o nome da categoria selecionada.
-                                    
-                                    // Auto-detect environment (root category)
-                                    let detectedEnv = prev.environment;
-                                    const selectedCats = availableCategories.filter(c => nextIds.includes(c.id) || c.id === cat.id);
-                                    
-                                    const rootFound = selectedCats.find(c => !c.parents || c.parents.length === 0);
-                                    if (rootFound) {
-                                        detectedEnv = rootFound.name;
-                                    } else {
-                                        const firstCat = selectedCats[0] || cat;
-                                        if (firstCat && firstCat.parents && firstCat.parents.length > 0) {
-                                            const parentCat = availableCategories.find(c => c.id === firstCat.parents[0]);
-                                            if (parentCat) detectedEnv = parentCat.name;
-                                        }
-                                    }
+                                    // Auto-detect environments (root categories) for ALL selected Categories
+                                    const getAllRoots = (ids: string[]): string[] => {
+                                        const roots = new Set<string>();
+                                        const visited = new Set<string>();
+                                        const find = (catId: string) => {
+                                            if (visited.has(catId)) return;
+                                            visited.add(catId);
+                                            const c = availableCategories.find(item => item.id === catId);
+                                            if (!c) return;
+                                            if (!c.parents || c.parents.length === 0) {
+                                                roots.add(c.name);
+                                            } else {
+                                                c.parents.forEach((pid: string) => find(pid));
+                                            }
+                                        };
+                                        ids.forEach(find);
+                                        return Array.from(roots);
+                                    };
 
-                                    // Definir o nome do tipo baseado na categoria mais recente selecionada (se não tiver um ainda ou se o usuário mudar)
+                                    const allEnvs = getAllRoots(nextIds);
+                                    let detectedEnv = prev.environment;
+                                    
+                                    // Se não tem ambiente ou o ambiente atual não está na árvore das categorias selecionadas
+                                    if (!detectedEnv || !allEnvs.includes(detectedEnv)) {
+                                        detectedEnv = allEnvs[0] || '';
+                                    }
+                                    
+                                    // Definir o nome do tipo baseado na categoria selecionada para o título
                                     next.productTypeName = cat.name.toUpperCase();
-                                    next.productTypeId = cat.id; // Usamos o ID da categoria como ID do tipo para manter o vínculo
+                                    
+                                    // IMPORTANTE: Não podemos usar cat.id como productTypeId pois existe uma FK para a tabela product_types.
+                                    // Vamos tentar encontrar se existe um tipo com o mesmo nome.
+                                    const matchingType = productTypes.find(t => t.name.toUpperCase() === cat.name.toUpperCase());
+                                    if (matchingType) {
+                                        next.productTypeId = matchingType.id;
+                                    } else {
+                                        next.productTypeId = undefined;
+                                    }
                                     
                                     next.environment = detectedEnv;
+                                    next.availableEnvironments = allEnvs;
                                     next.includeEnvironment = true;
                                     next.description = generateAutoTitle(next);
                                     return next;
@@ -279,12 +416,45 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     const nextIds = prev.categoryIds?.filter(i => i !== id) || [];
                                     const next = { ...prev, categoryIds: nextIds };
                                     
-                                    // Se removeu o que era o tipo atual, pegar o próximo se existir
-                                    if (prev.productTypeId === id) {
+                                    const nextCat = availableCategories.find(c => c.id === id);
+                                    
+                                    // Recalcular todos os ambientes disponíveis das categorias restantes
+                                    const getAllRoots = (ids: string[]): string[] => {
+                                        const roots = new Set<string>();
+                                        const visited = new Set<string>();
+                                        const find = (catId: string) => {
+                                            if (visited.has(catId)) return;
+                                            visited.add(catId);
+                                            const c = availableCategories.find(item => item.id === catId);
+                                            if (!c) return;
+                                            if (!c.parents || c.parents.length === 0) {
+                                                roots.add(c.name);
+                                            } else {
+                                                c.parents.forEach((pid: string) => find(pid));
+                                            }
+                                        };
+                                        ids.forEach(find);
+                                        return Array.from(roots);
+                                    };
+
+                                    const allEnvs = getAllRoots(nextIds);
+                                    next.availableEnvironments = allEnvs;
+                                    
+                                    // Se o ambiente atual não está mais na lista, pegar o primeiro disponível
+                                    if (allEnvs.length > 0 && (!next.environment || !allEnvs.includes(next.environment))) {
+                                        next.environment = allEnvs[0];
+                                    } else if (allEnvs.length === 0) {
+                                        next.environment = '';
+                                    }
+
+                                    // Se removeu a categoria que estava servindo de nome de tipo
+                                    if (prev.productTypeName === nextCat?.name.toUpperCase()) {
                                         if (nextIds.length > 0) {
-                                            const nextCat = availableCategories.find(c => c.id === nextIds[0]);
-                                            next.productTypeId = nextIds[0];
-                                            next.productTypeName = nextCat?.name.toUpperCase() || '';
+                                            const firstCat = availableCategories.find(c => c.id === nextIds[0]);
+                                            next.productTypeName = firstCat?.name.toUpperCase() || '';
+                                            
+                                            const matchingType = productTypes.find(t => t.name.toUpperCase() === next.productTypeName);
+                                            next.productTypeId = matchingType?.id;
                                         } else {
                                             next.productTypeId = undefined;
                                             next.productTypeName = '';
@@ -299,19 +469,21 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         />
 
                         {(formData.categoryIds?.length || 0) > 1 && (
-                            <div className="mt-2 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl animate-in slide-in-from-top-1 duration-300">
-                                <label className="text-[8px] font-black uppercase tracking-widest text-blue-600 mb-2 block">Definir como Principal p/ Título:</label>
+                            <div className="mt-2 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-2xl animate-in slide-in-from-top-1 duration-300">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-blue-600 mb-2 block">Definir como Principal p/ Título (Categoria):</label>
                                 <div className="flex flex-wrap gap-2">
                                     {availableCategories.filter(c => formData.categoryIds?.includes(c.id)).map(cat => (
                                         <button
                                             key={cat.id}
                                             type="button"
                                             onClick={() => setFormData(prev => {
-                                                const next = { ...prev, productTypeId: cat.id, productTypeName: cat.name.toUpperCase() };
+                                                const next = { ...prev, productTypeName: cat.name.toUpperCase() };
+                                                const matchingType = productTypes.find(t => t.name.toUpperCase() === cat.name.toUpperCase());
+                                                next.productTypeId = matchingType?.id;
                                                 next.description = generateAutoTitle(next);
                                                 return next;
                                             })}
-                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.productTypeId === cat.id ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-blue-300'}`}
+                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.productTypeName === cat.name.toUpperCase() ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-blue-300'}`}
                                         >
                                             {cat.name}
                                         </button>
@@ -397,7 +569,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             )}
 
             <div className="grid grid-cols-2 gap-6 md:col-span-2">
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 invisible h-0 overflow-hidden">
                     <div className="flex items-center justify-between">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                             Código (SKU Principal) <span className="text-red-500">*</span>
@@ -406,9 +578,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             type="button"
                             onClick={() => {
                                 if (!formData.description) return toast.warning("Digite o título para gerar o SKU");
-                                const newCode = generateProductCode(formData.description);
-                                setFormData({ ...formData, code: newCode });
-                                toast.info(`SKU Sugerido: ${newCode}`);
+                                const newPrefix = generateProductCode(formData.description || '', formData.productTypeName, formData.line);
+                                setFormData({ ...formData, code: newPrefix });
+                                toast.info(`Prefixo SKU Sugerido: ${newPrefix}. O n�mero final ser� gerado ao salvar.`);
                             }}
                             className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 transition-all"
                             title="Regerar SKU baseado no título"
@@ -429,7 +601,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             onValueChange={(val) => {
                                 const newCode = val.toUpperCase();
                                 if (newCode.length <= 6) {
-                                    setFormData({ ...formData, code: newCode });
+                                    setFormData({ ...formData, code: newPrefix });
                                 } else {
                                     toast.warning("O SKU não pode ter mais que 6 caracteres.");
                                 }
@@ -522,28 +694,41 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Material */}
                         <div className="flex flex-col gap-4">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Material do Móvel</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal', 'Outro'].map(mat => (
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Material do Móvel</label>
+                                <button
+                                    type="button"
+                                    onClick={() => window.open('/app/configuracoes#materiais', '_blank')}
+                                    className="text-[9px] font-black uppercase tracking-widest text-blue-600 hover:underline flex items-center gap-1"
+                                    title="Configurar opções de materiais nas preferências do sistema"
+                                >
+                                    <i className="bi bi-gear-fill text-[8px]"></i> Configurar Materiais
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {availableMaterials.map(mat => (
                                     <button
-                                        key={mat}
+                                        key={mat.id}
                                         type="button"
-                                        onClick={() => mat === 'Outro' ? setFormData({ ...formData, material: '' }) : setFormData({ ...formData, material: mat })}
-                                        className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-all ${((mat !== 'Outro' && formData.material === mat) || (mat === 'Outro' && !['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal'].includes(formData.material || ''))) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-500 hover:border-blue-300'}`}
+                                        onClick={() => setFormData({ ...formData, material: mat.name.toUpperCase() })}
+                                        className={"px-3 py-2 rounded-xl text-[10px] font-bold border transition-all " + (formData.material === mat.name.toUpperCase() ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-500 hover:border-blue-300')}
                                     >
-                                        {mat}
+                                        {mat.name}
                                     </button>
                                 ))}
+                                {availableMaterials.length === 0 && (
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase italic">Nenhum material cadastrado.</p>
+                                )}
                             </div>
-                            {(!['MDP', 'MDF', 'MDP/MDF', 'Mad. Maciça', 'Metal/MDP', 'Metal'].includes(formData.material || '') || formData.material === '') && (
-                                <input
-                                    value={formData.material || ''}
-                                    onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-                                    placeholder="Digite o material personalizado..."
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold"
-                                />
-                            )}
+                            <input
+                                value={formData.material || ''}
+                                onChange={(e) => setFormData({ ...formData, material: e.target.value.toUpperCase() })}
+                                placeholder="Material (Auto-detectado ou Manual)..."
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold uppercase"
+                            />
                         </div>
+
+
 
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                             <div className="md:col-span-2">
@@ -551,7 +736,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     <i className="bi bi-magic"></i> Refinamento para IA (Estilo Magalu)
                                 </h5>
                             </div>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 invisible h-0 overflow-hidden">
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Referência Fornecedor (Interno)</label>
                                 <input
                                     value={formData.supplierRef || ''}
@@ -580,12 +765,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                         <i className={`bi ${formData.noColors ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i> {formData.noColors ? 'Informar Cor' : 'Não Informar'}
                                     </button>
                                 </div>
-                                <input
+                                                                <input
+                                    readOnly
                                     value={formData.noColors ? 'NÃO INFORMADO' : (formData.colors || '')}
-                                    onChange={(e) => setFormData({ ...formData, colors: e.target.value })}
-                                    disabled={formData.noColors}
-                                    placeholder={formData.noColors ? "NÃO APLICÁVEL" : "Ex: Off White / Castanho"}
-                                    className={`w-full px-4 py-3 border rounded-xl text-xs font-bold transition-all ${formData.noColors ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500'}`}
+                                    placeholder={formData.noColors ? "NÃO APLICÁVEL" : "Auto-detectado das variações..."}
+                                    className={"w-full px-4 py-3 border rounded-xl text-xs font-black transition-all " + (formData.noColors ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed italic' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-blue-600 dark:text-blue-400')}
                                 />
                             </div>
                             <div className="flex flex-col gap-2">

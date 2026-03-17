@@ -24,6 +24,8 @@ import BusinessRulesSection from './components/BusinessRulesSection';
 import ReceiptConfigSection from './components/ReceiptConfigSection';
 import ValidationConfigSection from './components/ValidationConfigSection';
 import ImportMappingSection from './components/ImportMappingSection';
+import InventoryAutomationSection from './components/InventoryAutomationSection';
+import ProductMaterialsSection from './components/ProductMaterialsSection';
 import SaveButton from './components/SaveButton';
 
 const categories: any[] = [
@@ -42,6 +44,8 @@ const categories: any[] = [
     { id: 'regras', label: 'Regras de Negócio', icon: 'bi-gear-wide-connected', group: 'system', keywords: ['regra', 'estoque', 'negativo', 'reserva', 'venda'] },
     { id: 'obrigatorios', label: 'Campos Obrigatórios', icon: 'bi-shield-check', group: 'system', keywords: ['obrigatório', 'bloqueio', 'venda', 'cadastro', 'cpf', 'cnpj', 'telefone', 'rg', 'endereço', 'estoque', 'email', 'cargo'] },
     { id: 'recibo', label: 'Configuração de Recibo', icon: 'bi-printer-fill', group: 'system', keywords: ['recibo', 'impressão', 'rodapé', 'vendedor', 'garantia'] },
+    { id: 'estoqueAutomacao', label: 'Automação de Estoque', icon: 'bi-box-arrow-right', group: 'system', keywords: ['estoque', 'movimentação', 'venda', 'compra', 'automação'] },
+    { id: 'materiais', label: 'Materiais de Móveis', icon: 'bi-hammer', group: 'system', keywords: ['material', 'mdp', 'mdf', 'madeira', 'vidro', 'metal', 'móvel'] },
     { id: 'importMapping', label: 'Conciliação de Colunas', icon: 'bi-shuffle', group: 'system', keywords: ['importação', 'mapeamento', 'csv', 'coluna', 'bling', 'conciliação'] },
 ];
 
@@ -66,6 +70,16 @@ export default function Settings(): any {
         });
         return () => unsubscribe();
     }, [setTheme, theme]);
+
+    useEffect(() => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+            setTimeout(() => {
+                const element = document.getElementById(hash);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 500);
+        }
+    }, []);
 
     const handleChange = useCallback((path: string, value: any) => {
         if (path === 'defaultTheme') {
@@ -244,6 +258,14 @@ export default function Settings(): any {
 
                     <SettingsSection id="recibo" title="Configuração de Recibo e Impressão" icon="bi-printer-fill" isVisible={isVisible('recibo')}>
                         <ReceiptConfigSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="estoqueAutomacao" title="Automação de Movimentações de Estoque" icon="bi-box-arrow-right" isVisible={isVisible('estoqueAutomacao')}>
+                        <InventoryAutomationSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="materiais" title="Materiais de Móveis" icon="bi-hammer" isVisible={isVisible('materiais')}>
+                        <ProductMaterialsSection />
                     </SettingsSection>
 
                     <SettingsSection id="importMapping" title="Conciliação de Colunas de Importação" icon="bi-shuffle" isVisible={isVisible('importMapping')}>

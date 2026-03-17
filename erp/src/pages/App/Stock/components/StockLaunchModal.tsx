@@ -24,6 +24,7 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
     const [products, setProducts] = useState<Product[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [scannerMode, setScannerMode] = useState<'select' | 'count'>('select');
 
     useEffect(() => {
         if (isOpen) {
@@ -73,13 +74,13 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
             const currentStock = targetVariation ? (targetVariation.stock || 0) : Number(activeProduct.stock || 0);
             await saveInventoryMove(move, currentStock);
             
-            toast.success("Lançamento de estoque realizado com sucesso! ✨");
+            toast.success("Movimentação registrada com sucesso! ✨");
             onClose();
             // Reset fields
             setQuantity(0);
             setReason("");
         } catch (error) {
-            toast.error("Erro ao processar lançamento de estoque.");
+            toast.error("Erro ao processar a movimentação.");
         } finally {
             setIsSaving(false);
         }
@@ -94,7 +95,7 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 bg-emerald-600 text-white flex items-center justify-between">
                     <div>
-                        <h2 className="text-2xl font-black tracking-tight uppercase">Novo Lançamento</h2>
+                        <h2 className="text-2xl font-black tracking-tight uppercase">Nova Movimentação de Estoque</h2>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200 mt-1">Movimentação manual de estoque</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
@@ -119,7 +120,10 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
                                     ))}
                                 </select>
                                 <button
-                                    onClick={() => setIsScannerOpen(true)}
+                                    onClick={() => {
+                                        setScannerMode('select');
+                                        setIsScannerOpen(true);
+                                    }}
                                     className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg"
                                     title="Escanear Código de Barras"
                                 >
@@ -178,12 +182,25 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                 {type === 'adjustment' ? 'Novo Saldo Total' : 'Quantidade'}
                             </label>
-                            <input 
-                                type="number" 
-                                value={quantity}
-                                onChange={(e) => setQuantity(Number(e.target.value))}
-                                className="w-full bg-slate-50 dark:bg-slate-950 px-5 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-black text-xl text-slate-800 dark:text-slate-100"
-                            />
+                            <div className="relative group">
+                                <input 
+                                    type="number" 
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(Number(e.target.value))}
+                                    className="w-full bg-slate-50 dark:bg-slate-950 px-5 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-black text-xl text-slate-800 dark:text-slate-100"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setScannerMode('count');
+                                        setIsScannerOpen(true);
+                                    }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-xl flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                    title="Iniciar Contagem (QR Code)"
+                                >
+                                    <i className="bi bi-qr-code-scan"></i>
+                                </button>
+                            </div>
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Motivo / Observação *</label>
@@ -207,7 +224,7 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
                         ) : (
                             <i className="bi bi-check-lg text-xl"></i>
                         )}
-                        Confirmar Lançamento
+                        Confirmar Movimentação
                     </button>
                 </div>
             </div>
@@ -216,6 +233,7 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
                 <QRScannerModal 
                     isOpen={isScannerOpen} 
                     onClose={() => setIsScannerOpen(false)} 
+                    closeOnScan={scannerMode === 'select'}
                     onScan={(code) => {
                         let foundProduct: Product | undefined;
                         let foundVariation: Variation | undefined;
@@ -236,14 +254,26 @@ const StockLaunchModal = ({ isOpen, onClose, targetProduct, targetVariation }: S
                         }
     
                         if (foundProduct) {
-                            setSelectedProductId(foundProduct.id!);
-                            setIsScannerOpen(false);
-                            toast.success(`Produto localizado: ${foundProduct.description} ${foundVariation ? `(${foundVariation.name})` : ''}`);
+                            if (scannerMode === 'count') {
+                                if (foundProduct.id === selectedProductId) {
+                                    setQuantity(q => q + 1);
+                                    toast.success(`+1: ${foundProduct.description}`, { autoClose: 500, hideProgressBar: true });
+                                } else {
+                                    // Optionally switch product and start at 1
+                                    setSelectedProductId(foundProduct.id!);
+                                    setQuantity(1);
+                                    toast.info(`Contagem iniciada para: ${foundProduct.description}`);
+                                }
+                            } else {
+                                setSelectedProductId(foundProduct.id!);
+                                setIsScannerOpen(false);
+                                toast.success(`Produto localizado: ${foundProduct.description} ${foundVariation ? `(${foundVariation.name})` : ''}`);
+                            }
                         } else {
                             toast.error(`Produto com código/SKU "${code}" não encontrado.`);
                         }
                     }}
-                    title="Escanear Produto"
+                    title={scannerMode === 'count' ? "Contagem em Massa" : "Escanear Produto"}
                 />
             </ErrorBoundary>
         </div>

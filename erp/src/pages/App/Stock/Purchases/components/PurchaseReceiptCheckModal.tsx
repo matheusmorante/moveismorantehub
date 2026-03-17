@@ -302,6 +302,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
                     isOpen={isScannerOpen} 
                     onClose={() => setIsScannerOpen(false)} 
                     onScan={handleScan}
+                    closeOnScan={false}
                     title="Escanear Itens do Pedido"
                 />
             </ErrorBoundary>

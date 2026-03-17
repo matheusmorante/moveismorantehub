@@ -41,6 +41,17 @@ export type Variation = {
     leadTime?: number;
     avgMonthlySales?: number;
     classification?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+
+    // Logistics & Marketplace (Inherited or specific)
+    width?: number;
+    height?: number;
+    depth?: number;
+    weight?: number;
+    pkgWidth?: number;
+    pkgHeight?: number;
+    pkgDepth?: number;
+    marketplaceTitle?: string;
+    description?: string; // Ecommerce specific description for this variation
 };
 
 export type FiscalInfo = {
@@ -120,6 +131,10 @@ export type Product = {
     whatsappDescription?: string;
     ecommerceTemplate?: string;
     whatsappTemplate?: string;
+    whatsappSync?: boolean;
+    ecommerceSync?: boolean;
+    whatsappAutoSync?: boolean;
+    lastWhatsappSync?: string;
 
     // Combo / Jogo
     isCombo?: boolean;
@@ -186,6 +201,7 @@ export type Product = {
     meta_title?: string;
     meta_description?: string;
     seo_description?: string;
+    availableEnvironments?: string[]; // Novos ambientes detectados
 };
 
 export type ProductNotificationConfig = {

@@ -43,7 +43,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
                         <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Produtos e Serviços</Link>
-                        <Link to="/registrations/whatsapp-marketplace" onClick={() => setActiveMenu(null)} className={dropdownItemClass}><i className="bi bi-whatsapp mr-1 text-green-500"></i> Marketplace WhatsApp</Link>
                         <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Tipos de Móveis</Link>
                         <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Atributos e Valores</Link>
                     </div>
@@ -133,21 +132,36 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
             </div>
 
-            {/* Design */}
+
+            {/* Marketing */}
             <div
                 className="relative h-full flex items-center"
-                onMouseEnter={() => setActiveMenu('design')}
+                onMouseEnter={() => setActiveMenu('marketing')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('design')} className={menuBtnClass(activeMenu === 'design')}>
-                    <i className="bi bi-palette-fill"></i>
-                    Design
-                    <i className={chevronClass(activeMenu === 'design')}></i>
+                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing')}>
+                    <i className="bi bi- megaphone-fill"></i>
+                    Marketing
+                    <i className={chevronClass(activeMenu === 'marketing')}></i>
                 </button>
-                {activeMenu === 'design' && (
+                {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
-                        <Link to="/design/labels" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiquetas de Identidade (MDF/Logo)</Link>
-                        <Link to="/stock/label-printing" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Rótulos de Produtos</Link>
+                        <Link to="/registrations/whatsapp-marketplace" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-whatsapp mr-2 text-emerald-500"></i> WhatsApp Marketplace
+                        </Link>
+                        <Link to="/marketing/channel-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-eye mr-2 text-blue-500"></i> Catálogo de Canais
+                        </Link>
+
+                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
+                        <div className="px-3 py-1 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Criação e Design</div>
+
+                        <Link to="/design/labels" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiquetas de Marca (MDF)
+                        </Link>
+                        <Link to="/stock/label-printing" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-printer-fill mr-2 text-amber-500"></i> Rótulos de Produtos
+                        </Link>
                     </div>
                 )}
             </div>

@@ -59,13 +59,13 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
     fetchAndCallback();
 
     const channel = supabase.channel(`orders_changes_${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
             if (!aborted) {
                 console.log('[OrdersSync] Change detected, refetching...');
                 fetchAndCallback();
             }
         })
-        .subscribe((status) => {
+        .subscribe((status: string) => {
             console.log('[OrdersSync] Channel status:', status);
         });
 
@@ -160,6 +160,8 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                             quantity: comboItem.quantity * item.quantity,
                             date: new Date().toISOString(),
                             label: 'Venda (Combo)',
+                            relatedEntityId: orderId,
+                            relatedEntityType: 'sales_order',
                             observation: `Pedido #${orderId}`
                         }, currentPartStock);
                     }
@@ -179,6 +181,8 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                         quantity: item.quantity,
                         date: new Date().toISOString(),
                         label: 'Venda (Sem Lote)',
+                        relatedEntityId: orderId,
+                        relatedEntityType: 'sales_order',
                         observation: `Pedido #${orderId} - FIFO Fallback`
                     }, currentStock);
                 } else {
@@ -194,6 +198,8 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                             quantity: takeFromLot,
                             date: new Date().toISOString(),
                             label: 'Venda (FIFO)',
+                            relatedEntityId: orderId,
+                            relatedEntityType: 'sales_order',
                             observation: `Pedido #${orderId} - Lote de ${new Date(lot.date).toLocaleDateString()}`,
                             unitCost: lot.unitCost, // USE THE LOT COST!
                             parentMoveId: lot.id   // LINK TO LOT
@@ -212,6 +218,8 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                             quantity: remainingToWithdraw,
                             date: new Date().toISOString(),
                             label: 'Venda (Excedente)',
+                            relatedEntityId: orderId,
+                            relatedEntityType: 'sales_order',
                             observation: `Pedido #${orderId} - Quantidade acima dos lotes disponíveis`
                         }, currentStock);
                     }
@@ -321,6 +329,8 @@ export const updateOrder = async (
                                 quantity: item.quantity,
                                 date: new Date().toISOString(),
                                 label: 'Estorno',
+                                relatedEntityId: id,
+                                relatedEntityType: 'sales_order',
                                 observation: `Cancelamento do Pedido #${id}`
                             }, currentStock);
                         }
@@ -416,7 +426,7 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
 
         const frequency: Record<string, number> = {};
         
-        data?.forEach(row => {
+        data?.forEach((row: any) => {
             const observation = row.order_data?.observation;
             if (observation) {
                 const tags = observation.split(';').map((t: string) => t.trim()).filter((t: string) => t !== "");

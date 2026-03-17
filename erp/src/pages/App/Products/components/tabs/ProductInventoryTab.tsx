@@ -168,7 +168,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             {!formData.hasVariations ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className={`flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl ${isEditing ? 'opacity-70' : ''}`}>
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isEditing ? 'Estoque Atual' : 'Saldo de Lançamentos'}</label>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isEditing ? 'Estoque Atual' : 'Saldo de Movimentações'}</label>
                                         <input
                                             type="number"
                                             value={(formData.stock === null || formData.stock === undefined || isNaN(formData.stock as number)) ? '' : formData.stock}
@@ -176,7 +176,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                             className="w-full px-0 bg-transparent outline-none text-2xl font-black text-blue-600 dark:text-blue-400 cursor-not-allowed"
                                             placeholder="0"
                                         />
-                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* {isEditing ? 'Ajuste via Lançamentos de Movimentação' : 'Valor definido via "Lançamento de Entrada Inicial" acima'}</p>
+                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* {isEditing ? 'Ajuste via Movimentações Manuais' : 'Valor definido via "Lançamento de Entrada Inicial" acima'}</p>
                                     </div>
                                     <div className={`flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl opacity-70`}>
                                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preço de Custo (Visualização)</label>

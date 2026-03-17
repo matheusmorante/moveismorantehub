@@ -87,8 +87,8 @@ const ProductRow = ({
                             )}
                             <div className="flex flex-col">
                                 <span className={`text-sm ${product.isParent ? 'font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
-                                    {product.description}
-                                </span>
+                                     {(product as any).displayName || product.description}
+                                 </span>
                                 <div className="flex items-center gap-2 mt-1">
                                     {product.isDraft && (
                                         <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-900/40 shadow-sm">

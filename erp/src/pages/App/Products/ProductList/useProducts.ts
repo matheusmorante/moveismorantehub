@@ -48,9 +48,46 @@ export const useProducts = (filters?: any) => {
 
                 if (!filters) return true;
 
-                const searchMatch = !filters.search ||
-                    product.description.toLowerCase().includes(filters.search.toLowerCase()) ||
-                    product.code?.toLowerCase().includes(filters.search.toLowerCase());
+                const searchTerm = filters.search?.toLowerCase() || "";
+                if (!searchTerm) {
+                    const categoryMatch = !filters.category ||
+                        product.category === filters.category ||
+                        (filters.category === "Serviços" && product.itemType === "service") ||
+                        (filters.category === "Produtos" && product.itemType === "product");
+                    const activeMatch = filters.activeOnly === undefined || product.active === filters.activeOnly;
+                    return categoryMatch && activeMatch;
+                }
+
+                // BUSCA DINÂMICA: Se o produto é um pai, ele bate se ele mesmo ou qualquer filho bater
+                // Se o produto é um filho (independente), ele bate se ele mesmo ou o pai bater
+                const matchesSelf = (product.description || "").toLowerCase().includes(searchTerm) || 
+                                   (product.code || "").toLowerCase().includes(searchTerm);
+                
+                let matchesChildren = false;
+                if (!product.parentId) {
+                    // Match no JSON de variações
+                    matchesChildren = product.variations?.some((v: any) => 
+                        (v.name || "").toLowerCase().includes(searchTerm) || 
+                        (v.sku || "").toLowerCase().includes(searchTerm)
+                    ) || false;
+                    
+                    // Match em variações independentes
+                    if (!matchesChildren) {
+                        matchesChildren = products.some(p => p.parentId === product.id && (
+                            p.description.toLowerCase().includes(searchTerm) || 
+                            p.code?.toLowerCase().includes(searchTerm)
+                        ));
+                    }
+                } else {
+                    // Se for filho, verifica se o pai bate
+                    const parent = products.find(p => p.id === product.parentId);
+                    if (parent) {
+                        matchesChildren = (parent.description || "").toLowerCase().includes(searchTerm) || 
+                                          (parent.code || "").toLowerCase().includes(searchTerm);
+                    }
+                }
+
+                const searchMatch = matchesSelf || matchesChildren;
 
                 const categoryMatch = !filters.category ||
                     product.category === filters.category ||
@@ -125,7 +162,10 @@ export const useProducts = (filters?: any) => {
                         category: product.category,
                         unit: product.unit
                     };
-                    flattened.push(child);
+                    flattened.push({
+                        ...child,
+                        displayName: v.name // Já costuma ser apenas os atributos no JSON
+                    });
                 });
             }
 
@@ -139,10 +179,14 @@ export const useProducts = (filters?: any) => {
                 flattened.push({
                     ...v,
                     sku: vCode, 
-                    code: vCode, // Garantir consist├¬ncia na exibi├º├úo do c├│digo
+                    code: vCode,
                     isVariation: true,
                     parentId: product.id,
-                    description: v.description
+                    description: v.description,
+                    // Para variações independentes, tentamos mostrar apenas o que não está no título do pai
+                    displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase()) 
+                        ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '')
+                        : v.description
                 });
             });
         });

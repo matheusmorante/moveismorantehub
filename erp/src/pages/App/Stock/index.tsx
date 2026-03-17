@@ -46,7 +46,7 @@ const StockPage = () => {
                                     onClick={() => setActiveTab('history')}
                                     className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'history' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                                 >
-                                    Lançamentos
+                                    Movimentações
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('audit')}
@@ -72,7 +72,7 @@ const StockPage = () => {
                             className="flex items-center justify-center gap-2 xl:gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
                         >
                             <i className="bi bi-lightning-charge-fill text-sm xl:text-base" />
-                            Novo Lançamento
+                            Nova Movimentação de Estoque
                         </button>
                     </div>
                 </div>

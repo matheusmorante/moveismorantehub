@@ -199,22 +199,32 @@ export const getLocalISODate = (date: Date = new Date()) => {
     return `${year}-${month}-${day}`;
 };
 
-export const generateProductCode = (description: string): string => {
-    if (!description) return "";
-
-    const stopWords = ["de", "da", "do", "das", "dos", "com", "em", "para", "a", "o", "as", "os"];
-    const words = description
-        .split(" ")
-        .filter(w => w.length > 1 && !stopWords.includes(w.toLowerCase()));
+export const generateProductCode = (description: string, type?: string, line?: string): string => {
+    // PADRÃO SOLICITADO: 3 LETRAS + '-' + 5 NUMEROS
+    // Letras baseadas no TIPO e MODELO/LINHA
     
-    let baseCode = words.map(w => w.charAt(0).toUpperCase()).join("");
+    let letters = "";
     
-    if (baseCode.length < 2) {
-        baseCode = (description.replace(/\s/g, '').substring(0, 3)).toUpperCase();
+    if (type && type.length >= 1) {
+        letters += type.substring(0, 1).toUpperCase();
+    }
+    
+    if (line && line.length >= 2) {
+        letters += line.substring(0, 2).toUpperCase();
+    } else if (line && line.length === 1) {
+        letters += line.toUpperCase() + "X";
     }
 
-    // O sufixo será adicionado no momento da inserção após verificar o banco
-    return baseCode;
+    // Fallback se não tiver dados suficientes
+    if (letters.length < 3) {
+        const cleanDesc = (description || "").replace(/\s/g, '').toUpperCase();
+        letters = (letters + cleanDesc).substring(0, 3);
+    }
+
+    if (letters.length > 3) letters = letters.substring(0, 3);
+
+    // O sufixo númerico -NNNNN será gerado dinamicamente pelo banco/serviço para evitar duplicidade
+    return `${letters}-`;
 };
 
 

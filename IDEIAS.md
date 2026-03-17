@@ -9,6 +9,12 @@
     - [x] Conferência de Recebimento de Pedidos de Compra.
 - [x] **Logística**:
     - [x] Impressão de Etiquetas de Envio (Shipping Labels) personalizada.
+    - [x] Novo Padrão de SKU (LLL-00000) com trigger de banco de dados.
+- [x] **Marketing & Canais**:
+    - [x] Menu Marketing Centralizado.
+    - [x] Catálogo de Canais (Visualização de Visibilidade Global/Variações).
+    - [ ] **Sincronização Push**: Disparar atualização automática para Meta ao mudar estoque no ERP.
+    - [ ] **Ads Analytics**: Integrar custos de anúncios com lucro líquido por produto.
 - [ ] **Expansão do Scanner (Novas Ideias)**:
     - [ ] **Check-in de Cliente**: Carregar perfil rápido ao escanear QR do cliente.
     - [ ] **Endereçamento (Bins)**: Escanear prateleira + produto para organizar o depósito.

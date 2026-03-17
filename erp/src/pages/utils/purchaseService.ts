@@ -9,7 +9,8 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
     supabase.from(TABLE_NAME)
         .select('*')
         .order('date', { ascending: false })
-        .then(({ data, error }) => {
+        .then((response: any) => {
+            const { data, error } = response;
             if (data && !error) {
                 callback(data.map(mapFromDB));
             } else if (error) {
@@ -23,8 +24,8 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
             supabase.from(TABLE_NAME)
                 .select('*')
                 .order('date', { ascending: false })
-                .then(({ data }) => {
-                    if (data) callback(data.map(mapFromDB));
+                .then((response: any) => {
+                    if (response.data) callback(response.data.map(mapFromDB));
                 });
         })
         .subscribe();
@@ -53,6 +54,8 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
             quantity: qtyToMove,
             date: new Date().toISOString(),
             label: purchase.invoiceNumber ? `Entrada NF-${purchase.invoiceNumber}` : `Entrada do Pedido nº ${savedId}`,
+            relatedEntityId: savedId,
+            relatedEntityType: 'purchase_order',
             observation: `Pedido de Compra | Fornecedor: ${purchase.supplierName || 'Desconhecido'}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}`,
             unitCost: item.unitCost
         }, currentStockValue);

@@ -34,7 +34,7 @@ export const SimpleAreaChart = ({ data }: { data: ChartData[] }) => {
     const height = 250;
     const points = data.map((d, i) => ({
         x: (i / Math.max(data.length - 1, 1)) * width,
-        y: height - (d.valor / maxVal) * (height * 0.8) - 20
+        y: height - (d.valor / maxVal) * (height * 0.9) - 5 // Ocupa 90% da altura em vez de 80%
     }));
 
     const pathData = `M ${points[0].x},${height} ` + 
@@ -52,18 +52,41 @@ export const SimpleAreaChart = ({ data }: { data: ChartData[] }) => {
                 </linearGradient>
             </defs>
             {[0, 0.25, 0.5, 0.75, 1].map(v => (
-                <line key={v} x1="0" y1={height * v} x2={width} y2={height * v} stroke="#e2e8f0" strokeDasharray="4 4" />
+                <line key={v} x1="0" y1={height * v} x2={width} y2={height * v} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
             ))}
             <path d={pathData} fill="url(#areaGradient)" />
             <path d={lineData} fill="none" stroke="#3b82f6" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-            {points.map((p, i) => (
-                <g key={i}>
-                    <circle cx={p.x} cy={p.y} r="8" fill="#3b82f6" stroke="#fff" strokeWidth="4" />
-                    <text x={p.x} y={height + 25} textAnchor="middle" className="text-[24px] font-bold fill-slate-400 uppercase tracking-widest">
-                        {data[i].name}
-                    </text>
-                </g>
-            ))}
+            {points.map((p, i) => {
+                // Lógica de densidade aprimorada:
+                // Tentamos mostrar entre 10 a 12 labels para preencher melhor o espaço.
+                // Para 30 dias, isso dá um label a cada 2 ou 3 dias.
+                const labelSkip = Math.max(Math.floor(data.length / 11), 1);
+                let showLabel = i % labelSkip === 0;
+                
+                const isLast = i === data.length - 1;
+                if (isLast) {
+                    showLabel = true;
+                } else if (showLabel && (data.length - 1 - i) < (labelSkip * 0.7)) {
+                    // Evita label muito colado no último, mas com margem menor para permitir mais dados
+                    showLabel = false;
+                }
+
+                return (
+                    <g key={i}>
+                        <circle cx={p.x} cy={p.y} r="8" fill="#3b82f6" stroke="#fff" strokeWidth="4" />
+                        {showLabel && (
+                            <text 
+                                x={p.x} 
+                                y={height + 30}
+                                textAnchor="middle" 
+                                className="text-[14px] font-black fill-slate-400 dark:fill-slate-500 uppercase tracking-tighter"
+                            >
+                                {data[i].name}
+                            </text>
+                        )}
+                    </g>
+                );
+            })}
         </svg>
     );
 };

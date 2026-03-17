@@ -140,6 +140,8 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
         if (updates.label !== undefined) dbUpdates.label = updates.label;
         if (updates.date !== undefined) dbUpdates.date = updates.date;
         if (updates.parentMoveId !== undefined) dbUpdates.parent_move_id = updates.parentMoveId;
+        if (updates.relatedEntityId !== undefined) dbUpdates.related_entity_id = updates.relatedEntityId;
+        if (updates.relatedEntityType !== undefined) dbUpdates.related_entity_type = updates.relatedEntityType;
 
         const { error } = await supabase
             .from(TABLE_NAME)
@@ -261,6 +263,8 @@ const mapToDB = (move: InventoryMove) => ({
     label: move.label,
     unit_cost: move.unitCost,
     parent_move_id: move.parentMoveId,
+    related_entity_id: move.relatedEntityId,
+    related_entity_type: move.relatedEntityType,
     observation: move.observation
 });
 
@@ -275,6 +279,8 @@ const mapFromDB = (data: any): InventoryMove => ({
     label: data.label,
     unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
     parentMoveId: data.parent_move_id,
+    relatedEntityId: data.related_entity_id,
+    relatedEntityType: data.related_entity_type,
     observation: data.observation,
     createdAt: data.created_at
 });

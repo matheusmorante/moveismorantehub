@@ -1,5 +1,6 @@
 import React from 'react';
 import Product from '../../../../types/product.type';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface ProductEcommerceTabProps {
     formData: Partial<Product>;
@@ -15,7 +16,25 @@ interface ProductEcommerceTabProps {
     isGeneratingDescription: boolean;
     handleGenerateMarketplaceTitle: () => void;
     isGeneratingTitle: boolean;
+    handleToggleActive: () => void;
 }
+
+const InfoTooltip: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+    return (
+        <div className="relative group inline-block ml-2">
+            <i className="bi bi-info-circle text-blue-500 hover:text-blue-600 transition-colors cursor-help"></i>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">{title}</p>
+                    <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {children}
+                    </div>
+                </div>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white dark:border-t-slate-800"></div>
+            </div>
+        </div>
+    );
+};
 
 const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     formData,
@@ -30,8 +49,18 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     handleGenerateAIDescription,
     isGeneratingDescription,
     handleGenerateMarketplaceTitle,
-    isGeneratingTitle
+    isGeneratingTitle,
+    handleToggleActive
 }) => {
+    const onDragEnd = (result: DropResult) => {
+        if (!result.destination) return;
+
+        const items = Array.from(formData.images || []);
+        const [reorderedItem] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, reorderedItem);
+
+        setFormData({ ...formData, images: items });
+    };
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Sub-tabs Navigation */}
@@ -61,23 +90,44 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             {/* VITRINE DASHBOARD */}
             {activeEcommerceSubTab === 'vitrine' && (
                 <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm animate-in fade-in zoom-in duration-500">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-lg transition-all ${formData.active ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-slate-200 text-slate-400 shadow-none'}`}>
+                                <i className={`bi ${formData.active ? 'bi-toggle-on' : 'bi-toggle-off'}`}></i>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Status Global de Venda</h4>
+                                <p className={`text-[10px] font-black uppercase tracking-widest ${formData.active ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                    {formData.active ? 'Publicado nos Canais' : 'Pausado em todos Canais'}
+                                </p>
+                            </div>
+                        </div>
+                        <div 
+                            onClick={handleToggleActive}
+                            className={`w-16 h-8 rounded-full p-1 cursor-pointer transition-all duration-300 relative ${formData.active ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-200 dark:bg-slate-800'}`}
+                        >
+                            <div className={`w-6 h-6 bg-white rounded-full transition-transform duration-300 shadow-sm flex items-center justify-center ${formData.active ? 'translate-x-8' : 'translate-x-0'}`}>
+                                <i className={`bi ${formData.active ? 'bi-check text-emerald-500' : 'bi-pause text-slate-300'} text-xs font-black`}></i>
+                            </div>
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* SITE / ECOMMERCE READINESS */}
-                        <div className={`p-8 rounded-[3rem] border transition-all ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'bg-amber-500/5 border-amber-500/10' : 'bg-emerald-500/5 border-emerald-500/10'}`}>
+                        <div className={`p-8 rounded-[3rem] border transition-all ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'bg-amber-500/5 border-amber-500/10' : 'bg-emerald-500/5 border-emerald-500/10'}`}>
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl shadow-lg ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-emerald-500 text-white shadow-emerald-500/20'}`}>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl shadow-lg ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-emerald-500 text-white shadow-emerald-500/20'}`}>
                                         <i className="bi bi-globe"></i>
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Canais E-commerce (Site)</h4>
-                                        <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                            {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'Não Apto para Sincronizar' : 'Apto para Sincronizar'}
+                                        <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                            {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'Não Apto para Sincronizar' : 'Apto para Sincronizar'}
                                         </p>
                                     </div>
                                 </div>
-                                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                    {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice || !formData.width || !formData.height || !formData.depth || !formData.weight) ? 'Pendente' : 'Completo'}
+                                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'Pendente' : 'Completo'}
                                 </div>
                             </div>
 
@@ -96,10 +146,6 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         <i className={`bi ${formData.unitPrice && formData.unitPrice > 0 ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
                                         <span className={`text-xs font-bold ${formData.unitPrice && formData.unitPrice > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Valor de Venda Definido</span>
                                     </li>
-                                    <li className="flex items-center gap-3">
-                                        <i className={`bi ${(formData.pkgWidth && formData.pkgHeight && formData.pkgDepth && formData.weight) ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
-                                        <span className={`text-xs font-bold ${(formData.pkgWidth && formData.pkgHeight && formData.pkgDepth && formData.weight) ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Dimensões e Peso de Envio</span>
-                                    </li>
                                 </ul>
                             </div>
                         </div>
@@ -114,35 +160,56 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                     <div>
                                         <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Catálogo WhatsApp Business</h4>
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                            {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Não Apto para Sincronizar' : 'Apto para Sincronizar'}
+                                            {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Faltam Dados' : 'Apto para Sincronizar'}
                                         </p>
                                     </div>
                                 </div>
-                                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                    {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Pendente' : 'Completo'}
+                                <div className={`flex flex-col gap-2 items-end`}>
+                                    <div 
+                                        onClick={() => setFormData({ ...formData, whatsappSync: !formData.whatsappSync })}
+                                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all ${formData.whatsappSync ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-100 text-slate-400'}`}
+                                    >
+                                        {formData.whatsappSync ? 'Ativo no WhatsApp' : 'Inativo no WhatsApp'}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Checklist WhatsApp</p>
-                                <ul className="space-y-3">
-                                    <li className="flex items-center gap-3">
-                                        <i className={`bi ${formData.whatsappDescription ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
-                                        <span className={`text-xs font-bold ${formData.whatsappDescription ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Descrição para Venda Direta</span>
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <i className={`bi ${formData.images?.length ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
-                                        <span className={`text-xs font-bold ${formData.images?.length ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Fotos do Produto</span>
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <i className={`bi ${formData.unitPrice && formData.unitPrice > 0 ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
-                                        <span className={`text-xs font-bold ${formData.unitPrice && formData.unitPrice > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Preço de Venda</span>
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <i className={`bi ${(formData.line || formData.hasNoLine) ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-lg`}></i>
-                                        <span className={`text-xs font-bold ${(formData.line || formData.hasNoLine) ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600 italic'}`}>Vínculo de Modelo / Linha</span>
-                                    </li>
-                                </ul>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Checklist WhatsApp</p>
+                                    <ul className="space-y-2">
+                                        <li className="flex items-center gap-3">
+                                            <i className={`bi ${formData.whatsappDescription ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-md`}></i>
+                                            <span className={`text-[11px] font-bold ${formData.whatsappDescription ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}>Descrição Venda</span>
+                                        </li>
+                                        <li className="flex items-center gap-3">
+                                            <i className={`bi ${formData.images?.length ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-md`}></i>
+                                            <span className={`text-[11px] font-bold ${formData.images?.length ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}>Fotos</span>
+                                        </li>
+                                        <li className="flex items-center gap-3">
+                                            <i className={`bi ${formData.unitPrice && formData.unitPrice > 0 ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-200'} text-md`}></i>
+                                            <span className={`text-[11px] font-bold ${formData.unitPrice && formData.unitPrice > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}>Preço</span>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div className="bg-white/50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Sinc. Automática</span>
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Conforme Estoque</span>
+                                        </div>
+                                        <div 
+                                            onClick={() => setFormData({ ...formData, whatsappAutoSync: !formData.whatsappAutoSync })}
+                                            className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-all ${formData.whatsappAutoSync ? 'bg-blue-500 shadow-md shadow-blue-500/20' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                        >
+                                            <div className={`w-4 h-4 bg-white rounded-full transition-all ${formData.whatsappAutoSync ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                                        </div>
+                                    </div>
+                                    <p className="text-[8px] font-medium text-slate-500 dark:text-slate-400 italic leading-tight">
+                                        Se ativo, o produto será marcado como "Indisponível" no WhatsApp automaticamente quando o estoque for zero.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -181,28 +248,52 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                        {formData.images?.map((url, idx) => (
-                            <div key={url} className="relative group aspect-square rounded-[2rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-md animate-in zoom-in-95 duration-200">
-                                <img src={url} alt={`Produto ${idx}`} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => removePhoto(url)}
-                                        disabled={removingPhoto === url}
-                                        className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-700 transition-all shadow-xl shadow-red-500/40 scale-0 group-hover:scale-100 duration-300"
-                                    >
-                                        {removingPhoto === url ? <i className="bi bi-arrow-repeat animate-spin"></i> : <i className="bi bi-trash-fill"></i>}
-                                    </button>
+                    <DragDropContext onDragEnd={onDragEnd}>
+                        <Droppable droppableId="product-photos" direction="horizontal">
+                            {(provided) => (
+                                <div 
+                                    {...provided.droppableProps}
+                                    ref={provided.innerRef}
+                                    className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6"
+                                >
+                                    {formData.images?.map((url, idx) => (
+                                        <Draggable key={url} draggableId={url} index={idx}>
+                                            {(provided, snapshot) => (
+                                                <div 
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    className={`relative group aspect-square rounded-[2rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-md transition-all ${snapshot.isDragging ? 'ring-4 ring-blue-500 scale-105 z-50 rotate-2' : ''}`}
+                                                >
+                                                    <img src={url} alt={`Produto ${idx}`} className="w-full h-full object-cover pointer-events-none" />
+                                                    <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removePhoto(url)}
+                                                            disabled={removingPhoto === url}
+                                                            className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-700 transition-all shadow-xl shadow-red-500/40"
+                                                        >
+                                                            {removingPhoto === url ? <i className="bi bi-arrow-repeat animate-spin"></i> : <i className="bi bi-trash-fill"></i>}
+                                                        </button>
+                                                        
+                                                        <div className="p-3 bg-white/20 text-white rounded-2xl backdrop-blur-md">
+                                                            <i className="bi bi-arrows-move"></i>
+                                                        </div>
+                                                    </div>
+                                                    {idx === 0 && (
+                                                        <div className="absolute top-4 left-4 px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg z-10">
+                                                            Pai / Principal
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
                                 </div>
-                                {idx === 0 && (
-                                    <div className="absolute top-4 left-4 px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
-                                        Principal
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                            )}
+                        </Droppable>
+                    </DragDropContext>
                 </div>
             )}
 
@@ -215,6 +306,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             <div className="flex flex-col gap-1">
                                 <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
                                     <i className="bi bi-megaphone"></i> Título para Marketplace
+                                    <InfoTooltip title="O que é o Título para Marketplace?">
+                                        É o nome que aparecerá em canais como Mercado Livre, Shopee e seu site.
+                                        <br/><br/>
+                                        <b>Dica:</b> Use palavras-chave que seus clientes usam para pesquisar, como "Madeira Maciça", "Luxo", "Retrô". Evite códigos internos ou nomes técnicos sem contexto.
+                                    </InfoTooltip>
                                 </h5>
                                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Este título será usado em Mercado Livre, Shopee, etc.</p>
                             </div>
@@ -247,6 +343,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             <div className="flex items-center justify-between">
                                 <h5 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
                                     <i className="bi bi-whatsapp"></i> Catálogo WhatsApp
+                                    <InfoTooltip title="Dicas para descrição no WhatsApp">
+                                        O WhatsApp é um canal de venda direta e rápida. 
+                                        <br/><br/>
+                                        <b>Dica:</b> Use uma linguagem mais pessoal e direta. Foque nos benefícios rápidos, dimensões principais e se está a pronta entrega. Use emojis para destacar pontos de atenção!
+                                    </InfoTooltip>
                                 </h5>
                                 <div className="flex gap-2">
                                     <button
@@ -272,6 +373,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             <div className="flex items-center justify-between">
                                 <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
                                     <i className="bi bi-globe"></i> Loja Virtual / Site
+                                    <InfoTooltip title="Otimização para Loja Virtual">
+                                        Aqui a descrição deve ser rica e detalhada para convencer o cliente e ajudar o Google a te encontrar.
+                                        <br/><br/>
+                                        <b>Dica:</b> Divida o texto em tópicos (Dimensões, Material, Cuidados). Use os termos que a IA gera como base para criar autoridade no seu nicho.
+                                    </InfoTooltip>
                                 </h5>
                                 <div className="flex gap-2">
                                     <button
@@ -456,7 +562,12 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                        URL Amigável (Slug) <i className="bi bi-question-circle" title="É o texto que aparece na URL. Ex: moveis.com/p/aparador-luxo-retro"></i>
+                                        URL Amigável (Slug) 
+                                        <InfoTooltip title="O que é URL Amigável (Slug)?">
+                                            É o endereço final do seu produto na internet. 
+                                            <br/><br/>
+                                            <b>Dica:</b> Mantenha curto e descritivo. Use apenas letras minúsculas e hifens. Ex: <i>aparador-madeira-retro-luxo</i>. URLs curtas rankeiam melhor no Google!
+                                        </InfoTooltip>
                                     </label>
                                     <span className="text-[9px] font-black text-blue-600 uppercase"> moveismorante.com/p/{(formData.slug || '').toLowerCase()} </span>
                                 </div>
@@ -473,7 +584,12 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             {/* META TITLE */}
                             <div className="flex flex-col gap-3">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                    Título SEO (Meta Title) <i className="bi bi-question-circle" title="O título que aparece na aba do navegador e no Google."></i>
+                                    Título SEO (Meta Title)
+                                    <InfoTooltip title="Dicas para o Título SEO">
+                                        Este é o título que aparece no Google e na aba do navegador.
+                                        <br/><br/>
+                                        <b>Dica:</b> O ideal é ter entre 50 e 60 caracteres. Coloque a palavra-chave principal no início. Ex: "Aparador de Madeira Retrô | Móveis Morante".
+                                    </InfoTooltip>
                                 </label>
                                 <input
                                     type="text"
@@ -488,7 +604,12 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             {/* META DESCRIPTION */}
                             <div className="flex flex-col gap-3">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                    Descrição SEO (Meta Description) <i className="bi bi-question-circle" title="O resumo que aparece abaixo do título nos resultados de busca."></i>
+                                    Descrição SEO (Meta Description)
+                                    <InfoTooltip title="Como escrever uma boa Meta Description">
+                                        É o "resumo" que aparece abaixo do título no Google.
+                                        <br/><br/>
+                                        <b>Dica:</b> Deve ter em torno de 150-160 caracteres. Inclua um "Chamado para Ação" (CTA) como "Confira as melhores ofertas!" ou "Entrega Imediata!".
+                                    </InfoTooltip>
                                 </label>
                                 <textarea
                                     value={formData.meta_description || ''}
@@ -503,7 +624,12 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                             {/* SEO DESCRIPTION (Additional Content) */}
                             <div className="flex flex-col gap-3">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                    Conteúdo Extra SEO (Página) <i className="bi bi-question-circle" title="Conteúdo rico em palavras-chave que fica no final da página do produto."></i>
+                                    Conteúdo Extra SEO (Página)
+                                    <InfoTooltip title="Para que serve o Conteúdo Extra?">
+                                        Conteúdo rico em texto posicionado no final da página para reforçar as palavras-chave para robôs de busca.
+                                        <br/><br/>
+                                        <b>Dica:</b> Escreva um texto fluido explicando a origem da linha de móveis, inspiração do design e por que o cliente deve escolher este material específico.
+                                    </InfoTooltip>
                                 </label>
                                 <textarea
                                     value={formData.seo_description || ''}

@@ -250,61 +250,72 @@ const Products = () => {
 
                 <div className="flex flex-col gap-6">
                     {/* Header Actions Container */}
-                    <div className="flex justify-between items-center px-2">
-                        <div className="flex gap-3">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 px-2">
+                        <div className="flex flex-1 items-center gap-3 w-full lg:w-auto">
+                            <div className="relative flex-1 min-w-[200px] max-w-md">
+                                <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
+                                <input
+                                    type="text"
+                                    placeholder="Pesquisar..."
+                                    value={filters.search}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                                    className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                                />
+                            </div>
+
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border ${isSidebarOpen
-                                    ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
-                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
+                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isSidebarOpen
+                                    ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600'
                                     }`}
+                                title="Filtros Avançados"
                             >
                                 <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'}`}></i>
-                                Filtros
+                                <span className="hidden sm:inline">Opções</span>
                             </button>
 
                             <button
                                 onClick={() => { setIsTrashOpen(true); setIsDraftOpen(false); }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border ${isTrashOpen ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500'}`}
+                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isTrashOpen ? 'bg-red-600 text-white border-red-500' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:text-red-500'}`}
+                                title="Lixeira"
                             >
                                 <i className="bi bi-trash"></i>
-                                Lixeira
+                                <span className="hidden sm:inline">Lixeira</span>
                             </button>
 
                             <button
                                 onClick={() => { setIsDraftOpen(!isDraftOpen); setIsTrashOpen(false); }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border ${isDraftOpen
-                                    ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/30'
-                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-800 hover:text-amber-500'
+                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isDraftOpen
+                                    ? 'bg-amber-500 text-white border-amber-400'
+                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800'
                                     }`}
+                                title="Rascunhos"
                             >
                                 <i className={`bi ${isDraftOpen ? 'bi-file-earmark-text-fill' : 'bi-file-earmark-text'}`}></i>
-                                Rascunhos
+                                <span className="hidden sm:inline">Rascunhos</span>
                             </button>
-
-
-                            <Link
-                                to="/registrations/variations"
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                            >
-                                <i className="bi bi-ui-radios"></i>
-                                Gerenciar Variações e Valores
-                            </Link>
-
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+                            <Link
+                                to="/registrations/variations"
+                                className="flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                            >
+                                <i className="bi bi-ui-radios"></i>
+                                <span className="hidden xl:inline">Gerenciar Variações</span>
+                            </Link>
 
                             <div className="relative">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
-                                    className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest ${showSettings
+                                    className={`flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
                                         ? 'border-blue-200 text-blue-600 dark:border-blue-800'
                                         : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
                                         }`}
                                 >
                                     <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
-                                    Visualização
+                                    <span className="hidden sm:inline">Visualização</span>
                                 </button>
 
                                 {showSettings && (

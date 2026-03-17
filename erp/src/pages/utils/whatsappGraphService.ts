@@ -74,15 +74,15 @@ export const whatsappGraphService = {
             );
 
             const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
+            if (!response.ok || data.error) {
+                console.error("[WhatsAppService] Erro Meta API:", data.error || data);
+                throw new Error(data.error?.message || `Erro HTTP ${response.status}`);
+            }
             
-            // Filter out products that are hidden (usually 'staging' visibility means hidden)
-            // 'published' is the standard for visible products
             const products = data.data || [];
             return products.filter((p: any) => p.visibility !== 'staging' && p.is_hidden !== true);
         } catch (error: any) {
             console.error("Erro ao carregar catálogo do WhatsApp:", error);
-            // Captura detalhes específicos da API do Facebook se houver
             const metaError = error.message || "Erro desconhecido na API da Meta";
             throw new Error(`Falha ao acessar catálogo: ${metaError}`);
         }
@@ -92,39 +92,66 @@ export const whatsappGraphService = {
      * Syncs (Add/Update) a product to the Meta Catalog
      * Note: This usually requires a Batch Request
      */
-    syncProductToCatalog: async (product: any) => {
+    syncProductToCatalog: async (product: any, action: 'UPDATE' | 'DELETE' = 'UPDATE') => {
         const { whatsappConfig } = getSettings();
         if (!whatsappConfig?.catalogId) throw new Error("Catalog ID não configurado.");
 
+        // Clean price for Meta (in cents, no decimals)
+        const priceCents = Math.round((product.unitPrice || product.price || 0) * 100);
+        
         const batchRequest = {
             requests: [
                 {
-                    method: 'UPDATE',
-                    retailer_id: product.id,
-                    data: {
-                        name: product.name,
-                        description: product.description || '',
-                        price: Math.round((product.price || 0) * 100), // Format in cents
+                    method: action,
+                    retailer_id: product.code || product.sku || product.id,
+                    data: action === 'UPDATE' ? {
+                        name: product.description || product.name,
+                        description: product.whatsappDescription || product.description || product.name,
+                        price: priceCents,
                         currency: 'BRL',
-                        condition: 'new',
-                        availability: (product.stock > 0) ? 'in stock' : 'out of stock',
-                        image_url: product.image_url,
-                        brand: 'Móveis Morante'
-                    }
+                        condition: product.condition === 'usado' ? 'used' : 'new',
+                        availability: (product.stock > 0 && product.active) ? 'in stock' : 'out of stock',
+                        image_url: product.images?.[0] || product.image_url,
+                        brand: product.brand || 'Móveis Morante',
+                        url: `https://moveismorante.com.br/p/${product.id}`, // Placeholder URL
+                        category: product.groupName || 'Furniture'
+                    } : undefined
                 }
             ]
         };
 
-        const response = await fetch(
-            `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/batch`,
-            {
-                method: 'POST',
-                headers: whatsappGraphService.getHeaders(),
-                body: JSON.stringify(batchRequest)
-            }
-        );
+        try {
+            const response = await fetch(
+                `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/batch`,
+                {
+                    method: 'POST',
+                    headers: whatsappGraphService.getHeaders(),
+                    body: JSON.stringify(batchRequest)
+                }
+            );
 
-        return response.json();
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error("[WhatsAppService] Erro no Batch Sync:", data.error);
+                if (data.error.code === 200 || data.error.message?.includes("blocked")) {
+                    throw new Error("Acesso à API Bloqueado: Verifique se o Token tem permissão 'catalog_management' e se o Catálogo ID está correto no Gerenciador de Negócios.");
+                }
+                throw new Error(data.error.message || "Erro desconhecido ao sincronizar.");
+            }
+
+            return data;
+        } catch (error: any) {
+            console.error("Erro fatal no sync WhatsApp:", error);
+            throw error;
+        }
+    },
+
+    /**
+     * Removes a product from the Meta Catalog
+     */
+    deleteProductFromCatalog: async (retailerId: string) => {
+        return whatsappGraphService.syncProductToCatalog({ code: retailerId }, 'DELETE');
     },
 
     /**
