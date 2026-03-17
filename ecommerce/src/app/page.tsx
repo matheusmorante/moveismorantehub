@@ -16,6 +16,8 @@ interface Product {
   main_image_url: string | null;
   stock_quantity: number;
   status: string;
+  category?: string;
+  slug?: string;
 }
 
 export default async function Home(props: { searchParams: Promise<{ category?: string }> }) {
@@ -58,7 +60,7 @@ export default async function Home(props: { searchParams: Promise<{ category?: s
   }
 
   // Map ERP columns to Ecomm display structure
-  const displayProducts: any[] = productsData.map(p => ({
+  const displayProducts: Product[] = productsData.map(p => ({
     id: p.id,
     name: p.description, // ERP uses description as title
     sku: p.code, // ERP uses code as SKU
@@ -217,7 +219,7 @@ export default async function Home(props: { searchParams: Promise<{ category?: s
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {displayProducts.map((product) => (
+              {displayProducts.map((product: Product) => (
                 <div key={product.id} className="group bg-white rounded-[2.5rem] overflow-hidden border border-neutral-200 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-500 flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {/* Image Container */}
                   <div className="relative aspect-[4/5] bg-neutral-50 overflow-hidden flex flex-col items-center justify-center">

@@ -4,7 +4,7 @@ import ProductFilters from "./ProductFilters";
 import ProductList from "./ProductList";
 import ProductFormModal from "./ProductFormModal";
 import Product, { ProductVisibilitySettings } from "../../types/product.type";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import PriceHistoryModal from "./PriceHistoryModal";
 import { cleanupOldDrafts } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
@@ -34,6 +34,7 @@ const Products = () => {
     const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
     const [categoryTree, setCategoryTree] = useState<any>(null);
     const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const productListRef = useRef<ProductListRef>(null);
     const trashListRef = useRef<ProductListRef>(null);
@@ -64,6 +65,22 @@ const Products = () => {
         };
         loadCategoryData();
     }, []);
+    
+    // Auto-open edit modal if edit param is present
+    useEffect(() => {
+        const editId = searchParams.get('edit');
+        if (editId) {
+            // No product list, just trigger edit by setting a minimal product object
+            // The ProductFormModal with useEffect [product] will call getFullProduct(editId)
+            setEditingProduct({ id: editId } as Product);
+            setIsFormModalOpen(true);
+            
+            // Clear param after opening
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('edit');
+            setSearchParams(newParams, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
     const [filters, setFilters] = useState<ProductFiltersData>({
         search: "",

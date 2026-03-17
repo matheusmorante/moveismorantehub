@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { fetchGroupsAndCategories, createCategory, updateCategory, deleteCategory, updateCategoryChildren, generateSlug } from '@/pages/utils/categoryService';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -9,6 +10,7 @@ const Categories = () => {
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'ambientes' | 'tipos' | 'tree'>('tipos');
+    const navigate = useNavigate();
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -629,15 +631,19 @@ const Categories = () => {
                             ) : (
                                 <div className="grid grid-cols-1 gap-3">
                                     {linkedProducts.map(prod => (
-                                        <div key={prod.id} className="group p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-transparent hover:border-slate-100 dark:hover:border-slate-700 transition-all flex items-center justify-between">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200 leading-none uppercase">{prod.description}</span>
-                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CÓD: {prod.code || 'S/ REF'}</span>
+                                            <div 
+                                                key={prod.id} 
+                                                onClick={() => navigate(`/registrations/products?edit=${prod.id}`)}
+                                                className="group p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-transparent hover:border-blue-200 dark:hover:border-blue-800/50 hover:bg-white dark:hover:bg-slate-800 transition-all flex items-center justify-between cursor-pointer"
+                                            >
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs font-black text-slate-700 dark:text-slate-200 leading-none uppercase">{prod.description}</span>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CÓD: {prod.code || 'S/ REF'}</span>
+                                                </div>
+                                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-blue-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
+                                                    <i className="bi bi-arrow-right-short text-xl"></i>
+                                                </div>
                                             </div>
-                                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-blue-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
-                                                <i className="bi bi-arrow-right-short text-xl"></i>
-                                            </div>
-                                        </div>
                                     ))}
                                 </div>
                             )}

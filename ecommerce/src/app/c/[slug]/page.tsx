@@ -5,6 +5,15 @@ import { ShoppingCart, ArrowLeft, Filter } from "lucide-react";
 
 export const revalidate = 3600;
 
+interface Product {
+  id: string;
+  slug?: string;
+  description: string;
+  unit_price: number;
+  images?: string[];
+  category?: string;
+}
+
 async function getCategory(slug: string) {
   const { data, error } = await supabase
     .from("categories")
@@ -16,7 +25,7 @@ async function getCategory(slug: string) {
   return data;
 }
 
-async function getProductsByCategory(categoryName: string) {
+async function getProductsByCategory(categoryName: string): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
     .select("*")
@@ -26,7 +35,7 @@ async function getProductsByCategory(categoryName: string) {
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  return data || [];
+  return (data || []) as Product[];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -87,7 +96,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
            </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {products.map((p) => (
+            {products.map((p: Product) => (
               <div key={p.id} className="bg-white rounded-[2.5rem] overflow-hidden border border-neutral-200 hover:border-blue-500 transition-all flex flex-col h-full">
                 <Link href={p.slug ? `/p/${p.slug}` : `/p/${p.id}`} className="block aspect-[4/5] bg-neutral-50 overflow-hidden relative">
                    {p.images?.[0] ? (
