@@ -196,23 +196,37 @@ const mapFromDB = (data: any): Product => {
     };
 };
 
-const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at, product_categories(category_id)";
+const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at";
+const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(category_id)";
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
     let currentProducts: Product[] = [];
 
     const fetchInitial = async () => {
         try {
-            // Try light fetch first
+            // Tenta primeiro com categorias relacionadas
             let { data, error } = await supabase.from(TABLE_NAME)
-                .select(LIGHT_COLUMNS)
+                .select(LIGHT_COLUMNS_WITH_CATS)
+                .eq('deleted', false)
                 .order('description', { ascending: true });
 
-            if (error && (error.message?.includes("column") || error.code === '42703')) {
-                console.warn("[ProductService] Colunas leves não encontradas no cache (42703), tentando fallback...");
-                // Fallback to basic fetch
+            // Se falhar (400, coluna não encontrada ou schema cache), tenta sem o join de categorias
+            if (error) {
+                console.warn("[ProductService] Fetch com categorias falhou, tentando sem join...", error.message);
+                const res = await supabase.from(TABLE_NAME)
+                    .select(LIGHT_COLUMNS)
+                    .eq('deleted', false)
+                    .order('description', { ascending: true });
+                data = res.data;
+                error = res.error;
+            }
+
+            // Último fallback: apenas colunas básicas
+            if (error) {
+                console.warn("[ProductService] Fallback básico...", error.message);
                 const res = await supabase.from(TABLE_NAME)
                     .select('id, code, description, brand, category, unit_price, cost_price, stock, item_type, created_at, active, deleted, images, variations')
+                    .eq('deleted', false)
                     .order('description', { ascending: true });
                 data = res.data;
                 error = res.error;
@@ -222,11 +236,11 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
                 currentProducts = data.map(mapFromDB);
                 callback(currentProducts);
             } else {
-                console.error("Erro fatal também no fallback ao buscar produtos iniciais:", error);
+                console.error("[ProductService] Erro fatal nos 3 níveis de fallback:", error);
                 callback([]);
             }
         } catch (err) {
-            console.error("Erro critico de exceção ao buscar produtos:", err);
+            console.error("[ProductService] Exceção crítica ao buscar produtos:", err);
             callback([]);
         }
     };
@@ -260,11 +274,24 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
  */
 export const getFullProduct = async (id: string): Promise<Product | null> => {
     try {
-        const { data, error } = await supabase
+        // Tenta buscar com categorias relacionadas
+        let { data, error } = await supabase
             .from(TABLE_NAME)
             .select('*, product_categories(category_id)')
             .eq('id', id)
             .single();
+
+        // Fallback sem join caso schema cache falhe
+        if (error) {
+            console.warn('[ProductService] getFullProduct com join falhou, tentando sem join...', error.message);
+            const res = await supabase
+                .from(TABLE_NAME)
+                .select('*')
+                .eq('id', id)
+                .single();
+            data = res.data;
+            error = res.error;
+        }
 
         if (error) throw error;
         return data ? mapFromDB(data) : null;
@@ -357,7 +384,7 @@ export const saveProduct = async (product: Product): Promise<string> => {
         let { data, error } = await supabase
             .from(TABLE_NAME)
             .insert([dbProduct])
-            .select();
+            .select('id, description');
 
         // Fail-safe: If insert fails due to missing columns
         if (error && (error.message?.includes("column") || error.message?.includes("schema cache") || error.code === '42703')) {
@@ -380,7 +407,7 @@ export const saveProduct = async (product: Product): Promise<string> => {
             const { data: retryData, error: retryError } = await supabase
                 .from(TABLE_NAME)
                 .insert([safeDBProduct])
-                .select();
+                .select('id, description');
             
             data = retryData;
             error = retryError;
@@ -520,7 +547,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
         // Fetch current product for history log
         const { data: currentItem, error: fetchError } = await supabase
             .from(TABLE_NAME)
-            .select('*')
+            .select('id, description, unit_price, cost_price, code, variations')
             .eq('id', id)
             .single();
 

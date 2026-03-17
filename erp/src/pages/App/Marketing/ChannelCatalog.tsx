@@ -27,10 +27,7 @@ const ChannelCatalog: React.FC = () => {
             // Fetch products and their variations
             const { data: productsData, error: pError } = await supabase
                 .from('products')
-                .select(`
-                    *,
-                    variations(*)
-                `)
+                .select('*')
                 .eq('deleted', false)
                 .order('description');
 
