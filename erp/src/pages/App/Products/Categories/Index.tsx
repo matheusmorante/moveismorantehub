@@ -8,7 +8,7 @@ const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUART
 const Categories = () => {
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'tipos' | 'tree'>('tipos');
+    const [activeTab, setActiveTab] = useState<'ambientes' | 'tipos' | 'tree'>('tipos');
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -25,6 +25,11 @@ const Categories = () => {
     const [seoMetaTitle, setSeoMetaTitle] = useState("");
     const [seoMetaDescription, setSeoMetaDescription] = useState("");
     const [seoContent, setSeoContent] = useState("");
+    
+    // Linked Products State
+    const [viewingProductsId, setViewingProductsId] = useState<string | null>(null);
+    const [linkedProducts, setLinkedProducts] = useState<any[]>([]);
+    const [loadingProducts, setLoadingProducts] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -148,6 +153,27 @@ const Categories = () => {
         );
     };
 
+    const fetchLinkedProducts = async (categoryId: string) => {
+        setViewingProductsId(categoryId);
+        setLoadingProducts(true);
+        setLinkedProducts([]);
+        try {
+            const { data, error } = await supabase
+                .from('product_categories')
+                .select('product_id, products(id, code, description)')
+                .eq('category_id', categoryId);
+            
+            if (error) throw error;
+            if (data) {
+                setLinkedProducts(data.map((item: any) => item.products).filter(Boolean));
+            }
+        } catch (error) {
+            console.error("Erro ao buscar produtos:", error);
+            toast.error("Erro ao carregar produtos vinculados.");
+        } finally {
+            setLoadingProducts(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -163,12 +189,9 @@ const Categories = () => {
     const environments = categories.filter(c => {
         const name = c.name.trim().toUpperCase();
         const isFixed = FIXED_ENVIRONMENTS.includes(name);
-        const hasNoParents = !c.parents || c.parents.length === 0;
-        const isParentOfOthers = categories.some(other => other.parents?.includes(c.id));
-        
-        // É tipo se: está na lista fixa OU tem filhos OU (é raiz E não é explicitamente móvel - heurística)
-        // Para respeitar o "apenas eles", vamos priorizar a lista fixa e itens que já possuem filhos.
-        return isFixed || isParentOfOthers || (hasNoParents && activeTab === 'tipos' && editingCategory?.id === c.id);
+        // É ambiente se: está na lista fixa OU (é raiz E possui filhos vinculados)
+        const hasChildren = categories.some(other => other.parents?.includes(c.id));
+        return isFixed || hasChildren;
     });
 
     const subCategories = categories.filter(c => !environments.some(e => e.id === c.id));
@@ -202,6 +225,11 @@ const Categories = () => {
             {/* Tab Navigation */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-1 flex items-center justify-between shadow-sm sticky top-4 z-10 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80">
                 <div className="flex">
+                    <button onClick={() => setActiveTab('ambientes')} className={tabButtonClass('ambientes')}>
+                        <i className="bi bi-house-door-fill mr-2 text-sm"></i>
+                        Ambientes
+                        {activeTab === 'ambientes' && <div className="absolute bottom-0 left-4 right-4 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in"></div>}
+                    </button>
                     <button onClick={() => setActiveTab('tipos')} className={tabButtonClass('tipos')}>
                         <i className="bi bi-tag-fill mr-2 text-sm"></i>
                         Tipos de Móveis
@@ -217,7 +245,70 @@ const Categories = () => {
 
             <div className="grid grid-cols-1 gap-8 animate-in fade-in duration-500">
                 
-                {/* Tab: Tipos de Móveis (Unificada) */}
+                {/* Tab: Ambientes */}
+                {activeTab === 'ambientes' && (
+                    <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-8 flex flex-col gap-8 shadow-premium-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col gap-0.5">
+                                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Gestão de Ambientes</h2>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CADASTRE OS AMBIENTES PRINCIPAIS (COZINHA, SALA, ETC)</p>
+                            </div>
+                            {!isAddingCategory && (
+                                <button onClick={() => { setIsAddingCategory(true); setSelectedParents([]); setSelectedChildren([]); }} className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2">
+                                    <i className="bi bi-plus-lg"></i> Novo Ambiente
+                                </button>
+                            )}
+                        </div>
+                        {isAddingCategory && (
+                            /* Reuse the same form or similar style */
+                            <div className="flex flex-col gap-6 border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/10 p-8 rounded-[2.5rem] animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex flex-col gap-3">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome do Ambiente:</span>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={catName}
+                                        onChange={(e) => {
+                                            const val = e.target.value.toUpperCase();
+                                            setCatName(val);
+                                            setSeoSlug(generateSlug(val));
+                                            setSeoMetaTitle(val + " | Móveis Morante");
+                                        }}
+                                        placeholder=" EX: SALA DE JANTAR, VARANDA GOURMET..."
+                                        className="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-black focus:outline-none focus:ring-4 focus:ring-blue-500/10 uppercase"
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={(e) => handleSaveCategory(e, true)} className="flex-1 bg-blue-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Salvar Ambiente</button>
+                                    <button onClick={() => { setIsAddingCategory(false); setCatName(""); }} className="px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-red-500 transition-all">Cancelar</button>
+                                </div>
+                            </div>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {environments.map(cat => (
+                                <div key={cat.id} className="group p-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-blue-300 shadow-sm rounded-2xl transition-all">
+                                    <div className="flex items-center justify-between p-4 pl-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center font-black text-[10px]"><i className="bi bi-house-door-fill"></i></div>
+                                            <span className="font-black text-slate-700 dark:text-slate-300 text-sm tracking-tight uppercase">{cat.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                             <button 
+                                                onClick={(e) => { e.stopPropagation(); fetchLinkedProducts(cat.id); }}
+                                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                            >
+                                                <i className="bi bi-box-seam text-xs"></i>
+                                            </button>
+                                            {!FIXED_ENVIRONMENTS.includes(cat.name.trim().toUpperCase()) && (
+                                                <button onClick={() => handleDeleteCategory(cat.id, true)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg"><i className="bi bi-trash-fill text-xs"></i></button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 {activeTab === 'tipos' && (
                     <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-8 flex flex-col gap-8 shadow-premium-lg">
                         <div className="flex items-center justify-between">
@@ -426,6 +517,13 @@ const Categories = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all pr-1">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); fetchLinkedProducts(cat.id); }}
+                                                            className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                            title="Ver Produtos Vinculados"
+                                                        >
+                                                            <i className="bi bi-box-seam text-xs"></i>
+                                                        </button>
                                                         {!FIXED_ENVIRONMENTS.includes(cat.name.trim().toUpperCase()) && (
                                                             <>
                                                                 <button onClick={() => { 
@@ -499,6 +597,58 @@ const Categories = () => {
                     </div>
                 )}
             </div>
+
+            {/* Modal de Produtos Vinculados */}
+            {viewingProductsId && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 overflow-hidden">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewingProductsId(null)} />
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[80vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Produtos Vinculados</h2>
+                                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-1">
+                                    {categories.find(c => c.id === viewingProductsId)?.name}
+                                </p>
+                            </div>
+                            <button onClick={() => setViewingProductsId(null)} className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all shadow-sm">
+                                <i className="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+                            {loadingProducts ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">Buscando na base...</span>
+                                </div>
+                            ) : linkedProducts.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
+                                    <i className="bi bi-box-seam text-5xl text-slate-300"></i>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Nenhum produto vinculado a este tipo.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3">
+                                    {linkedProducts.map(prod => (
+                                        <div key={prod.id} className="group p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-transparent hover:border-slate-100 dark:hover:border-slate-700 transition-all flex items-center justify-between">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200 leading-none uppercase">{prod.description}</span>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CÓD: {prod.code || 'S/ REF'}</span>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-blue-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
+                                                <i className="bi bi-arrow-right-short text-xl"></i>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-8 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">TOTAL DE {linkedProducts.length} {linkedProducts.length === 1 ? 'PRODUTO ENCONTRADO' : 'PRODUTOS ENCONTRADOS'}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

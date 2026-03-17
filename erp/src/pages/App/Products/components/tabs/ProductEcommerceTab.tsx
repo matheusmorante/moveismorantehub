@@ -4,8 +4,8 @@ import Product from '../../../../types/product.type';
 interface ProductEcommerceTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    activeEcommerceSubTab: 'vitrine' | 'photos' | 'descriptions' | 'logistics';
-    setActiveEcommerceSubTab: React.Dispatch<React.SetStateAction<'vitrine' | 'photos' | 'descriptions' | 'logistics'>>;
+    activeEcommerceSubTab: 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';
+    setActiveEcommerceSubTab: React.Dispatch<React.SetStateAction<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>>;
     isDraggingPhoto: boolean;
     setIsDraggingPhoto: React.Dispatch<React.SetStateAction<boolean>>;
     handleFileChange: (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => void;
@@ -41,6 +41,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     { id: 'photos', label: 'Fotos', icon: 'bi-images' },
                     { id: 'descriptions', label: 'Descrição / Canais', icon: 'bi-pencil-square' },
                     { id: 'logistics', label: 'Logística / Frete', icon: 'bi-truck' },
+                    { id: 'seo', label: 'SEO e URL', icon: 'bi-search' },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -433,6 +434,87 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 </p>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+            {/* SEO SUB-TAB */}
+            {activeEcommerceSubTab === 'seo' && (
+                <div className="flex flex-col gap-10 animate-in fade-in duration-300">
+                    <div className="bg-blue-50/50 dark:bg-blue-950/20 p-8 rounded-[2.5rem] border border-blue-100 dark:border-blue-900/30 flex flex-col gap-8">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20">
+                                <i className="bi bi-search text-2xl"></i>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Otimização de SEO (Search Engine Optimization)</h4>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Melhore o ranking e as URLs do seu produto no Google</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-8">
+                            {/* SLUG */}
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                        URL Amigável (Slug) <i className="bi bi-question-circle" title="É o texto que aparece na URL. Ex: moveis.com/p/aparador-luxo-retro"></i>
+                                    </label>
+                                    <span className="text-[9px] font-black text-blue-600 uppercase"> moveismorante.com/p/{(formData.slug || '').toLowerCase()} </span>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={formData.slug || ''}
+                                    placeholder="ex: aparador-luxo-retro"
+                                    onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    className="w-full px-6 py-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
+                                />
+                                <p className="text-[9px] text-slate-400 font-bold uppercase"><b>O que é?</b> É o nome do produto simplificado para a URL, sem espaços ou acentos.</p>
+                            </div>
+
+                            {/* META TITLE */}
+                            <div className="flex flex-col gap-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                    Título SEO (Meta Title) <i className="bi bi-question-circle" title="O título que aparece na aba do navegador e no Google."></i>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.meta_title || ''}
+                                    placeholder="Título para o Google..."
+                                    onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
+                                    className="w-full px-6 py-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200"
+                                />
+                                <p className="text-[9px] text-slate-400 font-bold uppercase"><b>O que é?</b> O título principal que aparece na pesquisa do Google. Deve ser chamativo.</p>
+                            </div>
+
+                            {/* META DESCRIPTION */}
+                            <div className="flex flex-col gap-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                    Descrição SEO (Meta Description) <i className="bi bi-question-circle" title="O resumo que aparece abaixo do título nos resultados de busca."></i>
+                                </label>
+                                <textarea
+                                    value={formData.meta_description || ''}
+                                    placeholder="Resumo atraente para atrair cliques..."
+                                    rows={3}
+                                    onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                                    className="w-full px-6 py-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200 resize-none"
+                                />
+                                <p className="text-[9px] text-slate-400 font-bold uppercase"><b>O que é?</b> Breve texto que convence o usuário a clicar no seu link ao pesquisar.</p>
+                            </div>
+
+                            {/* SEO DESCRIPTION (Additional Content) */}
+                            <div className="flex flex-col gap-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                    Conteúdo Extra SEO (Página) <i className="bi bi-question-circle" title="Conteúdo rico em palavras-chave que fica no final da página do produto."></i>
+                                </label>
+                                <textarea
+                                    value={formData.seo_description || ''}
+                                    placeholder="Conteúdo rico em palavras-chave..."
+                                    rows={5}
+                                    onChange={(e) => setFormData({ ...formData, seo_description: e.target.value })}
+                                    className="w-full px-6 py-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-200 resize-none"
+                                />
+                                <p className="text-[9px] text-slate-400 font-bold uppercase"><b>O que é?</b> Texto longo usado para incluir palavras-chave secundárias e melhorar o ranqueamento.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

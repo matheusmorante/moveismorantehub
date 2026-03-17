@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import VariationType from "../../../types/variation.type";
 import { subscribeToVariations } from "../../../utils/variationService";
 import { toast } from "react-toastify";
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface CartesianVariationModalProps {
     isOpen: boolean;
@@ -50,6 +51,16 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
         setSelectedOptions(next);
     };
 
+    const onDragEnd = (result: DropResult) => {
+        if (!result.destination) return;
+        
+        const next = Array.from(selectedOptions);
+        const [reorderedItem] = next.splice(result.source.index, 1);
+        next.splice(result.destination.index, 0, reorderedItem);
+        
+        setSelectedOptions(next);
+    };
+
     const handleGenerate = () => {
         const validOptions = selectedOptions.filter(o => o.name && o.values.length > 0);
         if (validOptions.length === 0) {
@@ -89,84 +100,111 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
-                    {selectedOptions.map((opt, idx) => {
-                        const selectedAttr = availableVariations.find(v => v.name === opt.name);
-                        return (
-                            <div key={idx} className="bg-slate-50 dark:bg-slate-950/20 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-left-2 transition-all">
-                                <div className="flex gap-4 items-start">
-                                    <div className="flex-1 space-y-4">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atributo</label>
-                                                <select
-                                                    value={opt.name}
-                                                    onChange={(e) => handleAttributeChange(idx, e.target.value)}
-                                                    className="w-full bg-white dark:bg-slate-950 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200"
-                                                >
-                                                    <option value="">Selecione...</option>
-                                                    {availableVariations.map(v => (
-                                                        <option key={v.id} value={v.name}>{v.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const next = [...selectedOptions];
-                                                    next[idx].showName = !next[idx].showName;
-                                                    setSelectedOptions(next);
-                                                }}
-                                                className={`mt-6 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${opt.showName ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
-                                                title={opt.showName ? "Mostrar nome no título" : "Ocultar nome no título"}
-                                            >
-                                                <i className={`bi ${opt.showName ? 'bi-eye-fill' : 'bi-eye-slash-fill'} mr-1.5`}></i>
-                                                {opt.showName ? "Mostrar Nome" : "Ocultar Nome"}
-                                            </button>
-                                        </div>
+                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                    <DragDropContext onDragEnd={onDragEnd}>
+                        <Droppable droppableId="attributes-list">
+                            {(provided) => (
+                                <div 
+                                    {...provided.droppableProps}
+                                    ref={provided.innerRef}
+                                    className="space-y-6"
+                                >
+                                    {selectedOptions.map((opt, idx) => {
+                                        const selectedAttr = availableVariations.find(v => v.name === opt.name);
+                                        return (
+                                            <Draggable key={`${idx}`} draggableId={`${idx}`} index={idx}>
+                                                {(provided, snapshot) => (
+                                                    <div 
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className={`bg-slate-50 dark:bg-slate-950/20 p-6 rounded-3xl border transition-all ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 border-blue-200 z-50' : 'border-slate-100 dark:border-slate-800'}`}
+                                                    >
+                                                        <div className="flex gap-4 items-start">
+                                                            <div 
+                                                                {...provided.dragHandleProps}
+                                                                className="flex items-center justify-center p-2 text-slate-300 hover:text-blue-500 cursor-grab active:cursor-grabbing mt-6"
+                                                            >
+                                                                <i className="bi bi-grip-vertical text-xl"></i>
+                                                            </div>
+                                                            <div className="flex-1 space-y-4">
+                                                                <div className="flex items-center justify-between gap-4">
+                                                                    <div className="flex-1 space-y-2">
+                                                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atributo</label>
+                                                                        <select
+                                                                            value={opt.name}
+                                                                            onChange={(e) => handleAttributeChange(idx, e.target.value)}
+                                                                            className="w-full bg-white dark:bg-slate-950 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200"
+                                                                        >
+                                                                            <option value="">Selecione...</option>
+                                                                            {availableVariations.map(v => (
+                                                                                <option key={v.id} value={v.name}>{v.name}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const next = [...selectedOptions];
+                                                                            next[idx].showName = !next[idx].showName;
+                                                                            setSelectedOptions(next);
+                                                                        }}
+                                                                        className={`mt-6 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${opt.showName ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
+                                                                        title={opt.showName ? "Mostrar nome no título" : "Ocultar nome no título"}
+                                                                    >
+                                                                        <i className={`bi ${opt.showName ? 'bi-eye-fill' : 'bi-eye-slash-fill'} mr-1.5`}></i>
+                                                                        {opt.showName ? "Mostrar Nome" : "Ocultar Nome"}
+                                                                    </button>
+                                                                </div>
 
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                Valores ({opt.values.length} selecionados)
-                                            </label>
-                                            <div className="flex flex-wrap gap-2 min-h-[44px]">
-                                                {!selectedAttr && (
-                                                    <p className="text-[10px] text-slate-300 italic py-2">Escolha um atributo primeiro</p>
+                                                                <div className="space-y-2">
+                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                                        Valores ({opt.values.length} selecionados)
+                                                                    </label>
+                                                                    <div className="flex flex-wrap gap-2 min-h-[44px]">
+                                                                        {!selectedAttr && (
+                                                                            <p className="text-[10px] text-slate-300 italic py-2">Escolha um atributo primeiro</p>
+                                                                        )}
+                                                                        {selectedAttr?.options.map(o => {
+                                                                            const isSelected = opt.values.includes(o.value);
+                                                                            return (
+                                                                                <button
+                                                                                    key={o.id}
+                                                                                    type="button"
+                                                                                    onClick={() => handleValueToggle(idx, o.value)}
+                                                                                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${isSelected 
+                                                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20 active:scale-95' 
+                                                                                        : 'bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                                                                                >
+                                                                                    {o.value}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedOptions(selectedOptions.filter((_, i) => i !== idx))}
+                                                                className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-6"
+                                                            >
+                                                                <i className="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 )}
-                                                {selectedAttr?.options.map(o => {
-                                                    const isSelected = opt.values.includes(o.value);
-                                                    return (
-                                                        <button
-                                                            key={o.id}
-                                                            type="button"
-                                                            onClick={() => handleValueToggle(idx, o.value)}
-                                                            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${isSelected 
-                                                                ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20 active:scale-95' 
-                                                                : 'bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
-                                                        >
-                                                            {o.value}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedOptions(selectedOptions.filter((_, i) => i !== idx))}
-                                        className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-6"
-                                    >
-                                        <i className="bi bi-trash"></i>
-                                    </button>
+                                            </Draggable>
+                                        );
+                                    })}
+                                    {provided.placeholder}
                                 </div>
-                            </div>
-                        );
-                    })}
+                            )}
+                        </Droppable>
+                    </DragDropContext>
 
                     <button
                         type="button"
                         onClick={handleAddAttribute}
-                        className="w-full py-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl text-slate-400 hover:text-blue-600 hover:border-blue-100 dark:hover:border-blue-900/30 transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                        className="w-full mt-6 py-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl text-slate-400 hover:text-blue-600 hover:border-blue-100 dark:hover:border-blue-900/30 transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"
                     >
                         <i className="bi bi-plus-lg"></i>
                         Adicionar Atributo para Combinação

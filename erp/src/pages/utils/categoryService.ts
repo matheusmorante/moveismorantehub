@@ -65,12 +65,24 @@ export const createCategory = async (name: string, parentIds: string[], seoField
         seo_description: seoFields?.seo_description
     };
 
-    const { data, error } = await supabase.from('categories').insert([insertData]).select();
-    if (error) throw error;
+    let { data, error } = await supabase.from('categories').insert([insertData]).select();
+    
+    // Fail-safe: If insert fails due to missing columns (SEO fields)
+    if (error && (error.message?.includes("column") || error.code === '42703' || error.message?.includes("schema cache"))) {
+        console.warn("[CategoryService] Schema issue on insert. Retrying with basic fields...");
+        const basicData = { name, active: true };
+        const { data: retryData, error: retryError } = await supabase.from('categories').insert([basicData]).select();
+        data = retryData;
+        error = retryError;
+    }
 
-    if (parentIds.length > 0) {
-        const links = parentIds.map(pid => ({ parent_id: pid, child_id: data[0].id }));
-        await supabase.from('category_relationships').insert(links);
+    if (error) throw error;
+    if (!data) throw new Error("No data returned from category creation");
+
+    if (parentIds && parentIds.length > 0) {
+        const links = parentIds.map(pid => ({ parent_id: pid, child_id: data![0].id }));
+        const { error: insError } = await supabase.from('category_relationships').insert(links);
+        if (insError) throw insError;
     }
 
     return data[0];
@@ -85,15 +97,25 @@ export const updateCategory = async (id: string, name: string, parentIds: string
         if (seoFields.seo_description) updateData.seo_description = seoFields.seo_description;
     }
 
-    const { error } = await supabase.from('categories').update(updateData).eq('id', id);
+    let { error } = await supabase.from('categories').update(updateData).eq('id', id);
+    
+    // Fail-safe: Retry without SEO fields if they don't exist
+    if (error && (error.message?.includes("column") || error.code === '42703' || error.message?.includes("schema cache"))) {
+        console.warn("[CategoryService] Schema issue on update. Retrying with basic name...");
+        const { error: retryError } = await supabase.from('categories').update({ name }).eq('id', id);
+        error = retryError;
+    }
+
     if (error) throw error;
 
     // Replace links
-    await supabase.from('category_relationships').delete().eq('child_id', id);
+    const { error: delError } = await supabase.from('category_relationships').delete().eq('child_id', id);
+    if (delError) throw delError;
 
-    if (parentIds.length > 0) {
+    if (parentIds && parentIds.length > 0) {
         const links = parentIds.map(pid => ({ parent_id: pid, child_id: id }));
-        await supabase.from('category_relationships').insert(links);
+        const { error: insError } = await supabase.from('category_relationships').insert(links);
+        if (insError) throw insError;
     }
 };
 

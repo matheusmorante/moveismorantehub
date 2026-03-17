@@ -68,7 +68,8 @@ export default async function Home(props: { searchParams: Promise<{ category?: s
     main_image_url: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null,
     stock_quantity: p.stock || 0,
     status: p.active ? 'active' : 'inactive',
-    category: p.category
+    category: p.category,
+    slug: p.slug
   }));
 
   const categories = categoriesData;
@@ -129,8 +130,8 @@ export default async function Home(props: { searchParams: Promise<{ category?: s
           {categories?.map((cat: any) => (
             <Link 
               key={cat.id}
-              href={`/?category=${encodeURIComponent(cat.name)}`}
-              className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${currentCategory === cat.name ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'}`}
+              href={cat.slug ? `/c/${cat.slug}` : `/?category=${encodeURIComponent(cat.name)}`}
+              className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${currentCategory === cat.name || currentCategory === cat.slug ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'}`}
             >
               {cat.name}
             </Link>
@@ -220,18 +221,20 @@ export default async function Home(props: { searchParams: Promise<{ category?: s
                 <div key={product.id} className="group bg-white rounded-[2.5rem] overflow-hidden border border-neutral-200 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-500 flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {/* Image Container */}
                   <div className="relative aspect-[4/5] bg-neutral-50 overflow-hidden flex flex-col items-center justify-center">
-                    {product.main_image_url ? (
-                      <img
-                        src={product.main_image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-neutral-200 gap-3">
-                        <ShoppingCart size={64} className="opacity-10" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Morante Home</span>
-                      </div>
-                    )}
+                    <Link href={product.slug ? `/p/${product.slug}` : `/p/${product.id}`} className="w-full h-full">
+                      {product.main_image_url ? (
+                        <img
+                          src={product.main_image_url}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-neutral-200 gap-3">
+                          <ShoppingCart size={64} className="opacity-10" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Morante Home</span>
+                        </div>
+                      )}
+                    </Link>
 
                     <div className="absolute top-6 left-6 flex flex-col gap-2">
                        {product.category && (
@@ -250,9 +253,11 @@ export default async function Home(props: { searchParams: Promise<{ category?: s
                   {/* Content Container */}
                   <div className="p-8 flex flex-col flex-1 gap-6">
                     <div>
-                      <h4 className="font-black text-neutral-900 leading-[1.2] text-lg mb-2 group-hover:text-blue-600 transition-colors" title={product.name}>
-                        {product.name}
-                      </h4>
+                      <Link href={product.slug ? `/p/${product.slug}` : `/p/${product.id}`}>
+                        <h4 className="font-black text-neutral-900 leading-[1.2] text-lg mb-2 group-hover:text-blue-600 transition-colors" title={product.name}>
+                          {product.name}
+                        </h4>
+                      </Link>
                       <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest">SKU: {product.sku || 'N/A'}</p>
                     </div>
 

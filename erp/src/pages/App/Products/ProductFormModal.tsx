@@ -210,7 +210,7 @@ const INITIAL_FORM_DATA: Partial<Product> = {
 const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: ProductFormModalProps) => {
 
     const [activeTab, setActiveTab] = useState<'geral' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal'>('geral');
-    const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'vitrine' | 'photos' | 'descriptions' | 'logistics'>('vitrine');
+    const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>('vitrine');
     const [loading, setLoading] = useState(false);
     const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
     const [isGeneratingComboName, setIsGeneratingComboName] = useState(false);
@@ -714,18 +714,21 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             });
 
             const newVars: Variation[] = combinations.map(combo => {
-                const sortedKeys = Object.keys(combo).sort();
-                const attrParts = sortedKeys.map(key => {
-                    const attrData = combo[key];
+                // [FIX] Use the original order from 'attributes' array instead of alphabetical sort
+                const attrParts = attributes.map(attr => {
+                    const attrData = combo[attr.name];
                     const val = String(attrData.value).toUpperCase();
-                    return attrData.showName ? `${key.toUpperCase()}:${val}` : val;
+                    return attrData.showName ? `${attr.name.toUpperCase()}:${val}` : val;
                 }).join(' ');
+                
                 const name = attrParts.toUpperCase();
 
-                const skuSuffix = sortedKeys.map(key => String(combo[key].value).toUpperCase().replace(/\s+/g, '')).join('-');
+                // [FIX] Use the original order for SKU generation as well
+                const skuSuffix = attributes.map(attr => 
+                    String(combo[attr.name].value).toUpperCase().replace(/\s+/g, '')
+                ).join('-');
                 
                 let finalSku = formData.code ? `${formData.code}-${skuSuffix}` : skuSuffix;
-                // [FIX] Aumentado limite de SKU para evitar duplicidade óbvia (6 era muito pouco)
                 if (finalSku.length > 50) {
                     finalSku = finalSku.substring(0, 50);
                 }
@@ -742,10 +745,11 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     syncDescription: true,
                     images: [],
                     active: true,
-                    attributes: Object.entries(combo).map(([name, data]: [string, any]) => ({ 
-                        name, 
-                        value: String(data.value),
-                        showName: data.showName
+                    // Store attributes in the correct order as well
+                    attributes: attributes.map(attr => ({ 
+                        name: attr.name, 
+                        value: String(combo[attr.name].value),
+                        showName: combo[attr.name].showName
                     })),
                     comboItems: []
                 };

@@ -24,43 +24,60 @@ function addLog(type, message, data = null) {
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-app.get('/', (req, res) => res.send("AI Server is running (v5 - Gemini Stable)"));
+function extractJSON(text) {
+    try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Failed to parse JSON from AI response:", text);
+        throw new Error("A IA retornou um formato inválido.");
+    }
+}
 
-app.get('/api/logs', (req, res) => {
-    res.json(logs);
-});
+app.get('/', (req, res) => res.send("AI Server is running (v6 - Gemini Flash)"));
+app.get('/api/logs', (req, res) => res.json(logs));
 
 async function safePrompt(prompt, systemPrompt = null) {
-    try {
-        const fullPrompt = systemPrompt ? `${systemPrompt}\n\nUser: ${prompt}` : prompt;
-        const result = await model.generateContent(fullPrompt);
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        console.error("Gemini Error:", error.message);
-        addLog("AI_ERROR", `Erro no Gemini: ${error.message}`);
-        
-        // Detailed error for developers
-        console.error("DEBUG - Full Error:", error);
+    const modelsToTry = ["gemini-3.1-pro-preview", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
+    let lastError = null;
 
-        // MOCK FALLBACK for BI processing
-        if (prompt.includes("JSON")) {
-            return JSON.stringify({
-                product: "Desconhecido",
-                reason: `Erro de Conexão: ${error.message}`,
-                objections: ["O sistema não conseguiu processar os detalhes no momento"],
-                sentiment: "Neutro",
-                customer_profile: "Não identificado",
-                priority: "Morno",
-                value_estimate: 0,
-                suggestions: ["Tente enviar o relato novamente mais tarde"],
-                next_step: "Salvar relato bruto"
+    for (const modelName of modelsToTry) {
+        try {
+            const model = genAI.getGenerativeModel({ 
+                model: modelName,
+                systemInstruction: systemPrompt || undefined 
             });
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            return response.text();
+        } catch (error) {
+            lastError = error;
+            console.warn(`Gemini Error with model ${modelName}:`, error.message);
+            
+            // Se o erro for 404 (modelo não encontrado), tenta o próximo
+            if (error.message?.includes("404") || error.message?.includes("not found")) {
+                continue;
+            }
+            // Para outros erros, para e loga
+            break;
         }
-        return JSON.stringify({ error: `Serviço de IA indisponível: ${error.message}` });
     }
+
+    addLog("AI_ERROR", `Falha total no Gemini: ${lastError?.message}`);
+    
+    if (prompt.includes("JSON")) {
+        return JSON.stringify({
+            error: true,
+            message: `Erro de Conexão: ${lastError?.message}`,
+            next_step: "Salvar relato bruto"
+        });
+    }
+    return JSON.stringify({ error: `Serviço de IA indisponível: ${lastError?.message}` });
 }
 
 app.post('/api/generate-description', async (req, res) => {
@@ -184,18 +201,8 @@ app.post('/api/suggest-prices', async (req, res) => {
         Use números brutos, sem R$ ou strings no campo price e margin.`;
 
         const answer = await safePrompt("Gere as sugestões de preço agora.", systemPrompt);
-        
-        const jsonMatch = answer.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                res.json(parsed);
-            } catch (e) {
-                throw new Error("Falha ao processar JSON da IA");
-            }
-        } else {
-            throw new Error("IA não retornou um JSON válido");
-        }
+        const parsed = extractJSON(answer);
+        res.json(parsed);
     } catch (error) {
         addLog("ERROR", `Erro ao sugerir preços: ${error.message}`);
         res.status(500).json({ error: error.message });
@@ -219,17 +226,7 @@ app.post('/api/suggest-category', async (req, res) => {
         Se nenhuma categoria se encaixar perfeitamente, retorne "null" ou a mais próxima.`;
 
         const answer = await safePrompt("Verifique a melhor categoria.", systemPrompt);
-        
-        const jsonMatch = answer.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            try {
-                res.json(JSON.parse(jsonMatch[0]));
-            } catch (e) {
-                res.status(500).json({ error: "IA retornou formato inválido" });
-            }
-        } else {
-            res.status(500).json({ error: "IA não retornou JSON" });
-        }
+        res.json(extractJSON(answer));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -274,20 +271,16 @@ app.post('/api/ai-detect-intent', async (req, res) => {
         prompt = prompt.replace(/{{message}}/g, message);
 
         const answer = await safePrompt(prompt, "Responda APENAS com um objeto JSON válido.");
-        
-        const jsonMatch = answer.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                addLog("INTENT_SUCCESS", `Intenção detectada: ${parsed.intent || 'unknown'}`);
-                return res.json(parsed);
-            } catch (e) { }
+        try {
+            const parsed = extractJSON(answer);
+            addLog("INTENT_SUCCESS", `Intenção detectada: ${parsed.intent || 'unknown'}`);
+            res.json(parsed);
+        } catch (e) {
+            res.json({
+                intent: 'chat',
+                data: { message: answer }
+            });
         }
-
-        res.json({
-            intent: 'chat',
-            data: { message: answer }
-        });
     } catch (error) {
         addLog("ERROR", `Erro na Intenção: ${error.message}`);
         res.status(500).json({ error: error.message });

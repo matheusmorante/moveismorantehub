@@ -34,7 +34,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     handleGenerateComboName,
     isGeneratingComboName
 }) => {
-    const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand", "complement"]).filter((k: string) => k !== 'supplierRef');
+    const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand", "complement"]).filter((k: string) => k !== 'supplierRef' && k !== 'type');
     const draggableParts = titleOrder as string[];
 
     const isPartIncluded = (key: string) => {
@@ -133,16 +133,18 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     className="flex items-center gap-2 mt-2 flex-wrap"
                                 >
                                     {/* Fixed Type Block */}
-                                    <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-1 rounded-2xl gap-2 shrink-0 shadow-sm opacity-80 cursor-default">
-                                        <div className="flex items-center justify-center w-6 h-6 text-blue-400">
+                                    <div className={`flex items-center border p-1 rounded-2xl gap-2 shrink-0 shadow-sm transition-all duration-300 ${formData.productTypeName ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 opacity-80'}`}>
+                                        <div className={`flex items-center justify-center w-6 h-6 ${formData.productTypeName ? 'text-white/80' : 'text-blue-400'}`}>
                                             <i className="bi bi-pin-fill text-xs"></i>
                                         </div>
                                         <div className="flex flex-col min-w-[70px]">
-                                            <span className="text-[7px] font-black text-blue-400 uppercase leading-none mb-0.5">Fixo (1)</span>
-                                            <span className="text-[9px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-tighter">Tipo</span>
+                                            <span className={`text-[7px] font-black uppercase leading-none mb-0.5 ${formData.productTypeName ? 'text-blue-100' : 'text-blue-400'}`}>Fixo {formData.productTypeName ? '(OK)' : '(1)'}</span>
+                                            <span className={`text-[9px] font-black uppercase tracking-tighter truncate max-w-[100px] ${formData.productTypeName ? 'text-white' : 'text-blue-700 dark:text-blue-300'}`}>
+                                                {formData.productTypeName || 'Tipo'}
+                                            </span>
                                         </div>
-                                        <div className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-100 dark:bg-blue-800 rounded-xl">
-                                            <i className="bi bi-lock-fill text-[10px]"></i>
+                                        <div className={`w-7 h-7 flex items-center justify-center rounded-xl ${formData.productTypeName ? 'bg-white/20 text-white' : 'text-blue-600 bg-blue-100 dark:bg-blue-800'}`}>
+                                            <i className={`bi ${formData.productTypeName ? 'bi-check-all text-sm' : 'bi-lock-fill text-[10px]'}`}></i>
                                         </div>
                                     </div>
 
@@ -162,20 +164,13 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                                          <span className="text-[7px] font-black text-slate-400 uppercase leading-none mb-0.5">Bloco {idx + 1}</span>
                                                          <span className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">{getPartLabel(key)}</span>
                                                      </div>
-                                                     {key !== 'environment' && (
-                                                        <button 
-                                                            type="button" 
-                                                            onClick={() => handleToggleTitlePart(key)}
-                                                            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${isPartIncluded(key) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-300'}`}
-                                                         >
-                                                             <i className={`bi ${isPartIncluded(key) ? 'bi-check-lg' : 'bi-dash-lg'}`}></i>
-                                                         </button>
-                                                    )}
-                                                    {key === 'environment' && (
-                                                        <div className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-xl" title="Automático via Categoria">
-                                                            <i className="bi bi-magic text-[10px]"></i>
-                                                        </div>
-                                                    )}
+                                                     <button 
+                                                         type="button" 
+                                                         onClick={() => handleToggleTitlePart(key)}
+                                                         className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${isPartIncluded(key) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-300'}`}
+                                                     >
+                                                         <i className={`bi ${isPartIncluded(key) ? 'bi-check-lg' : 'bi-dash-lg'}`}></i>
+                                                     </button>
                                                 </div>
                                             )}
                                         </Draggable>

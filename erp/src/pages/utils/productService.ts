@@ -81,6 +81,12 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.includeComplement !== undefined) data.include_complement = product.includeComplement;
     if (product.titleOrder !== undefined) data.title_order = product.titleOrder;
 
+    // SEO Fields
+    if (product.slug !== undefined) data.slug = product.slug;
+    if (product.meta_title !== undefined) data.meta_title = product.meta_title;
+    if (product.meta_description !== undefined) data.meta_description = product.meta_description;
+    if (product.seo_description !== undefined) data.seo_description = product.seo_description;
+
     return data;
 };
 
@@ -148,6 +154,12 @@ const mapFromDB = (data: any): Product => {
         material: data.material || '',
         colors: data.colors || '',
         notIncluded: data.not_included || '',
+        
+        // SEO Fields
+        slug: data.slug || '',
+        meta_title: data.meta_title || '',
+        meta_description: data.meta_description || '',
+        seo_description: data.seo_description || '',
         mainSupplierId: data.main_supplier_id || '',
         supplierRef: data.supplier_ref || '',
         observations: data.observations || '',
@@ -526,7 +538,8 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
                 'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors',
                 'product_type_id', 'product_type_name', 'environment', 'include_environment', 
                 'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
-                'title_complement', 'include_complement'
+                'title_complement', 'include_complement', 'include_type',
+                'slug', 'meta_title', 'meta_description', 'seo_description'
             ];
             
             const safeDBProduct = { ...dbProduct };

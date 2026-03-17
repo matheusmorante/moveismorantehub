@@ -177,6 +177,12 @@ export type Product = {
     titleComplement?: string;
     includeComplement?: boolean;
     titleOrder?: string[]; // e.g. ["type", "environment", "line", "brand", "supplierRef", "complement"]
+    
+    // SEO Fields
+    slug?: string;
+    meta_title?: string;
+    meta_description?: string;
+    seo_description?: string;
 };
 
 export type ProductNotificationConfig = {
