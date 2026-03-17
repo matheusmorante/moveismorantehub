@@ -84,7 +84,7 @@ function buildSyncPayload(row: VariationRow): any {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
-const ChannelCatalog: React.FC = () => {
+function ChannelCatalog() {
     const [loading, setLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
     const [rows, setRows] = useState<VariationRow[]>([]);
@@ -132,11 +132,22 @@ const ChannelCatalog: React.FC = () => {
                 setApiError("Configurações do WhatsApp incompletas. Vá em Configurações > WhatsApp para ajustar.");
             }
 
-            const { data: productsData, error: pError } = await supabase
+            // Fallback de colunas para evitar erros de schema cache (400)
+            const COLUMNS = "id, code, description, brand, category, unit_price, stock, active, deleted, images, variations, environment, product_type_name, last_whatsapp_sync, line";
+            
+            let { data: productsData, error: pError } = await supabase
                 .from('products')
-                .select('*')
+                .select(COLUMNS)
                 .eq('deleted', false)
                 .order('description');
+
+            // Caso falhe select específico, tenta o * como último recurso (ou vice-versa)
+            if (pError) {
+                console.warn("[Catalog] Select específico falhou, tentando fallback '*'...", pError.message);
+                const res = await supabase.from('products').select('*').eq('deleted', false).order('description');
+                productsData = res.data;
+                pError = res.error;
+            }
 
             if (pError) throw pError;
 
@@ -152,12 +163,20 @@ const ChannelCatalog: React.FC = () => {
             // Expandir variações dos filhos
             const expanded: VariationRow[] = [];
             for (const p of (productsData || [])) {
-                const variations: any[] = Array.isArray(p.variations) ? p.variations : [];
+                let variations: any[] = [];
+                if (Array.isArray(p.variations)) {
+                    variations = p.variations;
+                } else if (typeof p.variations === 'string' && p.variations.trim().startsWith('[')) {
+                    try { variations = JSON.parse(p.variations); } catch { variations = []; }
+                } else if (p.variations && typeof p.variations === 'object') {
+                    // Caso venha como um objeto com chaves numéricas (ocorre as vezes no PostgREST)
+                    variations = Object.values(p.variations);
+                }
+
                 for (const v of variations) {
-                    if (v.deleted) continue;
-                    
-                    const pDesc = p.description || '';
-                    const rawVarName = v.name || v.description || 'VARIAÇÃO';
+                    if (v && typeof v === 'object' && !v.deleted) {
+                        const pDesc = p.description || '';
+                        const rawVarName = v.name || v.description || 'VARIAÇÃO';
                     // Limpa o nome da variação removendo o nome do pai se ele estiver no início (evita duplicação)
                     const cleanVarName = rawVarName
                         .replace(new RegExp(`^${pDesc}\\s*[:\\-\\/\\s]*`, 'i'), '')
@@ -184,7 +203,7 @@ const ChannelCatalog: React.FC = () => {
                         rawParent: p,
                         rawVariation: v,
                     });
-                }
+                } }
             }
 
             setRows(expanded);
@@ -220,18 +239,55 @@ const ChannelCatalog: React.FC = () => {
 
     /** Persiste a mudança de sync na variação dentro do produto pai */
     const persistVariationSync = async (row: VariationRow, field: 'whatsappSync' | 'whatsappAutoSync', newValue: boolean) => {
-        // Buscar o produto pai atualizado do banco antes de sobrescrever
-        const { data: pai } = await supabase.from('products').select('variations').eq('id', row.parentId).single();
-        const variacoes: any[] = Array.isArray(pai?.variations) ? pai.variations : [];
-
-        const updatedVars = variacoes.map((v: any) => {
-            if (String(v.id) === row.varId || String(`${row.parentId}_${v.name}`) === row.varId) {
-                return { ...v, [field]: newValue };
+        try {
+            // Buscar o produto pai atualizado do banco antes de sobrescrever (PRECISA ser cuidadoso aqui)
+            const { data: pai, error } = await supabase.from('products').select('variations').eq('id', row.parentId).single();
+            
+            if (error || !pai) {
+                console.error("[Catalog] Erro ao buscar produto pai no persist:", error);
+                throw new Error("Não foi possível carregar as variações para salvar. Tente novamente.");
             }
-            return v;
-        });
 
-        await updateProduct(row.parentId, { variations: updatedVars } as any);
+            let variacoes: any[] = [];
+            if (Array.isArray(pai.variations)) {
+                variacoes = pai.variations;
+            } else if (typeof pai.variations === 'string') {
+                try { variacoes = JSON.parse(pai.variations); } catch { variacoes = []; }
+            }
+
+            // SEGURANÇA: Se o array original está vazio e o produto sumiu, algo está errado
+            if (variacoes.length === 0) {
+                console.warn("[Catalog] Nenhuma variação encontrada no pai ao tentar salvar.");
+                // Se o row local tem variações mas o banco não, talvez o fetch do 'pai' retornou vazio indevidamente
+                // Neste caso, não sobrescrevemos para não zerar as outras
+            }
+
+            const updatedVars = variacoes.map((v: any) => {
+                const isMatch = String(v.id) === row.varId || 
+                               String(`${row.parentId}_${v.name}`) === row.varId ||
+                               String(v.sku || '') === row.varSku;
+                
+                if (isMatch) {
+                    return { ...v, [field]: newValue };
+                }
+                return v;
+            });
+
+            // Só persistimos se houve realmente uma mudança ou se o identificador foi encontrado
+            const changed = updatedVars.some((v, i) => v[field] !== variacoes[i][field]);
+            if (changed) {
+                const { error: patchError } = await supabase
+                    .from('products')
+                    .update({ variations: updatedVars })
+                    .eq('id', row.parentId);
+                
+                if (patchError) throw patchError;
+            }
+        } catch (err: any) {
+            console.error("[Catalog] Erro no persistVariationSync:", err);
+            toast.error("Erro ao salvar no banco: " + (err.message || "Erro desconhecido"));
+            throw err;
+        }
     };
 
     const handleToggleWhatsAppSync = async (row: VariationRow) => {
@@ -611,6 +667,6 @@ const ChannelCatalog: React.FC = () => {
             </div>
         </div>
     );
-};
+}
 
 export default ChannelCatalog;

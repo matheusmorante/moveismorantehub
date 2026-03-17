@@ -1,2 +1,3 @@
-2026/03/17-09:52:40.388 2a78 Creating DB C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Sync Data\LevelDB since it was missing.
-2026/03/17-09:52:40.900 2a78 Reusing MANIFEST C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/03/17-17:14:56.104 2b94 Reusing MANIFEST C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/03/17-17:14:56.292 2b94 Recovering log #3
+2026/03/17-17:14:56.292 2b94 Reusing old log C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Sync Data\LevelDB/000003.log 
