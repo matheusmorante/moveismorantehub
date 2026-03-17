@@ -1,28 +1,24 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from 'dotenv';
-dotenv.config();
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 async function listModels() {
-    console.log("Listing available Gemini models...");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
-    try {
-        // The SDK doesn't have a direct listModels but we can try to find how it's done or use fetch
-        // Actually, let's use a simple fetch to the Google API directly to be sure
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
-        const data = await response.json();
-        
-        if (data.models) {
-            console.log("Models found:");
-            data.models.forEach(m => {
-                console.log(`- ${m.name} (Supported: ${m.supportedGenerationMethods.join(', ')})`);
-            });
-        } else {
-            console.log("No models found or error:", JSON.stringify(data, null, 2));
-        }
-    } catch (error) {
-        console.error("Error listing models:", error.message);
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+    const data = await response.json();
+    if (data.models) {
+      const candidates = data.models.filter(m => m.supportedGenerationMethods.includes('generateContent'));
+      candidates.forEach(m => console.log(`${m.name} -> ${m.displayName}`));
+    } else {
+      console.log("Nenhum modelo encontrado ou erro na chave:", data);
     }
+  } catch (error) {
+    console.error("Erro ao listar modelos:", error);
+  }
 }
 
 listModels();

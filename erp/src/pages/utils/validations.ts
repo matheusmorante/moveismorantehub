@@ -97,8 +97,12 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
     if (!scheduling) {
         errors['shipping_scheduling'] = "Agendamento é obrigatório.";
     } else {
-        if (!scheduling.date) errors['shipping_date'] = "Data de entrega é obrigatória.";
-        if (!scheduling.startTime) errors['shipping_time'] = "Horário/Período é obrigatório.";
+        const isOptionalPickup = shipping.deliveryMethod === 'pickup' && scheduling.notInformed;
+        
+        if (!isOptionalPickup) {
+            if (!scheduling.date) errors['shipping_date'] = "Data de entrega é obrigatória.";
+            if (!scheduling.startTime) errors['shipping_time'] = "Horário/Período é obrigatório.";
+        }
     }
 
     if (shipping.deliveryMethod === 'delivery') {

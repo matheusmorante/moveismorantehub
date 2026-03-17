@@ -22,7 +22,7 @@ function addLog(type, message, data = null) {
     console.log(`[${type}] ${message}`);
 }
 
-// Initialize Gemini
+// Initialize Gemini (SDK Estável para API Key gratuita)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 function extractJSON(text) {
@@ -38,46 +38,34 @@ function extractJSON(text) {
     }
 }
 
-app.get('/', (req, res) => res.send("AI Server is running (v6 - Gemini Flash)"));
+app.get('/', (req, res) => res.send("AI Server is running (v7 - Gemini Flash-Lite)"));
 app.get('/api/logs', (req, res) => res.json(logs));
 
 async function safePrompt(prompt, systemPrompt = null) {
-    const modelsToTry = ["gemini-3.1-pro-preview", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
-    let lastError = null;
-
-    for (const modelName of modelsToTry) {
-        try {
-            const model = genAI.getGenerativeModel({ 
-                model: modelName,
-                systemInstruction: systemPrompt || undefined 
-            });
-
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            return response.text();
-        } catch (error) {
-            lastError = error;
-            console.warn(`Gemini Error with model ${modelName}:`, error.message);
-            
-            // Se o erro for 404 (modelo não encontrado), tenta o próximo
-            if (error.message?.includes("404") || error.message?.includes("not found")) {
-                continue;
-            }
-            // Para outros erros, para e loga
-            break;
-        }
-    }
-
-    addLog("AI_ERROR", `Falha total no Gemini: ${lastError?.message}`);
-    
-    if (prompt.includes("JSON")) {
-        return JSON.stringify({
-            error: true,
-            message: `Erro de Conexão: ${lastError?.message}`,
-            next_step: "Salvar relato bruto"
+    // Usando gemini-2.5-flash conforme disponibilidade na conta do usuário
+    const modelName = "gemini-2.5-flash"; 
+    try {
+        const model = genAI.getGenerativeModel({ 
+            model: modelName,
+            systemInstruction: systemPrompt || undefined 
         });
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error(`Gemini Error with model ${modelName}:`, error.message);
+        addLog("AI_ERROR", `Falha no Gemini (${modelName}): ${error.message}`);
+        
+        if (prompt.includes("JSON")) {
+            return JSON.stringify({
+                error: true,
+                message: `Erro de Conexão: ${error.message}`,
+                next_step: "Salvar relato bruto"
+            });
+        }
+        return JSON.stringify({ error: `Serviço de IA indisponível: ${error.message}` });
     }
-    return JSON.stringify({ error: `Serviço de IA indisponível: ${lastError?.message}` });
 }
 
 app.post('/api/generate-description', async (req, res) => {

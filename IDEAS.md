@@ -1,25 +1,13 @@
-# Pendências e Ideias de Implementação
+# Ideias e Planos Pendentes - Morante Hub
 
-## ✅ Concluído
-- [x] **Correção do Bug de Tela Branca**: Robustez adicionada ao `PersonFormModal.tsx` e `formatters.ts` para lidar com dados nulos/corrompidos (especialmente nomes como "Estevam" que podiam estar travando).
-- [x] **Refinamento de Etiquetas**:
-    - [x] Opção de imprimir com ou sem Preço.
-    - [x] Opção de imprimir com ou sem QR Code.
-    - [x] Preset "Móveis e Colchões" removido conforme solicitado (usar Móveis em Geral).
-    - [x] Configurações persistentes no LocalStorage.
-- [x] **Escaner Global de Estoque**:
-    - [x] Botão "Escanear Produto" na página principal de estoque agora localiza o produto e abre o modal de lançamento automaticamente.
-- [x] **Balanço e Inventário**:
-    - [x] Scanner integrado na folha de auditoria para foco rápido no item.
-    - [x] Scanner integrado no lançamento manual de estoque.
-- [x] **Conferência de Compras**:
-    - [x] Modal de conferência de recebimento no pedido de compra com suporte a scanner para bipa e incrementar quantidade.
+## IA e Gemini
+- [ ] **Monitoramento de Cota**: Implementar um fallback automático entre modelos (1.5-flash, 1.5-flash-8b, 2.0-flash) para maximizar o tempo de disponibilidade da chave gratuita.
+- [ ] **Cache de Respostas**: Salvar respostas comuns no banco de dados para evitar chamadas repetitivas à API e economizar cota.
+- [ ] **Migração para SDK Novo**: Assim que a chave gratuita tiver suporte pleno ao `@google/genai` sem necessidade de credenciais de serviço do GCP, migrar para o novo SDK.
 
-## 🔜 Próximas Implementações (Ideias)
-- [ ] **Etiqueta de Prateleira (Gôndola)**: Novo preset de etiqueta maior (ex: 100x30mm) com descrição grande e preço focado para prateleiras.
-- [ ] **Modo "Check-out" de Entrega**: Scanner para conferir todos os itens de um pedido antes de carregar o caminhão.
-- [ ] **Consulta de Preço Rápida**: Tela simplificada para o cliente (ou vendedor) bipar um produto e ver o preço e variações disponíveis.
-- [ ] **Localização Bin-to-Bin**: Scanner para registrar em qual corredor/prateleira um produto foi guardado.
+## Infraestrutura e Backend
+- [ ] **Dashboard de Logs**: Criar uma interface visual para ver os logs do servidor de IA e Automação em tempo real.
+- [ ] **Recuperação de Sessão WhatsApp**: Melhorar a lógica de reconexão do `LocalAuth` para evitar necessidade constante de ler o QR Code.
 
-## 🐛 Bugs Conhecidos / Observações
-- A página de clientes agora está protegida contra dados mal-formatados ou nulos vindo do banco.
+## Regras de Negócio
+- [ ] **Consistência de Portas**: Centralizar a configuração de portas em um arquivo de configuração mestre ou usar um Proxy reverso (como Nginx ou Docker Compose) para facilitar o desenvolvimento local.

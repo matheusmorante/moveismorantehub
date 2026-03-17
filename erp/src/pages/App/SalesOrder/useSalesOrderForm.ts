@@ -150,7 +150,7 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
             if (items.length > 1) return false;
             if (items.length === 1 && (items[0].description !== '' || items[0].unitPrice !== 0)) return false;
             // Check Shipping
-            if (shipping.value !== 0 || shipping.distance !== undefined || shipping.scheduling.date !== '') return false;
+            if (shipping.value !== 0 || shipping.distance !== undefined || shipping.scheduling.date !== '' || shipping.scheduling.notInformed) return false;
             // Check Payments
             if (payments.length > 1) return false;
             if (payments.length === 1 && payments[0].amount !== 0) return false;
@@ -191,7 +191,8 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
             time: "",
             startTime: "",
             endTime: "",
-            type: "range" as const
+            type: "range" as const,
+            notInformed: false
         };
 
         const defaultShipping: Shipping = {

@@ -8,7 +8,8 @@ type Shipping = {
         time: string, // legacy/display
         startTime?: string, // HH:mm
         endTime?: string,   // HH:mm
-        type: 'fixed' | 'range'
+        type: 'fixed' | 'range',
+        notInformed?: boolean
     },
     destinationCoords?: [number, number], // [lng, lat] (GeoJSON/MapLibre format)
     routeGeoJSON?: any, // GeoJSON geometry from routing API
