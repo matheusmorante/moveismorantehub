@@ -372,7 +372,8 @@ export const saveProduct = async (product: Product): Promise<string> => {
                 'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors', 'has_no_line',
                 'product_type_id', 'product_type_name', 'environment', 'include_environment', 
                 'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
-                'title_complement', 'include_complement'
+                'title_complement', 'include_complement', 'include_type',
+                'whatsapp_sync', 'ecommerce_sync', 'whatsapp_auto_sync', 'last_whatsapp_sync'
             ];
             fieldsToStrip.forEach(field => delete (safeDBProduct as any)[field]);
             
@@ -546,7 +547,8 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
                 'product_type_id', 'product_type_name', 'environment', 'include_environment', 
                 'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
                 'title_complement', 'include_complement', 'include_type',
-                'slug', 'meta_title', 'meta_description', 'seo_description'
+                'slug', 'meta_title', 'meta_description', 'seo_description',
+                'whatsapp_sync', 'ecommerce_sync', 'whatsapp_auto_sync', 'last_whatsapp_sync'
             ];
             
             const safeDBProduct = { ...dbProduct };
