@@ -201,6 +201,7 @@ const INITIAL_FORM_DATA: Partial<Product> = {
     includeEnvironment: true,
     includeLine: true,
     includeBrand: true,
+    includeType: true,
     includeComplement: true,
     titleComplement: "",
     titleOrder: ["type", "environment", "line", "brand", "complement"]
@@ -312,11 +313,11 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     }, [formData.description]);
 
     const generateAutoTitle = useCallback((currentData: Partial<Product>) => {
-        const order = currentData.titleOrder || ["type", "environment", "line", "brand"];
+        const order = currentData.titleOrder || ["type", "environment", "line", "brand", "complement"];
         const parts: string[] = [];
 
         order.forEach(key => {
-            if (key === "type" && currentData.productTypeName) {
+            if (key === "type" && currentData.includeType !== false && currentData.productTypeName) {
                 parts.push(currentData.productTypeName);
             } else if (key === "environment" && currentData.includeEnvironment && currentData.environment) {
                 parts.push(currentData.environment);

@@ -34,17 +34,29 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     handleGenerateComboName,
     isGeneratingComboName
 }) => {
-    const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand"]).filter((k: string) => k !== 'supplierRef');
-    const draggableParts = titleOrder.filter((k: string) => k !== 'type');
+    const titleOrder = (formData.titleOrder || ["type", "environment", "line", "brand", "complement"]).filter((k: string) => k !== 'supplierRef');
+    const draggableParts = titleOrder as string[];
+
+    const isPartIncluded = (key: string) => {
+        if (key === 'line') return formData.includeLine !== false;
+        if (key === 'brand') return formData.includeBrand !== false;
+        if (key === 'complement') return formData.includeComplement !== false;
+        if (key === 'type') return formData.includeType !== false;
+        if (key === 'environment') return formData.includeEnvironment !== false;
+        return true;
+    };
 
     const handleToggleTitlePart = (key: string) => {
         setFormData((prev: Partial<Product>) => {
             const next = { ...prev };
-            if (key === "line") next.includeLine = !prev.includeLine;
-            if (key === "brand") next.includeBrand = !prev.includeBrand;
-            if (key === "complement") next.includeComplement = !prev.includeComplement;
+            const isIncluded = isPartIncluded(key);
             
-            // Auto update description
+            if (key === "line") next.includeLine = !isIncluded;
+            if (key === "brand") next.includeBrand = !isIncluded;
+            if (key === "complement") next.includeComplement = !isIncluded;
+            if (key === "type") next.includeType = !isIncluded;
+            if (key === "environment") next.includeEnvironment = !isIncluded;
+            
             next.description = generateAutoTitle(next);
             return next;
         });
@@ -57,11 +69,10 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         const [reorderedItem] = newDraggableParts.splice(result.source.index, 1);
         newDraggableParts.splice(result.destination.index, 0, reorderedItem);
         
-        // Reconstruct the full order: type is always first
-        const newFullOrder = ["type", ...newDraggableParts];
+        const newFullOrder = [...newDraggableParts];
         
         setFormData(prev => {
-            const next = { ...prev, titleOrder: newFullOrder };
+            const next = { ...prev, titleOrder: newFullOrder as string[] };
             next.description = generateAutoTitle(next);
             return next;
         });
@@ -135,7 +146,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                         </div>
                                     </div>
 
-                                    {draggableParts.map((key, idx) => (
+                                    {draggableParts.map((key: string, idx: number) => (
                                         <Draggable key={key} draggableId={key} index={idx}>
                                             {(provided, snapshot) => (
                                                 <div 
@@ -147,18 +158,18 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                                     <div className="flex items-center justify-center w-6 h-6 text-slate-300 group-hover/part:text-blue-500 transition-colors">
                                                         <i className="bi bi-grip-vertical text-lg"></i>
                                                     </div>
-                                                    <div className="flex flex-col min-w-[70px]">
-                                                        <span className="text-[7px] font-black text-slate-400 uppercase leading-none mb-0.5">Bloco {idx + 2}</span>
-                                                        <span className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">{getPartLabel(key)}</span>
-                                                    </div>
-                                                    {key !== 'type' && key !== 'environment' && (
+                                                     <div className="flex flex-col min-w-[70px]">
+                                                         <span className="text-[7px] font-black text-slate-400 uppercase leading-none mb-0.5">Bloco {idx + 1}</span>
+                                                         <span className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">{getPartLabel(key)}</span>
+                                                     </div>
+                                                     {key !== 'environment' && (
                                                         <button 
                                                             type="button" 
                                                             onClick={() => handleToggleTitlePart(key)}
-                                                            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${((key === 'line' && formData.includeLine) || (key === 'brand' && formData.includeBrand) || (key === 'complement' && formData.includeComplement)) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-300'}`}
-                                                        >
-                                                            <i className={`bi ${((key === 'line' && formData.includeLine) || (key === 'brand' && formData.includeBrand) || (key === 'complement' && formData.includeComplement)) ? 'bi-check-lg' : 'bi-dash-lg'}`}></i>
-                                                        </button>
+                                                            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${isPartIncluded(key) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-300'}`}
+                                                         >
+                                                             <i className={`bi ${isPartIncluded(key) ? 'bi-check-lg' : 'bi-dash-lg'}`}></i>
+                                                         </button>
                                                     )}
                                                     {key === 'environment' && (
                                                         <div className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-xl" title="Automático via Categoria">
@@ -196,7 +207,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-6 gap-6">
                     <div className="flex flex-col gap-2 md:col-span-2">
                         <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Móvel / Categorias <span className="text-red-500">*</span></label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Móvel <span className="text-red-500">*</span></label>
                             <button type="button" onClick={onOpenProductTypeModal} className="text-[9px] text-blue-600 font-bold hover:underline">Novo Tipo</button>
                         </div>
                         <CategoryAutocomplete
@@ -261,6 +272,28 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             }}
                             onSearch={onOpenCategorySearch}
                         />
+
+                        {(formData.categoryIds?.length || 0) > 1 && (
+                            <div className="mt-2 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl animate-in slide-in-from-top-1 duration-300">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-blue-600 mb-2 block">Definir como Principal p/ Título:</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {availableCategories.filter(c => formData.categoryIds?.includes(c.id)).map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            type="button"
+                                            onClick={() => setFormData(prev => {
+                                                const next = { ...prev, productTypeId: cat.id, productTypeName: cat.name.toUpperCase() };
+                                                next.description = generateAutoTitle(next);
+                                                return next;
+                                            })}
+                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${formData.productTypeId === cat.id ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-blue-300'}`}
+                                        >
+                                            {cat.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-2 md:col-span-2">

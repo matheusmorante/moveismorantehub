@@ -75,6 +75,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.includeEnvironment !== undefined) data.include_environment = product.includeEnvironment;
     if (product.includeLine !== undefined) data.include_line = product.includeLine;
     if (product.includeBrand !== undefined) data.include_brand = product.includeBrand;
+    if (product.includeType !== undefined) data.include_type = product.includeType;
     if (product.includeSupplierRef !== undefined) data.include_supplier_ref = product.includeSupplierRef;
     if (product.titleComplement !== undefined) data.title_complement = product.titleComplement;
     if (product.includeComplement !== undefined) data.include_complement = product.includeComplement;
@@ -165,6 +166,7 @@ const mapFromDB = (data: any): Product => {
         includeEnvironment: data.include_environment ?? true,
         includeLine: data.include_line ?? true,
         includeBrand: data.include_brand ?? true,
+        includeType: data.include_type ?? true,
         includeSupplierRef: data.include_supplier_ref ?? false,
         titleComplement: data.title_complement || '',
         includeComplement: data.include_complement ?? true,

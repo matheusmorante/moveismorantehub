@@ -172,6 +172,7 @@ export type Product = {
     includeEnvironment?: boolean;
     includeLine?: boolean;
     includeBrand?: boolean;
+    includeType?: boolean;
     includeSupplierRef?: boolean;
     titleComplement?: string;
     includeComplement?: boolean;
