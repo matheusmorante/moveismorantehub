@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import OrderStatusTimeline from "./OrderStatusTimeline";
 import { useState } from "react";
 import OrderStepper from "./OrderStepper";
+import SellerSearchModal from "./SellerSearchModal";
 
 interface OrderEditModalProps {
     order: Order;
@@ -17,6 +18,7 @@ interface OrderEditModalProps {
 const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) => {
     const form = useSalesOrderForm();
     const [view, setView] = useState<'form' | 'timeline'>('form');
+    const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
 
     // Load order data into form on mount
     useEffect(() => {
@@ -91,14 +93,61 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                     />
 
                     <div className="flex items-center gap-3">
+                        {/* Seller & Date Section - Shared with NewSaleOrder */}
+                        <div className="hidden xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm">
+                            {/* Seller Selection */}
+                            <button 
+                                onClick={() => setIsSellerSearchOpen(true)}
+                                className="group flex items-center gap-4 px-5 py-2 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
+                            >
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 transition-colors duration-500">
+                                    <i className="bi bi-person-badge-fill text-lg" />
+                                </div>
+                                <div className="flex flex-col text-left">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5 group-hover:text-blue-500 transition-colors">Vendedor</span>
+                                    <span className={`text-xs font-black uppercase tracking-widest ${form.state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
+                                        {form.state.seller || "Selecionar..."}
+                                    </span>
+                                </div>
+                                <div className="ml-2 pr-1 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all">
+                                    <i className="bi bi-chevron-down text-slate-400 text-xs" />
+                                </div>
+                            </button>
+
+                            <div className="w-[1px] h-8 bg-slate-100 dark:bg-slate-800 mx-1" />
+
+                            {/* Date Selection */}
+                            <div className="group flex items-center gap-4 px-5 py-2">
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 transition-colors duration-500">
+                                    <i className="bi bi-calendar-event-fill text-lg" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5">Data do Pedido</span>
+                                    <input
+                                        type="datetime-local"
+                                        value={form.state.orderDate}
+                                        onChange={(e) => form.actions.setOrderDate?.(e.target.value)}
+                                        className="bg-transparent border-0 p-0 focus:ring-0 text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         <button
                             onClick={onClose}
-                            className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 active:scale-95"
+                            className="w-14 h-14 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-[1.5rem] transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90"
                         >
-                            <i className="bi bi-x-lg text-lg" />
+                            <i className="bi bi-x-lg text-xl" />
                         </button>
                     </div>
                 </div>
+
+                {isSellerSearchOpen && (
+                    <SellerSearchModal 
+                        onSelect={(name) => form.actions.setSeller(name)}
+                        onClose={() => setIsSellerSearchOpen(false)}
+                    />
+                )}
 
                 {/* Modal Content - Internal Scroll handled by PdvFormSection */}
                 <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 custom-scrollbar">

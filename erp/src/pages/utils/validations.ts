@@ -90,17 +90,19 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
         if (shipping.useCustomerAddress !== false) {
             // Using customer address
             const addr = customer?.fullAddress;
-            if (!addr?.street) errors['customer_street'] = "Rua é obrigatória (Cadastro do Cliente).";
-            if (!addr?.number) errors['customer_number'] = "Número é obrigatório (Cadastro do Cliente).";
-            if (!addr?.neighborhood) errors['customer_neighborhood'] = "Bairro é obrigatório (Cadastro do Cliente).";
-            if (!addr?.city) errors['customer_city'] = "Cidade é obrigatória (Cadastro do Cliente).";
+            if (!addr?.street) errors['customer_street'] = "Rua é obrigatória.";
+            if (!addr?.number) errors['customer_number'] = "Número é obrigatório.";
+            if (!addr?.neighborhood) errors['customer_neighborhood'] = "Bairro é obrigatório.";
+            if (!addr?.city) errors['customer_city'] = "Cidade é obrigatória.";
+            if (!addr?.housingType) errors['customer_housingType'] = "Tipo de moradia é obrigatório.";
         } else {
             // Using custom delivery address
             const dAddr = shipping.deliveryAddress;
-            if (!dAddr?.street) errors['deliveryAddress_street'] = "Rua é obrigatória (Endereço de Entrega).";
-            if (!dAddr?.number) errors['deliveryAddress_number'] = "Número é obrigatório (Endereço de Entrega).";
-            if (!dAddr?.neighborhood) errors['deliveryAddress_neighborhood'] = "Bairro é obrigatório (Endereço de Entrega).";
-            if (!dAddr?.city) errors['deliveryAddress_city'] = "Cidade é obrigatória (Endereço de Entrega).";
+            if (!dAddr?.street) errors['deliveryAddress_street'] = "Rua é obrigatória.";
+            if (!dAddr?.number) errors['deliveryAddress_number'] = "Número é obrigatório.";
+            if (!dAddr?.neighborhood) errors['deliveryAddress_neighborhood'] = "Bairro é obrigatório.";
+            if (!dAddr?.city) errors['deliveryAddress_city'] = "Cidade é obrigatória.";
+            if (!dAddr?.housingType) errors['deliveryAddress_housingType'] = "Tipo de moradia é obrigatório.";
         }
     }
 

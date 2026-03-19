@@ -1,5 +1,1 @@
-2026/03/19-09:17:52.191 381c Log #3: 3 ops saved to Table #4 OK
-2026/03/19-09:17:52.197 381c Archiving C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Site Characteristics Database/000003.log: OK
-2026/03/19-09:17:52.197 381c Table #4: 3 entries OK
-2026/03/19-09:17:52.210 381c Archiving C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Site Characteristics Database/MANIFEST-000001: OK
-2026/03/19-09:17:52.257 381c **** Repaired leveldb C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Site Characteristics Database; recovered 1 files; 223 bytes. Some data may have been lost. ****
+2026/03/19-09:17:52.279 381c Reusing MANIFEST C:\Users\Rosilene\Desktop\pdv\automation\.wwebjs_auth\session-morante-hub-session\Default\Site Characteristics Database/MANIFEST-000001

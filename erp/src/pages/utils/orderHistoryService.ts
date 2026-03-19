@@ -97,7 +97,19 @@ export const saveOrder = async (order: Order): Promise<string> => {
         if (error) throw error;
         const rowId = (data as any)?.[0]?.id;
 
-        // Stock Management logic refactored into a separate function for reuse and clarity
+        // Log initial status history
+        try {
+            await supabase.from('order_status_history').insert([{
+                order_id: String(rowId),
+                old_status: null,
+                new_status: orderToSave.status || 'draft',
+                changed_by: (orderToSave as any).seller || 'system'
+            }]);
+        } catch (historyErr) {
+            console.error("[OrderCreate] Erro ao gravar histórico de status inicial:", historyErr);
+        }
+
+        // Stock Management logic refactored
         const updatedOrder = await handleStockAndBusinessRules(rowId, orderToSave);
         if (updatedOrder.stockProcessed) {
             await updateOrder(String(rowId), { stockProcessed: true });

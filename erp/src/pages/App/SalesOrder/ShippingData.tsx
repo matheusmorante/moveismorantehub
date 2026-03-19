@@ -54,7 +54,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
 
     const onChangeScheduling = (
         key: keyof Shipping["scheduling"],
-        value: string | Date
+        value: string | Date | boolean
     ) => {
         setShipping((prev: Shipping) => {
             const newScheduling = { ...prev.scheduling, [key]: value };
@@ -148,9 +148,16 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                     />
                                     <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
                                 </div>
-                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                    Entregar no endereço cadastrado do cliente
-                                </span>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                        Usar o mesmo endereço do cliente?
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 font-medium">
+                                        {shipping.useCustomerAddress !== false 
+                                            ? `Entregando em: ${customerData.fullAddress?.street || 'Endereço não informado'}` 
+                                            : 'Preencha um endereço de entrega diferente abaixo'}
+                                    </span>
+                                </div>
                             </label>
 
                             {shipping.useCustomerAddress === false && (
@@ -261,17 +268,41 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <SmartInput
-                                            label="Ponto de Referência / Observação de Entrega"
-                                            value={shipping.deliveryAddress?.observation || ""}
-                                            onValueChange={val => updateDeliveryAddress('observation', val)}
-                                            tableName="orders"
-                                            columnName="observation"
-                                            placeholder="Ex: Casa verde em frente a padaria..."
-                                            icon="bi-geo-alt"
-                                            className="bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30"
-                                        />
+                                    <div className="flex flex-col md:flex-row gap-4">
+                                        <div className="flex-1 relative group/field">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Tipo de Moradia <span className="text-red-500">*</span></label>
+                                            <select
+                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_housingType'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                                value={shipping.deliveryAddress?.housingType || ""}
+                                                onChange={e => updateDeliveryAddress('housingType', e.target.value)}
+                                            >
+                                                <option value="" disabled>Selecione o tipo...</option>
+                                                <option value="Casa">Casa</option>
+                                                <option value="Apartamento">Apartamento</option>
+                                                <option value="Condomínio Residencial">Condomínio Residencial</option>
+                                                <option value="Kitnet">Kitnet</option>
+                                                <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
+                                                <option value="Chácara">Chácara</option>
+                                            </select>
+                                            {errors['deliveryAddress_housingType'] && (
+                                                <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
+                                                    {errors['deliveryAddress_housingType']}
+                                                    <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-[2]">
+                                            <SmartInput
+                                                label="Ponto de Referência / Observação de Entrega"
+                                                value={shipping.deliveryAddress?.observation || ""}
+                                                onValueChange={val => updateDeliveryAddress('observation', val)}
+                                                tableName="orders"
+                                                columnName="observation"
+                                                placeholder="Ex: Casa verde em frente a padaria..."
+                                                icon="bi-geo-alt"
+                                                className="bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}

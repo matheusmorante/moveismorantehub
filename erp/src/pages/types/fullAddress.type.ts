@@ -6,7 +6,8 @@ type FullAddress = {
     observation: string,
     neighborhood: string,
     city: string,
-    state?: string
+    state?: string,
+    housingType?: string
 }
 
 export type AddressViaCep = {

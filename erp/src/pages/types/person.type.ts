@@ -7,6 +7,7 @@ export type Person = {
     socialName?: string; // Nome Social (específico PF)
     companyName?: string; // Razão Social (específico PJ)
     tradeName?: string; // Nome Fantasia (específico PJ)
+    nickname?: string; // Apelido
     cpfCnpj?: string;
     email?: string;
     phone?: string;

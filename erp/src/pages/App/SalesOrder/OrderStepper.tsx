@@ -14,7 +14,7 @@ interface OrderStepperProps {
 const steps: Step[] = [
     { step: 1, icon: 'bi-box-seam', label: 'Itens' },
     { step: 2, icon: 'bi-person-badge', label: 'Cliente' },
-    { step: 3, icon: 'bi-truck', label: 'Entrega' },
+    { step: 3, icon: 'bi-truck', label: 'Logística' },
     { step: 4, icon: 'bi-credit-card-2-front', label: 'Pagamento' },
     { step: 5, icon: 'bi-check2-circle', label: 'Resumo' }
 ];

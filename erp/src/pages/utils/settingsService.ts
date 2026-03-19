@@ -35,6 +35,8 @@ export interface AppSettings {
     };
     deliveryHandlingOptions: string[];
     pickupHandlingOptions: string[];
+    defaultDeliveryHandling: string;
+    defaultPickupHandling: string;
 
     // Logística e Valores
     freightPerKm: number;
@@ -228,6 +230,8 @@ export const getDefaultSettings = (): AppSettings => ({
         'Já Montado',
         'Manuseio Especial'
     ],
+    defaultDeliveryHandling: 'Entrega com montagem no local',
+    defaultPickupHandling: 'Já Montado',
     freightPerKm: 0,
     openRouteServiceApiKey: '',
     storeOriginCoords: [-49.16928181659719, -25.352030536045138],

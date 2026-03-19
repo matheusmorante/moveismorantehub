@@ -23,7 +23,8 @@ type Shipping = {
         observation: string,
         neighborhood: string,
         city: string,
-        state?: string
+        state?: string,
+        housingType?: string
     }
 };
 

@@ -33,6 +33,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             number: "",
             neighborhood: "",
             city: "",
+            housingType: "",
             complement: "",
             observation: ""
         },
@@ -55,6 +56,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     number: person.fullAddress?.number || "",
                     neighborhood: person.fullAddress?.neighborhood || "",
                     city: person.fullAddress?.city || "",
+                    housingType: (person.fullAddress as any)?.housingType || "",
                     complement: person.fullAddress?.complement || "",
                     observation: person.fullAddress?.observation || ""
                 }
@@ -75,6 +77,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     number: "",
                     neighborhood: "",
                     city: "",
+                    housingType: "",
                     complement: "",
                     observation: ""
                 },
@@ -93,6 +96,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 number: "",
                 neighborhood: "",
                 city: "",
+                housingType: "",
                 complement: "",
                 observation: ""
             };
@@ -472,6 +476,22 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     onChange={(e) => handleAddressChange("city", e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia {settings.requiredFields.customer?.address ? <span className="text-red-500">*</span> : null}</label>
+                                <select
+                                    value={(formData.fullAddress as any)?.housingType || ""}
+                                    onChange={(e) => handleAddressChange("housingType", e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                >
+                                    <option value="" disabled>Selecione...</option>
+                                    <option value="Casa">Casa</option>
+                                    <option value="Apartamento">Apartamento</option>
+                                    <option value="Condomínio Residencial">Condomínio Residencial</option>
+                                    <option value="Kitnet">Kitnet</option>
+                                    <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
+                                    <option value="Chácara">Chácara</option>
+                                </select>
                             </div>
                             <div className="md:col-span-3 flex flex-col gap-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>

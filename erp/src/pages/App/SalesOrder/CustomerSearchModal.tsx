@@ -29,11 +29,30 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
     const [loadingOrders, setLoadingOrders] = useState(true);
 
     useEffect(() => {
-        const unsub = subscribeToPeople('customers', (data) => {
-            setPeople(data.filter(p => p.active && !p.deleted));
+        // Fetch everyone to allow filtering matching the user's request
+        const unsubCustomers = subscribeToPeople('customers', (data) => {
+            setPeople(prev => {
+                const combined = [...prev, ...data];
+                // Unique by ID
+                const unique = Array.from(new Map(combined.map(p => [p.id, p])).values());
+                return unique.filter(p => p.active && !p.deleted);
+            });
             setLoadingPeople(false);
         });
-        return () => { if (unsub) unsub(); };
+
+        const unsubEmployees = subscribeToPeople('employees', (data) => {
+            setPeople(prev => {
+                const combined = [...prev, ...data];
+                // Unique by ID
+                const unique = Array.from(new Map(combined.map(p => [p.id, p])).values());
+                return unique.filter(p => p.active && !p.deleted);
+            });
+        });
+
+        return () => { 
+            if (unsubCustomers) unsubCustomers(); 
+            if (unsubEmployees) unsubEmployees();
+        };
     }, []);
 
     useEffect(() => {
@@ -121,16 +140,32 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
         });
     }, [people, orders]);
 
+    const [selectedType, setSelectedType] = useState<'all' | 'customer' | 'employee' | 'supplier'>('all');
+
     const filtered = useMemo(() => {
-        if (!search.trim()) return customerList;
+        let list = customerList;
+        
+        // Apply type filter
+        if (selectedType !== 'all') {
+            list = list.filter(c => {
+                const p = people.find(p => p.id === c.id);
+                if (!p) return selectedType === 'customer'; // Default guest to customer
+                if (selectedType === 'customer') return p.type === 'customers';
+                if (selectedType === 'employee') return p.type === 'employees';
+                if (selectedType === 'supplier') return p.type === 'suppliers';
+                return true;
+            });
+        }
+
+        if (!search.trim()) return list;
         const s = search.toLowerCase();
-        return customerList.filter(c =>
+        return list.filter(c =>
             c.fullName.toLowerCase().includes(s) ||
             c.phone.includes(s) ||
             (c.customerData.fullAddress.city || '').toLowerCase().includes(s) ||
             (c.customerData.fullAddress.neighborhood || '').toLowerCase().includes(s)
         );
-    }, [customerList, search]);
+    }, [customerList, search, selectedType, people]);
 
     const isLoading = loadingPeople || loadingOrders;
 
@@ -178,27 +213,49 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
                     </div>
                 </div>
 
-                {/* Search Bar */}
+                {/* Search Bar & Filters */}
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                    <div className="relative">
-                        <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            autoFocus
-                            type="text"
-                            placeholder="Busque por nome, telefone, cidade ou bairro..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-400"
-                        />
-                        {search && (
-                            <button
-                                onClick={() => setSearch('')}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                                <i className="bi bi-x-circle-fill" />
-                            </button>
-                        )}
+                    <div className="flex flex-col gap-4">
+                        <div className="relative">
+                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder="Busque por nome, telefone, cidade ou bairro..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-400"
+                            />
+                            {search && (
+                                <button
+                                    onClick={() => setSearch('')}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                    <i className="bi bi-x-circle-fill" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Type Tabs */}
+                        <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl w-fit">
+                            {[
+                                { id: 'all', label: 'Todos', icon: 'bi-grid' },
+                                { id: 'customer', label: 'Clientes', icon: 'bi-person' },
+                                { id: 'employee', label: 'Funcionários', icon: 'bi-person-badge' },
+                                { id: 'supplier', label: 'Fornecedores', icon: 'bi-truck' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setSelectedType(tab.id as any)}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedType === tab.id ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    <i className={`bi ${tab.icon}`} />
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
+
                     <div className="flex items-center gap-4 mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -209,7 +266,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
                             Histórico de Pedidos
                         </span>
                         <span className="ml-auto">
-                            {isLoading ? 'Carregando...' : `${filtered.length} cliente(s)`}
+                            {isLoading ? 'Carregando...' : `${filtered.length} registro(s)`}
                         </span>
                     </div>
                 </div>

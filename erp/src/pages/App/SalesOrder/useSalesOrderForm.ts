@@ -163,7 +163,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
         if (isDefaultState) return;
 
         autoSaveTimerRef.current = setTimeout(async () => {
-            const draft = getOrderData('draft'); // Forçar status draft no rascunho
+            const currentStatus = latestState.current.status;
+            // Only force 'draft' for new orders or those already in 'draft'
+            const saveStatus = (currentStatus === 'draft' || !latestState.current.currentOrderId) ? 'draft' : currentStatus;
+            const draft = getOrderData(saveStatus as any); 
             try {
                 setIsSavingDraft(true);
                 const savedId = await saveOrder(draft);
@@ -295,8 +298,13 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
     }, [setShipping]);
 
     const handleSelectProduct = useCallback((idx: number, product: Product, variation?: Variation) => {
+        const settings = getSettings();
         setItems(prev => {
             const newItems = [...prev];
+            const defaultHandling = shipping.deliveryMethod === 'pickup' 
+                ? settings.defaultPickupHandling 
+                : settings.defaultDeliveryHandling;
+
             newItems[idx] = {
                 ...newItems[idx],
                 productId: product.id,
@@ -305,12 +313,12 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
                 description: variation ? `${product.description} - ${variation.name}` : product.description,
                 unitPrice: (variation?.unitPrice || product.unitPrice) || 0,
                 costPrice: (variation?.costPrice || product.costPrice) || 0,
-                handlingType: product.itemType === 'service' ? 'Execução no local' : 'Entrega com montagem no local',
+                handlingType: product.itemType === 'service' ? 'Execução no local' : defaultHandling,
                 condition: product.condition || 'novo'
             };
             return newItems;
         });
-    }, [setItems]);
+    }, [setItems, shipping.deliveryMethod]);
 
     const handleItemChange = useCallback((idx: number, key: keyof Item, value: any) => {
         setItems(prev => {
@@ -336,6 +344,21 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
             return () => clearTimeout(timer);
         }
     }, [customerData.fullAddress, shipping.deliveryAddress, shipping.useCustomerAddress, handleAutoCalculateDistance]);
+
+    // Sync item handling type when delivery method changes
+    useEffect(() => {
+        const settings = getSettings();
+        setItems(prev => prev.map(item => {
+            // Don't change handling for services
+            if (item.handlingType === 'Execução no local') return item;
+            
+            const newDefault = shipping.deliveryMethod === 'pickup' 
+                ? settings.defaultPickupHandling 
+                : settings.defaultDeliveryHandling;
+                
+            return { ...item, handlingType: newDefault };
+        }));
+    }, [shipping.deliveryMethod, setItems]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
