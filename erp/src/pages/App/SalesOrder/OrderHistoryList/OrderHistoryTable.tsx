@@ -38,7 +38,7 @@ interface ColumnDef {
 const COLUMNS_DEF: ColumnDef[] = [
     { key: 'id', label: 'ID do Pedido' },
     { key: 'orderDate', label: (trash?: boolean) => trash ? 'Excluído em' : 'Data' },
-    { key: 'deliveryDate', label: 'Entrega' },
+    { key: 'deliveryDate', label: 'Agendado' },
     { key: 'customer', label: 'Cliente' },
     { key: 'totalValue', label: 'Valor Total', align: 'text-right' },
     { key: 'status', label: 'Status', align: 'text-center' },

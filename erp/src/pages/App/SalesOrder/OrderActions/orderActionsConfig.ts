@@ -50,6 +50,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
             ? `/stock/label-printing?preset=qr_product&productId=${item.productId}` 
             : `/stock/label-printing?preset=qr_product`;
         window.open(url, "_blank");
+    },
+    'GENERATE_PAYMENT_LINK': (order) => {
+        console.log("Gerando link de pagamento para o pedido:", order.id);
     }
 };
 
@@ -126,33 +129,6 @@ export const buttons: OrderButton[] = [
         label: "Lançar Estoque",
         color: "text-orange-600 hover:bg-orange-50",
         tooltip: "Lançar saída de estoque manualmente para este pedido",
-        orderTypes: ['sale']
-    },
-    {
-        key: "stockReversal",
-        icon: "bi-arrow-counterclockwise",
-        action: "STOCK_REVERSAL",
-        label: "Estornar Estoque",
-        color: "text-blue-600 hover:bg-blue-50",
-        tooltip: "Estornar (devolver) itens para o estoque",
-        orderTypes: ['sale']
-    },
-    {
-        key: "printShippingLabel",
-        icon: "bi-tag-fill",
-        action: "PRINT_SHIPPING_LABEL",
-        label: "Etiqueta Envio",
-        color: "text-purple-600 hover:bg-purple-50",
-        tooltip: "Gerar etiqueta de envio com endereço do cliente",
-        orderTypes: ['sale', 'assistance']
-    },
-    {
-        key: "printProductLabel",
-        icon: "bi-tag",
-        action: "PRINT_PRODUCT_LABEL",
-        label: "Etiqueta Produto",
-        color: "text-blue-500 hover:bg-blue-50",
-        tooltip: "Gerar etiquetas dos produtos deste pedido",
         orderTypes: ['sale']
     }
 ];

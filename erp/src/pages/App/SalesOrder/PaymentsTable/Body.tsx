@@ -1,3 +1,4 @@
+import React from "react";
 import { Payment, PaymentsSummary } from "../../../types/payments.type";
 import { sanitizePayment } from "../../../utils/sanitization";
 import BodyRow from "./BodyRow";

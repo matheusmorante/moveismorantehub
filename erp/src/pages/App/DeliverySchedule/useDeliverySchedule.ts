@@ -5,13 +5,13 @@ import { DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-toastify";
 import { getLocalISODate } from "../../utils/formatters";
 
-export type ScheduleFilter = 'default' | 'week' | 'month' | 'year' | 'all';
+export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'all' | 'delivery' | 'pickup' | 'assistance';
 
 /**
  * Utility to group and sort orders by date and time with range filtering
  */
-const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: OrderTypeFilter) => {
+const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: OrderTypeFilter, customRange?: { start: string, end: string }) => {
     const now = new Date();
     const todayStr = getLocalISODate(now);
 
@@ -88,6 +88,10 @@ const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: Orde
             return orderDateStr.startsWith(todayStr.substring(0, 4)); // YYYY
         }
 
+        if (filter === 'custom' && customRange) {
+            return orderDateStr >= customRange.start && orderDateStr <= customRange.end;
+        }
+
         return true;
     });
 
@@ -134,12 +138,14 @@ export const useDeliverySchedule = () => {
     const [viewMode, setViewMode] = useState<"card" | "table">("card");
     const [filter, setFilter] = useState<ScheduleFilter>('default');
     const [typeFilter, setTypeFilter] = useState<OrderTypeFilter>('all');
+    const [startDate, setStartDate] = useState(getLocalISODate(new Date()));
+    const [endDate, setEndDate] = useState(getLocalISODate(new Date()));
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     useEffect(() => {
         const unsubscribe = subscribeToOrders((orders) => {
             setAllOrders(orders);
-            const processed = processOrders(orders, filter, typeFilter);
+            const processed = processOrders(orders, filter, typeFilter, { start: startDate, end: endDate });
             setSchedule(processed);
             setLoading(false);
         });
@@ -150,9 +156,9 @@ export const useDeliverySchedule = () => {
     // Re-process when filter changes locally
     useEffect(() => {
         if (!loading) {
-            setSchedule(processOrders(allOrders, filter, typeFilter));
+            setSchedule(processOrders(allOrders, filter, typeFilter, { start: startDate, end: endDate }));
         }
-    }, [filter, typeFilter, allOrders, loading]);
+    }, [filter, typeFilter, startDate, endDate, allOrders, loading]);
 
     const handleShare = () => {
         const scheduleUrl = `${window.location.origin}/schedule`;
@@ -209,5 +215,9 @@ export const useDeliverySchedule = () => {
         closeOrderDetails,
         handleShare,
         handleDragEnd,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
     };
 };

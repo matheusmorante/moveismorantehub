@@ -12,8 +12,8 @@ const dropdownClass = "absolute top-[calc(100%-8px)] left-0 w-60 bg-white/80 dar
 const dropdownItemClass = "p-3 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-2xl transition-all duration-300 font-bold text-[10px] uppercase tracking-widest flex items-center gap-3";
 const navLinkClass = "flex items-center gap-2 px-4 py-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm rounded-2xl transition-all duration-300 font-bold text-[11px] whitespace-nowrap active:scale-95";
 
-const menuBtnClass = (isActive: boolean) =>
-    `flex items-center gap-2 px-4 py-2 rounded-2xl transition-all duration-300 font-bold text-[11px] whitespace-nowrap active:scale-95 ${isActive ? 'text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-premium-sm' : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm'}`;
+const menuBtnClass = (isActive: boolean, isBeta?: boolean) =>
+    `flex items-center gap-2 px-4 py-2 rounded-2xl transition-all duration-300 font-bold text-[11px] whitespace-nowrap active:scale-95 ${isActive ? 'text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-premium-sm' : isBeta ? 'text-slate-300 dark:text-slate-600 grayscale hover:text-slate-400 opacity-60' : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm'}`;
 
 const chevronClass = (isActive: boolean) =>
     `bi bi-chevron-down transition-transform text-[10px] ${isActive ? 'rotate-180' : ''}`;
@@ -35,9 +35,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('products')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products')}>
+                <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
                     <i className="bi bi-box-seam"></i>
-                    Produtos e Serviços
+                    <span>Produtos e Serviços</span>
+                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'products')}></i>
                 </button>
                 {activeMenu === 'products' && (
@@ -55,7 +56,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('registrations')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('registrations')} className={menuBtnClass(activeMenu === 'registrations')}>
+                <button onClick={() => toggle('registrations')} className={menuBtnClass(activeMenu === 'registrations', false)}>
                     <i className="bi bi-people-fill"></i>
                     Pessoas
                     <i className={chevronClass(activeMenu === 'registrations')}></i>
@@ -75,9 +76,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('stock')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock')}>
+                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
                     <i className="bi bi-box-seam-fill"></i>
-                    Estoque
+                    <span>Estoque</span>
+                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'stock')}></i>
                 </button>
                 {activeMenu === 'stock' && (
@@ -94,7 +96,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('salesOrder')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('salesOrder')} className={menuBtnClass(activeMenu === 'salesOrder')}>
+                <button onClick={() => toggle('salesOrder')} className={menuBtnClass(activeMenu === 'salesOrder', false)}>
                     <i className="bi bi-cart-fill"></i>
                     Pedidos
                     <i className={chevronClass(activeMenu === 'salesOrder')}></i>
@@ -117,7 +119,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('finance')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance')}>
+                <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', false)}>
                     <i className="bi bi-wallet2"></i>
                     Financeiro
                     <i className={chevronClass(activeMenu === 'finance')}></i>
@@ -139,7 +141,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('marketing')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing')}>
+                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', false)}>
                     <i className="bi bi- megaphone-fill"></i>
                     Marketing
                     <i className={chevronClass(activeMenu === 'marketing')}></i>

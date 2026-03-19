@@ -20,7 +20,11 @@ const DeliverySchedule = () => {
         openOrderDetails,
         closeOrderDetails,
         handleShare,
-        handleDragEnd
+        handleDragEnd,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
     } = useDeliverySchedule();
 
     const [viewMode, setViewMode] = useState<"card" | "table" | "map">("card");
@@ -38,11 +42,11 @@ const DeliverySchedule = () => {
     const isStandalone = location.pathname.includes("/schedule") && !location.pathname.includes("/delivery-schedule");
 
     const filters: { id: ScheduleFilter; label: string; icon: string }[] = [
+        { id: 'custom', label: 'Personalizado', icon: 'bi-calendar-range' },
         { id: 'default', label: 'Ontem e Seguintes', icon: 'bi-calendar-check' },
-        { id: 'week', label: 'Esta Semana', icon: 'bi-calendar-range' },
+        { id: 'week', label: 'Esta Semana', icon: 'bi-calendar3-range' },
         { id: 'month', label: 'Este Mês', icon: 'bi-calendar-month' },
         { id: 'year', label: 'Este Ano', icon: 'bi-calendar3' },
-        { id: 'all', label: 'Tudo', icon: 'bi-collection' },
     ];
 
     const typeFilters: { id: OrderTypeFilter; label: string; icon: string }[] = [
@@ -94,17 +98,41 @@ const DeliverySchedule = () => {
                         </p>
                         <div className="flex flex-col gap-2">
                             {filters.map(f => (
-                                <button
-                                    key={f.id}
-                                    onClick={() => { setFilter(f.id); setSidebarOpen(false); }}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all text-left ${filter === f.id
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/30'
-                                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                                        }`}
-                                >
-                                    <i className={`bi ${f.icon} text-base`} />
-                                    {f.label}
-                                </button>
+                                <div key={f.id} className="flex flex-col gap-2">
+                                    <button
+                                        onClick={() => setFilter(f.id)}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all text-left ${filter === f.id
+                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/30'
+                                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        <i className={`bi ${f.icon} text-base`} />
+                                        {f.label}
+                                    </button>
+                                    
+                                    {f.id === 'custom' && filter === 'custom' && (
+                                        <div className="flex flex-col gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 animate-slide-up">
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">De:</label>
+                                                <input 
+                                                    type="date" 
+                                                    value={startDate} 
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Até:</label>
+                                                <input 
+                                                    type="date" 
+                                                    value={endDate} 
+                                                    onChange={(e) => setEndDate(e.target.value)}
+                                                    className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -222,7 +250,7 @@ const DeliverySchedule = () => {
 
             {/* Desktop: FILTERS TOOLBAR */}
             <div className="hidden lg:flex flex-wrap items-center gap-4 w-full xl:w-auto">
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl gap-1 w-full sm:w-auto transition-colors duration-300">
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl gap-1 w-full sm:w-auto transition-colors duration-300 items-center">
                     {filters.map((f) => (
                         <button
                             key={f.id}
@@ -236,6 +264,29 @@ const DeliverySchedule = () => {
                             <span>{f.label}</span>
                         </button>
                     ))}
+
+                    {filter === 'custom' && (
+                        <div className="flex items-center gap-2 ml-4 animate-fade-in pr-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black uppercase text-slate-400">De</span>
+                                <input 
+                                    type="date" 
+                                    value={startDate} 
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="bg-white dark:bg-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 dark:text-slate-100"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black uppercase text-slate-400">Até</span>
+                                <input 
+                                    type="date" 
+                                    value={endDate} 
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="bg-white dark:bg-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 dark:text-slate-100"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />

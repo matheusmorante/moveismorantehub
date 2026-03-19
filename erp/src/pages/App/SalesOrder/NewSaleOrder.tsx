@@ -62,13 +62,13 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isPickup ? 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30' : 'px-12 py-7 bg-white dark:bg-slate-900 border-slate-100/50 dark:border-slate-800/50'}`}>
+                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isPickup ? 'px-12 py-7 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
                     <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setIsScrolled(false)}>
-                        <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isPickup ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-blue-600 shadow-blue-500/20'}`}>
+                        <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
                             <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
                         </div>
                         <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95 overflow-hidden' : 'opacity-100 scale-100'}`}>
-                            <h2 className={`text-2xl font-black tracking-tight ${isPickup ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                            <h2 className={`text-2xl font-black tracking-tight ${isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
                                 Novo Pedido de Venda
                             </h2>
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-blue-500 transition-colors">
@@ -110,7 +110,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                                 onClick={() => setIsSellerSearchOpen(true)}
                                 className="group flex items-center gap-4 px-5 py-2 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
                             >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isPickup ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'}`}>
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
                                     <i className="bi bi-person-badge-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col text-left">
@@ -125,7 +125,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
 
                             {/* Date Selection */}
                             <div className="group flex items-center gap-4 px-5 py-2">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isPickup ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'}`}>
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
                                     <i className="bi bi-calendar-event-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col">

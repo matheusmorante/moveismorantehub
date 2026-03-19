@@ -234,17 +234,6 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
 
                 <form onSubmit={handleSave} className="p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
                     
-                    <AssistanceCustomerSection 
-                        customerName={customerName}
-                        setCustomerName={setCustomerName}
-                        customerPhone={customerPhone}
-                        setCustomerPhone={setCustomerPhone}
-                        customerNoPhone={customerNoPhone}
-                        setCustomerNoPhone={setCustomerNoPhone}
-                        onOpenSearch={() => setIsCustomerSearchOpen(true)}
-                        errors={validationErrors}
-                    />
-
                     <AssistanceLinkedOrderSection 
                         isLinked={isLinked}
                         setIsLinked={setIsLinked}
@@ -254,6 +243,18 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         selectedAssistanceItems={selectedAssistanceItems}
                         handleToggleItem={handleToggleItem}
                         handleUpdateItemQty={handleUpdateItemQty}
+                    />
+
+                    <AssistanceCustomerSection 
+                        customerName={customerName}
+                        setCustomerName={setCustomerName}
+                        customerPhone={customerPhone}
+                        setCustomerPhone={setCustomerPhone}
+                        customerNoPhone={customerNoPhone}
+                        setCustomerNoPhone={setCustomerNoPhone}
+                        onOpenSearch={() => setIsCustomerSearchOpen(true)}
+                        errors={validationErrors}
+                        isLinked={isLinked}
                     />
 
                     <AssistanceDescriptionSection 
@@ -266,12 +267,6 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         assistanceCost={assistanceCost}
                         setAssistanceCost={setAssistanceCost}
                         errors={validationErrors}
-                    />
-
-                    <AssistanceExtraItemsSection 
-                        extraItems={extraItems}
-                        setExtraItems={setExtraItems}
-                        onOpenSearch={() => setIsProductSearchOpen(true)}
                     />
 
                     <AssistanceSchedulingSection 

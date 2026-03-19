@@ -38,25 +38,30 @@ const OrderHistoryCard = ({
     const [showMenu, setShowMenu] = React.useState(false);
     const [showPicker, setShowPicker] = React.useState(false);
 
-    const statuses = settings.orderStatuses ? [...settings.orderStatuses] : [
-        { id: 'draft', label: 'Aguardando', color: 'slate' },
+    const statuses = (settings.orderStatuses || [
+        { id: 'draft', label: 'Rascunho', color: 'slate' },
         { id: 'scheduled', label: 'Agendado', color: 'amber' },
         { id: 'fulfilled', label: 'Atendido', color: 'emerald' },
         { id: 'cancelled', label: 'Cancelado', color: 'rose' },
-    ];
-
-    if (!statuses.find((s: any) => s.id === 'chargeback')) {
-        statuses.push({ id: 'chargeback', label: 'Chargeback', color: 'rose' });
-        statuses.push({ id: 'disputed', label: 'Em Disputa', color: 'amber' });
-    }
+    ]).map(s => s.id === 'draft' ? { ...s, label: 'Rascunho' } : s)
+      .filter(s => s.id !== 'chargeback' && s.id !== 'disputed');
 
     const currentStatus = statuses.find(s => s.id === (order.status || 'draft')) || statuses[0];
 
-    const colors = settings.orderTypeColors ?? { delivery: 'blue', pickup: 'purple', assistance: 'orange' };
+    const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const isDraft = order.status === 'draft';
     const cls = getOrderTypeClasses(isDraft ? 'slate' : colorKey as any);
-    const cardBgClass = isDraft ? 'bg-slate-50/50 dark:bg-slate-900/40' : (colorKey === 'blue' ? 'bg-blue-50/50 dark:bg-blue-900/10' : (colorKey === 'purple' ? 'bg-purple-50/50 dark:bg-purple-900/10' : (colorKey === 'orange' ? 'bg-orange-50/50 dark:bg-orange-900/10' : cls.rowHover)));
+    
+    // Explicit colors to match legend and be visible
+    const cardBgClass = 
+        (colorKey === 'green' 
+            ? 'bg-green-100/40 dark:bg-green-900/40' 
+            : (colorKey === 'purple' 
+                ? 'bg-purple-100/40 dark:bg-purple-900/40' 
+                : (colorKey === 'orange' 
+                    ? 'bg-orange-100/40 dark:bg-orange-900/40' 
+                    : cls.rowHover)));
 
     return (
         <div 
@@ -75,14 +80,18 @@ const OrderHistoryCard = ({
                         }}
                         className="w-5 h-5 text-blue-600 bg-white border-slate-300 rounded-md focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
                     />
-                    <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
-                        #{order.id?.slice(-6).toUpperCase()}
-                    </span>
-                    {(order.status === 'chargeback' || order.status === 'disputed') && (
-                        <span className="bg-red-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded animate-pulse shadow-sm flex items-center gap-1" title="Atenção: Pagamento Constestado na Rede Itaú (Chargeback)! Não envie a mercadoria.">
-                            <i className="bi bi-exclamation-triangle-fill" /> ALERTA: FRAUDE
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
+                            #{order.id?.slice(-6).toUpperCase()}
                         </span>
-                    )}
+                        {(() => {
+                            const isAssistance = order.orderType === 'assistance';
+                            const isPickup = order.shipping?.deliveryMethod === 'pickup';
+                            const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
+                            const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-500');
+                            return <i className={`bi ${typeIcon} ${typeColor} text-[10px]`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />;
+                        })()}
+                    </div>
                 </div>
                 
                 <div className="relative" onClick={(e) => e.stopPropagation()}>

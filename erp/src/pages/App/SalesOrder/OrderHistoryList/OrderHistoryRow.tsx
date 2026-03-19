@@ -55,12 +55,15 @@ const OrderHistoryRow = ({
         return () => clearTimeout(timer);
     }, [showFulfillmentConfirm]);
 
-    const statuses = settings.orderStatuses || [
-        { id: 'draft', label: 'Aguardando', color: 'slate', isCore: true },
+    const statuses = (settings.orderStatuses || [
+        { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
         { id: 'scheduled', label: 'Agendado', color: 'amber', isCore: true },
         { id: 'fulfilled', label: 'Atendido', color: 'emerald', isCore: true },
         { id: 'cancelled', label: 'Cancelado', color: 'rose', isCore: true },
-    ];
+    ]).map(s => {
+        if (s.id === 'draft') return { ...s, label: 'Rascunho', color: 'slate' };
+        return s;
+    }).filter(s => s.id !== 'chargeback' && s.id !== 'disputed');
 
     const statusConfig: Record<string, { label: string, bg: string, text: string, dot: string }> = {};
     statuses.forEach(s => {
@@ -73,10 +76,25 @@ const OrderHistoryRow = ({
     });
 
     // Fallbacks just in case
-    if (!statusConfig.draft) statusConfig.draft = { label: 'Aguardando', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' };
+    if (!statusConfig.draft) statusConfig.draft = { label: 'Rascunho', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' };
     if (!statusConfig.fulfilled) statusConfig.fulfilled = { label: 'Atendido', bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500' };
-    if (!statusConfig.chargeback) statusConfig.chargeback = { label: 'Chargeback', bg: 'bg-red-100 border border-red-300', text: 'text-red-700 font-black', dot: 'bg-red-600 animate-pulse' };
-    if (!statusConfig.disputed) statusConfig.disputed = { label: 'Em Disputa', bg: 'bg-orange-100 border border-orange-300', text: 'text-orange-800 font-black', dot: 'bg-orange-600 animate-pulse' };
+
+    const rowColors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
+    const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
+    const isDraft = order.status === 'draft';
+    const cls = getOrderTypeClasses(isDraft ? 'slate' : rowColorKey as any);
+    
+    // Explicit colors to match legend and be visible on white background
+    const cellBgClass = 
+        (rowColorKey === 'green' 
+            ? 'bg-green-100/40 dark:bg-green-900/40' 
+            : (rowColorKey === 'purple' 
+                ? 'bg-purple-100/40 dark:bg-purple-900/40' 
+                : (rowColorKey === 'orange' 
+                    ? 'bg-orange-100/40 dark:bg-orange-900/40' 
+                    : cls.rowHover)));
+
+    const baseTdClass = `px-2 py-2 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-top`;
 
     const statusKey = (order.status as string) === 'completed' ? 'scheduled' : (order.status || 'draft');
     const currentStatus = statusConfig[statusKey] || statusConfig.draft;
@@ -88,24 +106,24 @@ const OrderHistoryRow = ({
 
         switch (key) {
             case 'id':
-                const isChargeback = order.status === 'chargeback' || order.status === 'disputed';
+                const isAssistance = order.orderType === 'assistance';
+                const isPickup = order.shipping?.deliveryMethod === 'pickup';
+                const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
+                const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-500');
+
                 return (
-                    <td key="id" className="px-2 py-1.5 text-left">
-                        <div className="flex flex-col gap-1 items-start">
+                    <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
+                        <div className="flex items-center gap-2">
                             <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                                 {order.id?.slice(-8)}
                             </span>
-                            {isChargeback && (
-                                <span className="bg-red-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md animate-pulse shadow-sm flex items-center gap-1" title="Atenção: Pagamento Constestado na Rede Itaú (Chargeback)! Não envie a mercadoria.">
-                                    <i className="bi bi-exclamation-triangle-fill" /> ALERTA: FRAUDE
-                                </span>
-                            )}
+                            <i className={`bi ${typeIcon} ${typeColor} text-xs`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />
                         </div>
                     </td>
                 );
             case 'orderDate':
                 return (
-                    <td key="orderDate" className="px-2 py-1.5 text-left">
+                    <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
                         <div className="flex flex-col gap-1">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 {showTrash ? formatToBRDate(order.deletedAt || order.date) : formatToBRDate(order.date)}
@@ -116,6 +134,7 @@ const OrderHistoryRow = ({
             case 'deliveryDate':
                 const deliveryDateStr = order.shipping?.scheduling?.date;
                 let isPastDelivery = false;
+                // ... same date logic ...
                 if (deliveryDateStr) {
                     try {
                         const dateParts = deliveryDateStr.includes('/') ? deliveryDateStr.split('/') : deliveryDateStr.split('-');
@@ -133,7 +152,7 @@ const OrderHistoryRow = ({
                 }
 
                 return (
-                    <td key="deliveryDate" className="px-2 py-1.5 text-left">
+                    <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
                         <div className="flex flex-col gap-1.5 relative">
                             <div className="flex flex-col">
                                 <span className={`text-sm font-bold ${isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
@@ -200,7 +219,7 @@ const OrderHistoryRow = ({
                 );
             case 'customer':
                 return (
-                    <td key="customer" className="px-2 py-1.5 text-left">
+                    <td key={key} className={baseTdClass}>
                         <div className="flex flex-col gap-1">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{order.customerData?.fullName || "Não informado"}</span>
                         </div>
@@ -209,13 +228,13 @@ const OrderHistoryRow = ({
             case 'totalValue':
                 const displayTotal = order.paymentsSummary?.totalOrderValue || order.paymentsSummary?.totalValue || 0;
                 return (
-                    <td key="totalValue" className="px-2 py-1.5 text-right whitespace-nowrap">
+                    <td key={key} className={`${baseTdClass} text-right whitespace-nowrap`}>
                         <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(displayTotal)}</span>
                     </td>
                 );
             case 'status':
                 return (
-                    <td key="status" className="px-2 py-1.5 relative text-center" onClick={(e) => e.stopPropagation()}>
+                    <td key={key} className={`${baseTdClass} relative text-center`} onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 w-fit mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95`}
@@ -258,7 +277,7 @@ const OrderHistoryRow = ({
 
             case 'actions':
                 return (
-                    <td key="actions" className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td key={key} className={`${baseTdClass} text-center`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                             {showTrash ? (
                                 <>
@@ -378,20 +397,15 @@ const OrderHistoryRow = ({
         }
     };
 
-    const rowColors = settings.orderTypeColors ?? { delivery: 'blue', pickup: 'purple', assistance: 'orange' };
-    const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
-    const isDraft = order.status === 'draft';
-    const cls = getOrderTypeClasses(isDraft ? 'slate' : rowColorKey as any);
-    const finalRowBg = isDraft ? 'bg-slate-50/50 dark:bg-slate-900/40' : (rowColorKey === 'blue' ? 'bg-blue-50/50 dark:bg-blue-900/10' : (rowColorKey === 'purple' ? 'bg-purple-50/50 dark:bg-purple-900/10' : (rowColorKey === 'orange' ? 'bg-orange-50/50 dark:bg-orange-900/10' : cls.rowHover)));
 
     return (
         <tr
             id={id}
             onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 border-l-[6px] ${cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[60]' : ''} ${finalRowBg} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
+            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 border-l-[6px] ${cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[60]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
         >
             {/* Row Checkbox */}
-            <td className="p-0 w-12 text-center">
+            <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${cellBgClass}`}>
                 <label
                     className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-2"
                     onClick={(e) => e.stopPropagation()}

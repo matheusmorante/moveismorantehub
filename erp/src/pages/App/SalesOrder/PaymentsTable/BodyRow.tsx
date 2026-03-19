@@ -5,7 +5,7 @@ import ToggleValueTypeBtn from '../ToggleValueTypeBtn';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { calcPaymentTotalValue } from '../../../utils/calculations';
-import { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PixPaymentModal } from './PixPaymentModal';
 import DropdownPortal from '../../../../components/shared/DropdownPortal';
 import { formatCurrency } from '../../../utils/formatters';
@@ -28,7 +28,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
@@ -182,7 +182,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                             onBlur={onBlur}
                         />
 
-                        {payment.method === 'PIX' && (
+                        {payment.method === 'Pix' && (
                             <button
                                 type="button"
                                 onClick={() => setIsPixModalOpen(true)}
@@ -248,7 +248,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                     </DropdownPortal>
                 </div>
 
-                {payment.method === 'PIX' && (
+                {payment.method === 'Pix' && (
                     <div className="mt-2">
                         <button
                             type="button"

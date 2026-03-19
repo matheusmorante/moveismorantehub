@@ -163,8 +163,8 @@ const SalesOrder = () => {
 
                             <div className="hidden min-[1100px]:flex items-center gap-2 ml-4 border-l border-slate-200 dark:border-slate-800 pl-4">
                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">Legenda:</span>
-                                <div className="flex items-center gap-2 px-2.5 py-1 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 border-l-[4px] border-l-blue-600 rounded-lg">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400 opacity-80">Entrega</span>
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 border-l-[4px] border-l-green-600 rounded-lg">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-400 opacity-80">Entrega</span>
                                 </div>
                                 <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 border-l-[4px] border-l-purple-600 rounded-lg">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400 opacity-80">Retirada</span>
