@@ -37,7 +37,7 @@ const PersonRow = ({
         switch (key) {
             case 'id':
                 return (
-                    <td key="id" className="px-6 py-4 text-left">
+                    <td key="id" className="px-3 py-1.5 text-left">
                         <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                             {person.id || "-"}
                         </span>
@@ -45,7 +45,7 @@ const PersonRow = ({
                 );
             case 'fullName':
                 return (
-                    <td key="fullName" className="px-6 py-4 text-left">
+                    <td key="fullName" className="px-3 py-1.5 text-left">
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 {person.fullName}
@@ -66,7 +66,7 @@ const PersonRow = ({
                 );
             case 'cpfCnpj':
                 return (
-                    <td key="cpfCnpj" className="px-6 py-4 text-left">
+                    <td key="cpfCnpj" className="px-3 py-1.5 text-left">
                         <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
                             {person.cpfCnpj || "-"}
                         </span>
@@ -74,19 +74,19 @@ const PersonRow = ({
                 );
             case 'email':
                 return (
-                    <td key="email" className="px-6 py-4 text-left">
+                    <td key="email" className="px-3 py-1.5 text-left">
                         <span className="text-sm text-slate-600 dark:text-slate-400">{person.email || "-"}</span>
                     </td>
                 );
             case 'phone':
                 return (
-                    <td key="phone" className="px-6 py-4 text-left">
+                    <td key="phone" className="px-3 py-1.5 text-left">
                         <span className="text-sm text-slate-600 dark:text-slate-400">{person.phone || "-"}</span>
                     </td>
                 );
             case 'address':
                 return (
-                    <td key="address" className="px-6 py-4 text-left">
+                    <td key="address" className="px-3 py-1.5 text-left">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
                             {person.fullAddress?.street
                                 ? `${person.fullAddress.street}, ${person.fullAddress.number || 'S/N'}`
@@ -96,7 +96,7 @@ const PersonRow = ({
                 );
             case 'actions':
                 return (
-                    <td key="actions" className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td key="actions" className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                             {showTrash ? (
                                 <>
@@ -168,7 +168,7 @@ const PersonRow = ({
         >
             <td className="p-0 w-12 text-center">
                 <label
-                    className="flex items-center justify-center w-full h-full cursor-pointer py-4 px-6"
+                    className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-3"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <input

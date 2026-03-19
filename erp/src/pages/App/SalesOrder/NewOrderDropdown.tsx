@@ -46,12 +46,12 @@ const NewOrderDropdown = ({ onSelect }: NewOrderDropdownProps) => {
         <div className="relative" ref={ref}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
+                className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
                 title="Criar novo pedido"
             >
-                <i className="bi bi-plus-lg text-lg xl:text-xl" />
+                <i className="bi bi-plus-lg text-sm" />
                 Novo Pedido
-                <i className={`bi bi-chevron-${isOpen ? 'up' : 'down'} text-xs opacity-70`} />
+                <i className={`bi bi-chevron-${isOpen ? 'up' : 'down'} text-[10px] opacity-70`} />
             </button>
 
             {isOpen && (

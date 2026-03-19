@@ -95,87 +95,97 @@ const SalesOrder = () => {
             {isSidebarOpen && <div className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 p-4 md:p-10">
-                <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0">
-                    <div className="flex items-start xl:items-center gap-4 xl:gap-6">
-                        <div>
-                            <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Pedidos de Venda
-                            </h1>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Gestão de Vendas e Fluxo de Pedidos
-                            </p>
-                        </div>
+            <div className="flex-1 flex flex-col min-w-0 p-4 lg:p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all">
+                            Pedidos de Venda
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium text-xs hidden sm:block">
+                            Gestão de Vendas e Fluxo de Pedidos
+                        </p>
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-2">
                         <Link
                             to="/app/configuracoes"
-                            className="flex items-center justify-center p-3 xl:p-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
+                            className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
                             title="Configurar Campos Obrigatórios"
                         >
-                            <i className="bi bi-gear-fill text-lg xl:text-xl" />
+                            <i className="bi bi-gear-fill text-lg" />
                         </Link>
                         <NewOrderDropdown onSelect={(type) => setOrderModalType(type)} />
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-6 flex-1 min-h-0">
-                    {/* Header Actions Container - Invisible with space-between */}
-                    <div className="flex justify-between items-center px-2">
-                        <div className="flex gap-3">
+                <div className="flex flex-col gap-3 flex-1 min-h-0">
+                    {/* Header Actions Container - Compact */}
+                    <div className="flex justify-between items-center px-1">
+                        <div className="flex gap-1.5 flex-wrap">
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border ${isSidebarOpen
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${isSidebarOpen
                                     ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
                                     : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
                                     }`}
-                                title="Mostrar ou esconder filtros da lateral"
+                                title="Filtros"
                             >
                                 <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'}`}></i>
-                                Filtros
+                                <span className="hidden sm:inline">Filtros</span>
                             </button>
 
                             <button
                                 onClick={() => setIsTrashOpen(true)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
-                                title="Ver pedidos que foram para a lixeira"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
+                                title="Lixeira"
                             >
                                 <i className="bi bi-trash3"></i>
-                                Lixeira
+                                <span className="hidden sm:inline">Lixeira</span>
                             </button>
 
                             <button
                                 onClick={() => setIsDraftsOpen(true)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-800 hover:text-amber-500`}
-                                title="Ver pedidos rascunhos"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-800 hover:text-amber-500`}
+                                title="Rascunhos"
                             >
                                 <i className="bi bi-pencil-square"></i>
-                                Rascunhos
+                                <span className="hidden sm:inline">Rascunhos</span>
                             </button>
-
 
                             <Link
                                 to="/delivery-schedule"
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
-                                title="Acessar o Cronograma Logístico"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
+                                title="Cronograma"
                             >
                                 <i className="bi bi-calendar3"></i>
-                                Cronograma
+                                <span className="hidden sm:inline">Cronograma</span>
                             </Link>
+
+                            <div className="hidden min-[1100px]:flex items-center gap-2 ml-4 border-l border-slate-200 dark:border-slate-800 pl-4">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">Legenda:</span>
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 border-l-[4px] border-l-blue-600 rounded-lg">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400 opacity-80">Entrega</span>
+                                </div>
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 border-l-[4px] border-l-purple-600 rounded-lg">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400 opacity-80">Retirada</span>
+                                </div>
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 border-l-[4px] border-l-orange-600 rounded-lg">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400 opacity-80">Assistência</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="relative">
                             <button
                                 onClick={() => setShowSettings(!showSettings)}
-                                className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-xs uppercase tracking-widest ${showSettings
+                                className={`flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
                                     ? 'border-blue-200 text-blue-600 dark:border-blue-800'
                                     : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
                                     }`}
-                                title="Personalizar quais colunas aparecem na tabela abaixo"
+                                title="Visualização"
                             >
                                 <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
-                                Visualização
+                                <span className="hidden sm:inline">Visualização</span>
                             </button>
 
                             {showSettings && (
@@ -191,8 +201,6 @@ const SalesOrder = () => {
                                                 { key: 'customer', label: 'Cliente' },
                                                 { key: 'totalValue', label: 'Valor Total' },
                                                 { key: 'status', label: 'Status' },
-                                                { key: 'orderType', label: 'Tipo de Pedido' },
-
                                                 { key: 'actions', label: 'Ações' },
                                             ].map((col) => (
                                                 <button
@@ -215,7 +223,7 @@ const SalesOrder = () => {
                         </div>
                     </div>
 
-                    <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors flex-1 flex flex-col min-h-0">
+                    <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-2xl shadow-none md:shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors flex-1 flex flex-col min-h-0">
                         <OrderHistoryList
                             onEdit={setEditingOrder}
                             filters={activeFilters}

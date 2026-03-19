@@ -184,48 +184,49 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
             </div>
 
             {/* Wizard Navigation Footer */}
-            <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/95 backdrop-blur-md py-6 px-8 shrink-0 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)]">
-                <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        {currentStep > 1 && (
-                            <button
-                                type="button"
-                                onClick={actions.goToPrevStep}
-                                className="px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2"
-                            >
-                                <i className="bi bi-arrow-left" /> Anterior
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="bg-slate-50 dark:bg-slate-800/80 px-6 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 mr-4 shadow-sm min-w-fit">
-                            <span className="text-[9px] font-black uppercase text-slate-400 block tracking-widest mb-0.5">Total do Pedido</span>
-                            <span className="text-xl font-black italic text-blue-600 dark:text-blue-400 tracking-tighter whitespace-nowrap">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}
-                            </span>
+            {currentStep < 5 ? (
+                <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/95 backdrop-blur-md py-3 px-6 shrink-0 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)]">
+                    <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            {currentStep > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={actions.goToPrevStep}
+                                    className="px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2"
+                                >
+                                    <i className="bi bi-arrow-left" /> Anterior
+                                </button>
+                            )}
                         </div>
 
-                        {currentStep < 5 ? (
+                        <div className="flex items-center gap-4">
+                            <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 mr-2 shadow-sm min-w-fit">
+                                <span className="text-[9px] font-black uppercase text-slate-400 block tracking-widest mb-0">Total</span>
+                                <span className="text-lg font-black italic text-blue-600 dark:text-blue-400 tracking-tighter whitespace-nowrap">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}
+                                </span>
+                            </div>
+
                             <button
                                 type="button"
                                 onClick={actions.goToNextStep}
-                                className="px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 dark:shadow-blue-900/20 transition-all flex items-center gap-2 active:scale-95"
+                                className="px-8 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 dark:shadow-blue-900/20 transition-all flex items-center gap-2 active:scale-95"
                             >
                                 Próximo <i className="bi bi-arrow-right text-lg" />
                             </button>
-                        ) : (
-                            <FormFooter
-                                currentOrder={state.currentOrder}
-                                totalOrderValue={state.paymentsSummary.totalOrderValue}
-                                isSaving={state.isSaving}
-                                onCompleteOrder={actions.handleCompleteOrder}
-                                buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Finalizar Pedido"}
-                            />
-                        )}
+                        </div>
                     </div>
                 </div>
-            </div>
+            ) : (
+                <FormFooter
+                    currentOrder={state.currentOrder}
+                    totalOrderValue={state.paymentsSummary.totalOrderValue}
+                    isSaving={state.isSaving}
+                    onCompleteOrder={actions.handleCompleteOrder}
+                    onPrev={actions.goToPrevStep}
+                    buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Finalizar Pedido"}
+                />
+            )}
             
             <style dangerouslySetInnerHTML={{ __html: `@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }` }} />
         </form>

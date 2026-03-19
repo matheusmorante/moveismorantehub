@@ -236,12 +236,12 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                 />
 
                 {/* Pagination Controls */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-8 border-t border-slate-100 dark:border-slate-800 mt-4 px-2">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800 mt-1 px-2">
                     <div className="flex flex-wrap items-center justify-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 shadow-slate-100/50 dark:shadow-none transition-colors">
                         <button
                             onClick={() => setCurrentPage(1)}
                             disabled={currentPage === 1}
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${currentPage === 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
                             title="Primeira Página"
                         >
                             <i className="bi bi-chevron-double-left text-sm" />
@@ -249,7 +249,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                         <button
                             onClick={() => setCurrentPage((prev: any) => (globalThis as any).Math.max(1, prev - 1))}
                             disabled={currentPage === 1}
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${currentPage === 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
                             title="Anterior"
                         >
                             <i className="bi bi-chevron-left text-sm" />
@@ -262,7 +262,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                                 <button
                                     key={p}
                                     onClick={() => setCurrentPage(p)}
-                                    className={`w-10 h-10 flex items-center justify-center rounded-xl font-black text-xs transition-all ${currentPage === p ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none' : 'text-slate-500 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-950 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                                    className={`w-8 h-8 flex items-center justify-center rounded-lg font-black text-xs transition-all ${currentPage === p ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none' : 'text-slate-500 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-950 hover:text-blue-600 dark:hover:text-blue-400'}`}
                                 >
                                     {p}
                                 </button>

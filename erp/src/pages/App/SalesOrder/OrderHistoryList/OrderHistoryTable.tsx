@@ -42,8 +42,6 @@ const COLUMNS_DEF: ColumnDef[] = [
     { key: 'customer', label: 'Cliente' },
     { key: 'totalValue', label: 'Valor Total', align: 'text-right' },
     { key: 'status', label: 'Status', align: 'text-center' },
-    { key: 'orderType', label: 'Tipo de Pedido' },
-
     { key: 'actions', label: 'Ações', align: 'text-center' },
 ];
 
@@ -177,7 +175,7 @@ const OrderHistoryTable = ({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 transition-colors">
-                                <th className="px-4 py-4 w-12 text-center">
+                                <th className="px-2 py-2 w-12 text-center">
                                     <label className="flex items-center cursor-pointer">
                                         <input
                                             type="checkbox"
@@ -215,7 +213,7 @@ const OrderHistoryTable = ({
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, col.key as string)}
                                             onDragEnd={() => setDraggedColumn(null)}
-                                            className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
+                                            className={`px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
                                         >
                                             <div className={`flex items-center gap-2 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
                                                 <div className="flex items-center group/header w-fit cursor-grab active:cursor-grabbing">

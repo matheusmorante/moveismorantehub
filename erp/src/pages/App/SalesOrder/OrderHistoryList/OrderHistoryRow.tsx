@@ -56,7 +56,7 @@ const OrderHistoryRow = ({
     }, [showFulfillmentConfirm]);
 
     const statuses = settings.orderStatuses || [
-        { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
+        { id: 'draft', label: 'Aguardando', color: 'slate', isCore: true },
         { id: 'scheduled', label: 'Agendado', color: 'amber', isCore: true },
         { id: 'fulfilled', label: 'Atendido', color: 'emerald', isCore: true },
         { id: 'cancelled', label: 'Cancelado', color: 'rose', isCore: true },
@@ -73,7 +73,7 @@ const OrderHistoryRow = ({
     });
 
     // Fallbacks just in case
-    if (!statusConfig.draft) statusConfig.draft = { label: 'Rascunho', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' };
+    if (!statusConfig.draft) statusConfig.draft = { label: 'Aguardando', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' };
     if (!statusConfig.fulfilled) statusConfig.fulfilled = { label: 'Atendido', bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500' };
     if (!statusConfig.chargeback) statusConfig.chargeback = { label: 'Chargeback', bg: 'bg-red-100 border border-red-300', text: 'text-red-700 font-black', dot: 'bg-red-600 animate-pulse' };
     if (!statusConfig.disputed) statusConfig.disputed = { label: 'Em Disputa', bg: 'bg-orange-100 border border-orange-300', text: 'text-orange-800 font-black', dot: 'bg-orange-600 animate-pulse' };
@@ -90,7 +90,7 @@ const OrderHistoryRow = ({
             case 'id':
                 const isChargeback = order.status === 'chargeback' || order.status === 'disputed';
                 return (
-                    <td key="id" className="px-4 py-4 text-left">
+                    <td key="id" className="px-2 py-1.5 text-left">
                         <div className="flex flex-col gap-1 items-start">
                             <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                                 {order.id?.slice(-8)}
@@ -105,16 +105,11 @@ const OrderHistoryRow = ({
                 );
             case 'orderDate':
                 return (
-                    <td key="orderDate" className="px-4 py-4 text-left">
+                    <td key="orderDate" className="px-2 py-1.5 text-left">
                         <div className="flex flex-col gap-1">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 {showTrash ? formatToBRDate(order.deletedAt || order.date) : formatToBRDate(order.date)}
                             </span>
-                            {order.status === 'draft' && isIncomplete && !showTrash && (
-                                <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 dark:text-orange-500 bg-orange-50 dark:bg-orange-950/30 px-2 py-0.5 rounded-md w-fit">
-                                    Incompleto
-                                </span>
-                            )}
                         </div>
                     </td>
                 );
@@ -138,7 +133,7 @@ const OrderHistoryRow = ({
                 }
 
                 return (
-                    <td key="deliveryDate" className="px-4 py-4 text-left">
+                    <td key="deliveryDate" className="px-2 py-1.5 text-left">
                         <div className="flex flex-col gap-1.5 relative">
                             <div className="flex flex-col">
                                 <span className={`text-sm font-bold ${isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
@@ -205,7 +200,7 @@ const OrderHistoryRow = ({
                 );
             case 'customer':
                 return (
-                    <td key="customer" className="px-4 py-4 text-left">
+                    <td key="customer" className="px-2 py-1.5 text-left">
                         <div className="flex flex-col gap-1">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{order.customerData?.fullName || "Não informado"}</span>
                         </div>
@@ -214,13 +209,13 @@ const OrderHistoryRow = ({
             case 'totalValue':
                 const displayTotal = order.paymentsSummary?.totalOrderValue || order.paymentsSummary?.totalValue || 0;
                 return (
-                    <td key="totalValue" className="px-4 py-4 text-right whitespace-nowrap">
+                    <td key="totalValue" className="px-2 py-1.5 text-right whitespace-nowrap">
                         <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(displayTotal)}</span>
                     </td>
                 );
             case 'status':
                 return (
-                    <td key="status" className="px-4 py-4 relative text-center" onClick={(e) => e.stopPropagation()}>
+                    <td key="status" className="px-2 py-1.5 relative text-center" onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 w-fit mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95`}
@@ -260,28 +255,10 @@ const OrderHistoryRow = ({
                         )}
                     </td>
                 );
-            case 'orderType':
-                const isPickup = order.shipping?.deliveryMethod === 'pickup';
-                const isAssistance = order.orderType === 'assistance';
-
-                let typeLabel = isPickup ? settings.orderTypeLabels.pickup : settings.orderTypeLabels.delivery;
-                if (isAssistance) typeLabel = settings.orderTypeLabels.assistance;
-
-                const typeColors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
-                const typeCls = getOrderTypeClasses(resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, typeColors));
-
-                return (
-                    <td key="orderType" className="px-4 py-4 text-left">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${typeCls.badge}`}>
-                            <i className={`bi ${isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck')}`} />
-                            {typeLabel}
-                        </span>
-                    </td>
-                );
 
             case 'actions':
                 return (
-                    <td key="actions" className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td key="actions" className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                             {showTrash ? (
                                 <>
@@ -306,14 +283,6 @@ const OrderHistoryRow = ({
                             ) : (
                                 <>
                                     <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onEdit(order); }}
-                                                className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                                title="Editar Pedido"
-                                            >
-                                                <i className="bi bi-pencil-fill text-sm" />
-                                            </button>
-
                                             <div
                                                 className="relative group/menu"
                                                 onMouseEnter={() => setShowMenu(true)}
@@ -334,6 +303,21 @@ const OrderHistoryRow = ({
                                                 {/* Dropdown Menu - Continuous hover area */}
                                                 <div className={`absolute top-full right-0 pt-2 w-48 flex-col z-[100] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up">
+                                                        {/* Edit Button moved inside menu */}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
+                                                            className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item text-blue-600"
+                                                            title="Editar este pedido"
+                                                        >
+                                                            <i className="bi bi-pencil-fill text-lg" />
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-xs font-black uppercase tracking-widest">Editar Pedido</span>
+                                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Alterar dados do pedido</span>
+                                                            </div>
+                                                        </button>
+
+                                                        <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
+
                                                         {buttons.filter(btn => {
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
                                                             if (btn.key === 'stockWithdrawal' || btn.key === 'stockReversal') {
@@ -362,21 +346,27 @@ const OrderHistoryRow = ({
                                                             </button>
                                                             )
                                                         })}
+
+                                                        {canPerform('deleteOrders', profile?.role) && (
+                                                            <>
+                                                                <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); onDelete(order.id!); setShowMenu(false); }}
+                                                                    className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-red-50 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 group/trash"
+                                                                    title="Mover para Lixeira"
+                                                                >
+                                                                    <i className="bi bi-trash-fill text-lg" />
+                                                                    <div className="flex flex-col text-left">
+                                                                        <span className="text-xs font-black uppercase tracking-widest">Mover para Lixeira</span>
+                                                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">O pedido poderá ser restaurado depois</span>
+                                                                    </div>
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="h-4 w-[1px] bg-slate-100 dark:bg-slate-800 mx-1" />
-
-                                            {canPerform('deleteOrders', profile?.role) && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); onDelete(order.id!); }}
-                                                    className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                                    title="Mover para Lixeira"
-                                                >
-                                                    <i className="bi bi-trash-fill text-sm" />
-                                                </button>
-                                            )}
                                         </div>
                                 </>
                             )}
@@ -388,21 +378,22 @@ const OrderHistoryRow = ({
         }
     };
 
-    const rowColors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
+    const rowColors = settings.orderTypeColors ?? { delivery: 'blue', pickup: 'purple', assistance: 'orange' };
     const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
-    const cls = getOrderTypeClasses(rowColorKey);
-    const finalRowBg = cls.rowHover;
+    const isDraft = order.status === 'draft';
+    const cls = getOrderTypeClasses(isDraft ? 'slate' : rowColorKey as any);
+    const finalRowBg = isDraft ? 'bg-slate-50/50 dark:bg-slate-900/40' : (rowColorKey === 'blue' ? 'bg-blue-50/50 dark:bg-blue-900/10' : (rowColorKey === 'purple' ? 'bg-purple-50/50 dark:bg-purple-900/10' : (rowColorKey === 'orange' ? 'bg-orange-50/50 dark:bg-orange-900/10' : cls.rowHover)));
 
     return (
         <tr
             id={id}
             onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${showMenu || showPicker ? 'relative z-[60]' : ''} ${finalRowBg} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
+            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 border-l-[6px] ${cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[60]' : ''} ${finalRowBg} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
         >
             {/* Row Checkbox */}
             <td className="p-0 w-12 text-center">
                 <label
-                    className="flex items-center justify-center w-full h-full cursor-pointer py-4 px-4"
+                    className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-2"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <input

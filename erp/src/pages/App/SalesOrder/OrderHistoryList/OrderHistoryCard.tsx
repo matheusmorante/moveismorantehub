@@ -39,7 +39,7 @@ const OrderHistoryCard = ({
     const [showPicker, setShowPicker] = React.useState(false);
 
     const statuses = settings.orderStatuses ? [...settings.orderStatuses] : [
-        { id: 'draft', label: 'Rascunho', color: 'slate' },
+        { id: 'draft', label: 'Aguardando', color: 'slate' },
         { id: 'scheduled', label: 'Agendado', color: 'amber' },
         { id: 'fulfilled', label: 'Atendido', color: 'emerald' },
         { id: 'cancelled', label: 'Cancelado', color: 'rose' },
@@ -52,15 +52,16 @@ const OrderHistoryCard = ({
 
     const currentStatus = statuses.find(s => s.id === (order.status || 'draft')) || statuses[0];
 
-    const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
+    const colors = settings.orderTypeColors ?? { delivery: 'blue', pickup: 'purple', assistance: 'orange' };
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
-    const cls = getOrderTypeClasses(colorKey);
-    const cardBgClass = cls.rowHover;
+    const isDraft = order.status === 'draft';
+    const cls = getOrderTypeClasses(isDraft ? 'slate' : colorKey as any);
+    const cardBgClass = isDraft ? 'bg-slate-50/50 dark:bg-slate-900/40' : (colorKey === 'blue' ? 'bg-blue-50/50 dark:bg-blue-900/10' : (colorKey === 'purple' ? 'bg-purple-50/50 dark:bg-purple-900/10' : (colorKey === 'orange' ? 'bg-orange-50/50 dark:bg-orange-900/10' : cls.rowHover)));
 
     return (
         <div 
             id={id}
-            className={`${cardBgClass} border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative`}
+            className={`${cardBgClass} border-l-[6px] ${cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} border-y border-r ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative`}
             onClick={() => onEdit(order)}
         >
             <div className="flex justify-between items-start mb-2.5">
