@@ -35,15 +35,6 @@ const DEFAULT_VISIBILITY: PersonVisibilitySettings = {
     actions: true,
 };
 
-const COLUMN_OPTIONS: { key: keyof PersonVisibilitySettings; label: string }[] = [
-    { key: "id", label: "ID" },
-    { key: "fullName", label: "Nome / Razão Social" },
-    { key: "cpfCnpj", label: "CPF/CNPJ" },
-    { key: "email", label: "E-mail" },
-    { key: "phone", label: "Telefone" },
-    { key: "address", label: "Endereço" },
-];
-
 interface PersonPageProps {
     title: string;
     subtitle: string;
@@ -61,6 +52,26 @@ const PersonPage = ({
     collectionName,
     storageKey,
 }: PersonPageProps) => {
+    const isEmployee = collectionName === "employees";
+
+    const COLUMN_OPTIONS: { key: keyof PersonVisibilitySettings; label: string }[] = [
+        { key: "id", label: "ID" },
+        { key: "fullName", label: isEmployee ? "Nome" : "Nome / Razão Social" },
+        { key: "cpfCnpj", label: isEmployee ? "CPF" : "CPF/CNPJ" },
+        { key: "email", label: "E-mail" },
+        { key: "phone", label: "Telefone" },
+        { key: "address", label: "Endereço" },
+    ];
+
+    const DEFAULT_VISIBILITY: PersonVisibilitySettings = {
+        id: false,
+        fullName: true,
+        cpfCnpj: !isEmployee, // Default false for employees as requested
+        email: true,
+        phone: true,
+        address: true,
+        actions: true,
+    };
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -131,7 +142,7 @@ const PersonPage = ({
                         <i className="bi bi-x-lg text-xl" />
                     </button>
                 </div>
-                <PersonFilters filters={filters} setFilters={setFilters} title={title} />
+                <PersonFilters filters={filters} setFilters={setFilters} title={title} collectionName={collectionName} />
             </div>
 
             {isSidebarOpen && (
@@ -262,7 +273,7 @@ const PersonPage = ({
                             onSort={handleSort}
                             collectionName={collectionName}
                             storageKey={storageKey}
-                            onViewPurchaseHistory={(p) => {
+                            onViewPurchaseHistory={isEmployee ? undefined : (p) => {
                                 setHistoryPerson(p);
                                 setIsHistoryModalOpen(true);
                             }}
@@ -306,7 +317,7 @@ const PersonPage = ({
                                 onSort={handleSort}
                                 collectionName={collectionName}
                                 storageKey={storageKey}
-                                onViewPurchaseHistory={(p) => {
+                                onViewPurchaseHistory={isEmployee ? undefined : (p) => {
                                     setHistoryPerson(p);
                                     setIsHistoryModalOpen(true);
                                 }}

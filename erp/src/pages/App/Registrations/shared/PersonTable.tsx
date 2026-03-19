@@ -26,6 +26,7 @@ interface PersonTableProps {
     onBulkPermanentDelete: () => void;
     storageKey: string;
     onViewPurchaseHistory?: (person: Person) => void;
+    collectionName: string;
 }
 
 interface ColumnDef {
@@ -34,23 +35,27 @@ interface ColumnDef {
     align?: string;
 }
 
-const COLUMNS_DEF: ColumnDef[] = [
-    { key: 'id', label: 'ID' },
-    { key: 'fullName', label: 'Nome / Razão Social' },
-    { key: 'cpfCnpj', label: 'CPF/CNPJ' },
-    { key: 'email', label: 'E-mail' },
-    { key: 'phone', label: 'Telefone' },
-    { key: 'address', label: 'Endereço' },
-    { key: 'actions', label: 'Ações', align: 'text-center' },
-];
+const getColumnsDef = (collectionName: string): ColumnDef[] => {
+    const isEmployee = collectionName === 'employees';
+    return [
+        { key: 'id', label: 'ID' },
+        { key: 'fullName', label: isEmployee ? 'Nome' : 'Nome / Razão Social' },
+        { key: 'cpfCnpj', label: isEmployee ? 'CPF' : 'CPF/CNPJ' },
+        { key: 'email', label: 'E-mail' },
+        { key: 'phone', label: 'Telefone' },
+        { key: 'address', label: 'Endereço' },
+        { key: 'actions', label: 'Ações', align: 'text-center' },
+    ];
+};
 
 const PersonTable = ({
     people, onEdit, onDelete, onRestore, onPermanentDelete, onToggleActive,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedPeople, onToggleSelection, onSelectAll, onClearSelection,
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, storageKey,
-    onViewPurchaseHistory
+    onViewPurchaseHistory, collectionName
 }: PersonTableProps) => {
+    const columnsDef = getColumnsDef(collectionName);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
     
@@ -70,12 +75,12 @@ const PersonTable = ({
         if (savedOrder) {
             try {
                 const keys = JSON.parse(savedOrder) as string[];
-                return keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
+                return keys.map(key => columnsDef.find(c => c.key === key)!).filter(Boolean);
             } catch (e) {
-                return COLUMNS_DEF;
+                return columnsDef;
             }
         }
-        return COLUMNS_DEF;
+        return columnsDef;
     });
 
     const [draggedColumn, setDraggedColumn] = React.useState<string | null>(null);

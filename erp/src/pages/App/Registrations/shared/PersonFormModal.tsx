@@ -41,6 +41,8 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         position: ""
     });
 
+    const isEmployee = collectionName === 'employees';
+
     const [loading, setLoading] = useState(false);
     const [settings, setSettings] = useState(getSettings());
     const isInitialMount = useRef(true);
@@ -241,25 +243,27 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* PF/PJ Toggle */}
-                        <div className="md:col-span-2 flex items-center gap-6 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Pessoa:</label>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, personType: 'PF' })}
-                                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PF' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
-                                >
-                                    Física (PF)
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, personType: 'PJ' })}
-                                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PJ' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
-                                >
-                                    Jurídica (PJ)
-                                </button>
+                        {!isEmployee && (
+                            <div className="md:col-span-2 flex items-center gap-6 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Pessoa:</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, personType: 'PF' })}
+                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PF' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
+                                    >
+                                        Física (PF)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, personType: 'PJ' })}
+                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PJ' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
+                                    >
+                                        Jurídica (PJ)
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Marketing Origin (Paid Traffic) */}
                         {collectionName === 'customers' && (
@@ -299,15 +303,15 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             </div>
                         )}
 
-                        <div className={`${formData.personType === 'PJ' ? 'md:col-span-1' : 'md:col-span-2'}`}>
+                        <div className={`${(formData.personType === 'PJ' && !isEmployee) ? 'md:col-span-1' : 'md:col-span-2'}`}>
                             <SmartInput
-                                label={(formData.personType === 'PJ' ? 'Razão Social' : 'Nome Completo') + ' *'}
+                                label={(isEmployee ? 'Nome' : (formData.personType === 'PJ' ? 'Razão Social' : 'Nome Completo')) + ' *'}
                                 required
                                 value={formData.fullName}
                                 onValueChange={(val) => setFormData({ ...formData, fullName: val })}
                                 tableName="people"
                                 columnName="full_name"
-                                placeholder={formData.personType === 'PJ' ? 'Razão Social da Empresa' : 'Nome do Cliente'}
+                                placeholder={isEmployee ? 'Nome do Funcionário' : (formData.personType === 'PJ' ? 'Razão Social da Empresa' : 'Nome do Cliente')}
                                 icon="bi-person"
                             />
                         </div>
@@ -340,15 +344,15 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                {formData.personType === 'PJ' ? 'CNPJ' : 'CPF'} {settings.requiredFields.customer?.cpfCnpj ? <span className="text-red-500">*</span> : null}
+                                {isEmployee ? 'CPF' : (formData.personType === 'PJ' ? 'CNPJ' : 'CPF')} {settings.requiredFields.customer?.cpfCnpj ? <span className="text-red-500">*</span> : null}
                             </label>
                             <PatternFormat
-                                format={formData.personType === 'PJ' ? "##.###.###/####-##" : "###.###.###-##"}
+                                format={(isEmployee || formData.personType === 'PF') ? "###.###.###-##" : "##.###.###/####-##"}
                                 type="text"
                                 value={formData.cpfCnpj || ""}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, cpfCnpj: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                placeholder={formData.personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}
+                                placeholder={(isEmployee || formData.personType === 'PF') ? '000.000.000-00' : '00.000.000/0000-00'}
                             />
                         </div>
 

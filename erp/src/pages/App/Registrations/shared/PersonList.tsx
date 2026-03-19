@@ -174,6 +174,7 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
                     onBulkPermanentDelete={handleBulkPermanentDelete}
                     storageKey={storageKey}
                     onViewPurchaseHistory={onViewPurchaseHistory}
+                    collectionName={collectionName}
                 />
 
                 {totalPages > 1 && (

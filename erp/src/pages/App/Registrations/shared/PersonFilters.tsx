@@ -5,9 +5,11 @@ interface PersonFiltersProps {
     filters: PersonFiltersData;
     setFilters: React.Dispatch<React.SetStateAction<PersonFiltersData>>;
     title: string;
+    collectionName: string;
 }
 
-const PersonFilters = ({ filters, setFilters, title }: PersonFiltersProps) => {
+const PersonFilters = ({ filters, setFilters, title, collectionName }: PersonFiltersProps) => {
+    const isEmployee = collectionName === 'employees';
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -44,7 +46,7 @@ const PersonFilters = ({ filters, setFilters, title }: PersonFiltersProps) => {
                                 name="search"
                                 value={filters.search}
                                 onChange={handleChange}
-                                placeholder="Nome, email ou CPF/CNPJ..."
+                                placeholder={isEmployee ? "Nome, email ou CPF..." : "Nome, email ou CPF/CNPJ..."}
                                 className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700"
                             />
                         </div>

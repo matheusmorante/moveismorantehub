@@ -216,78 +216,112 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     </div>
                                 </div>
 
-                                {/* Right Column: Client & Logistics (5/12) */}
-                                <div className="md:col-span-5 flex flex-col gap-3 min-h-0">
-                                    {/* Client Box */}
-                                    <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-slate-100 dark:border-slate-800 p-3 flex-1 min-h-0 flex flex-col overflow-hidden">
-                                        <div className="flex items-center gap-2 mb-2 flex-shrink-0">
-                                            <i className="bi bi-person-badge text-purple-500 text-xs" />
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Informações do Cliente</span>
+                                {/* Right Column: Client / Seller / Logistics (5/12) */}
+                                <div className="md:col-span-5 flex flex-col gap-4 min-h-0">
+                                    {/* Seller Identity Card */}
+                                    <div className="bg-white dark:bg-slate-900 px-4 py-3 rounded-2xl border-2 border-dashed border-blue-100 dark:border-blue-900/30 flex items-center justify-between group hover:border-blue-500 hover:shadow-lg transition-all shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                                <i className="bi bi-person-check text-base" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Vendedor</span>
+                                                <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase">{state.seller || <span className="text-red-500 animate-pulse">NÃO INFORMADO</span>}</span>
+                                            </div>
                                         </div>
-                                        <div className="space-y-2 overflow-y-auto pr-1 flex-1 custom-scrollbar">
-                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-0.5">Nome do Cliente / Fantasia</span>
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">{state.customerData.fullName || 'CONSUMIDOR FINAL'}</span>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-0.5">Telefone</span>
-                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{state.customerData.phone || 'N/I'}</span>
-                                                </div>
-                                                <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-0.5">CPF / CNPJ</span>
-                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{state.customerData.document || 'N/I'}</span>
-                                                </div>
-                                            </div>
+                                        <button type="button" onClick={() => actions.jumpToStep(1)} className="p-2 text-slate-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all">
+                                            <i className="bi bi-pencil-square" />
+                                        </button>
+                                    </div>
 
-                                            {/* Shipping / Address if delivery */}
-                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Endereço de {isPickup ? 'Retirada' : 'Entrega'}</span>
-                                                    <span className="text-[8px] font-black px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded uppercase tracking-tighter">{isPickup ? 'Loja Física' : 'Domicílio'}</span>
+                                    {/* Client Identity Card */}
+                                    <div className="bg-white dark:bg-slate-900 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-purple-500 hover:shadow-lg transition-all shadow-sm">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                                <i className="bi bi-person-badge text-base" />
+                                            </div>
+                                            <div className="flex flex-col overflow-hidden">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Cliente / Fantasia</span>
+                                                <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase truncate">{state.customerData.fullName || 'CONSUMIDOR FINAL'}</span>
+                                            </div>
+                                        </div>
+                                        <button type="button" onClick={() => actions.jumpToStep(1)} className="p-2 text-slate-300 hover:text-purple-500 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                                            <i className="bi bi-pencil-square" />
+                                        </button>
+                                    </div>
+
+                                    {/* Logistics and Support Section */}
+                                    <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 flex-1 flex flex-col overflow-hidden min-h-[220px]">
+                                        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${isPickup ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Logística e {isPickup ? 'Retirada' : 'Entrega'}</span>
+                                            </div>
+                                            <button type="button" onClick={() => actions.jumpToStep(3)} className={`p-1.5 rounded-lg transition-all ${isPickup ? 'hover:bg-amber-100 text-amber-500' : 'hover:bg-emerald-100 text-emerald-500'}`}>
+                                                <i className="bi bi-pencil-square" />
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3 overflow-y-auto pr-1 flex-1 custom-scrollbar">
+                                            {/* Date/Time Row */}
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-center gap-3 shadow-inner">
+                                                <div className={`w-8 h-8 rounded-lg ${isPickup ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center shrink-0`}>
+                                                    <i className={`bi ${isPickup ? 'bi-calendar-check' : 'bi-truck'} text-sm`} />
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isPickup ? 'bg-purple-100 text-purple-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                                        <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-sm`} />
-                                                    </div>
-                                                    <span className="text-[10px] leading-tight font-bold text-slate-600 dark:text-slate-300">
-                                                        {isPickup 
-                                                            ? 'Retirada na loja física da Móveis Morante.' 
-                                                            : state.customerData.fullAddress || 'Endereço não informado'}
+                                                <div className="flex flex-col">
+                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Agendamento de {isPickup ? 'Retirada' : 'Entrega'}</span>
+                                                    <span className="text-[10px] font-black text-slate-800 dark:text-slate-100">
+                                                        {state.shipping.scheduling?.notInformed ? 'NÃO INFORMADO' : (
+                                                            `${new Date(state.shipping.scheduling?.date + 'T12:00:00').toLocaleDateString('pt-BR')} ${state.shipping.scheduling?.startTime ? `@ ${state.shipping.scheduling?.startTime} às ${state.shipping.scheduling?.endTime}` : ''}`
+                                                        )}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            {/* Date and Seller */}
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className="bg-slate-100/50 dark:bg-slate-800/40 p-2 px-3 rounded-xl border border-transparent">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5 block">Vendedor</span>
-                                                    <span className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-100">{state.seller || 'NÃO DEFINIDO'}</span>
+                                            {/* Location Row */}
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex gap-3 shadow-inner">
+                                                <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-400/10 text-red-500 flex items-center justify-center shrink-0">
+                                                    <i className="bi bi-geo-alt text-sm" />
                                                 </div>
-                                                <div className="bg-slate-100/50 dark:bg-slate-800/40 p-2 px-3 rounded-xl border border-transparent">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5 block">Previsão</span>
-                                                    <span className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-100">{state.orderDate ? new Date(state.orderDate).toLocaleDateString('pt-BR') : 'DATA N/I'}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Localização Selecionada</span>
+                                                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase leading-tight">
+                                                        {isPickup ? 'Loja Física - Móveis Morante' : (
+                                                            `${state.customerData.fullAddress.street || 'Endereço não informado'}, ${state.customerData.fullAddress.number || 'S/N'}`
+                                                        )}
+                                                    </span>
+                                                    {!isPickup && state.customerData.fullAddress.neighborhood && (
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
+                                                            {state.customerData.fullAddress.neighborhood} - {state.customerData.fullAddress.city}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
+
+                                            {/* Final Note Row */}
+                                            {state.observation && (
+                                                <div className="bg-blue-50/40 dark:bg-blue-900/10 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/20">
+                                                    <div className="flex items-center gap-1.5 mb-1 text-[8px] font-black text-blue-500 uppercase tracking-widest">
+                                                        <i className="bi bi-sticky-fill" /> Observações
+                                                     </div>
+                                                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 italic">"{state.observation}"</p>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                    
-                                    {/* Observation */}
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-2.5 flex-shrink-0">
-                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1">Observações do Pedido</span>
-                                        <p className="text-[10px] text-slate-500 italic line-clamp-2 leading-tight">{state.observation || 'Sem observações adicionais.'}</p>
                                     </div>
 
-                                    {/* Total Footer inside columns */}
-                                    <div className={`p-3 rounded-2xl border flex items-center justify-between shadow-lg shadow-blue-500/10 flex-shrink-0 ${isPickup ? 'bg-purple-600 border-purple-500 text-white' : 'bg-emerald-600 border-emerald-500 text-white'}`}>
+                                    {/* Total Order Summary Button-like Badge */}
+                                    <div className={`p-4 rounded-3xl flex items-center justify-between shadow-xl transition-all ${isPickup ? 'bg-purple-600 shadow-purple-500/10' : 'bg-emerald-600 shadow-emerald-500/10'} text-white`}>
                                         <div className="flex flex-col">
-                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-80">Valor Total do Pedido</span>
-                                            <span className="text-[10px] opacity-70">Confirme valores finais</span>
+                                             <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Valor Geral do Pedido</span>
+                                             <span className="text-[9px] font-bold opacity-60">Status: Aguardando Conferência</span>
                                         </div>
-                                        <span className="text-xl font-black italic tracking-tighter">
-                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}
-                                        </span>
+                                        <div className="flex items-end gap-1 font-black italic">
+                                             <span className="text-[10px] tracking-widest mb-1 opacity-80">R$</span>
+                                             <span className="text-2xl tracking-tighter leading-none">
+                                                 {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(state.paymentsSummary.totalOrderValue)}
+                                             </span>
+                                        </div>
                                     </div>
                                 </div>
                              </div>
@@ -315,7 +349,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     isSaving={state.isSaving}
                     onCompleteOrder={actions.handleCompleteOrder}
                     onPrev={actions.goToPrevStep}
-                    buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Finalizar Pedido"}
+                    buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Concluir Pedido"}
                 />
             )}
             

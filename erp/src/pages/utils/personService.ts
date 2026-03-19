@@ -216,11 +216,21 @@ export const updatePerson = async (collectionName: string, id: string, personToU
 
 export const moveToTrash = async (collectionName: string, id: string): Promise<void> => {
     try {
-        await updatePerson(collectionName, id, {
+        const result = await updatePerson(collectionName, id, {
             deleted: true,
             deletedAt: new Date().toLocaleString('pt-BR'),
             active: false
         });
+
+        // Se não foi encontrado na tabela de 'people' e for funcionário, pode ser um perfil de login
+        if ((!result || !result.id) && collectionName === 'employees') {
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ position: null })
+                .eq('id', id);
+            
+            if (profileError) throw profileError;
+        }
     } catch (error) {
         console.error(`Erro ao mover para lixeira em ${collectionName}: `, error);
         throw error;
@@ -242,12 +252,23 @@ export const restorePerson = async (collectionName: string, id: string): Promise
 
 export const permanentDeletePerson = async (collectionName: string, id: string): Promise<void> => {
     try {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from(TABLE_NAME)
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .select();
 
         if (error) throw error;
+
+        // Se nada foi deletado e for funcionário, limpar posição no perfil
+        if ((!data || data.length === 0) && collectionName === 'employees') {
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ position: null })
+                .eq('id', id);
+            
+            if (profileError) throw profileError;
+        }
     } catch (error) {
         console.error(`Erro ao deletar permanentemente em ${collectionName}: `, error);
         throw error;

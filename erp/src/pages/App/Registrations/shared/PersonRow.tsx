@@ -136,13 +136,15 @@ const PersonRow = ({
                                         <i className="bi bi-pencil-fill text-sm" />
                                     </button>
 
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onViewPurchaseHistory?.(person); }}
-                                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                            title="Ver Histórico de Pedidos"
-                                        >
-                                            <i className="bi bi-clock-history text-sm" />
-                                        </button>
+                                        {onViewPurchaseHistory && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onViewPurchaseHistory(person); }}
+                                                className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
+                                                title="Ver Histórico de Pedidos"
+                                            >
+                                                <i className="bi bi-clock-history text-sm" />
+                                            </button>
+                                        )}
 
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onDelete(person.id!); }}
