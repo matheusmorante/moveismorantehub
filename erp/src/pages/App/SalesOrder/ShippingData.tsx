@@ -235,10 +235,10 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                             />
                                         </div>
                                         <div className="flex-1 relative group/field">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Bairro <span className="text-red-500">*</span></label>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Bairro</label>
                                             <input
                                                 type="text"
-                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_neighborhood'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_neighborhood'] ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
                                                 placeholder="Seu bairro"
                                                 value={shipping.deliveryAddress?.neighborhood || ""}
                                                 onChange={e => updateDeliveryAddress('neighborhood', e.target.value)}
@@ -254,7 +254,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Cidade <span className="text-red-500">*</span></label>
                                             <input
                                                 type="text"
-                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_city'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_city'] ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
                                                 placeholder="Nome da cidade"
                                                 value={shipping.deliveryAddress?.city || ""}
                                                 onChange={e => updateDeliveryAddress('city', e.target.value)}
@@ -270,9 +270,9 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
 
                                     <div className="flex flex-col md:flex-row gap-4">
                                         <div className="flex-1 relative group/field">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Tipo de Moradia <span className="text-red-500">*</span></label>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Tipo de Moradia</label>
                                             <select
-                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_housingType'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                                className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_housingType'] ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
                                                 value={shipping.deliveryAddress?.housingType || ""}
                                                 onChange={e => updateDeliveryAddress('housingType', e.target.value)}
                                             >

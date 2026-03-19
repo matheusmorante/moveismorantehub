@@ -56,12 +56,14 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
       // Hide stock actions and labels in form mode
       if (['STOCK_WITHDRAWAL', 'STOCK_REVERSAL', 'PRINT_SHIPPING_LABEL', 'PRINT_PRODUCT_LABEL'].includes(btn.action)) return false;
       
-      // Evaluation button only in Pickup or Fullfilled
-      if (btn.action === 'SEND_CUSTOMER_REVIEWS') {
-        const isPickup = order.shipping?.deliveryMethod === 'pickup';
-        const isFulfilled = order.status === 'fulfilled';
-        if (!isPickup && !isFulfilled) return false;
+      // NEW: Enviar Entrega button only if deliveryMethod === 'delivery'
+      if (btn.action === 'SEND_SHIPPING_ORDER') {
+        const isDelivery = order.shipping?.deliveryMethod === 'delivery';
+        if (!isDelivery) return false;
       }
+
+      // Evaluation button removed as requested
+      if (btn.action === 'SEND_CUSTOMER_REVIEWS') return false;
     }
 
     // Toggle logic for stock (only in list mode or general)
@@ -84,7 +86,7 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
 
         const isPrintReceipt = btn.key === 'printReceipt';
         const noCustomer = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
-        const isDisabled = noCustomer || (isPrintAction && hasErrors);
+        const isDisabled = noCustomer || (isPrintAction && hasErrors) || (isSendAction && hasErrors);
 
         const disabledReason = noCustomer
             ? 'Não é possível imprimir recibo sem cliente associado'
@@ -93,25 +95,31 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
             : btn.label;
 
         return (
-        <button
-          key={btn.key}
+          <button
+            key={btn.key}
             disabled={isDisabled}
-            className={`${isDisabled ? 'opacity-50 cursor-not-allowed bg-slate-300 text-slate-500 rounded-xl px-6 py-3 shadow-sm' : btn.color} flex items-center gap-3 whitespace-nowrap active:scale-95`}
+            className={`
+              flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all active:scale-95 whitespace-nowrap border shadow-sm text-[10px] font-black uppercase tracking-widest
+              ${isDisabled
+                ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800'
+                : `bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900/40 hover:shadow-md ${btn.color}`
+              }
+            `}
             title={disabledReason}
-          onClick={(e) => {
-            e.preventDefault();
-            if (isDisabled) {
+            onClick={(e) => {
+              e.preventDefault();
+              if (isDisabled) {
                 toast.warning(isPrintAction && hasErrors ? `Campos obrigatórios faltando. Verifique o formulário.` : disabledReason);
                 return;
-            }
-            handleAction(btn.action);
-            markClicked(btn.key as keyof IsButtonsClicked);
-          }}
-        >
-          <i className={`bi ${btn.icon} text-lg`} />
-          <span className="font-black">{btn.label}</span>
-          {localClicked[btn.key as keyof IsButtonsClicked] && <i className="bi bi-check-circle-fill text-white ml-1" />}
-        </button>
+              }
+              handleAction(btn.action);
+              markClicked(btn.key as keyof IsButtonsClicked);
+            }}
+          >
+            <i className={`bi ${btn.icon} text-sm`} />
+            <span>{btn.label}</span>
+            {localClicked[btn.key as keyof IsButtonsClicked] && <i className="bi bi-check-circle-fill text-green-500 ml-1" />}
+          </button>
         )
       })}
     </div>

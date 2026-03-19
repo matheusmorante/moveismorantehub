@@ -2,6 +2,7 @@ import React, { forwardRef, useImperativeHandle, useEffect } from "react";
 import PersonTable from "./PersonTable";
 import { usePeople } from "./usePeople";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 interface PersonListProps {
     onEdit: (person: Person) => void;
@@ -28,6 +29,20 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
     storageKey,
     onViewPurchaseHistory
 }, ref) => {
+    const [confirmModal, setConfirmModal] = React.useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type: 'danger' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        type: 'info'
+    });
+
     const {
         people,
         loading,
@@ -37,19 +52,60 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
         totalPages,
         setCurrentPage,
         setItemsPerPage,
-        handleDelete,
+        handleDelete: onDelete,
         handleRestore,
-        handlePermanentDelete,
+        handlePermanentDelete: onPermanentDelete,
         selectedPeople,
         toggleSelection,
         selectAll,
         clearSelection,
-        handleBulkTrash,
+        handleBulkTrash: onBulkTrash,
         handleBulkRestore,
-        handleBulkPermanentDelete,
+        handleBulkPermanentDelete: onBulkPermanentDelete,
         toggleActive,
         refresh
     } = usePeople(collectionName, filters);
+
+    // Wrapped handlers for confirmation
+    const handleDelete = (id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Mover para Lixeira?",
+            message: "O registro ficará inativo mas poderá ser restaurado futuramente a partir da lixeira.",
+            onConfirm: () => onDelete(id),
+            type: 'warning'
+        });
+    };
+
+    const handlePermanentDelete = (id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Excluir Permanentemente?",
+            message: "Esta ação não pode ser desfeita. Todos os dados deste registro serão removidos do banco de dados.",
+            onConfirm: () => onPermanentDelete(id),
+            type: 'danger'
+        });
+    };
+
+    const handleBulkTrash = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Mover selecionados para Lixeira?",
+            message: `Você está prestes a mover ${selectedPeople.length} registro(s) para a lixeira.`,
+            onConfirm: () => onBulkTrash(),
+            type: 'warning'
+        });
+    };
+
+    const handleBulkPermanentDelete = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Excluir Permanentemente?",
+            message: `Você está prestes a excluir DEFINITIVAMENTE ${selectedPeople.length} registro(s). Esta ação não pode ser desfeita.`,
+            onConfirm: () => onBulkPermanentDelete(),
+            type: 'danger'
+        });
+    };
 
     useImperativeHandle(ref, () => ({
         refresh
@@ -166,6 +222,17 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                type={confirmModal.type}
+                confirmLabel="Confirmar"
+                cancelLabel="Cancelar"
+            />
         </div>
     );
 });

@@ -26,22 +26,45 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                              <button
                                 type="button"
                                 onClick={() => {
-                                    const newValue = !scheduling.notInformed;
-                                    onChangeScheduling("notInformed", newValue);
-                                    if (newValue) {
-                                        onChangeScheduling("date", "");
-                                        onChangeScheduling("startTime", "");
-                                        onChangeScheduling("endTime", "");
-                                    }
+                                    const now = new Date();
+                                    const date = now.toISOString().split('T')[0];
+                                    const hours = String(now.getHours()).padStart(2, '0');
+                                    const mins = String(now.getMinutes()).padStart(2, '0');
+                                    const time = `${hours}:${mins}`;
+                                    
+                                    onChangeScheduling("notInformed", false);
+                                    onChangeScheduling("date", date);
+                                    onChangeScheduling("type", "fixed");
+                                    onChangeScheduling("startTime", time);
+                                    onChangeScheduling("endTime", "");
                                 }}
-                                className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border ${
-                                    scheduling.notInformed 
-                                        ? 'bg-amber-500 border-amber-500 text-white shadow-sm' 
-                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-amber-500 hover:text-amber-500'
-                                }`}
+                                className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border bg-emerald-500 border-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-95"
+                                title="Define a data e hora como o momento atual (Já retirado pelo cliente)"
                             >
-                                {scheduling.notInformed ? '📅 Informar Agendamento' : '🚫 Não informar'}
+                                <i className="bi bi-lightning-fill mr-1" /> Retirada Imediata
                             </button>
+
+                             {!isPickup && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newValue = !scheduling.notInformed;
+                                        onChangeScheduling("notInformed", newValue);
+                                        if (newValue) {
+                                            onChangeScheduling("date", "");
+                                            onChangeScheduling("startTime", "");
+                                            onChangeScheduling("endTime", "");
+                                        }
+                                    }}
+                                    className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border ${
+                                        scheduling.notInformed 
+                                            ? 'bg-amber-500 border-amber-500 text-white shadow-sm' 
+                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-amber-500 hover:text-amber-500'
+                                    }`}
+                                >
+                                    {scheduling.notInformed ? '📅 Informar Agendamento' : '🚫 Não informar'}
+                                </button>
+                             )}
                         </div>
                     )}
 

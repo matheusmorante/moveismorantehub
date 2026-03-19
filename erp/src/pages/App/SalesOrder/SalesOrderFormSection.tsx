@@ -39,42 +39,14 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     isSavingDraft={state.isSavingDraft}
                     errors={state.errors}
                     currentOrderId={state.currentOrderId}
+                    deliveryMethod={state.shipping.deliveryMethod}
+                    setDeliveryMethod={(method) => actions.setShipping(prev => ({ ...prev, deliveryMethod: method }))}
                 />
 
                 {/* Wizard Steps Content */}
                 <div className="max-w-[1400px] mx-auto pb-10">
                     {currentStep === 1 && (
                         <div className="flex flex-col gap-8 animate-fade-in">
-                            {/* Prominent Selection for Delivery Type */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => actions.setShipping(prev => ({ ...prev, deliveryMethod: 'delivery' }))}
-                                    className={`group flex items-center gap-4 p-6 rounded-3xl border-4 transition-all duration-500 ${!isPickup ? 'bg-blue-600 border-blue-400 text-white shadow-xl shadow-blue-500/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:border-blue-500/30'}`}
-                                >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12 ${!isPickup ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'}`}>
-                                        <i className="bi bi-truck text-2xl" />
-                                    </div>
-                                    <div className="text-left">
-                                        <span className="text-lg font-black tracking-tight block">Entrega</span>
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${!isPickup ? 'text-white/60' : 'text-slate-400'}`}>Frete calculado por rota</span>
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => actions.setShipping(prev => ({ ...prev, deliveryMethod: 'pickup' }))}
-                                    className={`group flex items-center gap-4 p-6 rounded-3xl border-4 transition-all duration-500 ${isPickup ? 'bg-emerald-600 border-emerald-400 text-white shadow-xl shadow-emerald-500/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:border-emerald-500/30'}`}
-                                >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12 ${isPickup ? 'bg-white/20' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'}`}>
-                                        <i className="bi bi-hand-index-thumb-fill text-2xl" />
-                                    </div>
-                                    <div className="text-left">
-                                        <span className="text-lg font-black tracking-tight block">Retirada na Loja</span>
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isPickup ? 'text-white/60' : 'text-slate-400'}`}>Sem custos de frete</span>
-                                    </div>
-                                </button>
-                            </div>
 
                             <SectionCard
                                 icon="bi bi-box-seam"
@@ -108,6 +80,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     customerData={state.customerData}
                                     setCustomerData={actions.setCustomerData}
                                     errors={state.errors}
+                                    isPickup={isPickup}
                                 />
                             </SectionCard>
                         </div>
@@ -134,13 +107,13 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                             <SectionCard
                                 icon="bi bi-info-circle-fill"
                                 iconBg="bg-amber-600 shadow-amber-100 dark:shadow-amber-900/20"
-                                title="Avisos sobre a Entrega"
+                                title={isPickup ? "Avisos sobre a Retirada" : "Avisos sobre a Entrega"}
                                 className="bg-white dark:bg-slate-900"
                             >
                                 <NoticeInput
                                     value={state.observation}
                                     onChange={(val) => actions.setObservation(val)}
-                                    placeholder="Instruções específicas para a entrega/montagem..."
+                                    placeholder={isPickup ? "Instruções específicas para a retirada..." : "Instruções específicas para a entrega/montagem..."}
                                 />
                             </SectionCard>
                         </div>
@@ -226,9 +199,9 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <div className="bg-slate-50 dark:bg-slate-800/80 px-5 py-2 rounded-xl border border-slate-100 dark:border-slate-800 mr-4">
-                            <span className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Total</span>
-                            <span className="text-lg font-black italic text-slate-800 dark:text-slate-100 tracking-tighter">
+                        <div className="bg-slate-50 dark:bg-slate-800/80 px-6 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 mr-4 shadow-sm min-w-fit">
+                            <span className="text-[9px] font-black uppercase text-slate-400 block tracking-widest mb-0.5">Total do Pedido</span>
+                            <span className="text-xl font-black italic text-blue-600 dark:text-blue-400 tracking-tighter whitespace-nowrap">
                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}
                             </span>
                         </div>

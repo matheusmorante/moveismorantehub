@@ -125,7 +125,7 @@ const OrderHistoryTable = ({
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 flex-1 min-h-0">
             {/* Bulk Actions Toolbar */}
             {selectedOrders.length > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm animate-slide-up sticky top-2 z-10">
@@ -173,7 +173,7 @@ const OrderHistoryTable = ({
 
             {/* View Switcher based on isMobile */}
             {!isMobile ? (
-                <div ref={containerRef} className="overflow-x-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800">
+                <div ref={containerRef} className="overflow-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800 flex-1 min-h-0 bg-white dark:bg-slate-900/50 transition-colors">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 transition-colors">

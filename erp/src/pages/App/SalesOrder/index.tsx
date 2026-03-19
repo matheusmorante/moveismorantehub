@@ -95,7 +95,7 @@ const SalesOrder = () => {
             {isSidebarOpen && <div className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
+            <div className="flex-1 flex flex-col min-w-0 p-4 md:p-10">
                 <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0">
                     <div className="flex items-start xl:items-center gap-4 xl:gap-6">
                         <div>
@@ -120,7 +120,7 @@ const SalesOrder = () => {
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 flex-1 min-h-0">
                     {/* Header Actions Container - Invisible with space-between */}
                     <div className="flex justify-between items-center px-2">
                         <div className="flex gap-3">
@@ -215,7 +215,7 @@ const SalesOrder = () => {
                         </div>
                     </div>
 
-                    <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
+                    <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors flex-1 flex flex-col min-h-0">
                         <OrderHistoryList
                             onEdit={setEditingOrder}
                             filters={activeFilters}

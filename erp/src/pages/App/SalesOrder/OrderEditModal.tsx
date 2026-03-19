@@ -105,11 +105,26 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                     <OrderStepper 
                         currentStep={form.state.currentStep} 
                         jumpToStep={form.actions.jumpToStep} 
-                    />
+                        errors={form.state.errors}
+                    />                    <div className="flex items-center gap-2">
+                        {/* Compact Seller Selection for Scrolled State */}
+                        <div className={`flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-100 dark:border-slate-800 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'opacity-100 translate-x-0' : 'hidden'}`}>
+                            <button 
+                                ref={sellerRef}
+                                onClick={() => setIsSellerSearchOpen(true)}
+                                className="flex items-center gap-3 px-3 py-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-600"
+                            >
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600">
+                                    <i className="bi bi-person-badge-fill text-xs" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
+                                    {form.state.seller || "Vendedor"}
+                                </span>
+                            </button>
+                        </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Seller & Date Section - Shared with NewSaleOrder */}
-                        <div className="hidden xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm">
+                        {/* Full Seller & Date Section for Expanded State */}
+                        <div className={`xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm ${isScrolled ? 'hidden' : 'hidden xl:flex'}`}>
                             {/* Seller Selection */}
                             <button 
                                 ref={sellerRef}
@@ -138,7 +153,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                                     <i className="bi bi-calendar-event-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5">Data do Pedido</span>
+                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5">Data</span>
                                     <input
                                         type="datetime-local"
                                         value={form.state.orderDate}
@@ -149,11 +164,23 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                             </div>
                         </div>
 
+                        <div className={`flex items-center gap-2 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
+                            <button
+                                type="button"
+                                onClick={handleUpdate}
+                                disabled={form.state.isSaving}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                            >
+                                {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
+                                Salvar
+                            </button>
+                        </div>
+
                         <button
                             onClick={onClose}
-                            className="w-14 h-14 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-[1.5rem] transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90"
+                            className={`flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`}
                         >
-                            <i className="bi bi-x-lg text-xl" />
+                            <i className={`bi bi-x-lg ${isScrolled ? 'text-md' : 'text-xl'}`} />
                         </button>
                     </div>
                 </div>

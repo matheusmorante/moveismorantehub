@@ -6,39 +6,49 @@ const TABLE_NAME = "people";
 const mapToDB = (collectionName: string, person: Partial<Person>) => {
     const p = person as any;
 
-    // Ensure address is saved as an object if possible
-    let addressValue = p.fullAddress || p.address;
-    if (typeof addressValue === 'string' && addressValue.trim().startsWith('{')) {
-        try {
-            addressValue = JSON.parse(addressValue);
-        } catch (e) {
-            // keep as string
+    const dbObj: any = {};
+
+    // Only set fields that are defined in 'person' for partial updates
+    if (p.type || collectionName) dbObj.person_type = p.type || collectionName;
+    if (p.personType !== undefined) dbObj.person_type_pf_pj = p.personType;
+    if (p.fullName !== undefined) dbObj.full_name = p.fullName;
+    if (p.socialName !== undefined) dbObj.social_name = p.socialName;
+    if (p.nickname !== undefined || p.tradeName !== undefined) dbObj.nickname = p.nickname || p.tradeName;
+    if (p.cpfCnpj !== undefined) dbObj.cpf_cnpj = p.cpfCnpj;
+    if (p.rgIe !== undefined) dbObj.rg_ie = p.rgIe;
+    if (p.email !== undefined) dbObj.email = p.email;
+    if (p.phone !== undefined) dbObj.phone = p.phone;
+    if (p.observation !== undefined) dbObj.observation = p.observation;
+    if (p.position !== undefined) dbObj.position = p.position;
+    if (p.active !== undefined) dbObj.active = p.active;
+    if (p.isDraft !== undefined) dbObj.is_draft = p.isDraft;
+    if (p.leadTime !== undefined) dbObj.lead_time = p.leadTime;
+    if (p.deleted !== undefined) dbObj.deleted = p.deleted;
+
+    // Special handling for address
+    if (p.fullAddress || p.address) {
+        let addressVal = p.fullAddress || p.address;
+        if (typeof addressVal === 'string' && addressVal.trim().startsWith('{')) {
+            try {
+                addressVal = JSON.parse(addressVal);
+            } catch (e) {
+                // keep as string
+            }
         }
+        dbObj.address = addressVal;
     }
 
-    return {
-        person_type: p.type || collectionName,
-        person_type_pf_pj: p.personType, // Added
-        full_name: p.fullName,
-        social_name: p.socialName, // Added
-        nickname: p.nickname || p.tradeName,
-        cpf_cnpj: p.cpfCnpj,
-        rg_ie: p.rgIe,
-        email: p.email,
-        phone: p.phone,
-        address: addressValue,
-        observation: p.observation,
-        position: p.position,
-        active: p.active ?? true, // Default to true
-        is_draft: p.isDraft ?? false,
-        lead_time: p.leadTime, // Added
-        deleted: p.deleted ?? false, // Default to false
-        deleted_at: person.deletedAt ? new Date().toISOString() : null, // Simplification
-        updated_at: new Date().toISOString()
-    };
+    if (person.deletedAt !== undefined) {
+        dbObj.deleted_at = person.deletedAt ? (person.deletedAt.includes('T') ? person.deletedAt : new Date().toISOString()) : null;
+    }
+
+    dbObj.updated_at = new Date().toISOString();
+
+    return dbObj;
 };
 
 const mapFromDB = (data: any): Person => {
+    if (!data) return {} as Person;
     let parsedAddress = data.address;
     if (typeof parsedAddress === 'string') {
         try {
@@ -119,10 +129,24 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
             const { data: profilesData } = await supabase.from('profiles').select('*').not('position', 'is', null).neq('position', '');
             if (profilesData) {
                 const profileEmployees = profilesData.map(mapProfileToPerson);
-                // Merge without duplicates (by email if possible, or ID)
-                const existingEmails = new Set(employees.map(e => e.email?.toLowerCase()).filter(Boolean));
-                profileEmployees.forEach(pe => {
-                    if (!pe.email || !existingEmails.has(pe.email.toLowerCase())) {
+
+                // Fetch ALL emails from 'people' table (including those in lixeira) to prevent duplicates and prevent showing deleted logins
+                const { data: allPeopleEmails } = await supabase.from(TABLE_NAME).select('email, deleted');
+                const emailsToExclude = new Set<string>();
+                
+                if (allPeopleEmails) {
+                    (allPeopleEmails as any[]).forEach(row => {
+                        if (row.email) {
+                            // If we are showing active list (includeDeleted=false), we exclude any email that is in people table (active or deleted)
+                            // If we are showing trash (includeDeleted=true), we only exclude if it's already in the 'employees' list (which are the trashed ones)
+                            emailsToExclude.add(row.email.toLowerCase());
+                        }
+                    });
+                }
+
+                // If NOT viewing trash, exclude any email already listed (active) OR any profile that has a persona in 'people' table (to avoid duplication or showing deleted ones)
+                profileEmployees.forEach((pe: Person) => {
+                    if (pe.email && !emailsToExclude.has(pe.email.toLowerCase())) {
                         employees.push(pe);
                     }
                 });
@@ -178,6 +202,11 @@ export const updatePerson = async (collectionName: string, id: string, personToU
             .select();
 
         if (error) throw error;
+        if (!data || data.length === 0) {
+            // If it's a profile update that failed in people table, it's expected if it wasn't there yet.
+            // But for a generic update, we should at least not crash.
+            return {} as Person;
+        }
         return mapFromDB(data[0]);
     } catch (error) {
         console.error(`Erro ao atualizar em ${collectionName}: `, error);

@@ -14,6 +14,7 @@ interface Props {
     customerData: CustomerData;
     setCustomerData: React.Dispatch<React.SetStateAction<CustomerData>>;
     errors: ValidationErrors;
+    isPickup: boolean;
 }
 
 const EMPTY_ADDRESS = {
@@ -21,7 +22,7 @@ const EMPTY_ADDRESS = {
     complement: '', neighborhood: '', city: '', observation: ''
 };
 
-const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) => {
+const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }: Props) => {
     const [customers, setCustomers] = useState<Person[]>([]);
     const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -165,10 +166,13 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
 
     const isNameError = !!errors['customer_fullName'];
     const isPhoneError = !!errors['customer_phone'];
+    const isStreetError = !!errors['customer_street'];
+    const isNumberError = !!errors['customer_number'];
+    const isCityError = !!errors['customer_city'];
 
     const field = (hasError?: boolean) =>
         `w-full bg-white dark:bg-slate-900 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${hasError
-            ? 'border-red-500 focus:ring-red-500/30'
+            ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10'
             : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
         }`;
 
@@ -198,13 +202,6 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                             onFocus={() => setIsDropdownOpen(true)}
                         />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                            {customerData.id && customerData.fullName !== 'Consumidor Final' && (
-                                <button type="button" onClick={() => setIsEditCustomerModalOpen(true)}
-                                    title="Editar cadastro completo do cliente"
-                                    className="text-blue-500 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/40 p-1 rounded-md transition-colors mr-1">
-                                    <i className="bi bi-pencil-square" />
-                                </button>
-                            )}
                             {searchTerm && (
                                 <button type="button" onClick={clearCustomer}
                                     className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
@@ -224,23 +221,35 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                         <span className="hidden sm:inline">Buscar</span>
                     </button>
 
-                    {/* Consumidor Final */}
-                    <button type="button"
-                        onClick={() => {
-                            setCustomerData({
-                                fullName: 'Consumidor Final',
-                                phone: '',
-                                noPhone: true,
-                                fullAddress: EMPTY_ADDRESS
-                            });
-                            setSearchTerm('Consumidor Final');
-                            setIsDropdownOpen(false);
-                        }}
-                        title="Consumidor Final / Sem informações do cliente"
-                        className="shrink-0 flex items-center gap-2 px-4 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-2xl transition-all active:scale-95 font-black text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">
-                        <i className="bi bi-person-x-fill text-sm" />
-                        <span className="hidden lg:inline">Consumidor Final / Sem Inf.</span>
-                    </button>
+                    {customerData.id && customerData.fullName !== 'Consumidor Final' && (
+                        <button type="button"
+                            onClick={() => setIsEditCustomerModalOpen(true)}
+                            title="Editar cadastro completo do cliente"
+                            className="shrink-0 flex items-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl transition-all shadow-lg shadow-amber-200 dark:shadow-none active:scale-95 font-black text-xs uppercase tracking-widest">
+                            <i className="bi bi-pencil-square" />
+                            <span className="hidden sm:inline">Editar</span>
+                        </button>
+                    )}
+
+                    {/* Consumidor Final - HIDE FOR DELIVERY */}
+                    {isPickup && (
+                        <button type="button"
+                            onClick={() => {
+                                setCustomerData({
+                                    fullName: 'Consumidor Final',
+                                    phone: '',
+                                    noPhone: true,
+                                    fullAddress: EMPTY_ADDRESS
+                                });
+                                setSearchTerm('Consumidor Final');
+                                setIsDropdownOpen(false);
+                            }}
+                            title="Consumidor Final / Sem informações do cliente"
+                            className="shrink-0 flex items-center gap-2 px-4 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-2xl transition-all active:scale-95 font-black text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">
+                            <i className="bi bi-person-x-fill text-sm" />
+                            <span className="hidden lg:inline">Consumidor Final</span>
+                        </button>
+                    )}
 
                     {/* New customer */}
                     <button type="button"
@@ -375,13 +384,19 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                                     onBlur={handleCepBlur}
                                 />
                             </div>
-                            <div className="flex-1 relative" ref={streetWrapperRef}>
+                            <div className="flex-1 relative group/field" ref={streetWrapperRef}>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Rua / Avenida</label>
-                                <input type="text" className={field()} placeholder="Nome da rua"
+                                <input type="text" className={field(isStreetError)} placeholder="Nome da rua"
                                     value={customerData.fullAddress?.street || ''}
                                     onChange={e => handleStreetChange(e.target.value)}
                                     onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
                                 />
+                                {isStreetError && (
+                                    <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
+                                        {errors['customer_street']}
+                                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                    </div>
+                                )}
                                 <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen && streetSuggestions.length > 0}>
                                     <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
                                         {streetSuggestions.map((s, i) => (
@@ -395,12 +410,18 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                                     </div>
                                 </DropdownPortal>
                             </div>
-                            <div className="md:w-28">
+                            <div className="md:w-28 relative group/field">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Número</label>
-                                <input type="text" className={field()} placeholder="123"
+                                <input type="text" className={field(isNumberError)} placeholder="123"
                                     value={customerData.fullAddress?.number || ''}
                                     onChange={e => updateAddress('number', e.target.value)}
                                 />
+                                {isNumberError && (
+                                    <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
+                                        {errors['customer_number']}
+                                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -420,12 +441,18 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                                     onChange={e => updateAddress('neighborhood', e.target.value)}
                                 />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 relative group/field">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Cidade</label>
-                                <input type="text" className={field()} placeholder="Nome da cidade"
+                                <input type="text" className={field(isCityError)} placeholder="Nome da cidade"
                                     value={customerData.fullAddress?.city || ''}
                                     onChange={e => updateAddress('city', e.target.value)}
                                 />
+                                {isCityError && (
+                                    <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
+                                        {errors['customer_city']}
+                                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                    </div>
+                                )}
                             </div>
                         </div>
 

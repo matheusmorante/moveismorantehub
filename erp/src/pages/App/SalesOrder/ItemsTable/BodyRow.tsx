@@ -27,57 +27,32 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
 
     if (isMobile) {
         return (
-            <div className={`p-4 md:p-6 bg-white dark:bg-slate-900 border rounded-3xl ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} shadow-sm relative group overflow-hidden transition-all hover:shadow-lg`}>
-                <div className="flex flex-col xl:flex-row gap-6 xl:items-center">
-                    {/* Item Description & Header Section */}
-                    <div className="flex-1 min-w-0 flex items-start gap-4">
-                        <div className="flex-1">
+            <div className={`p-4 bg-white dark:bg-slate-900/40 border rounded-3xl ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} shadow-sm relative group overflow-hidden transition-all hover:shadow-lg`}>
+                <div className="flex flex-col gap-4">
+                    {/* Linha 1: Descrição e Manuseio */}
+                    <div className="flex gap-3">
+                        <div className="flex-[3] min-w-0">
+                            <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Descrição do Item</label>
                             {!item.isComboItem ? (
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase text-slate-400">Descrição do Item</label>
-                                    <input
-                                        type="text"
-                                        className={`w-full bg-slate-50 dark:bg-slate-900 border px-4 py-3 rounded-2xl text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-200 transition-all ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-100 dark:border-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'}`}
-                                        value={item.description}
-                                        onChange={(e) => onChange(idx, 'description', e.target.value)}
-                                        placeholder="Pesquisar produto ou digitar descrição..."
-                                    />
-                                </div>
+                                <input
+                                    type="text"
+                                    className={`w-full bg-slate-50 dark:bg-slate-800 border px-3 py-2 rounded-xl text-sm font-bold outline-none placeholder:text-slate-300 dark:text-slate-200 transition-all ${error ? 'border-red-500 focus:ring-4 focus:ring-red-500/10' : 'border-slate-100 dark:border-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'}`}
+                                    value={item.description}
+                                    onChange={(e) => onChange(idx, 'description', e.target.value)}
+                                    placeholder="Produto..."
+                                />
                             ) : (
-                                <div className="flex items-center gap-3 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                                    <i className="bi bi-arrow-return-right text-blue-500 text-lg" />
-                                    <span className="text-sm italic text-slate-500 dark:text-slate-400 font-semibold">{item.description}</span>
+                                <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800 p-2 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                                    <i className="bi bi-arrow-return-right text-blue-500" />
+                                    <span className="text-xs italic text-slate-500 truncate">{item.description}</span>
                                 </div>
                             )}
                         </div>
                         {!item.isComboItem && (
-                            <button
-                                type="button"
-                                onClick={onDelete}
-                                className="mt-6 p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all active:scale-95"
-                                title="Excluir item"
-                            >
-                                <i className="bi bi-trash text-lg" />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Inputs Subsection */}
-                    <div className="flex flex-wrap items-end gap-3 md:gap-4 lg:gap-6">
-                        <div className="min-w-[100px] flex-1 md:flex-initial space-y-1">
-                            <label className="text-[10px] font-black uppercase text-slate-400">Quantidade</label>
-                            <UnitInput
-                                value={item.quantity}
-                                onChange={(value: number) => onChange(idx, 'quantity', value)}
-                                disabled={item.isComboItem}
-                            />
-                        </div>
-
-                        {!item.isComboItem && (
-                            <div className="min-w-[150px] flex-1 md:flex-initial space-y-1">
-                                <label className="text-[10px] font-black uppercase text-slate-400">Manuseio / Serviço</label>
+                            <div className="flex-[2] min-w-0">
+                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Manuseio</label>
                                 <select
-                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-4 py-3 rounded-2xl text-[11px] font-bold outline-none dark:text-slate-300 transition-all"
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-2 rounded-xl text-[11px] font-bold outline-none dark:text-slate-300 transition-all"
                                     value={item.handlingType || ''}
                                     onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
                                 >
@@ -87,43 +62,67 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                 </select>
                             </div>
                         )}
-
                         {!item.isComboItem && (
-                            <div className="min-w-[130px] flex-1 md:flex-initial space-y-1">
-                                <label className="text-[10px] font-black uppercase text-slate-400">Preço Unitário</label>
+                             <button
+                                type="button"
+                                onClick={onDelete}
+                                className="mt-5 p-2 text-slate-300 hover:text-red-500 active:scale-95 transition-all"
+                                title="Excluir item"
+                            >
+                                <i className="bi bi-trash text-lg" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Linha 2: Quantidade e Preço Unitário */}
+                    {!item.isComboItem && (
+                        <div className="flex gap-3">
+                            <div className="flex-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Qtd</label>
+                                <UnitInput
+                                    value={item.quantity}
+                                    onChange={(value: number) => onChange(idx, 'quantity', value)}
+                                    disabled={item.isComboItem}
+                                />
+                            </div>
+                            <div className="flex-[2]">
+                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Preço Unitário</label>
                                 <CurrencyInput
                                     value={item.unitPrice}
                                     onChange={(value: number) => onChange(idx, 'unitPrice', value)}
-                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-4 py-3 rounded-2xl text-sm font-bold outline-none"
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none"
                                 />
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {!item.isComboItem && (
-                            <div className="min-w-[150px] flex-1 md:flex-initial space-y-1">
-                                <label className="text-[10px] font-black uppercase text-slate-400">Desconto do Item</label>
-                                <div className="flex items-center gap-0 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pr-2 focus-within:border-blue-500 transition-all overflow-hidden">
+                    {/* Linha 3: Desconto e Total */}
+                    <div className="flex gap-3 items-end">
+                        {!item.isComboItem ? (
+                            <div className="flex-[3] space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto Unitário</label>
+                                <div className="flex items-center gap-0 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl pr-1 focus-within:border-blue-500 transition-all overflow-hidden">
                                     <CurrencyOrPercentInput
                                         prefix={item.discountType === "fixed" ? "R$ " : ""}
                                         suffix={item.discountType === "fixed" ? "" : " %"}
                                         value={item.unitDiscount}
                                         onChange={(value: number) => onChange(idx, 'unitDiscount', value)}
-                                        className="w-full bg-transparent border-0 px-4 py-3 text-sm font-bold outline-none text-right"
+                                        className="w-full bg-transparent border-0 px-3 py-2 text-sm font-bold outline-none text-right"
                                     />
                                     <button 
                                         type="button"
                                         onClick={onToggleDiscountType}
-                                        className="h-8 min-w-[32px] px-2 flex items-center justify-center bg-white dark:bg-slate-800 text-[10px] font-black text-blue-600 dark:text-blue-400 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-105 active:scale-95 transition-all"
+                                        className="h-7 min-w-[28px] px-1 flex items-center justify-center bg-white dark:bg-slate-700 text-[9px] font-black text-blue-600 dark:text-blue-400 rounded-lg shadow-sm border border-slate-50 dark:border-slate-700 hover:scale-105 active:scale-95 transition-all"
                                     >
                                         {item.discountType === 'fixed' ? 'R$' : '%'}
                                     </button>
                                 </div>
                             </div>
-                        )}
-
-                        <div className="min-w-[140px] flex items-center justify-between xl:justify-end gap-3 px-6 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-[1.5rem] ml-auto border border-blue-100/50 dark:border-blue-500/10">
-                            <span className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 opacity-60">Total Item</span>
-                            <div className="text-base font-black text-blue-600 dark:text-blue-400">
+                        ) : <div className="flex-[3]" />}
+                        
+                        <div className="flex-[2] flex flex-col items-end gap-1 px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/30 dark:border-blue-500/10">
+                            <span className="text-[8px] font-black uppercase text-blue-600/60 dark:text-blue-400/60 tracking-widest">Total Item</span>
+                            <div className="text-sm font-black text-blue-600 dark:text-blue-400">
                                 <CurrencyDisplay value={calcItemTotalValue(item)} />
                             </div>
                         </div>
@@ -164,7 +163,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                         value={item.handlingType || ''}
                         onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
                     >
-                        <option value="" disabled className="dark:bg-slate-900">Selecione...</option>
+                        <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
                         {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
                             <option key={opt} value={opt} className="dark:bg-slate-900">{opt}</option>
                         ))}

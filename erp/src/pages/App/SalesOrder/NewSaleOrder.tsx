@@ -67,10 +67,13 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                         <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isPickup ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-blue-600 shadow-blue-500/20'}`}>
                             <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
                         </div>
-                        <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95' : 'opacity-100'}`}>
+                        <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95 overflow-hidden' : 'opacity-100 scale-100'}`}>
                             <h2 className={`text-2xl font-black tracking-tight ${isPickup ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
-                                Novo Pedido
+                                Novo Pedido de Venda
                             </h2>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-blue-500 transition-colors">
+                                {isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
+                            </p>
                         </div>
                     </div>
 
@@ -78,6 +81,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                         <OrderStepper 
                             currentStep={form.state.currentStep} 
                             jumpToStep={form.actions.jumpToStep} 
+                            errors={form.state.errors}
                         />
                     </div>
 
@@ -134,6 +138,18 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        <div className={`flex items-center gap-2 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={form.state.isSaving}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                            >
+                                {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
+                                Salvar
+                            </button>
                         </div>
 
                         <button

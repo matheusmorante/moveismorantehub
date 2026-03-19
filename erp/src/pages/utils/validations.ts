@@ -52,21 +52,19 @@ export const validateCustomerData = (customer: CustomerData, isPickup: boolean =
     const { requiredFields } = getSettings();
 
     if (!customer) return { customer: "Dados do cliente ausentes." };
-    if (isPickup) return errors; // If pickup, customer info is NOT required per audio instructions
 
     if (!customer.fullName || !customer.fullName.trim()) {
         errors['customer_fullName'] = "Nome completo é obrigatório.";
     }
 
-    if (requiredFields.customer?.phone && !customer.noPhone && (!customer.phone || !customer.phone.trim())) {
+    if (!customer.noPhone && (!customer.phone || !customer.phone.trim())) {
         errors['customer_phone'] = "Telefone/Celular é obrigatório.";
     }
 
     if (requiredFields.customer?.cpfCnpj && (!customer.cpfCnpj || !customer.cpfCnpj.trim())) {
         errors['customer_cpfCnpj'] = "CPF/CNPJ é obrigatório.";
     }
-    // ... remaining checks, but only if NOT pickup ...
-    // Wait, the audio said "nem o campo do cliente". So if pickup, I can skip ALL.
+
     return errors;
 }
 
@@ -81,7 +79,7 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
         const isOptionalPickup = shipping.deliveryMethod === 'pickup' && scheduling.notInformed;
         
         if (!isOptionalPickup) {
-            if (!scheduling.date) errors['shipping_date'] = "Data de entrega é obrigatória.";
+            if (!scheduling.date) errors['shipping_date'] = "Data é obrigatória.";
             if (!scheduling.startTime) errors['shipping_time'] = "Horário/Período é obrigatório.";
         }
     }
@@ -92,17 +90,13 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
             const addr = customer?.fullAddress;
             if (!addr?.street) errors['customer_street'] = "Rua é obrigatória.";
             if (!addr?.number) errors['customer_number'] = "Número é obrigatório.";
-            if (!addr?.neighborhood) errors['customer_neighborhood'] = "Bairro é obrigatório.";
             if (!addr?.city) errors['customer_city'] = "Cidade é obrigatória.";
-            if (!addr?.housingType) errors['customer_housingType'] = "Tipo de moradia é obrigatório.";
         } else {
             // Using custom delivery address
             const dAddr = shipping.deliveryAddress;
             if (!dAddr?.street) errors['deliveryAddress_street'] = "Rua é obrigatória.";
             if (!dAddr?.number) errors['deliveryAddress_number'] = "Número é obrigatório.";
-            if (!dAddr?.neighborhood) errors['deliveryAddress_neighborhood'] = "Bairro é obrigatório.";
             if (!dAddr?.city) errors['deliveryAddress_city'] = "Cidade é obrigatória.";
-            if (!dAddr?.housingType) errors['deliveryAddress_housingType'] = "Tipo de moradia é obrigatório.";
         }
     }
 

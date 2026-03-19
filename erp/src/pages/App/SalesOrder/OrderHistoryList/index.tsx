@@ -3,6 +3,7 @@ import Order, { VisibilitySettings } from "../../../types/order.type";
 import { useOrderHistory } from "./useOrderHistory";
 import OrderHistoryTable from "./OrderHistoryTable";
 import StockActionModal from "../OrderActions/StockActionModal";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 type OrderHistoryListProps = {
     onEdit: (order: Order) => void;
@@ -19,12 +20,26 @@ export interface OrderHistoryListRef {
 
 
 const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId }, ref) => {
+    const [confirmModal, setConfirmModal] = React.useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type: 'danger' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        type: 'info'
+    });
+
     const {
         orders,
         loading,
-        handleDelete,
+        handleDelete: onDelete,
         handleRestore,
-        handlePermanentDelete,
+        handlePermanentDelete: onPermanentDelete,
         handleAction,
         handleStatusUpdate,
         totalItems,
@@ -37,11 +52,52 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         toggleSelection,
         selectAll,
         clearSelection,
-        handleBulkTrash,
+        handleBulkTrash: onBulkTrash,
         handleBulkRestore,
-        handleBulkPermanentDelete,
+        handleBulkPermanentDelete: onBulkPermanentDelete,
         refresh
     } = useOrderHistory(filters);
+    
+    // Wrapped handlers for confirmation
+    const handleDelete = (id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Mover para Lixeira?",
+            message: "O pedido ficará inativo mas poderá ser restaurado futuramente a partir da lixeira.",
+            onConfirm: () => onDelete(id),
+            type: 'warning'
+        });
+    };
+
+    const handlePermanentDelete = (id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Excluir Permanentemente?",
+            message: "Esta ação não pode ser desfeita. Todos os dados deste pedido serão removidos definitivamente.",
+            onConfirm: () => onPermanentDelete(id),
+            type: 'danger'
+        });
+    };
+
+    const handleBulkTrash = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Mover selecionados para Lixeira?",
+            message: `Você está prestes a mover ${selectedOrders.length} pedido(s) para a lixeira.`,
+            onConfirm: () => onBulkTrash(),
+            type: 'warning'
+        });
+    };
+
+    const handleBulkPermanentDelete = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Excluir Permanentemente?",
+            message: `Você está prestes a excluir DEFINITIVAMENTE ${selectedOrders.length} pedido(s). Esta ação não pode ser desfeita.`,
+            onConfirm: () => onBulkPermanentDelete(),
+            type: 'danger'
+        });
+    };
 
     useImperativeHandle(ref, () => ({
         refresh
@@ -155,7 +211,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         }
 
         return (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 flex-1 min-h-0">
                 <OrderHistoryTable
                     orders={orders}
                     onEdit={onEdit}
@@ -278,7 +334,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     };
 
     return (
-        <div className="w-full flex flex-col gap-4">
+        <div className="w-full flex flex-col gap-4 flex-1 min-h-0">
             {renderContent()}
 
             {stockModal && (
@@ -289,6 +345,17 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onClose={() => setStockModal(null)}
                 />
             )}
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                type={confirmModal.type}
+                confirmLabel="Confirmar"
+                cancelLabel="Cancelar"
+            />
         </div>
     );
 });

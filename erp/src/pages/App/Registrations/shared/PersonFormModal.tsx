@@ -514,6 +514,16 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     >
                         Cancelar
                     </button>
+                    {collectionName === 'employees' && !person && (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                        >
+                            {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <i className="bi bi-check-all text-lg" />}
+                            Salvar e Selecionar
+                        </button>
+                    )}
                     <button
                         onClick={handleSubmit}
                         disabled={loading}

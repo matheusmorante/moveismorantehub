@@ -5,8 +5,10 @@ import ToggleValueTypeBtn from '../ToggleValueTypeBtn';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { calcPaymentTotalValue } from '../../../utils/calculations';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { PixPaymentModal } from './PixPaymentModal';
+import DropdownPortal from '../../../../components/shared/DropdownPortal';
+import { formatCurrency } from '../../../utils/formatters';
 
 interface Props {
     payment: Payment,
@@ -23,6 +25,23 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
     const [newStatus, setNewStatus] = useState(payment.status);
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        if (isDropdownOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isDropdownOpen]);
+
     const onBlur = () => {
         if (payment.status === newStatus) return;
 
@@ -36,25 +55,81 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
         }
     }
 
+    const getPaymentIcon = (method: string) => {
+        if (method === 'Pix') return 'bi-qr-code text-teal-500';
+        if (method === 'Dinheiro') return 'bi-cash-coin text-emerald-500';
+        if (method === 'Cartão de Débito') return 'bi-credit-card text-blue-500';
+        if (method.includes('Crédito')) return 'bi-credit-card-2-front text-indigo-500';
+        if (method === 'WhatsApp') return 'bi-whatsapp text-green-500';
+        return 'bi-question-circle text-slate-400';
+    };
+
+    const renderMethodItem = (method: string) => {
+        const icon = getPaymentIcon(method);
+        let detail = "";
+
+        if (method.includes('Crédito') && payment.amount > 0) {
+            const match = method.match(/(\d+)x/);
+            if (match) {
+                const n = parseInt(match[1]);
+                if (n > 0) {
+                    const installment = payment.amount / n;
+                    detail = `${n}x de ${formatCurrency(installment)}`;
+                }
+            }
+        }
+
+        return (
+            <div className="flex items-center gap-3 w-full">
+                <i className={`bi ${icon} text-lg shrink-0`} />
+                <div className="flex flex-col items-start text-left min-w-0">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{method}</span>
+                    {detail && <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{detail}</span>}
+                </div>
+            </div>
+        );
+    };
+
     if (isMobile) {
         return (
             <div className="p-4 bg-white dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative group overflow-hidden">
                 <div className="flex flex-col gap-4">
                     {/* Header: Method & Delete */}
-                    <div className="flex justify-between items-center gap-4">
-                        <select className='flex-1 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 focus:border-indigo-500 px-3 py-2 rounded-xl outline-none transition-all text-sm font-bold text-slate-700 dark:text-slate-200'
-                            value={payment.method}
-                            onChange={(e) => onChange(idx, 'method', e.target.value)}>
-                            {paymentMethods.map(method => (
-                                <option key={method} value={method} className="dark:bg-slate-900">{method}</option>
-                            ))}
-                        </select>
+                    <div className="flex justify-between items-center gap-2">
+                        <div className="flex-1 relative" ref={dropdownRef}>
+                            <button
+                                type="button"
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="w-full flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-500/50 px-3 py-2.5 rounded-2xl outline-none transition-all"
+                            >
+                                {renderMethodItem(payment.method)}
+                                <i className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            <DropdownPortal anchorRef={dropdownRef} isOpen={isDropdownOpen}>
+                                <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar flex flex-col p-1 z-[9999]">
+                                    {paymentMethods.map(method => (
+                                        <button
+                                            key={method}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(idx, 'method', method);
+                                                setIsDropdownOpen(false);
+                                            }}
+                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
+                                        >
+                                            {renderMethodItem(method)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </DropdownPortal>
+                        </div>
                         <button
                             type="button"
                             onClick={onDelete}
-                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                            className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all grow-0 shrink-0"
                         >
-                            <i className="bi bi-trash" />
+                            <i className="bi bi-trash text-lg" />
                         </button>
                     </div>
 
@@ -143,19 +218,35 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
 
     return (
         <tr key={idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0">
-            <td className="px-4 py-2">
-                <select className='w-full bg-transparent border border-slate-100 dark:border-slate-800 focus:border-indigo-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm font-medium text-slate-700 dark:text-slate-200 min-w-[140px]'
-                    value={payment.method}
-                    onChange={
-                        (e: React.ChangeEvent<HTMLSelectElement>) =>
-                            onChange(idx, 'method', e.target.value)
-                    }>
-                    {
-                        paymentMethods.map(method => (
-                            <option key={method} value={method} className="dark:bg-slate-900">{method}</option>
-                        ))
-                    }
-                </select>
+            <td className="px-4 py-3">
+                <div className="relative group/method min-w-[200px]" ref={dropdownRef}>
+                    <button
+                        type="button"
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="w-full flex items-center justify-between gap-3 bg-transparent border border-slate-100 dark:border-slate-800 group-hover/method:border-indigo-300 dark:group-hover/method:border-indigo-600 focus:border-indigo-500 px-3 py-2 rounded-2xl outline-none transition-all shadow-sm"
+                    >
+                        {renderMethodItem(payment.method)}
+                        <i className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <DropdownPortal anchorRef={dropdownRef} isOpen={isDropdownOpen} className="fixed shadow-2xl z-[9000]">
+                        <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto custom-scrollbar flex flex-col p-2 z-[9000]">
+                            {paymentMethods.map(method => (
+                                <button
+                                    key={method}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(idx, 'method', method);
+                                        setIsDropdownOpen(false);
+                                    }}
+                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
+                                >
+                                    {renderMethodItem(method)}
+                                </button>
+                            ))}
+                        </div>
+                    </DropdownPortal>
+                </div>
 
                 {payment.method === 'PIX' && (
                     <div className="mt-2">
