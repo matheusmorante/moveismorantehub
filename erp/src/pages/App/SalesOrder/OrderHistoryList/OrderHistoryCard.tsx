@@ -56,7 +56,7 @@ const OrderHistoryCard = ({
     // Explicit colors to match legend and be visible
     const cardBgClass = 
         (colorKey === 'green' 
-            ? 'bg-green-100/40 dark:bg-green-900/40' 
+            ? 'bg-green-100 dark:bg-green-950/40' 
             : (colorKey === 'purple' 
                 ? 'bg-purple-100/40 dark:bg-purple-900/40' 
                 : (colorKey === 'orange' 
@@ -88,7 +88,7 @@ const OrderHistoryCard = ({
                             const isAssistance = order.orderType === 'assistance';
                             const isPickup = order.shipping?.deliveryMethod === 'pickup';
                             const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
-                            const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-500');
+                            const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-600');
                             return <i className={`bi ${typeIcon} ${typeColor} text-[10px]`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />;
                         })()}
                     </div>

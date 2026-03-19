@@ -211,7 +211,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         }
 
         return (
-            <div className="flex flex-col gap-6 flex-1 min-h-0">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
                 <OrderHistoryTable
                     orders={orders}
                     onEdit={onEdit}
@@ -307,7 +307,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                         </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-6">
+                    <div className="flex flex-wrap items-center justify-center gap-4">
                         <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 transition-colors">
                             <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 dark:text-blue-500">
                                 Total: <span className="text-blue-700 dark:text-blue-300 font-black">{totalItems}</span> {totalItems === 1 ? 'pedido' : 'pedidos'}

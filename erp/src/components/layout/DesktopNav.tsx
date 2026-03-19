@@ -23,7 +23,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
     const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
     return (
-        <nav className="hidden lg:flex items-center gap-2 h-full">
+        <nav className="hidden xl:flex items-center gap-2 h-full">
             <Link to="/" className={navLinkClass}>
                 <i className="bi bi-grid-fill"></i>
                 Dashboard
@@ -119,9 +119,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('finance')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', false)}>
+                <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', true)}>
                     <i className="bi bi-wallet2"></i>
-                    Financeiro
+                    <span>Financeiro</span>
+                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'finance')}></i>
                 </button>
                 {activeMenu === 'finance' && (

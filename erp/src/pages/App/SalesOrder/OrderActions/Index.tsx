@@ -16,8 +16,6 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     sendShippingOrder: false,
     sendCustomerOrder: false,
     sendCustomerReviews: false,
-    stockWithdrawal: false,
-    stockReversal: false,
     printShippingLabel: false,
     printProductLabel: false,
     generatePaymentLink: false
@@ -55,8 +53,8 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
 
     // Form-specific restrictions
     if (context === 'form') {
-      // Hide stock actions and labels in form mode
-      if (['STOCK_WITHDRAWAL', 'STOCK_REVERSAL', 'PRINT_SHIPPING_LABEL', 'PRINT_PRODUCT_LABEL'].includes(btn.action)) return false;
+      // Hide labels in form mode
+      if (['PRINT_SHIPPING_LABEL', 'PRINT_PRODUCT_LABEL'].includes(btn.action)) return false;
       
       // NEW: Enviar Entrega button only if deliveryMethod === 'delivery'
       if (btn.action === 'SEND_SHIPPING_ORDER') {
@@ -68,12 +66,6 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
       if (btn.action === 'SEND_CUSTOMER_REVIEWS') return false;
     }
 
-    // Toggle logic for stock (only in list mode or general)
-    if (context === 'list') {
-        const stockLaunched = order.status === 'scheduled' || order.status === 'fulfilled'; // Simplified check
-        if (btn.action === 'STOCK_WITHDRAWAL' && stockLaunched) return false;
-        if (btn.action === 'STOCK_REVERSAL' && !stockLaunched) return false;
-    }
 
     return true;
   });

@@ -50,8 +50,6 @@ export type OrderAction =
     'SEND_CUSTOMER_ORDER' |
     'SEND_ASSISTANCE_CUSTOMER' |
     'SEND_CUSTOMER_REVIEWS' |
-    'STOCK_WITHDRAWAL' |
-    'STOCK_REVERSAL' |
     'PRINT_SHIPPING_LABEL' |
     'PRINT_PRODUCT_LABEL' |
     'GENERATE_PAYMENT_LINK'
@@ -66,8 +64,6 @@ export type IsButtonsClicked = {
     sendShippingOrder: boolean,
     sendCustomerOrder: boolean,
     sendCustomerReviews: boolean,
-    stockWithdrawal: boolean,
-    stockReversal: boolean,
     printShippingLabel: boolean,
     printProductLabel: boolean,
     generatePaymentLink: boolean

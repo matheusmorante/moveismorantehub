@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import Order from "../../../types/order.type";
+import Order, { IsButtonsClicked } from "../../../types/order.type";
 import { subscribeToOrders, moveToTrash, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { toast } from "react-toastify";
@@ -274,21 +274,39 @@ export const useOrderHistory = (filters?: any) => {
 
     const handleAction = async (actionKey: string, order: Order) => {
         const actionDef = buttons.find(b => b.key === actionKey);
-        if (actionDef) {
+        if (actionDef && order.id) {
+            // 1. Perform original action
             sessionStorage.setItem("order", JSON.stringify(order));
             actionsMap[actionDef.action](order);
 
-            // If it's the review action, update the order in the background
-            if (actionKey === "sendCustomerReviews" && order.id && !order.reviewRequested) {
-                // Optimistic update: hide the button immediately
-                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, reviewRequested: true } : o));
-                try {
+            // 2. Track button click persistently
+            const currentClicks = order.isButtonsClicked || {
+                printReceipt: false,
+                printShippingOrder: false,
+                printWarrantyTerm: false,
+                sendShippingOrder: false,
+                sendCustomerOrder: false,
+                sendCustomerReviews: false,
+                printShippingLabel: false,
+                printProductLabel: false,
+                generatePaymentLink: false
+            };
+            const newClicks: IsButtonsClicked = { ...currentClicks, [actionKey]: true };
+
+            // Optimistic update
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, isButtonsClicked: newClicks } : o));
+
+            try {
+                await updateOrder(order.id!, { isButtonsClicked: newClicks });
+                
+                // Special case: reviewRequested is also updated for the reviews button
+                if (actionKey === "sendCustomerReviews" && !order.reviewRequested) {
                     await updateOrder(order.id, { reviewRequested: true });
-                } catch (error) {
-                    // Rollback optimistic update on failure
-                    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, reviewRequested: false } : o));
-                    console.error("Erro ao marcar avaliação como enviada:", error);
                 }
+            } catch (error) {
+                // Rollback optimistic update
+                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, isButtonsClicked: currentClicks } : o));
+                console.error("Erro ao registrar clique na ação:", error);
             }
         }
     };

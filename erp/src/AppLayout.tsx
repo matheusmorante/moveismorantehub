@@ -76,10 +76,10 @@ export default function AppLayout() {
       />
 
       {/* Header */}
-      <header className="w-full glass-header px-4 lg:px-12 h-14 lg:h-16 flex items-center justify-between sticky top-0 z-50 shadow-premium transition-all duration-500">
-        <div className="flex items-center gap-6 lg:gap-12 h-full">
+      <header className="w-full glass-header px-4 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 z-50 shadow-premium transition-all duration-500">
+        <div className="flex items-center gap-6 xl:gap-12 h-full">
           <button
-            className="lg:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+            className="xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             <i className="bi bi-list text-2xl"></i>
@@ -127,13 +127,13 @@ export default function AppLayout() {
                   </span>
                 )}
               </div>
-              <div className="hidden lg:block text-left">
+              <div className="hidden xl:block text-left">
                 <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none mb-1">Conta Master</p>
                 <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
                   {((profile?.full_name || 'Usuário') as any).split(' ')[0]}
                 </p>
               </div>
-              <i className="bi bi-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition-transform hidden lg:block ml-1"></i>
+              <i className="bi bi-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition-transform hidden xl:block ml-1"></i>
             </button>
 
             {/* Menu Dropdown */}

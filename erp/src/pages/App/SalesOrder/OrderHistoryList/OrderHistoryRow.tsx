@@ -87,14 +87,14 @@ const OrderHistoryRow = ({
     // Explicit colors to match legend and be visible on white background
     const cellBgClass = 
         (rowColorKey === 'green' 
-            ? 'bg-green-100/40 dark:bg-green-900/40' 
+            ? 'bg-green-100 dark:bg-green-950/40' 
             : (rowColorKey === 'purple' 
                 ? 'bg-purple-100/40 dark:bg-purple-900/40' 
                 : (rowColorKey === 'orange' 
                     ? 'bg-orange-100/40 dark:bg-orange-900/40' 
                     : cls.rowHover)));
 
-    const baseTdClass = `px-2 py-2 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-top`;
+    const baseTdClass = `px-1 py-1 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-middle`;
 
     const statusKey = (order.status as string) === 'completed' ? 'scheduled' : (order.status || 'draft');
     const currentStatus = statusConfig[statusKey] || statusConfig.draft;
@@ -109,7 +109,7 @@ const OrderHistoryRow = ({
                 const isAssistance = order.orderType === 'assistance';
                 const isPickup = order.shipping?.deliveryMethod === 'pickup';
                 const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
-                const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-500');
+                const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-600');
 
                 return (
                     <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
@@ -117,7 +117,6 @@ const OrderHistoryRow = ({
                             <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                                 {order.id?.slice(-8)}
                             </span>
-                            <i className={`bi ${typeIcon} ${typeColor} text-xs`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />
                         </div>
                     </td>
                 );
@@ -153,7 +152,7 @@ const OrderHistoryRow = ({
 
                 return (
                     <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
-                        <div className="flex flex-col gap-1.5 relative">
+                        <div className="flex flex-col gap-0.5 relative">
                             <div className="flex flex-col">
                                 <span className={`text-sm font-bold ${isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
                                     {formatToBRDate(deliveryDateStr)}
@@ -233,17 +232,28 @@ const OrderHistoryRow = ({
                     </td>
                 );
             case 'status':
+                const isAssis = order.orderType === 'assistance';
+                const isPick = order.shipping?.deliveryMethod === 'pickup';
+                const tIcon = isAssis ? 'bi-tools' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck');
+                const tColor = isAssis ? 'text-orange-600' : (isPick ? 'text-purple-600' : 'text-green-600');
+
+                const sIcons: Record<string, string> = {
+                    draft: 'bi-pencil-square',
+                    scheduled: 'bi-calendar3',
+                    fulfilled: 'bi-check-circle-fill',
+                    cancelled: 'bi-x-circle-fill',
+                };
+                const sIcon = sIcons[order.status || 'draft'] || 'bi-dot';
+
                 return (
-                    <td key={key} className={`${baseTdClass} relative text-center`} onClick={(e) => e.stopPropagation()}>
+                    <td key={key} className={`${baseTdClass} relative text-center min-w-[80px]`} onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 w-fit mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95`}
-                            title="Clique para alterar o status do pedido"
+                            className={`flex items-center justify-center gap-3 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 min-w-[64px] mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95 border border-white/50 dark:border-slate-800/50 shadow-sm`}
+                            title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}`}
                         >
-                            <div className={`w-1.5 h-1.5 rounded-full ${currentStatus.dot} animate-pulse`} />
-                            {order.status === 'draft' && <i className="bi bi-clock text-[10px] animate-pulse" title="Rascunhos duram apenas 7 dias" />}
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${currentStatus.text}`}>{currentStatus.label}</span>
-                            <i className="bi bi-chevron-down text-[8px] opacity-30 dark:text-slate-100" />
+                            <i className={`bi ${tIcon} ${tColor} text-xs`} />
+                            <i className={`bi ${sIcon} ${currentStatus.text} text-xs`} />
                         </button>
 
                         {showPicker && (
@@ -308,7 +318,7 @@ const OrderHistoryRow = ({
                                                 onMouseLeave={() => setShowMenu(false)}
                                             >
                                                 <button
-                                                    className={`p-2 rounded-xl transition-all border flex items-center justify-center h-9 w-9 shadow-sm ${showMenu ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700' : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'} group-hover/menu:bg-slate-100 dark:group-hover/menu:bg-slate-800 group-hover/menu:border-slate-200 dark:group-hover/menu:border-slate-700 group-hover/menu:text-slate-800 dark:group-hover/menu:text-slate-200`}
+                                                    className={`p-2 rounded-xl transition-all border flex items-center justify-center h-7 w-7 shadow-sm ${showMenu ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700' : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'} group-hover/menu:bg-slate-100 dark:group-hover/menu:bg-slate-800 group-hover/menu:border-slate-200 dark:group-hover/menu:border-slate-700 group-hover/menu:text-slate-800 dark:group-hover/menu:text-slate-200`}
                                                     title="Mais ações e opções de envio"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -339,13 +349,11 @@ const OrderHistoryRow = ({
 
                                                         {buttons.filter(btn => {
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
-                                                            if (btn.key === 'stockWithdrawal' || btn.key === 'stockReversal') {
-                                                                return canPerform('manualStockMovement', profile?.role);
-                                                            }
                                                             return true;
                                                         }).map((btn) => {
                                                             const isPrintReceipt = btn.key === 'printReceipt';
                                                             const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
+                                                            const isClicked = order.isButtonsClicked?.[btn.key];
 
                                                             return (
                                                             <button
@@ -357,11 +365,16 @@ const OrderHistoryRow = ({
                                                                     onAction(btn.key, order);
                                                                     setShowMenu(false);
                                                                 }}
-                                                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${btn.color}`}`}
+                                                                    className={`flex items-center justify-between w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${btn.color}`}`}
                                                                     title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
                                                             >
-                                                                <i className={`bi ${btn.icon} text-lg`} />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">{btn.label}</span>
+                                                                <div className="flex items-center gap-3 text-left">
+                                                                    <i className={`bi ${btn.icon} text-lg`} />
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest">{btn.label}</span>
+                                                                </div>
+                                                                {isClicked && (
+                                                                    <i className="bi bi-check-circle-fill text-emerald-500 animate-in zoom-in-50 duration-300" />
+                                                                )}
                                                             </button>
                                                             )
                                                         })}

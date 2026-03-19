@@ -14,8 +14,8 @@ interface MobileNavProps {
 const mobileLinkClass = "flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all font-bold";
 const mobileSubLinkClass = "py-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-sm";
 
-const menuBtnClass = (isActive: boolean) =>
-    `flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`;
+const menuBtnClass = (isActive: boolean, isBeta?: boolean) =>
+    `flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : isBeta ? 'text-slate-300 dark:text-slate-600 grayscale hover:text-slate-400 opacity-60' : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`;
 
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
     const { isAdmin } = useAuth();
@@ -51,10 +51,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
                     {/* Produtos e Serviços */}
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products')}>
+                        <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-box-seam text-lg"></i>
-                                Produtos e Serviços
+                                <span>Produtos e Serviços</span>
+                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'products' ? 'rotate-180' : ''}`}></i>
                         </button>
@@ -87,10 +88,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
                     {/* Estoque */}
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock')}>
+                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-box-seam-fill text-lg"></i>
-                                Estoque
+                                <span>Estoque</span>
+                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
                         </button>
@@ -125,10 +127,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
                     {/* Financeiro */}
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance')}>
+                        <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', true)}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-wallet2 text-lg"></i>
-                                Financeiro
+                                <span>Financeiro</span>
+                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'finance' ? 'rotate-180' : ''}`}></i>
                         </button>

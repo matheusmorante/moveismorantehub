@@ -216,11 +216,16 @@ export const updatePerson = async (collectionName: string, id: string, personToU
 
 export const moveToTrash = async (collectionName: string, id: string): Promise<void> => {
     try {
-        const result = await updatePerson(collectionName, id, {
-            deleted: true,
-            deletedAt: new Date().toLocaleString('pt-BR'),
-            active: false
-        });
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        let result = null;
+
+        if (!isUUID) {
+            result = await updatePerson(collectionName, id, {
+                deleted: true,
+                deletedAt: new Date().toLocaleString('pt-BR'),
+                active: false
+            });
+        }
 
         // Se não foi encontrado na tabela de 'people' e for funcionário, pode ser um perfil de login
         if ((!result || !result.id) && collectionName === 'employees') {
@@ -252,16 +257,22 @@ export const restorePerson = async (collectionName: string, id: string): Promise
 
 export const permanentDeletePerson = async (collectionName: string, id: string): Promise<void> => {
     try {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq('id', id)
-            .select();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        let deletedInPeople = false;
 
-        if (error) throw error;
+        if (!isUUID) {
+            const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .delete()
+                .eq('id', id)
+                .select();
+
+            if (error) throw error;
+            deletedInPeople = data && data.length > 0;
+        }
 
         // Se nada foi deletado e for funcionário, limpar posição no perfil
-        if ((!data || data.length === 0) && collectionName === 'employees') {
+        if (!deletedInPeople && collectionName === 'employees') {
             const { error: profileError } = await supabase
                 .from('profiles')
                 .update({ position: null })

@@ -24,7 +24,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
     const map = useRef<maplibregl.Map | null>(null);
     const markers = useRef<maplibregl.Marker[]>([]);
     const settings = getSettings();
-    const storeOrigin = settings.storeOriginCoords || [-49.16928, -25.35203]; // [lng, lat]
+    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16928, -25.35203], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]); // [lng, lat]
 
     const [routeInfo, setRouteInfo] = useState<Record<string, { distance: string, duration: string }>>({});
 
@@ -52,14 +52,14 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                 isAssistance
             };
         }).filter(Boolean) as RoutePoint[];
-    }, [orders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [JSON.stringify(orders.map(o => o.id))]);
 
     // Fetch routing info from OSRM
     useEffect(() => {
         const fetchAllRoutes = async () => {
             const newInfo: Record<string, { distance: string, duration: string }> = {};
             
-            // Fetch in chunks or sequentially to avoid rate limits if many orders
             for (const p of points) {
                 try {
                     const url = `https://router.project-osrm.org/route/v1/driving/${storeOrigin[0]},${storeOrigin[1]};${p.lng},${p.lat}?overview=false`;
@@ -68,7 +68,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                     
                     if (data.routes && data.routes[0]) {
                         const route = data.routes[0];
-                        newInfo[p.id] = {
+                        newInfo[p.id!] = {
                             distance: `${(route.distance / 1000).toFixed(1)} km`,
                             duration: `${Math.round(route.duration / 60)} min`
                         };
@@ -83,35 +83,64 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
         if (points.length > 0) {
             fetchAllRoutes();
         }
-    }, [points, storeOrigin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [points, storeOrigin[0], storeOrigin[1]]);
 
     useEffect(() => {
         if (!mapContainer.current) return;
 
-        map.current = new maplibregl.Map({
-            container: mapContainer.current,
-            style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-            center: [storeOrigin[0], storeOrigin[1]],
-            zoom: 12,
-            attributionControl: false
-        });
+        // 1. Initial Map Setup (Once)
+        if (!map.current) {
+            map.current = new maplibregl.Map({
+                container: mapContainer.current,
+                style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+                center: [storeOrigin[0], storeOrigin[1]],
+                zoom: 12,
+                attributionControl: false
+            });
 
-        map.current.on('load', () => {
-            if (!map.current) return;
+            map.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-            // Store Marker
-            new maplibregl.Marker({ color: '#2563eb' })
-                .setLngLat([storeOrigin[0], storeOrigin[1]])
-                .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML('<div style="padding: 5px; font-weight: 900;">Loja Móveis Morante</div>'))
-                .addTo(map.current);
+            // Add store marker on initial load
+            map.current.on('load', () => {
+                if (!map.current) return;
+                new maplibregl.Marker({ color: '#2563eb' })
+                    .setLngLat([storeOrigin[0], storeOrigin[1]])
+                    .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML('<div style="padding: 5px; font-weight: 900;">Loja Móveis Morante</div>'))
+                    .addTo(map.current);
+            });
+        }
 
+        const currentMap = map.current;
+
+        // 2. Data Update Logic
+        const updateAll = () => {
+            if (!currentMap.loaded()) {
+                currentMap.once('load', updateAll);
+                return;
+            }
+
+            // Update markers
             updateMarkers();
-        });
+        };
+
+        if (currentMap.loaded()) updateAll();
+        else currentMap.on('load', updateAll);
 
         return () => {
-            map.current?.remove();
+            // No removal here to prevent flick on every data update
         };
-    }, [storeOrigin]);
+    }, [storeOrigin[0], storeOrigin[1], points, routeInfo]);
+
+    // 3. Final Cleanup on Unmount
+    useEffect(() => {
+        return () => {
+            if (map.current) {
+                map.current.remove();
+                map.current = null;
+            }
+        };
+    }, []);
 
     // Update markers when points or routeInfo change
     useEffect(() => {

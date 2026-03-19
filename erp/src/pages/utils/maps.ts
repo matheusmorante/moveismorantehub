@@ -57,30 +57,13 @@ export interface RouteResult {
 // ─── Geocode address ─────────────────────────────────────────────
 
 export const geocodeAddress = async (address: CustomerData['fullAddress'] | string): Promise<[number, number] | null> => {
-    // 1. Try BrasilAPI v2 (accurate when CEP is available) if it's an address object
-    if (typeof address !== 'string' && address.cep) {
-        const cleanCep = address.cep.replace(/\D/g, '');
-        if (cleanCep.length === 8) {
-            try {
-                const cepRes = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
-                if (cepRes.ok) {
-                    const cepData = await cepRes.json();
-                    if (cepData?.location?.coordinates?.longitude && cepData?.location?.coordinates?.latitude) {
-                        return [Number(cepData.location.coordinates.longitude), Number(cepData.location.coordinates.latitude)];
-                    }
-                }
-            } catch (e) {
-                console.warn("BrasilAPI CEP v2 indisponível, tentando fallback...", e);
-            }
-        }
-    }
-
-    // 2. Fallback to Nominatim (OpenStreetMap)
+    // 1. Convert to string using only Street, Number, Neighborhood and City as requested
     let addressString = '';
     if (typeof address === 'string') {
         addressString = address;
     } else {
         const { street, number, neighborhood, city } = address;
+        // Strict list: Street, Number, Neighborhood, City
         addressString = [street, number, neighborhood, city].filter(Boolean).join(', ') + ' - PR';
     }
 
