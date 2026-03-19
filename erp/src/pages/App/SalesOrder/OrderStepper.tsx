@@ -21,7 +21,7 @@ const steps: Step[] = [
 
 const OrderStepper = ({ currentStep, jumpToStep }: OrderStepperProps) => {
     return (
-        <div className="flex items-center gap-2 md:gap-8 transition-all duration-500">
+        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-8 transition-all duration-500">
             {steps.map((s) => (
                 <div 
                     key={s.step}

@@ -31,11 +31,11 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors }: Props)
     }
 
     const { width } = useWindowSize();
-    const isMobile = width <= 900;
+    const isMobile = width <= 1500;
 
     if (isMobile) {
         return (
-            <div className="flex flex-col gap-4 p-4">
+            <div className="flex flex-col gap-4 p-4 h-full">
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Itens</h3>
                     <button
@@ -47,7 +47,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors }: Props)
                     </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 overflow-y-auto custom-scrollbar pr-1">
                     <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} />
                 </div>
 

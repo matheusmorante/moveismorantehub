@@ -82,7 +82,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     observation: ""
                 },
                 marketingOrigin: "",
-                position: ""
+                position: title === "Vendedor" ? "Vendedor" : ""
             });
         }
         isInitialMount.current = true;

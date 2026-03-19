@@ -11,9 +11,10 @@ import NoticeInput from "../../../components/NoticeInput";
 
 type SalesOrderFormSectionProps = {
     form: ReturnType<typeof useSalesOrderForm>;
+    scrollRef?: React.RefObject<HTMLDivElement>;
 };
 
-const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
+const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) => {
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
@@ -24,7 +25,10 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
             onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
         >
             {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-0 custom-scrollbar">
+            <div 
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto p-4 md:p-8 pt-0 custom-scrollbar"
+            >
                 <FormHeader
                     currentOrder={state.currentOrder}
                     onClearForm={actions.clearForm}

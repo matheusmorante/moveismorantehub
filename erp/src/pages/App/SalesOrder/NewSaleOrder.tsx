@@ -3,6 +3,7 @@ import SalesOrderFormSection from "./SalesOrderFormSection";
 import { useSalesOrderForm } from "./useSalesOrderForm";
 import OrderStepper from "./OrderStepper";
 import SellerSearchModal from "./SellerSearchModal";
+import PersonFormModal from "../Registrations/shared/PersonFormModal";
 
 interface NewSaleOrderProps {
     onClose: () => void;
@@ -15,6 +16,20 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
     const isPickup = form.state.shipping.deliveryMethod === 'pickup';
     const isEditing = false;
     const [isSellerSearchOpen, setIsSellerSearchOpen] = React.useState(false);
+    const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = React.useState(false);
+    const [isScrolled, setIsScrolled] = React.useState(false);
+    const sellerRef = React.useRef<HTMLButtonElement>(null);
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        const handleScroll = () => {
+            setIsScrolled(el.scrollTop > 50);
+        };
+        el.addEventListener('scroll', handleScroll);
+        return () => el.removeEventListener('scroll', handleScroll);
+    }, []);
 
     // Wrap save actions to include onClose and onSaveSuccess
     const handleSave = useCallback(async (e?: React.MouseEvent) => {
@@ -47,30 +62,47 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className={`px-12 py-7 border-b flex justify-between items-center transition-all duration-500 shrink-0 ${isPickup ? 'bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30' : 'bg-slate-50/30 border-slate-100/50 dark:bg-slate-900/30 dark:border-slate-800/50'}`}>
-                    <div className="flex items-center gap-6">
-                        <div className={`w-14 h-14 flex items-center justify-center rounded-[1.5rem] shadow-premium transition-all duration-500 ${isPickup ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-blue-600 shadow-blue-500/20'}`}>
-                            <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-2xl`} />
+                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isPickup ? 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30' : 'px-12 py-7 bg-white dark:bg-slate-900 border-slate-100/50 dark:border-slate-800/50'}`}>
+                    <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setIsScrolled(false)}>
+                        <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isPickup ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-blue-600 shadow-blue-500/20'}`}>
+                            <i className={`bi ${isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
                         </div>
-                        <div>
-                            <h2 className={`text-2xl font-black tracking-tight transition-colors duration-500 ${isPickup ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
-                                Novo Pedido de Venda
+                        <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95' : 'opacity-100'}`}>
+                            <h2 className={`text-2xl font-black tracking-tight ${isPickup ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                                Novo Pedido
                             </h2>
                         </div>
                     </div>
 
-                    <div className="flex-1 max-w-2xl mx-12">
+                    <div className={`flex-1 transition-all duration-500 ${isScrolled ? 'max-w-xl mx-4' : 'max-w-2xl mx-12'}`}>
                         <OrderStepper 
                             currentStep={form.state.currentStep} 
                             jumpToStep={form.actions.jumpToStep} 
                         />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Seller & Date Section - Larger and Interactive */}
-                        <div className="hidden xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm">
+                    <div className="flex items-center gap-2">
+                        {/* Compact Seller Selection for Scrolled State */}
+                        <div className={`flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-100 dark:border-slate-800 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'opacity-100 translate-x-0' : 'hidden'}`}>
+                            <button 
+                                ref={sellerRef}
+                                onClick={() => setIsSellerSearchOpen(true)}
+                                className="flex items-center gap-3 px-3 py-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-600"
+                            >
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isPickup ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                    <i className="bi bi-person-badge-fill text-xs" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
+                                    {form.state.seller || "Vendedor"}
+                                </span>
+                            </button>
+                        </div>
+
+                        {/* Full Seller & Date Section for Expanded State */}
+                        <div className={`xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm ${isScrolled ? 'hidden' : 'hidden xl:flex'}`}>
                             {/* Seller Selection */}
                             <button 
+                                ref={sellerRef}
                                 onClick={() => setIsSellerSearchOpen(true)}
                                 className="group flex items-center gap-4 px-5 py-2 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
                             >
@@ -83,9 +115,6 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                                         {form.state.seller || "Selecionar..."}
                                     </span>
                                 </div>
-                                <div className="ml-2 pr-1 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all">
-                                    <i className="bi bi-chevron-down text-slate-400 text-xs" />
-                                </div>
                             </button>
 
                             <div className="w-[1px] h-8 bg-slate-100 dark:bg-slate-800 mx-1" />
@@ -96,7 +125,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                                     <i className="bi bi-calendar-event-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5">Data do Pedido</span>
+                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5">Data</span>
                                     <input
                                         type="datetime-local"
                                         value={form.state.orderDate}
@@ -105,44 +134,53 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod }: NewSale
                                     />
                                 </div>
                             </div>
-
-                            {form.state.isSavingDraft && (
-                                <div className="px-5 py-2 flex items-center gap-3 border-l border-slate-100 dark:border-slate-800 animate-pulse bg-blue-50/30 dark:bg-blue-950/10 rounded-r-2xl">
-                                    <div className="relative">
-                                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-blue-500 animate-ping opacity-75" />
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-tighter">Sincronizando</span>
-                                </div>
-                            )}
                         </div>
 
                         <button
                             onClick={onClose}
-                            className="w-14 h-14 flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-[1.5rem] transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90"
+                            className={`flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`}
                         >
-                            <i className="bi bi-x-lg text-xl" />
+                            <i className={`bi bi-x-lg ${isScrolled ? 'text-md' : 'text-xl'}`} />
                         </button>
                     </div>
                 </div>
 
                 {isSellerSearchOpen && (
                     <SellerSearchModal 
+                        anchorRef={sellerRef}
                         onSelect={(name) => form.actions.setSeller(name)}
                         onClose={() => setIsSellerSearchOpen(false)}
+                        onAddNew={() => {
+                            setIsSellerSearchOpen(false);
+                            setIsSellerRegistrationOpen(true);
+                        }}
                     />
                 )}
 
+                <PersonFormModal
+                    isOpen={isSellerRegistrationOpen}
+                    onClose={() => setIsSellerRegistrationOpen(false)}
+                    collectionName="employees"
+                    title="Vendedor"
+                    onSuccess={(newSeller) => {
+                        form.actions.setSeller(newSeller.nickname || newSeller.fullName);
+                        setIsSellerRegistrationOpen(false);
+                    }}
+                />
+
                 {/* Modal Content - Internal Scroll handled by PdvFormSection */}
                 <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900">
-                    <SalesOrderFormSection form={{
-                        ...form,
-                        actions: {
-                            ...form.actions,
-                            handleSaveOrder: handleSave,
-                            handleCompleteOrder: handleComplete
-                        }
-                    }} />
+                    <SalesOrderFormSection 
+                        scrollRef={scrollContainerRef}
+                        form={{
+                            ...form,
+                            actions: {
+                                ...form.actions,
+                                handleSaveOrder: handleSave,
+                                handleCompleteOrder: handleComplete
+                            }
+                        }} 
+                    />
                 </div>
             </div>
 

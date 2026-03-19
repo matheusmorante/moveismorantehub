@@ -65,7 +65,7 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile }: Props) => {
     ));
 
     if (isMobile) {
-        return <div className="space-y-4">{content}</div>;
+        return <>{content}</>;
     }
 
     return <tbody>{content}</tbody>;

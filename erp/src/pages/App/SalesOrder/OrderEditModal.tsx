@@ -8,6 +8,7 @@ import OrderStatusTimeline from "./OrderStatusTimeline";
 import { useState } from "react";
 import OrderStepper from "./OrderStepper";
 import SellerSearchModal from "./SellerSearchModal";
+import PersonFormModal from "../Registrations/shared/PersonFormModal";
 
 interface OrderEditModalProps {
     order: Order;
@@ -19,6 +20,20 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
     const form = useSalesOrderForm();
     const [view, setView] = useState<'form' | 'timeline'>('form');
     const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
+    const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
+    const sellerRef = React.useRef<HTMLButtonElement>(null);
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        const handleScroll = () => {
+            setIsScrolled(el.scrollTop > 50);
+        };
+        el.addEventListener('scroll', handleScroll);
+        return () => el.removeEventListener('scroll', handleScroll);
+    }, []);
 
     // Load order data into form on mount
     useEffect(() => {
@@ -97,6 +112,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                         <div className="hidden xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm">
                             {/* Seller Selection */}
                             <button 
+                                ref={sellerRef}
                                 onClick={() => setIsSellerSearchOpen(true)}
                                 className="group flex items-center gap-4 px-5 py-2 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
                             >
@@ -144,22 +160,41 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
 
                 {isSellerSearchOpen && (
                     <SellerSearchModal 
+                        anchorRef={sellerRef}
                         onSelect={(name) => form.actions.setSeller(name)}
                         onClose={() => setIsSellerSearchOpen(false)}
+                        onAddNew={() => {
+                            setIsSellerSearchOpen(false);
+                            setIsSellerRegistrationOpen(true);
+                        }}
                     />
                 )}
+
+                <PersonFormModal
+                    isOpen={isSellerRegistrationOpen}
+                    onClose={() => setIsSellerRegistrationOpen(false)}
+                    collectionName="employees"
+                    title="Vendedor"
+                    onSuccess={(newSeller) => {
+                        form.actions.setSeller(newSeller.nickname || newSeller.fullName);
+                        setIsSellerRegistrationOpen(false);
+                    }}
+                />
 
                 {/* Modal Content - Internal Scroll handled by PdvFormSection */}
                 <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 custom-scrollbar">
                     {view === 'form' ? (
-                        <SalesOrderFormSection form={{
-                            ...form,
-                            actions: {
-                                ...form.actions,
-                                handleSaveOrder: handleUpdate,
-                                handleCompleteOrder: handleUpdate
-                            }
-                        }} />
+                        <SalesOrderFormSection 
+                            scrollRef={scrollContainerRef}
+                            form={{
+                                ...form,
+                                actions: {
+                                    ...form.actions,
+                                    handleSaveOrder: handleUpdate,
+                                    handleCompleteOrder: handleUpdate
+                                }
+                            }} 
+                        />
                     ) : (
                         <OrderStatusTimeline orderId={order.id!} />
                     )}

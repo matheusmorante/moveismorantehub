@@ -31,12 +31,12 @@ const Footer = ({ summary, isMobile }: Props) => {
     return (
         <tfoot className="bg-slate-50/30 dark:bg-slate-800/20">
             <tr className="border-t border-slate-100 dark:border-slate-800">
-                <td colSpan={3} className="px-4 py-3 bg-transparent"></td>
-                <td colSpan={2} className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                <td colSpan={4} className="px-4 py-3 bg-transparent"></td>
+                <td className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                     Subtotal:
                 </td>
-                <td className="px-4 py-3 text-right">
-                    <div className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                <td className="px-6 py-3 text-right">
+                    <div className="text-sm font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
                         <CurrencyDisplay value={summary.itemsSubtotal} />
                     </div>
                 </td>
@@ -44,12 +44,12 @@ const Footer = ({ summary, isMobile }: Props) => {
             </tr>
 
             <tr>
-                <td colSpan={3} className="px-4 py-3 bg-transparent"></td>
-                <td colSpan={2} className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-red-400 dark:text-red-500/50">
+                <td colSpan={4} className="px-4 py-3 bg-transparent"></td>
+                <td className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-red-400 dark:text-red-500/50">
                     Total Desconto:
                 </td>
-                <td className="px-4 py-3 text-right">
-                    <div className="text-sm font-bold text-red-500/80">
+                <td className="px-6 py-3 text-right">
+                    <div className="text-sm font-bold text-red-500/80 whitespace-nowrap">
                         <CurrencyDisplay value={summary.totalFixedDiscount} />
                     </div>
                 </td>
@@ -57,12 +57,12 @@ const Footer = ({ summary, isMobile }: Props) => {
             </tr>
 
             <tr className="bg-blue-50/30 dark:bg-blue-900/10">
-                <td colSpan={3} className="px-4 py-3 bg-transparent"></td>
-                <td colSpan={2} className="px-4 py-1 text-right text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                <td colSpan={4} className="px-4 py-3 bg-transparent"></td>
+                <td className="px-4 py-1 text-right text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
                     Total Final:
                 </td>
-                <td className="px-4 py-1 text-right">
-                    <div className="text-xl font-black text-blue-600 dark:text-blue-400 drop-shadow-sm font-sans">
+                <td className="px-6 py-2 text-right">
+                    <div className="text-2xl font-black text-blue-600 dark:text-blue-400 drop-shadow-sm font-sans whitespace-nowrap pr-2">
                         <CurrencyDisplay value={summary.itemsTotalValue} />
                     </div>
                 </td>
