@@ -9,17 +9,10 @@ interface NewOrderDropdownProps {
 const ORDER_OPTIONS: { type: OrderTypeOption; label: string; icon: string; description: string; color: string }[] = [
     {
         type: 'sale',
-        label: 'Entrega / Serviço',
-        icon: 'bi-truck',
-        description: 'Produtos e serviços para entrega ao cliente',
+        label: 'Pedido de Venda',
+        icon: 'bi-cart-check-fill',
+        description: 'Venda de produtos/serviços para entrega ou retirada',
         color: 'text-blue-600',
-    },
-    {
-        type: 'pickup',
-        label: 'Pedido de Retirada',
-        icon: 'bi-hand-index-thumb-fill',
-        description: 'Produtos para retirada no local',
-        color: 'text-emerald-600',
     },
     {
         type: 'assistance',

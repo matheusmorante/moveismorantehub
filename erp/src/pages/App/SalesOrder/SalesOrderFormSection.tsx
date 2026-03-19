@@ -1,6 +1,5 @@
 import React from "react";
 import ItemsTable from "./ItemsTable";
-import Seller from "./Seller";
 import ShippingInputs from "./ShippingData";
 import PaymentsTable from "./PaymentsTable/Index";
 import PersonalInfos from "./CustomerData";
@@ -31,13 +30,48 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                     onClearForm={actions.clearForm}
                     orderDate={state.orderDate}
                     setOrderDate={actions.setOrderDate}
+                    seller={state.seller}
+                    setSeller={actions.setSeller}
                     isSavingDraft={state.isSavingDraft}
+                    errors={state.errors}
+                    currentOrderId={state.currentOrderId}
                 />
 
                 {/* Wizard Steps Content */}
                 <div className="max-w-[1400px] mx-auto pb-10">
                     {currentStep === 1 && (
-                        <div className="grid grid-cols-1 xl:grid-cols-1 gap-8 items-start animate-fade-in">
+                        <div className="flex flex-col gap-8 animate-fade-in">
+                            {/* Prominent Selection for Delivery Type */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => actions.setShipping(prev => ({ ...prev, deliveryMethod: 'delivery' }))}
+                                    className={`group flex items-center gap-4 p-6 rounded-3xl border-4 transition-all duration-500 ${!isPickup ? 'bg-blue-600 border-blue-400 text-white shadow-xl shadow-blue-500/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:border-blue-500/30'}`}
+                                >
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12 ${!isPickup ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'}`}>
+                                        <i className="bi bi-truck text-2xl" />
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="text-lg font-black tracking-tight block">Entrega</span>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${!isPickup ? 'text-white/60' : 'text-slate-400'}`}>Frete calculado por rota</span>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => actions.setShipping(prev => ({ ...prev, deliveryMethod: 'pickup' }))}
+                                    className={`group flex items-center gap-4 p-6 rounded-3xl border-4 transition-all duration-500 ${isPickup ? 'bg-emerald-600 border-emerald-400 text-white shadow-xl shadow-emerald-500/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:border-emerald-500/30'}`}
+                                >
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12 ${isPickup ? 'bg-white/20' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'}`}>
+                                        <i className="bi bi-hand-index-thumb-fill text-2xl" />
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="text-lg font-black tracking-tight block">Retirada na Loja</span>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isPickup ? 'text-white/60' : 'text-slate-400'}`}>Sem custos de frete</span>
+                                    </div>
+                                </button>
+                            </div>
+
                             <SectionCard
                                 icon="bi bi-box-seam"
                                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
@@ -58,24 +92,12 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                     )}
 
                     {currentStep === 2 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start animate-fade-in">
-                            <SectionCard
-                                icon="bi bi-person-workspace"
-                                iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
-                                title="Atendimento"
-                                className="bg-white dark:bg-slate-900"
-                            >
-                                <Seller
-                                    seller={state.seller}
-                                    setSeller={actions.setSeller}
-                                    errors={state.errors}
-                                />
-                            </SectionCard>
-
+                        <div className="max-w-4xl mx-auto animate-fade-in">
                             <SectionCard
                                 icon="bi bi-person-badge"
                                 iconBg="bg-purple-600 shadow-purple-100 dark:shadow-purple-900/20"
-                                title="Cliente"
+                                title="Dados do Cliente"
+                                subtitle="Informações para faturamento e contato"
                                 className="bg-white dark:bg-slate-900"
                             >
                                 <PersonalInfos
@@ -88,38 +110,40 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                     )}
 
                     {currentStep === 3 && (
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start animate-fade-in">
-                            <div className="space-y-8">
-                                <SectionCard
-                                    icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
-                                    iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
-                                    title={isPickup ? "Dados da Retirada" : "Dados da Entrega"}
-                                    className="bg-white dark:bg-slate-900 transition-colors duration-300"
-                                >
-                                    <ShippingInputs
-                                        shipping={state.shipping}
-                                        setShipping={actions.setShipping}
-                                        customerData={state.customerData}
-                                        isCalculatingDistance={state.isCalculatingDistance}
-                                        onAutoCalculateDistance={() => actions.handleAutoCalculateDistance(state.customerData.fullAddress)}
-                                        errors={state.errors}
-                                    />
-                                </SectionCard>
+                        <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
+                            <SectionCard
+                                icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
+                                iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
+                                title={isPickup ? "Dados da Retirada" : "Dados da Entrega"}
+                                className="bg-white dark:bg-slate-900 transition-colors duration-300"
+                            >
+                                <ShippingInputs
+                                    shipping={state.shipping}
+                                    setShipping={actions.setShipping}
+                                    customerData={state.customerData}
+                                    isCalculatingDistance={state.isCalculatingDistance}
+                                    onAutoCalculateDistance={() => actions.handleAutoCalculateDistance(state.customerData.fullAddress)}
+                                    errors={state.errors}
+                                />
+                            </SectionCard>
 
-                                <SectionCard
-                                    icon="bi bi-exclamation-triangle-fill"
-                                    iconBg="bg-amber-600 shadow-amber-100 dark:shadow-amber-900/20"
-                                    title="Avisos e Observações"
-                                    className="bg-white dark:bg-slate-900"
-                                >
-                                    <NoticeInput
-                                        value={state.observation}
-                                        onChange={(val) => actions.setObservation(val)}
-                                        placeholder="Destaque pontos críticos ou raros do pedido..."
-                                    />
-                                </SectionCard>
-                            </div>
+                            <SectionCard
+                                icon="bi bi-info-circle-fill"
+                                iconBg="bg-amber-600 shadow-amber-100 dark:shadow-amber-900/20"
+                                title="Avisos sobre a Entrega"
+                                className="bg-white dark:bg-slate-900"
+                            >
+                                <NoticeInput
+                                    value={state.observation}
+                                    onChange={(val) => actions.setObservation(val)}
+                                    placeholder="Instruções específicas para a entrega/montagem..."
+                                />
+                            </SectionCard>
+                        </div>
+                    )}
 
+                    {currentStep === 4 && (
+                        <div className="max-w-5xl mx-auto animate-fade-in">
                             <SectionCard
                                 icon="bi bi-credit-card-2-front"
                                 iconBg="bg-indigo-600 shadow-indigo-100 dark:shadow-indigo-900/20"
@@ -137,7 +161,7 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                         </div>
                     )}
 
-                    {currentStep === 4 && (
+                    {currentStep === 5 && (
                         <div className="animate-fade-in bg-white dark:bg-slate-900 rounded-3xl p-10 border border-slate-100 dark:border-slate-800 text-center">
                              <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <i className="bi bi-check-all text-4xl" />
@@ -145,7 +169,6 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Quase lá!</h2>
                              <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto">Confira os detalhes abaixo e clique em finalizar para registrar o pedido no sistema.</p>
                              
-                             {/* Mini Summary could go here */}
                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-left border border-slate-100 dark:border-slate-800 mb-8">
                                 <div>
                                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Cliente</h4>
@@ -188,7 +211,7 @@ const SalesOrderFormSection = ({ form }: SalesOrderFormSectionProps) => {
                             </span>
                         </div>
 
-                        {currentStep < 4 ? (
+                        {currentStep < 5 ? (
                             <button
                                 type="button"
                                 onClick={actions.goToNextStep}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import CustomerData from "../../types/customerData.type";
 import Person from "../../types/person.type";
-import { subscribeToPeople } from '@/pages/utils/personService';
+import { subscribeToPeople, updatePerson } from '@/pages/utils/personService';
 import DropdownPortal from "@/components/shared/DropdownPortal";
 import { ValidationErrors } from "../../utils/validations";
 import CustomerSearchModal from "./CustomerSearchModal";
@@ -27,6 +27,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
+    const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
     const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
     const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -57,12 +58,13 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
     }, []);
 
     const clearCustomer = () => {
-        setCustomerData({ fullName: '', phone: '', noPhone: false, fullAddress: EMPTY_ADDRESS });
+        setCustomerData({ id: undefined, fullName: '', phone: '', noPhone: false, fullAddress: EMPTY_ADDRESS });
         setSearchTerm('');
     };
 
     const handleSelectCustomer = (customer: Person) => {
         setCustomerData({
+            id: customer.id,
             fullName: customer.fullName || customer.tradeName || '',
             phone: customer.phone || '',
             noPhone: customer.noPhone || false,
@@ -111,6 +113,28 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
         }));
         setIsStreetSuggestionsOpen(false);
     };
+
+    // Real-time Database Sync Logic (Debounced)
+    useEffect(() => {
+        if (!customerData.id || customerData.fullName === 'Consumidor Final') return;
+
+        const timer = setTimeout(async () => {
+            try {
+                // Determine collection name based on existing logic or data
+                // For now we assume 'customers' since this is the customer data section
+                await updatePerson('customers', customerData.id!, {
+                    fullName: customerData.fullName,
+                    phone: customerData.phone,
+                    noPhone: customerData.noPhone,
+                    fullAddress: customerData.fullAddress
+                });
+            } catch (e) {
+                console.error("Erro ao sincronizar dados do cliente:", e);
+            }
+        }, 1500); // 1.5s debounce to avoid too many writes
+
+        return () => clearTimeout(timer);
+    }, [customerData.fullName, customerData.phone, customerData.noPhone, customerData.fullAddress, customerData.id]);
 
     const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
         const cep = e.target.value.replace(/\D/g, '');
@@ -174,6 +198,13 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                             onFocus={() => setIsDropdownOpen(true)}
                         />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            {customerData.id && customerData.fullName !== 'Consumidor Final' && (
+                                <button type="button" onClick={() => setIsEditCustomerModalOpen(true)}
+                                    title="Editar cadastro completo do cliente"
+                                    className="text-blue-500 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/40 p-1 rounded-md transition-colors mr-1">
+                                    <i className="bi bi-pencil-square" />
+                                </button>
+                            )}
                             {searchTerm && (
                                 <button type="button" onClick={clearCustomer}
                                     className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
@@ -439,6 +470,20 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors }: Props) =>
                 collectionName="customers"
                 title="Cliente"
             />
+
+            {isEditCustomerModalOpen && (
+                <PersonFormModal
+                    isOpen={isEditCustomerModalOpen}
+                    onClose={() => setIsEditCustomerModalOpen(false)}
+                    onSuccess={(updated) => {
+                        handleSelectCustomer(updated);
+                        setIsEditCustomerModalOpen(false);
+                    }}
+                    person={customers.find(c => c.id === customerData.id) || null}
+                    collectionName="customers"
+                    title="Cliente"
+                />
+            )}
         </div>
     );
 };

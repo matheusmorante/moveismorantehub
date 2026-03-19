@@ -48,7 +48,7 @@ const OrderPage = () => {
                     )) : ""}
                 </div>
             </div>
-            <CustomerData customerData={order.customerData} />
+            <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
             <ItemsTable items={order.items} summary={order.itemsSummary} />
 
             {/* Route Map — only for delivery orders with route data */}

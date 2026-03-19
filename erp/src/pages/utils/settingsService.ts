@@ -218,13 +218,15 @@ export const getDefaultSettings = (): AppSettings => ({
         assistance: 'orange'
     },
     deliveryHandlingOptions: [
-        'Entrega com montagem no local',
-        'Apenas Entrega',
+        'Para Montar (Desmontado)',
+        'Já Montado',
+        'Montagem no Local',
         'Manuseio Especial'
     ],
     pickupHandlingOptions: [
-        'Retirada na loja',
-        'Retirada no depósito'
+        'Para Montar (Desmontado)',
+        'Já Montado',
+        'Manuseio Especial'
     ],
     freightPerKm: 0,
     openRouteServiceApiKey: '',

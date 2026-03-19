@@ -17,7 +17,8 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     stockWithdrawal: false,
     stockReversal: false,
     printShippingLabel: false,
-    printProductLabel: false
+    printProductLabel: false,
+    generatePaymentLink: false
   });
 
   async function markClicked(key: keyof IsButtonsClicked) {
@@ -77,7 +78,8 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     <div className="flex flex-wrap items-center justify-center gap-6">
       {visibleButtons.map((btn: any, idx: number) => {
         const isPrintAction = btn.action === 'PRINT_RECEIPT' || btn.action === 'PRINT_SHIPPING_ORDER';
-        const orderErrors = isPrintAction ? validateOrder(order) : {};
+        const isSendAction = btn.action === 'SEND_SHIPPING_ORDER' || btn.action === 'SEND_CUSTOMER_ORDER' || btn.action === 'SEND_ASSISTANCE_CUSTOMER';
+        const orderErrors = (isPrintAction || isSendAction) ? validateOrder(order) : {};
         const hasErrors = Object.keys(orderErrors).length > 0;
 
         const isPrintReceipt = btn.key === 'printReceipt';
@@ -86,8 +88,8 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
 
         const disabledReason = noCustomer
             ? 'Não é possível imprimir recibo sem cliente associado'
-            : isPrintAction && hasErrors
-            ? `Preencha os campos obrigatórios antes de imprimir: ${Object.values(orderErrors).slice(0, 2).join(' | ')}`
+            : (isPrintAction || isSendAction) && hasErrors
+            ? `Preencha os campos obrigatórios antes de prosseguir: ${Object.values(orderErrors).slice(0, 2).join(' | ')}`
             : btn.label;
 
         return (

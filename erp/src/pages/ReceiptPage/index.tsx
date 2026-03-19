@@ -59,7 +59,7 @@ const ReceiptPage = () => {
          [&_th]:bg-slate-100 [&_td]:bg-white
          [&_input]:px-2 [&_input]:bg-white">
             <Header seller={order.seller} />
-            <CustomerData customerData={order.customerData} />
+            <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
             <ItemsTable items={order.items} summary={order.itemsSummary} />
 
             <div className="flex flex-col lg:flex-row w-full justify-between gap-6">

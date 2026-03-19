@@ -64,7 +64,7 @@ const parseStorageDateToLocal = (dateStr: string) => {
     return `${y}-${mo}-${d}T${h}:${mi}`;
 };
 
-export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') => {
+export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup') => {
     const { items, setItems } = useItems();
     const { shipping, setShipping } = useShipping(initialDeliveryMethod);
     const { payments, setPayments } = usePaymentsData();
@@ -487,7 +487,7 @@ export const useSalesOrderForm = (initialDeliveryMethod: 'delivery' | 'pickup' =
         setErrors,
         validateOrder,
         setOrderDate,
-        goToNextStep: () => setCurrentStep(prev => Math.min(prev + 1, 4)),
+        goToNextStep: () => setCurrentStep(prev => Math.min(prev + 1, 5)),
         goToPrevStep: () => setCurrentStep(prev => Math.max(prev - 1, 1)),
         jumpToStep: (step: number) => setCurrentStep(step),
     }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm]);

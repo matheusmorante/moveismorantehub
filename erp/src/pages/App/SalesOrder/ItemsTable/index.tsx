@@ -24,7 +24,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors }: Props)
                     unitPrice: 0,
                     unitDiscount: 0,
                     discountType: 'fixed',
-                    handlingType: deliveryMethod === 'delivery' ? 'com montagem' : 'na caixa ( sem montagem)'
+                    handlingType: deliveryMethod === 'delivery' ? 'Montagem no Local' : 'Para Montar (Desmontado)'
                 }
             ])
         })

@@ -46,7 +46,6 @@ const categories: any[] = [
     { id: 'recibo', label: 'Configuração de Recibo', icon: 'bi-printer-fill', group: 'system', keywords: ['recibo', 'impressão', 'rodapé', 'vendedor', 'garantia'] },
     { id: 'estoqueAutomacao', label: 'Automação de Estoque', icon: 'bi-box-arrow-right', group: 'system', keywords: ['estoque', 'movimentação', 'venda', 'compra', 'automação'] },
     { id: 'materiais', label: 'Materiais de Móveis', icon: 'bi-hammer', group: 'system', keywords: ['material', 'mdp', 'mdf', 'madeira', 'vidro', 'metal', 'móvel'] },
-    { id: 'importMapping', label: 'Conciliação de Colunas', icon: 'bi-shuffle', group: 'system', keywords: ['importação', 'mapeamento', 'csv', 'coluna', 'bling', 'conciliação'] },
 ];
 
 /**
@@ -268,9 +267,8 @@ export default function Settings(): any {
                         <ProductMaterialsSection />
                     </SettingsSection>
 
-                    <SettingsSection id="importMapping" title="Conciliação de Colunas de Importação" icon="bi-shuffle" isVisible={isVisible('importMapping')}>
-                        <ImportMappingSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
+                   
+
                 </div>
             </div>
 

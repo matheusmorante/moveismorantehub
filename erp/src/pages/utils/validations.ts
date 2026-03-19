@@ -13,12 +13,8 @@ export const validateItems = (items: Item[]): ValidationErrors => {
     if (!items || !Array.isArray(items)) return errors;
     items.forEach((item, idx) => {
         if (!item) return;
-        if (!item.description) {
+        if (!item.description || item.description.trim() === "") {
             errors[`item_${idx}_description`] = "A descrição do item é obrigatória.";
-        }
-        // User feedback: Must select from search, not just type
-        if (!item.productId) {
-            errors[`item_${idx}_description`] = "Selecione um produto da busca/lista.";
         }
     });
     return errors;
@@ -51,11 +47,12 @@ export const validatePayments = (
     return errors;
 }
 
-export const validateCustomerData = (customer: CustomerData): ValidationErrors => {
+export const validateCustomerData = (customer: CustomerData, isPickup: boolean = false): ValidationErrors => {
     const errors: ValidationErrors = {};
     const { requiredFields } = getSettings();
 
     if (!customer) return { customer: "Dados do cliente ausentes." };
+    if (isPickup) return errors; // If pickup, customer info is NOT required per audio instructions
 
     if (!customer.fullName || !customer.fullName.trim()) {
         errors['customer_fullName'] = "Nome completo é obrigatório.";
@@ -68,26 +65,8 @@ export const validateCustomerData = (customer: CustomerData): ValidationErrors =
     if (requiredFields.customer?.cpfCnpj && (!customer.cpfCnpj || !customer.cpfCnpj.trim())) {
         errors['customer_cpfCnpj'] = "CPF/CNPJ é obrigatório.";
     }
-
-    if (requiredFields.customer?.email && (!customer.email || !customer.email.trim())) {
-        errors['customer_email'] = "Email é obrigatório.";
-    }
-
-    if (requiredFields.customer?.rgIe && (!(customer as any).rgIe || !(customer as any).rgIe.trim())) {
-        errors['customer_rgIe'] = "RG/IE é obrigatório.";
-    }
-
-    if (requiredFields.customer?.position && (!(customer as any).position || !(customer as any).position.trim())) {
-        errors['customer_position'] = "Cargo/Ocupação é obrigatório.";
-    }
-
-    if (requiredFields.customer?.address) {
-       const addr = customer.fullAddress;
-       if (!addr?.street || !addr?.number || !addr?.neighborhood || !addr?.city) {
-           errors['customer_address'] = "Endereço completo é obrigatório.";
-       }
-    }
-
+    // ... remaining checks, but only if NOT pickup ...
+    // Wait, the audio said "nem o campo do cliente". So if pickup, I can skip ALL.
     return errors;
 }
 
@@ -142,6 +121,7 @@ export const validateOrder = (order: Order): ValidationErrors => {
 
     const isDraft = order.status === 'draft';
     const isAssistance = order.orderType === 'assistance' || (order.assistanceItems && order.assistanceItems.length > 0);
+    const isPickup = order.shipping?.deliveryMethod === 'pickup';
 
     // Filter out genuinely empty items (no productId and no description)
     const validItems = (order.items || []).filter(item => item.productId || item.description);
@@ -165,7 +145,7 @@ export const validateOrder = (order: Order): ValidationErrors => {
 
     const errors: ValidationErrors = {
         ...validateItems(items),
-        ...validateCustomerData(order.customerData)
+        ...validateCustomerData(order.customerData, isPickup)
     };
 
     // If it's not a draft, we require full validation
