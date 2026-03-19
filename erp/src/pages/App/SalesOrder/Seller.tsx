@@ -1,3 +1,4 @@
+```typescript
 import React, { useState, useEffect } from "react";
 import SmartInput from "../../../components/SmartInput";
 import { ValidationErrors } from "../../utils/validations";
@@ -26,7 +27,7 @@ const Seller = ({ seller, setSeller, errors }: Props) => {
     return (
         <div className="flex flex-col relative w-full">
             <SmartInput
-                label="Vendedor Principal"
+                label="Vendedor Principal *"
                 value={seller}
                 onValueChange={setSeller}
                 placeholder="Nome do Vendedor"

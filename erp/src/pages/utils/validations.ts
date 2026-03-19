@@ -105,9 +105,9 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
 
 export const validateSeller = (seller: Order['seller']): ValidationErrors => {
     const errors: ValidationErrors = {};
-    const { requiredFields } = getSettings();
-    if (requiredFields.salesOrder?.seller && !seller) {
-        errors['seller'] = "Vendedor é obrigatório.";
+    // Seller is always mandatory now, ignoring settings toggle as per request
+    if (!seller) {
+        errors['seller'] = "Selecione o vendedor responsável.";
     }
     return errors;
 }

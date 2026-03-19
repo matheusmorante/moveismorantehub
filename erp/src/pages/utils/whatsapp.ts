@@ -30,6 +30,7 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{payments}}/g, stringifyPayments(order.payments || []))
         .replace(/{{totalValue}}/g, (order.paymentsSummary.totalOrderValue || 0).toString())
         .replace(/{{observation}}/g, order.observation || "Sem observações")
+        .replace(/{{seller}}/g, order.seller || "Não informado")
         .replace(/{{routeUrl}}/g, customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");
 };
 
@@ -48,6 +49,7 @@ const buildCustomerOrderMessage = (order: Order) => {
         .replace(/{{address}}/g, stringifyFullAddress(customer.fullAddress))
         .replace(/{{items}}/g, stringifyItemsWithValues(order.items || []))
         .replace(/{{totalValue}}/g, (order.paymentsSummary.totalOrderValue || 0).toString())
+        .replace(/{{seller}}/g, order.seller || "Não informado")
         .replace(/{{payments}}/g, stringifyPayments(order.payments || []));
 };
 
@@ -132,6 +134,7 @@ const buildAssistanceMessage = (order: Order) => {
         .replace(/{{assistanceTime}}/g, scheduledTime || 'A confirmar')
         .replace(/{{assistanceDescription}}/g, assistanceDescription)
         .replace(/{{companyPhone}}/g, settings.companyPhone || '')
+        .replace(/{{seller}}/g, order.seller || "Não informado")
         .replace(/{{observation}}/g, order.observation || '');
 };
 
