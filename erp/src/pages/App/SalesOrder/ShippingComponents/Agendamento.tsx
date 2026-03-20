@@ -44,7 +44,8 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                 <i className="bi bi-lightning-fill mr-1" /> Retirada Imediata
                             </button>
 
-                             {!isPickup && (
+                             {/* Delivery scheduling is now mandatory, no "notInformed" option for delivery */}
+                             {isPickup && false && (
                                 <button
                                     type="button"
                                     onClick={() => {

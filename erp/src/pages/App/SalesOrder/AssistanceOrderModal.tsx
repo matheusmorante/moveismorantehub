@@ -145,6 +145,8 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
         ));
     };
 
+
+
     const handleSelectOrder = (selectedOrder: Order) => {
         setLinkedOrderId(selectedOrder.id || "");
         setSelectedAssistanceItems([]);

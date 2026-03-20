@@ -76,7 +76,10 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
     if (!scheduling) {
         errors['shipping_scheduling'] = "Agendamento é obrigatório.";
     } else {
-        const isOptionalPickup = shipping.deliveryMethod === 'pickup' && scheduling.notInformed;
+        // Date and time are always required for delivery.
+        // For pickup, it's optional ONLY if notInformed is true (which means immediate pickup in the UX)
+        const isDelivery = shipping.deliveryMethod === 'delivery';
+        const isOptionalPickup = !isDelivery && scheduling.notInformed;
         
         if (!isOptionalPickup) {
             if (!scheduling.date) errors['shipping_date'] = "Data é obrigatória.";

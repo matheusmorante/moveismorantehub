@@ -74,25 +74,7 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                                 </div>
                                             </div>
 
-                                            {/* Toggle para Cronograma de Montagem */}
-                                            <div className={`ml-12 flex items-center justify-between px-5 py-3 rounded-2xl border transition-all ${opt.includeInAssemblySchedule ? 'bg-blue-50/30 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30' : 'bg-slate-50/30 border-slate-100 dark:bg-slate-800/10 dark:border-slate-800/50'}`}>
-                                                <div className="flex items-center gap-2">
-                                                    <i className={`bi bi-calendar-check ${opt.includeInAssemblySchedule ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${opt.includeInAssemblySchedule ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-600'}`}>
-                                                        Incluir no cronograma de montagem
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={() => {
-                                                        const next = [...options];
-                                                        next[idx] = { ...next[idx], includeInAssemblySchedule: !next[idx].includeInAssemblySchedule };
-                                                        onChange(path, next);
-                                                    }}
-                                                    className={`w-10 h-5 rounded-full p-1 transition-colors relative ${opt.includeInAssemblySchedule ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}
-                                                >
-                                                    <div className={`w-3 h-3 bg-white rounded-full transition-transform ${opt.includeInAssemblySchedule ? 'translate-x-5' : 'translate-x-0'}`} />
-                                                </button>
-                                            </div>
+
                                         </div>
                                     )}
                                 </Draggable>
@@ -106,7 +88,7 @@ export default function HandlingSection({ settings, onChange }: Props): any {
 
             <button 
                 onClick={() => {
-                    onChange(path, [...(options || []), { label: "Nova Opção", includeInAssemblySchedule: false }]);
+                    onChange(path, [...(options || []), { label: "Nova Opção" }]);
                 }}
                 className="w-full mt-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all flex items-center justify-center gap-2"
             >

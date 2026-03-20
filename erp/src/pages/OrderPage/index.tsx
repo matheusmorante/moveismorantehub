@@ -55,7 +55,7 @@ const OrderPage = () => {
             {isDeliveryOrder && order.shipping?.destinationCoords && (
                 <div className="w-full h-80 my-4 border-2 border-slate-100 rounded-3xl overflow-hidden relative group">
                     {!printCalled.current && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-50/50 backdrop-blur-sm z-10 text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-50/50 backdrop-blur-sm z-10 text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse print:hidden">
                             Carregando mapa da rota...
                         </div>
                     )}
@@ -67,14 +67,17 @@ const OrderPage = () => {
                 </div>
             )}
 
-            <div className="flex flex-row justify-around gap-6">
-                <ShippingData shipping={order.shipping} />
+            <div className="flex flex-row justify-between gap-6 w-full">
+                <div className="flex-1">
+                    <ShippingData shipping={order.shipping} />
+                </div>
 
-                <PaymentsTable
-                    payments={order.payments}
-                    summary={order.paymentsSummary}
-                />
-
+                <div className="flex-1">
+                    <PaymentsTable
+                        payments={order.payments}
+                        summary={order.paymentsSummary}
+                    />
+                </div>
             </div>
         </div>
     )

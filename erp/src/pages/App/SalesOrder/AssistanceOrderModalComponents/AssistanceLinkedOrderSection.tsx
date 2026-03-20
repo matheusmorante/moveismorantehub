@@ -156,14 +156,10 @@ const AssistanceLinkedOrderSection = ({
                                                             <option value="">(Nenhuma)</option>
                                                             {allOptions.map((opt, i) => (
                                                                 <option key={i} value={opt.label}>
-                                                                    {opt.label} {opt.includeInAssemblySchedule ? '🔨' : ''}
+                                                                    {opt.label}
                                                                 </option>
                                                             ))}
                                                         </select>
-                                                        {(() => {
-                                                            const opt = allOptions.find(o => o.label === selectedItem?.handlingType);
-                                                            return opt?.includeInAssemblySchedule && <i className="bi bi-hammer text-red-500 text-sm animate-pulse" title="Exige Montagem" />;
-                                                        })()}
                                                     </div>
                                                 </div>
                                             )}

@@ -14,7 +14,7 @@ const Body = ({ items }: Props) => {
             {
                 items.map((item, idx) => (
                     <tr key={idx}>
-                        <td className="text-center font-mono text-[10px]">{item.code || "---"}</td>
+
                         <td className="pl-2">{item.description}</td>
                         <td className="text-center">
                             <UnitDisplay value={item.quantity} />

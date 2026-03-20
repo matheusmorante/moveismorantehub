@@ -196,15 +196,13 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                                                      {state.items.map((item, idx) => {
-                                                        const handling = (item.handlingType || "").trim().toLowerCase();
-                                                        const opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === handling);
-                                                        const hasAssembly = opt?.includeInAssemblySchedule === true;
+
                                                         
                                                         return (
                                                             <tr key={idx} className="group">
                                                                 <td className="py-1.5 font-bold text-slate-700 dark:text-slate-300 pr-2">
                                                                     <div className="flex items-center gap-2">
-                                                                        {hasAssembly && <i className="bi bi-hammer text-red-500 text-[10px] animate-pulse" title="Item com montagem" />}
+                                                                        {false && <i className="bi bi-hammer text-red-500 text-[10px] animate-pulse" title="Item com montagem" />}
                                                                         <span>{item.description}</span>
                                                                     </div>
                                                                 </td>
@@ -283,27 +281,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                         </div>
 
                                         <div className="space-y-3 overflow-y-auto pr-1 flex-1 custom-scrollbar">
-                                            {/* Modality Row */}
-                                            {state.shipping.orderType && (
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-center gap-3 shadow-inner">
-                                                    <div className={`w-8 h-8 rounded-lg ${isPickup ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center shrink-0`}>
-                                                        <i className="bi bi-tag-fill text-sm" />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Modalidade de Manuseio</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase">
-                                                                {state.shipping.orderType}
-                                                            </span>
-                                                            {(() => {
-                                                                const h = (state.shipping.orderType || "").trim().toLowerCase();
-                                                                const opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === h);
-                                                                return opt?.includeInAssemblySchedule && <i className="bi bi-hammer text-red-500 text-[12px] animate-pulse" />;
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
+
 
                                             {/* Date/Time Row */}
                                             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-center gap-3 shadow-inner">

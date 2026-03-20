@@ -192,7 +192,7 @@ export const getPrimaryHandlingInfo = (order: any, settings: any) => {
         };
     }
 
-    // 2. If no specific assembly item, check the global shipping type for assembly
+    // 2. Fallback: check global shipping type
     const globalOpt = getOpt(order.shipping?.orderType);
     if (globalOpt?.includeInAssemblySchedule) {
         return {
@@ -201,7 +201,7 @@ export const getPrimaryHandlingInfo = (order: any, settings: any) => {
         };
     }
 
-    // 3. Last fallback: just take the label from the first item or global
+    // 3. No assembly detected
     return {
         hasAssembly: false,
         label: items[0]?.handlingType || order.shipping?.orderType

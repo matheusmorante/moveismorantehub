@@ -62,9 +62,9 @@ const ReceiptPage = () => {
             <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
             <ItemsTable items={order.items} summary={order.itemsSummary} />
 
-            <div className="flex flex-col lg:flex-row w-full justify-between gap-6">
-                <div className="flex flex-col gap-4 w-[40%]">
-                    {order?.shipping?.scheduling?.time && <ShippingData shipping={order.shipping} />}
+            <div className="flex flex-row w-full justify-between gap-6">
+                <div className="flex flex-col gap-4 w-[45%]">
+                    <ShippingData shipping={order.shipping} />
                 </div>
                 <PaymentsTable
                     payments={order?.payments || []}

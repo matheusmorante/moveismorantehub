@@ -61,15 +61,6 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                             <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
                                         ))}
                                     </select>
-                                    {(() => {
-                                        const h = (item.handlingType || "").trim().toLowerCase();
-                                        const opt = (deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).find(o => o.label.trim().toLowerCase() === h);
-                                        return opt?.includeInAssemblySchedule && (
-                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none">
-                                                <i className="bi bi-hammer text-[10px]" />
-                                            </div>
-                                        );
-                                    })()}
                                 </div>
                             </div>
                         )}
@@ -180,15 +171,6 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                 <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
                             ))}
                         </select>
-                        {(() => {
-                            const h = (item.handlingType || "").trim().toLowerCase();
-                            const opt = (deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).find(o => o.label.trim().toLowerCase() === h);
-                            return opt?.includeInAssemblySchedule && (
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none">
-                                    <i className="bi bi-hammer text-[10px]" />
-                                </div>
-                            );
-                        })()}
                     </div>
                 )}
             </td>
