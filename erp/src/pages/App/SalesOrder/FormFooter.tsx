@@ -10,9 +10,10 @@ interface FormFooterProps {
     onCompleteOrder: (e?: React.MouseEvent) => void;
     onPrev: () => void;
     buttonLabel?: string;
+    colorScheme?: 'blue' | 'emerald';
 }
 
-const FormFooter = ({ currentOrder, totalOrderValue, isSaving, onCompleteOrder, onPrev, buttonLabel }: FormFooterProps) => (
+const FormFooter = ({ currentOrder, totalOrderValue, isSaving, onCompleteOrder, onPrev, buttonLabel, colorScheme = 'emerald' }: FormFooterProps) => (
     <div className="border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md py-2 px-2 transition-colors duration-300 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none shrink-0">
         <div className="max-w-[1400px] mx-auto">
             <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 p-2 px-4 rounded-2xl shadow-sm flex flex-col gap-3 transition-colors duration-300">
@@ -30,6 +31,8 @@ const FormFooter = ({ currentOrder, totalOrderValue, isSaving, onCompleteOrder, 
                             disabled={isSaving}
                             className={`flex items-center justify-center gap-2 px-8 py-2.5 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-xl transition-all active:scale-95 whitespace-nowrap flex-1 sm:flex-none ${isSaving
                                 ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none"
+                                : colorScheme === 'blue'
+                                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 dark:shadow-blue-900/40 shadow-lg"
                                 : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 dark:shadow-emerald-900/40 shadow-lg"
                                 }`}
                             title="Finalizar e salvar permanentemente este pedido de venda"

@@ -81,15 +81,20 @@ const processOrders = (
 
         // Apply schedule type filter (Assembly vs Delivery)
         if (scheduleType === 'assembly') {
-            const handlingLabel = o.shipping?.orderType;
-            if (!handlingLabel) return false;
-
-            const options = isPickup ? settings.pickupHandlingOptions : settings.deliveryHandlingOptions;
-            const option = options.find(opt => opt.label === handlingLabel);
+            const allHandlingOptions = [
+                ...(settings.deliveryHandlingOptions || []),
+                ...(settings.pickupHandlingOptions || [])
+            ];
             
-            // Se for assistência, também pode ter lógica específica aqui futuramente
-            // Por enquanto, seguimos a flag do manuseio
-            if (!option?.includeInAssemblySchedule) return false;
+            const checkItems = (itemsList: any[]) => itemsList?.some(item => {
+                const hLabel = (item.handlingType || "").trim().toLowerCase();
+                if (!hLabel) return false;
+                const opt = allHandlingOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
+                return opt?.includeInAssemblySchedule === true;
+            });
+
+            const hasAssembly = checkItems(o.items) || checkItems((o as any).assistanceItems || []);
+            if (!hasAssembly) return false;
         }
 
         if (filter === 'all') return true;

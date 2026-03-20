@@ -10,6 +10,7 @@ export type AssistanceItem = {
     description: string;
     quantity: number;
     originalOrderId: string;
+    handlingType?: string;
 }
 
 export type Order = {

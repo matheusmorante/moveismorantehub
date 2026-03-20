@@ -37,7 +37,7 @@ interface ColumnDef {
 }
 
 const COLUMNS_DEF: ColumnDef[] = [
-    { key: 'id', label: 'ID do Pedido' },
+    { key: 'id', label: 'ID' },
     { key: 'orderDate', label: (trash?: boolean) => trash ? 'Excluído em' : 'Data' },
     { key: 'deliveryDate', label: 'Agendado' },
     { key: 'customer', label: 'Cliente' },
@@ -193,10 +193,10 @@ const OrderHistoryTable = ({
                                 {orderedColumns.map((col) => {
                                     const labelText = typeof col.label === 'function' ? col.label(showTrash) : col.label;
                                     const isVisible = visibilitySettings[col.key];
-                                    const sortableKeys = ['orderDate', 'deliveryDate', 'customer', 'totalValue', 'status'];
+                                    const sortableKeys = ['id', 'orderDate', 'deliveryDate', 'customer', 'totalValue', 'status'];
                                     const isSortable = sortableKeys.includes(col.key);
                                     // Map keys for the backend
-                                    const sortByValueMap: any = { orderDate: 'date', deliveryDate: 'deliveryDate', customer: 'customer', totalValue: 'totalValue', status: 'status' };
+                                    const sortByValueMap: any = { id: 'id', orderDate: 'date', deliveryDate: 'deliveryDate', customer: 'customer', totalValue: 'totalValue', status: 'status' };
                                     const sortByKey = sortByValueMap[col.key];
                                     
                                     const multiSort = filters?.multiSort || [];
@@ -215,47 +215,35 @@ const OrderHistoryTable = ({
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, col.key as string)}
                                             onDragEnd={() => setDraggedColumn(null)}
-                                            className={`px-1 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
+                                            className={`px-1 py-1 text-[10px] font-black uppercase tracking-widest transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
                                         >
-                                            <div className={`flex items-center gap-2 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
-                                                <div className="flex items-center group/header w-fit cursor-grab active:cursor-grabbing">
-                                                    <i className="bi bi-grip-vertical text-slate-300 dark:text-slate-700 mr-1 opacity-0 group-hover/header:opacity-100 transition-opacity" />
+                                            <div className={`flex items-center gap-1 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
+                                                <div 
+                                                    onClick={(e) => {
+                                                        if (!isSortable) return;
+                                                        e.stopPropagation();
+                                                        const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+                                                        const newOrder = isSorted && sortOrder === 'desc' ? 'asc' : 'desc';
+                                                        onSort?.(sortByKey, newOrder, isMulti);
+                                                    }}
+                                                    className={`flex items-center group/header w-fit cursor-pointer select-none py-1.5 ${isSorted ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
+                                                >
+                                                    <i className="bi bi-grip-vertical text-slate-300 dark:text-slate-700 mr-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity" />
                                                     <span>{labelText}</span>
+                                                    
+                                                    {isSorted && (
+                                                        <span className="ml-1.5 flex items-center gap-1">
+                                                            <i className={`bi ${sortOrder === 'desc' ? 'bi-sort-down' : 'bi-sort-up'} text-xs font-black`}></i>
+                                                            {multiSort.length > 1 && (
+                                                                <span className="text-[8px] font-black bg-blue-100 dark:bg-blue-900/40 px-1 rounded-md min-w-[12px] text-center">
+                                                                    {sortIndex + 1}
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    )}
                                                 </div>
 
-                                                {isSortable && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
-                                                            const newOrder = isSorted && sortOrder === 'desc' ? 'asc' : 'desc';
-                                                            onSort?.(sortByKey, newOrder, isMulti);
-                                                        }}
-                                                        className={`ml-2 flex items-center gap-1 transition-all ${isSorted ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'}`}
-                                                        title={isSorted ? (sortOrder === 'desc' ? 'Ordenando: Decrescente' : 'Ordenando: Crescente') : `Clique para ordenar por ${labelText} (Shift+Clique para composição)`}
-                                                    >
-                                                        <div className="flex flex-col items-center">
-                                                            {isSorted ? (
-                                                                <i className={`bi ${sortOrder === 'desc' ? 'bi-sort-down' : 'bi-sort-up'} text-sm font-black`}></i>
-                                                            ) : (
-                                                                <i className="bi bi-arrow-down-up text-xs font-bold"></i>
-                                                            )}
-                                                        </div>
-                                                        {isSorted && multiSort.length > 1 && (
-                                                            <span className="text-[9px] font-black bg-blue-100 dark:bg-blue-900/40 px-1 rounded-md min-w-[14px] text-center">
-                                                                {sortIndex + 1}
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                )}
-
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
-                                                    className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
-                                                    title={`Ocultar ${labelText}`}
-                                                >
-                                                    <i className="bi bi-eye-slash text-sm" />
-                                                </button>
+                                                {/* Hidden Column Option accessible via Right Click or context menu - just showing text for now as per user request to clean UI */}
                                             </div>
                                         </th>
                                     );

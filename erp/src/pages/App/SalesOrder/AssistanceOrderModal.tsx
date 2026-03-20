@@ -139,6 +139,12 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
         ));
     };
 
+    const handleUpdateItemHandling = (description: string, handling: string) => {
+        setSelectedAssistanceItems(prev => prev.map(i =>
+            i.description === description ? { ...i, handlingType: handling } : i
+        ));
+    };
+
     const handleSelectOrder = (selectedOrder: Order) => {
         setLinkedOrderId(selectedOrder.id || "");
         setSelectedAssistanceItems([]);
@@ -243,6 +249,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         selectedAssistanceItems={selectedAssistanceItems}
                         handleToggleItem={handleToggleItem}
                         handleUpdateItemQty={handleUpdateItemQty}
+                        handleUpdateItemHandling={handleUpdateItemHandling}
                     />
 
                     <AssistanceCustomerSection 

@@ -60,7 +60,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
 
         try {
             await updateOrder(order.id!, updatedOrder);
-            toast.success("Pedido atualizado com sucesso!");
+            toast.success("Edição salva com sucesso!");
             onSaveSuccess(order.id);
             onClose();
             return order.id;
@@ -69,7 +69,19 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
             toast.error("Falha ao atualizar pedido.");
             return false;
         }
-    }, [form.actions, form.state.currentOrder, order.id, order.date, onSaveSuccess, onClose]);
+    }, [form.actions, form.state.currentOrder, order.id, onSaveSuccess, onClose]);
+
+    const handleFinalize = useCallback(async (e?: React.MouseEvent) => {
+        const result = await form.actions.handleCompleteOrder(e);
+        if (result) {
+            onSaveSuccess(String(result));
+            onClose();
+            return String(result);
+        }
+        return false;
+    }, [form.actions, onSaveSuccess, onClose]);
+
+    const mainAction = order.status === 'draft' ? handleFinalize : handleUpdate;
 
     return (
         <div
@@ -164,17 +176,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                             </div>
                         </div>
 
-                        <div className={`flex items-center gap-2 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
-                            <button
-                                type="button"
-                                onClick={handleUpdate}
-                                disabled={form.state.isSaving}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
-                            >
-                                {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
-                                Finalizar Venda
-                            </button>
-                        </div>
+
 
                         <button
                             onClick={onClose}
@@ -218,7 +220,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                                 actions: {
                                     ...form.actions,
                                     handleSaveOrder: handleUpdate,
-                                    handleCompleteOrder: handleUpdate
+                                    handleCompleteOrder: handleFinalize
                                 }
                             }} 
                         />

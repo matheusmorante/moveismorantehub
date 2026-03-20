@@ -51,15 +51,26 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                         {!item.isComboItem && (
                             <div className="flex-[2] min-w-0">
                                 <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Manuseio</label>
-                                <select
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-2 rounded-xl text-[11px] font-bold outline-none dark:text-slate-300 transition-all"
-                                    value={item.handlingType || ''}
-                                    onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
-                                >
-                                    {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
-                                        <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                                    ))}
-                                </select>
+                                <div className="relative group/sel">
+                                    <select
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-2 rounded-xl text-[11px] font-bold outline-none dark:text-slate-300 transition-all pr-8"
+                                        value={item.handlingType || ''}
+                                        onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
+                                    >
+                                        {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
+                                            <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                                        ))}
+                                    </select>
+                                    {(() => {
+                                        const h = (item.handlingType || "").trim().toLowerCase();
+                                        const opt = (deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).find(o => o.label.trim().toLowerCase() === h);
+                                        return opt?.includeInAssemblySchedule && (
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none">
+                                                <i className="bi bi-hammer text-[10px]" />
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
                             </div>
                         )}
                         {!item.isComboItem && (
@@ -158,16 +169,27 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
             </td>
             <td className="px-4 py-2">
                 {!item.isComboItem && (
-                    <select
-                        className="w-full min-w-[120px] bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400"
-                        value={item.handlingType || ''}
-                        onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
-                    >
-                        <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
-                        {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
-                            <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <select
+                            className="w-full min-w-[120px] bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7"
+                            value={item.handlingType || ''}
+                            onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
+                        >
+                            <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
+                            {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
+                                <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                            ))}
+                        </select>
+                        {(() => {
+                            const h = (item.handlingType || "").trim().toLowerCase();
+                            const opt = (deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).find(o => o.label.trim().toLowerCase() === h);
+                            return opt?.includeInAssemblySchedule && (
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none">
+                                    <i className="bi bi-hammer text-[10px]" />
+                                </div>
+                            );
+                        })()}
+                    </div>
                 )}
             </td>
             <td className="px-4 py-2">

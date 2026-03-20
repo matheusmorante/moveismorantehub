@@ -2,7 +2,7 @@ import React from "react";
 import Order from "../../../types/order.type";
 import { stringifyFullAddressWithObservation, stringifyItems } from "../../../utils/formatters";
 import { getSettings } from '@/pages/utils/settingsService';
-import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
+import { getOrderTypeClasses, resolveOrderColor, getPrimaryHandlingInfo } from "../../../utils/orderTypeColorUtils";
 
 interface Props {
     order: Order;
@@ -20,6 +20,8 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     const isPickup = order.shipping?.deliveryMethod === 'pickup';
     const isAssistance = order.orderType === 'assistance';
 
+    const { hasAssembly, label: primaryHandlingLabel } = getPrimaryHandlingInfo(order, settings);
+
     const typeLabel = isAssistance
         ? settings.orderTypeLabels.assistance
         : (isPickup ? settings.orderTypeLabels.pickup : settings.orderTypeLabels.delivery);
@@ -31,7 +33,7 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
         >
             <div
                 onClick={() => onOrderClick(order)}
-                className={`h-full border-2 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col gap-2 cursor-pointer ${cls.cardBg} ${cls.cardBorder}`}
+                className={`h-full border-2 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col gap-2 cursor-pointer ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''}`}
             >
                 <div className="flex justify-between items-start mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">
                     <span className={`font-black text-[9px] uppercase tracking-widest whitespace-nowrap ${cls.timeText}`}>
@@ -45,7 +47,8 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                     )}
                 </div>
 
-                <div className="font-black text-slate-800 dark:text-slate-100 text-[11px] uppercase truncate leading-none">
+                <div className="font-black text-slate-800 dark:text-slate-100 text-[11px] uppercase truncate leading-none flex items-center gap-1.5">
+                    {hasAssembly && <i className="bi bi-hammer text-red-500 animate-pulse" title="Exige Montagem" />}
                     {order.customerData?.fullName || "Consumidor"}
                 </div>
 
@@ -61,14 +64,9 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
                 <div className="flex flex-wrap gap-1.5 mt-1">
                     <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${cls.badge}`}>
-                        {typeLabel}
+                        {primaryHandlingLabel || typeLabel}
                     </span>
 
-                    {order.shipping?.orderType && (
-                        <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 max-w-[100px] truncate">
-                            {order.shipping.orderType}
-                        </span>
-                    )}
                     {settings.showScheduleNoticeLabels && order.observation && order.observation.split(';').filter((t: string) => t.trim() !== "").map((tag: string, i: number) => (
                         <span key={i} className="text-[7px] font-black px-1.5 py-0.5 rounded border bg-amber-100/50 dark:bg-amber-900/40 border-amber-200/50 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 capitalize max-w-[100px] truncate" title={tag}>
                             {tag}

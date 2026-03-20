@@ -127,22 +127,22 @@ const SalesOrder = () => {
                         <div className="flex gap-1.5 flex-wrap">
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${isSidebarOpen
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border ${isSidebarOpen
                                     ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
                                     : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
                                     }`}
                                 title="Filtros"
                             >
-                                <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'}`}></i>
+                                <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
                                 <span className="hidden sm:inline">Filtros</span>
                             </button>
 
                             <button
                                 onClick={() => setIsTrashOpen(true)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
                                 title="Lixeira"
                             >
-                                <i className="bi bi-trash3"></i>
+                                <i className="bi bi-trash3 text-sm"></i>
                                 <span className="hidden sm:inline">Lixeira</span>
                             </button>
 
@@ -150,10 +150,10 @@ const SalesOrder = () => {
 
                             <Link
                                 to="/delivery-schedule"
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
                                 title="Cronograma"
                             >
-                                <i className="bi bi-calendar3"></i>
+                                <i className="bi bi-calendar3 text-sm"></i>
                                 <span className="hidden sm:inline">Cronograma</span>
                             </Link>
 
@@ -175,13 +175,13 @@ const SalesOrder = () => {
                             <div className="relative">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
+                                    className={`flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest ${showSettings
                                         ? 'border-blue-200 text-blue-600 dark:border-blue-800'
                                         : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
                                         }`}
                                     title="Visualização"
                                 >
-                                    <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                                    <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'} text-sm`}></i>
                                     <span className="hidden sm:inline">Visualização</span>
                                 </button>
 

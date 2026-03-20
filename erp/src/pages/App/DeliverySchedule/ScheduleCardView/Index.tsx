@@ -2,7 +2,7 @@ import React from "react";
 import Order from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { stringifyFullAddressWithObservation, formatCurrency } from "../../../utils/formatters";
-import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
+import { getOrderTypeClasses, resolveOrderColor, getPrimaryHandlingInfo } from "../../../utils/orderTypeColorUtils";
 import { calcItemTotalValue } from "../../../utils/calculations";
 import { updateOrder } from "../../../utils/orderHistoryService";
 import { toast } from "react-toastify";
@@ -66,6 +66,8 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const cls = getOrderTypeClasses(colorKey);
 
+    const { hasAssembly, label: primaryHandlingLabel } = getPrimaryHandlingInfo(order, settings);
+
     const typeLabel = isShowroom 
         ? "Montagem Mostruário"
         : (isAssistance
@@ -75,14 +77,14 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
     return (
         <div
             onClick={() => onOrderClick(order)}
-            className={`group border rounded-[2rem] shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-1 hover:shadow-premium-lg`}
+            className={`group border rounded-[2rem] shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-1 hover:shadow-premium-lg ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
         >
             {/* Card Header: Time */}
             <div className={`px-5 py-4 border-b dark:border-slate-800 flex justify-between items-center transition-colors ${cls.headerBg}`}>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col">
                         <span className="font-black text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">
-                            {typeLabel}
+                            {primaryHandlingLabel || typeLabel}
                         </span>
                         <span className="font-black text-sm tracking-tight flex items-center text-slate-800 dark:text-slate-200">
                             <i className={`bi bi-clock-fill mr-2 ${cls.timeText}`} />
@@ -99,9 +101,10 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
 
             {/* Tipo de Pedido & Manuseio Labels */}
             <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
-                <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-lg border ${cls.badge}`}>
-                    <i className={`bi ${isShowroom ? 'bi-hammer' : (isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'))} mr-1.5`} />
-                    {typeLabel}
+                <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${cls.badge}`}>
+                    <i className={`bi ${isShowroom || hasAssembly ? 'bi-hammer' : (isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'))}`} />
+                    {primaryHandlingLabel || typeLabel}
+                    {hasAssembly && <i className="bi bi-hammer text-red-500 animate-pulse ml-1" title="Exige Montagem" />}
                 </span>
 
                 <div className="relative" onClick={(e) => e.stopPropagation()}>

@@ -55,13 +55,27 @@ const OrderHistoryCard = ({
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const isDraft = order.status === 'draft';
     const cls = getOrderTypeClasses(isDraft ? 'slate' : colorKey as any);
+
+    const allOptions = [
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || [])
+    ];
+
+    const checkItems = (itemsList: any[]) => itemsList?.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
+        return opt?.includeInAssemblySchedule === true;
+    });
+
+    const hasAssembly = checkItems(order.items) || checkItems(order.assistanceItems as any);
     
     // Explicit colors to match legend and be visible
     const cardBgClass = 
         (colorKey === 'green' 
             ? 'bg-green-100 dark:bg-green-950/40' 
             : (colorKey === 'purple' 
-                ? 'bg-purple-100/40 dark:bg-purple-900/40' 
+                ? 'bg-purple-100 dark:bg-purple-900/50' 
                 : (colorKey === 'orange' 
                     ? 'bg-orange-100/40 dark:bg-orange-900/40' 
                     : cls.rowHover)));
@@ -69,7 +83,7 @@ const OrderHistoryCard = ({
     return (
         <div 
             id={id}
-            className={`${cardBgClass} border-l-[6px] ${cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} border-y border-r ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative`}
+            className={`${cardBgClass} ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} border-y border-r ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
             onClick={() => onEdit(order)}
         >
             <div className="flex justify-between items-start mb-2.5">
@@ -92,7 +106,14 @@ const OrderHistoryCard = ({
                             const isPickup = order.shipping?.deliveryMethod === 'pickup';
                             const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
                             const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-600');
-                            return <i className={`bi ${typeIcon} ${typeColor} text-[10px]`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />;
+                            return (
+                                <div className="flex items-center gap-1">
+                                    <i className={`bi ${typeIcon} ${typeColor} text-[10px]`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />
+                                    {hasAssembly && (
+                                        <i className="bi bi-hammer text-red-600 dark:text-red-500 text-[10px] animate-pulse" title="Necessita de Montagem" />
+                                    )}
+                                </div>
+                            );
                         })()}
                     </div>
                 </div>
@@ -177,13 +198,7 @@ const OrderHistoryCard = ({
                     </div>
                 )}
 
-                {/* Modalidade Label */}
-                {order.shipping?.orderType && (
-                    <div className="mt-2 flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800 rounded-md w-fit">
-                        <i className="bi bi-tag-fill text-[9px]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest leading-none">Modalidade: {order.shipping.orderType}</span>
-                    </div>
-                )}
+
 
                 <div className="flex items-center gap-3 mt-1.5">
                     <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">

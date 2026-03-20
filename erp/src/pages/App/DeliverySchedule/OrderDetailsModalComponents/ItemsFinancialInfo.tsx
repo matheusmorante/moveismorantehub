@@ -36,9 +36,12 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
                                         </span>
                                     )}
                                     {item.handlingType && (
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 dark:text-blue-400">
-                                            {item.handlingType}
-                                        </span>
+                                        <div className="flex items-center gap-1.5 mt-2">
+                                            <span className="px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30 flex items-center gap-2">
+                                                <i className={`bi ${item.handlingType.toLowerCase().includes('montagem') ? 'bi-hammer' : 'bi-box-seam'} text-blue-500`} />
+                                                {item.handlingType}
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
                             </td>

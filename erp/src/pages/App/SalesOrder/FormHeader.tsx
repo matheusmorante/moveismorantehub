@@ -16,6 +16,9 @@ interface FormHeaderProps {
     errors: Record<string, string>;
     deliveryMethod: 'delivery' | 'pickup';
     setDeliveryMethod: (method: 'delivery' | 'pickup') => void;
+    onMainAction?: (e?: React.MouseEvent) => void;
+    isSaving?: boolean;
+    status: string;
 }
 
 const FormHeader = ({ 
@@ -29,7 +32,10 @@ const FormHeader = ({
     errors,
     currentOrderId,
     deliveryMethod,
-    setDeliveryMethod
+    setDeliveryMethod,
+    onMainAction,
+    isSaving,
+    status
 }: FormHeaderProps) => {
     const [employeeNames, setEmployeeNames] = React.useState<string[]>([]);
     const [isEmployeeModalOpen, setIsEmployeeModalOpen] = React.useState(false);
@@ -87,11 +93,24 @@ const FormHeader = ({
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    {/* Botão de Ação Principal (Novo Local) */}
+                    {onMainAction && (
+                         <button
+                            type="button"
+                            onClick={onMainAction}
+                            disabled={isSaving}
+                            className={`flex items-center gap-2 px-5 py-2 rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-xl transition-all active:scale-95 disabled:opacity-50 ${status === 'draft' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'} text-white`}
+                        >
+                            {isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
+                            {status === 'draft' ? 'Cadastrar Venda' : 'Salvar Edição'}
+                        </button>
+                    )}
+
                     {/* Status do Rascunho */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-full border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                         <div className={`w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest leading-none">
                             {isSavingDraft ? 'Sincronizando...' : 'Alterações Salvas'}
                         </span>
                     </div>

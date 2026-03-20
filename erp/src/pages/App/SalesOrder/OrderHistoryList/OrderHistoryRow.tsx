@@ -87,12 +87,26 @@ const OrderHistoryRow = ({
     const isDraft = order.status === 'draft';
     const cls = getOrderTypeClasses(isDraft ? 'slate' : rowColorKey as any);
     
+    const allOptions = [
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || [])
+    ];
+
+    const checkItems = (itemsList: any[]) => itemsList?.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
+        return opt?.includeInAssemblySchedule === true;
+    });
+
+    const hasAssembly = checkItems(order.items) || checkItems(order.assistanceItems as any);
+    
     // Explicit colors to match legend and be visible on white background
     const cellBgClass = 
         (rowColorKey === 'green' 
             ? 'bg-green-100 dark:bg-green-950/40' 
             : (rowColorKey === 'purple' 
-                ? 'bg-purple-100/40 dark:bg-purple-900/40' 
+                ? 'bg-purple-100 dark:bg-purple-900/50' 
                 : (rowColorKey === 'orange' 
                     ? 'bg-orange-100/40 dark:bg-orange-900/40' 
                     : cls.rowHover)));
@@ -261,13 +275,7 @@ const OrderHistoryRow = ({
                                 </div>
                             )}
 
-                            {/* Modalidade Label */}
-                            {order.shipping?.orderType && (
-                                <div className="mt-1 flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-md w-fit">
-                                    <i className="bi bi-tag-fill text-[9px]" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none">{order.shipping.orderType}</span>
-                                </div>
-                            )}
+
                         </div>
                     </td>
                 );
@@ -285,7 +293,7 @@ const OrderHistoryRow = ({
                 const tColor = isAssis ? 'text-orange-600' : (isPick ? 'text-purple-600' : 'text-green-600');
 
                 const sIcons: Record<string, string> = {
-                    draft: 'bi-pencil-square',
+                    draft: 'bi-clock',
                     scheduled: 'bi-calendar3',
                     fulfilled: 'bi-check-circle-fill',
                     cancelled: 'bi-x-circle-fill',
@@ -296,10 +304,13 @@ const OrderHistoryRow = ({
                     <td key={key} className={`${baseTdClass} relative text-center min-w-[80px]`} onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                            className={`flex items-center justify-center gap-3 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 min-w-[64px] mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95 border border-white/50 dark:border-slate-800/50 shadow-sm`}
+                            className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 min-w-[64px] mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95 border border-white/50 dark:border-slate-800/50 shadow-sm relative`}
                             title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}`}
                         >
                             <i className={`bi ${tIcon} ${tColor} text-xs`} />
+                            {hasAssembly && (
+                                <i className="bi bi-hammer text-red-600 dark:text-red-500 text-[10px] animate-pulse" title="Necessita de Montagem" />
+                            )}
                             <i className={`bi ${sIcon} ${currentStatus.text} text-xs`} />
                         </button>
 
@@ -462,7 +473,7 @@ const OrderHistoryRow = ({
         <tr
             id={id}
             onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 border-l-[6px] ${cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[60]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
+            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[60]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
         >
             {/* Row Checkbox */}
             <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${cellBgClass}`}>

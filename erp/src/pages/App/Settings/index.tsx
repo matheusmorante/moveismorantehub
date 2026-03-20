@@ -1,4 +1,4 @@
-ç/** @jsxImportSource react */
+/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSettings, saveSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { useTheme } from '../../../context/ThemeContext';

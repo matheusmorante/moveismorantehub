@@ -154,3 +154,56 @@ export const ORDER_TYPE_COLOR_OPTIONS: { value: OrderTypeColor; label: string; d
     { value: 'cyan',    label: 'Ciano',    dotClass: 'bg-cyan-500' },
     { value: 'pink',    label: 'Rosa-choque', dotClass: 'bg-pink-500' },
 ];
+
+/** 
+ * Centralized logic to detect assembly needs and the most relevant handling label.
+ * Prioritizes assembly-required items over others.
+ */
+export const getPrimaryHandlingInfo = (order: any, settings: any) => {
+    const allOptions = [
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || [])
+    ];
+
+    const getOpt = (hType: string) => {
+        const hLabel = (hType || "").trim().toLowerCase();
+        if (!hLabel) return null;
+        
+        // Try exact match first
+        let opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
+        
+        // Fallback: If no match but contains "montagem", treat as assembly (resilience for data drift)
+        if (!opt && hLabel.includes('montagem')) {
+            return { label: hType, includeInAssemblySchedule: true };
+        }
+        
+        return opt;
+    };
+
+    const items = [...(order.items || []), ...(order.assistanceItems || [])];
+    
+    // 1. Find the first item that specifically requires assembly
+    const assemblyItem = items.find(i => getOpt(i.handlingType)?.includeInAssemblySchedule);
+    
+    if (assemblyItem) {
+        return {
+            hasAssembly: true,
+            label: assemblyItem.handlingType
+        };
+    }
+
+    // 2. If no specific assembly item, check the global shipping type for assembly
+    const globalOpt = getOpt(order.shipping?.orderType);
+    if (globalOpt?.includeInAssemblySchedule) {
+        return {
+            hasAssembly: true,
+            label: order.shipping.orderType
+        };
+    }
+
+    // 3. Last fallback: just take the label from the first item or global
+    return {
+        hasAssembly: false,
+        label: items[0]?.handlingType || order.shipping?.orderType
+    };
+};

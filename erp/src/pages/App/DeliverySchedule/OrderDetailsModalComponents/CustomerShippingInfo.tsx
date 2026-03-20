@@ -35,7 +35,7 @@ export const CustomerSection = ({ fullName, phone, noPhone }: { fullName?: strin
     </section>
 );
 
-export const OrderTypeLabelsSection = ({ deliveryMethod, orderType }: { deliveryMethod?: string, orderType?: string }) => {
+export const OrderTypeLabelsSection = ({ deliveryMethod, orderType, handlingModality }: { deliveryMethod?: string, orderType?: string, handlingModality?: string }) => {
     const settings = getSettings();
     const isAssistance = orderType === 'assistance';
     const isPickup = deliveryMethod === 'pickup';
@@ -49,11 +49,19 @@ export const OrderTypeLabelsSection = ({ deliveryMethod, orderType }: { delivery
     return (
         <section>
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
-                <i className="bi bi-tag-fill" /> Tipo de Pedido
+                <i className="bi bi-tag-fill" /> Tipo de Pedido e Manuseio
             </h3>
-            <div className={`p-6 rounded-3xl border transition-colors duration-300 flex items-center gap-3 ${cls.badge}`}>
-                <i className={`bi ${isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck')} text-xl`} />
-                <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+            <div className="flex flex-wrap gap-4">
+                <div className={`flex-1 p-6 rounded-3xl border transition-colors duration-300 flex items-center gap-3 ${cls.badge}`}>
+                    <i className={`bi ${isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck')} text-xl`} />
+                    <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+                </div>
+                {handlingModality && (
+                   <div className="flex-1 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors duration-300 flex items-center gap-3">
+                        <i className="bi bi-box-fill text-blue-500 text-xl" />
+                        <span className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">{handlingModality}</span>
+                   </div>
+                )}
             </div>
         </section>
     );

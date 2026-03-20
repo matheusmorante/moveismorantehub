@@ -140,6 +140,9 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
             return;
         }
 
+        // Disable auto-save for already finalized orders (not draft)
+        if (status !== 'draft' && currentOrderId) return;
+
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
         // Check if there's any meaningful changes from the default state
@@ -185,7 +188,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [items, shipping, payments, customerData, observation, seller, marketingOrigin, orderDate, getOrderData]);
+    }, [items, shipping, payments, customerData, observation, seller, marketingOrigin, orderDate, getOrderData, status, currentOrderId]);
 
     const loadOrderForEditing = useCallback((order: Order) => {
         setItems(order.items || []);
@@ -359,6 +362,28 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
             return { ...item, handlingType: newDefault };
         }));
     }, [shipping.deliveryMethod, setItems]);
+
+    // Synchronize handling modalities between global shipping and items
+    // Priority: If the global orderType is changed manually, propagate to the first item.
+    useEffect(() => {
+        if (items.length > 0) {
+            const firstItem = items[0];
+            const globalType = shipping.orderType;
+            if (firstItem.handlingType !== globalType) {
+                setItems(prev => prev.map((it, idx) => idx === 0 ? { ...it, handlingType: globalType } : it));
+            }
+        }
+    }, [shipping.orderType, setItems]);
+
+    // Reverse sync: if items change (e.g. in items table), update the global type.
+    useEffect(() => {
+        if (items.length > 0) {
+            const h = items[0].handlingType;
+            if (h && h !== shipping.orderType) {
+                setShipping(prev => ({ ...prev, orderType: h }));
+            }
+        }
+    }, [items, setShipping]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
