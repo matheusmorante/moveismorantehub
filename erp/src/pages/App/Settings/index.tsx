@@ -1,4 +1,4 @@
-/** @jsxImportSource react */
+ç/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSettings, saveSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { useTheme } from '../../../context/ThemeContext';
@@ -23,10 +23,10 @@ import WhatsAppTemplatesSection from './components/WhatsAppTemplatesSection';
 import BusinessRulesSection from './components/BusinessRulesSection';
 import ReceiptConfigSection from './components/ReceiptConfigSection';
 import ValidationConfigSection from './components/ValidationConfigSection';
-import ImportMappingSection from './components/ImportMappingSection';
+// import ImportMappingSection from './components/ImportMappingSection'; // Removido por não existir e não ser utilizado
 import InventoryAutomationSection from './components/InventoryAutomationSection';
 import ProductMaterialsSection from './components/ProductMaterialsSection';
-import SaveButton from './components/SaveButton';
+// import SaveButton from './components/SaveButton'; // Removido para auto-save
 
 const categories: any[] = [
     { id: 'empresa', label: 'Dados da Empresa', icon: 'bi-building-fill', group: 'system', keywords: ['empresa', 'nome', 'endereço', 'loja', 'origem', 'cnpj', 'contato', 'telefone'] },
@@ -57,6 +57,8 @@ export default function Settings(): any {
     const { theme, setTheme } = useTheme();
     const [settings, setSettings] = useState<AppSettings>(getSettings());
     const [search, setSearch] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const saveTimeoutRef = React.useRef<any>(null);
 
     // Real-time synchronization with Firebase
     useEffect(() => {
@@ -97,14 +99,24 @@ export default function Settings(): any {
             }
 
             current[parts[parts.length - 1]] = value;
+
+            // Auto-save logic
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            setIsSaving(true);
+            saveTimeoutRef.current = setTimeout(async () => {
+                await saveSettings(next);
+                setIsSaving(false);
+                // toast.success("Configurações sincronizadas! ✨", { autoClose: 500, hideProgressBar: true });
+            }, 1000);
+
             return next;
         });
     }, [setTheme]);
 
-    const handleSave = () => {
-        saveSettings(settings);
-        toast.success("Configurações aplicadas com sucesso! ✨");
-    };
+    // const handleSave = () => {
+    //     saveSettings(settings);
+    //     toast.success("Configurações aplicadas com sucesso! ✨");
+    // };
 
     const isVisible = (id: string) => {
         if (!search) return true;
@@ -124,7 +136,23 @@ export default function Settings(): any {
                         Configurações do Sistema
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Preferências</h1>
-                    <p className="text-slate-500 dark:text-slate-500 mt-2 text-base font-medium">Personalize cada detalhe da sua experiência no ERP Móveis Morante.</p>
+                    <div className="flex items-center gap-4 mt-2">
+                        <p className="text-slate-500 dark:text-slate-500 text-base font-medium">Personalize cada detalhe da sua experiência no ERP Móveis Morante.</p>
+                        
+                        {isSaving && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-full animate-in fade-in slide-in-from-left-2 duration-300">
+                                <div className="w-3 h-3 border-2 border-amber-600 dark:border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Salvando...</span>
+                            </div>
+                        )}
+                        
+                        {!isSaving && settings && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full animate-in fade-in zoom-in-95 duration-500">
+                                <i className="bi bi-cloud-check-fill text-xs" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Sincronizado</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="relative group w-full md:w-96">
@@ -272,12 +300,12 @@ export default function Settings(): any {
                         <ProductMaterialsSection />
                     </SettingsSection>
 
-                   
+                    
 
                 </div>
             </div>
 
-            <SaveButton onClick={handleSave} />
+            {/* <SaveButton onClick={handleSave} /> Removido para auto-save */}
         </div>
     );
 }

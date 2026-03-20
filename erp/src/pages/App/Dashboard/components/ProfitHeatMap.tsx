@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Order from '@/pages/types/order.type';
-import { parseAddressString } from '@/pages/utils/addressParser';
+import { geocodeAddress } from '@/pages/utils/maps';
 
 interface ProfitHeatMapProps {
     orders: Order[];
@@ -10,7 +10,7 @@ interface ProfitHeatMapProps {
 
 type MetricType = 'profit' | 'value' | 'count';
 
-// Coordenadas baseadas em bairros (Sincronizado com RegionalHeatmap para consistência)
+// Coordenadas baseadas em bairros (Fallback quando geocodificação falha ou não disponível)
 const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
     'GUARAITUBA': [-49.1725, -25.3614],
     'MARACANÃ': [-49.1833, -25.3667],
@@ -26,6 +26,53 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
     const [metric, setMetric] = useState<MetricType>('profit');
     const [opacity, setOpacity] = useState(0.8);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [ordersWithCoords, setOrdersWithCoords] = useState<Record<string, [number, number]>>({});
+
+    // Efeito para Geocodificação em Segundo Plano
+    useEffect(() => {
+        const fetchMissingCoords = async () => {
+            const newCoords = { ...ordersWithCoords };
+            let updated = false;
+
+            // Filtra pedidos que não tem coordenadas e ainda não foram processados nesta sessão
+            const toGeocode = orders.filter(o => 
+                o.id && 
+                !o.shipping?.destinationCoords && 
+                !newCoords[o.id]
+            ).slice(0, 15); // Limita lote para não travar o browser/API
+
+            if (toGeocode.length === 0) return;
+
+            for (const order of toGeocode) {
+                if (!order.id) continue;
+                const fullAddr = order.customerData?.fullAddress;
+                // Exige rua para tentar geocodificar
+                if (!fullAddr?.street) continue;
+
+                try {
+                    // Tenta geocodificar usando Rua, Número, Bairro e Cidade
+                    const coords = await geocodeAddress(fullAddr);
+                    if (coords) {
+                        newCoords[order.id] = coords;
+                        updated = true;
+                    }
+                } catch (e) {
+                    console.warn(`Erro ao geocodificar pedido ${order.id}:`, e);
+                }
+                
+                // Pequeno delay para respeitar limites de API (Nominatim)
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            if (updated) {
+                setOrdersWithCoords(newCoords);
+            }
+        };
+
+        // Inicia após carregar o mapa
+        const timer = setTimeout(fetchMissingCoords, 2500);
+        return () => clearTimeout(timer);
+    }, [orders, ordersWithCoords]);
 
     // Converte ordens em GeoJSON para MapLibre
     const geoJsonData = useMemo(() => {
@@ -34,12 +81,25 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
             const neighborhood = (fullAddr?.neighborhood || '').toUpperCase().trim();
             const city = (fullAddr?.city || '').toUpperCase().trim();
             
-            let coords = NEIGHBORHOOD_COORDS[neighborhood] || NEIGHBORHOOD_COORDS[city] || NEIGHBORHOOD_COORDS['CURITIBA'];
+            // Ordem de prioridade de Coordenadas:
+            // 1. Coordenadas salvas no pedido (preciso - capturado na venda)
+            // 2. Coordenadas encontradas pela geocodificação dinâmica desta sessão
+            // 3. Fallback de bairro/cidade
+            let coords = order.shipping?.destinationCoords || 
+                         ordersWithCoords[order.id || ''] || 
+                         NEIGHBORHOOD_COORDS[neighborhood] || 
+                         NEIGHBORHOOD_COORDS[city] || 
+                         NEIGHBORHOOD_COORDS['CURITIBA'];
             
-            // Jittering para dispersão
-            const seed = (order.id || '').length + (fullAddr?.number ? parseInt(fullAddr.number) : 0);
-            const jitterLat = ((seed % 20) - 10) * 0.0005;
-            const jitterLng = ((Math.floor(seed / 5) % 20) - 10) * 0.0005;
+            // Jittering inteligente (evita sobreposição total de pontos no mesmo local)
+            // Usa o número da casa ou ID como parte da semente para variação local
+            const addrNumber = fullAddr?.number ? parseInt(fullAddr.number.replace(/\D/g, '')) : 0;
+            const seed = (order.id || '').length + addrNumber + (fullAddr?.street || '').length;
+            
+            // Jittering reduzido se as coordenadas forem precisas (para manter a acurácia da rua)
+            const jitterScale = (order.shipping?.destinationCoords || ordersWithCoords[order.id || '']) ? 0.0002 : 0.0008;
+            const jitterLat = ((seed % 20) - 10) * jitterScale;
+            const jitterLng = ((Math.floor(seed / 5) % 20) - 10) * jitterScale;
 
             const totalValue = order.itemsSummary?.itemsTotalValue || 0;
             const totalCost = order.itemsSummary?.totalItemsCost || 0;
@@ -63,7 +123,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
             type: 'FeatureCollection',
             features
         } as any;
-    }, [orders]);
+    }, [orders, ordersWithCoords]);
 
     useEffect(() => {
         if (!mapContainer.current) return;
@@ -212,3 +272,4 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
 };
 
 export default ProfitHeatMap;
+

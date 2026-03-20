@@ -21,6 +21,7 @@ interface OrderHistoryRowProps {
     orderedColumnKeys?: string[];
     isSelected?: boolean;
     onToggleSelection?: () => void;
+    onBlingUpdate?: (id: string, value: boolean) => void;
     isHighlighted?: boolean;
     id?: string;
 }
@@ -38,12 +39,14 @@ const OrderHistoryRow = ({
     orderedColumnKeys,
     isSelected,
     onToggleSelection,
+    onBlingUpdate,
     isHighlighted,
     id
 }: OrderHistoryRowProps) => {
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
+    const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
     const { profile } = useAuth();
     const settings = getSettings();
     const isIncomplete = isOrderIncomplete(order);
@@ -221,6 +224,50 @@ const OrderHistoryRow = ({
                     <td key={key} className={baseTdClass}>
                         <div className="flex flex-col gap-1">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{order.customerData?.fullName || "Não informado"}</span>
+                            
+                            {/* Bling Pending Flag */}
+                            {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                                    {!showBlingConfirm ? (
+                                        <button 
+                                            onClick={() => setShowBlingConfirm(true)}
+                                            className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md border border-red-100 dark:border-red-900/30 animate-pulse hover:scale-105 transition-all w-fit shadow-sm"
+                                        >
+                                            <i className="bi bi-exclamation-triangle-fill text-[8px]" />
+                                            <span className="text-[8px] font-black uppercase tracking-tight">Falta Bling</span>
+                                        </button>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
+                                            <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Lançou?</span>
+                                            <div className="flex gap-1">
+                                                <button 
+                                                    onClick={() => {
+                                                        onBlingUpdate?.(order.id!, true);
+                                                        setShowBlingConfirm(false);
+                                                    }}
+                                                    className="px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-emerald-700 transition-colors"
+                                                >
+                                                    Sim
+                                                </button>
+                                                <button 
+                                                    onClick={() => setShowBlingConfirm(false)}
+                                                    className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                >
+                                                    Não
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Modalidade Label */}
+                            {order.shipping?.orderType && (
+                                <div className="mt-1 flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-md w-fit">
+                                    <i className="bi bi-tag-fill text-[9px]" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none">{order.shipping.orderType}</span>
+                                </div>
+                            )}
                         </div>
                     </td>
                 );

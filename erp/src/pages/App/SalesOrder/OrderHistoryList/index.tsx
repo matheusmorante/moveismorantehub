@@ -55,6 +55,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         handleBulkTrash: onBulkTrash,
         handleBulkRestore,
         handleBulkPermanentDelete: onBulkPermanentDelete,
+        handleBlingUpdate,
         refresh
     } = useOrderHistory(filters);
     
@@ -232,6 +233,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onBulkTrash={handleBulkTrash}
                     onBulkRestore={handleBulkRestore}
                     onBulkPermanentDelete={handleBulkPermanentDelete}
+                    onBlingUpdate={handleBlingUpdate}
                     highlightOrderId={highlightOrderId}
                 />
 

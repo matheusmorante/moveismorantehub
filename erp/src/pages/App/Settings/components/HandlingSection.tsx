@@ -1,6 +1,5 @@
-/** @jsxImportSource react */
 import React from "react";
-import { AppSettings } from '@/pages/utils/settingsService';
+import { AppSettings, HandlingOption } from '@/pages/utils/settingsService';
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 interface Props {
@@ -9,7 +8,7 @@ interface Props {
 }
 
 export default function HandlingSection({ settings, onChange }: Props): any {
-    const onDragEnd = (result: DropResult, options: string[], path: string) => {
+    const onDragEnd = (result: DropResult, options: HandlingOption[], path: string) => {
         if (!result.destination) return;
         
         const next = Array.from(options);
@@ -19,9 +18,9 @@ export default function HandlingSection({ settings, onChange }: Props): any {
         onChange(path, next);
     };
 
-    const renderOptionList = (title: string, options: string[], path: string) => (
+    const renderOptionList = (title: string, options: HandlingOption[], path: string) => (
         <div className="p-8">
-            <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-6 block">{title}</h5>
+            <h5 className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200 mb-6 block border-l-4 border-blue-600 pl-4">{title}</h5>
             
             <DragDropContext onDragEnd={(res) => onDragEnd(res, options, path)}>
                 <Droppable droppableId={path}>
@@ -37,40 +36,62 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.draggableProps}
-                                            className="flex items-center gap-3 group"
+                                            className="flex flex-col gap-2 group"
                                         >
-                                            <div 
-                                                {...provided.dragHandleProps}
-                                                className={`cursor-grab active:cursor-grabbing p-2 text-slate-300 hover:text-blue-500 transition-colors ${snapshot.isDragging ? 'text-blue-600' : ''}`}
-                                            >
-                                                <i className="bi bi-grip-vertical text-lg" />
-                                            </div>
-                                            
-                                            <div className={`flex-1 bg-white dark:bg-slate-900 border-2 rounded-2xl px-5 py-2.5 transition-all flex items-center justify-between shadow-sm ${snapshot.isDragging ? 'border-blue-500 shadow-xl scale-[1.02] z-50' : 'border-slate-100 dark:border-slate-800'}`}>
-                                                <input
-                                                    type="text"
-                                                    value={opt}
-                                                    onChange={(e) => {
-                                                        const next = [...options];
-                                                        next[idx] = e.target.value;
-                                                        onChange(path, next);
-                                                    }}
-                                                    className="flex-1 bg-transparent border-none text-sm font-bold text-slate-700 dark:text-slate-300 focus:ring-0 outline-none transition-all placeholder:text-slate-300"
-                                                    placeholder="Nome da opção"
-                                                />
-                                                <div className="flex items-center gap-2 ml-2">
-                                                    <button 
-                                                        onClick={() => {
+                                            <div className="flex items-center gap-3">
+                                                <div 
+                                                    {...provided.dragHandleProps}
+                                                    className={`cursor-grab active:cursor-grabbing p-2 text-slate-300 hover:text-blue-500 transition-colors ${snapshot.isDragging ? 'text-blue-600' : ''}`}
+                                                >
+                                                    <i className="bi bi-grip-vertical text-lg" />
+                                                </div>
+                                                
+                                                <div className={`flex-1 bg-white dark:bg-slate-900 border-2 rounded-2xl px-5 py-2.5 transition-all flex items-center justify-between shadow-sm ${snapshot.isDragging ? 'border-blue-500 shadow-xl scale-[1.02] z-50' : 'border-slate-100 dark:border-slate-800'}`}>
+                                                    <input
+                                                        type="text"
+                                                        value={opt.label || ''}
+                                                        onChange={(e) => {
                                                             const next = [...options];
-                                                            next.splice(idx, 1);
+                                                            next[idx] = { ...next[idx], label: e.target.value };
                                                             onChange(path, next);
                                                         }}
-                                                        className="text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-xl transition-all"
-                                                        title="Remover opção"
-                                                    >
-                                                        <i className="bi bi-trash3" />
-                                                    </button>
+                                                        className="flex-1 bg-transparent border-none text-sm font-bold text-slate-700 dark:text-slate-300 focus:ring-0 outline-none transition-all placeholder:text-slate-300"
+                                                        placeholder="Nome da opção"
+                                                    />
+                                                    <div className="flex items-center gap-2 ml-2">
+                                                        <button 
+                                                            onClick={() => {
+                                                                const next = [...options];
+                                                                next.splice(idx, 1);
+                                                                onChange(path, next);
+                                                            }}
+                                                            className="text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-xl transition-all"
+                                                            title="Remover opção"
+                                                        >
+                                                            <i className="bi bi-trash3" />
+                                                        </button>
+                                                    </div>
                                                 </div>
+                                            </div>
+
+                                            {/* Toggle para Cronograma de Montagem */}
+                                            <div className={`ml-12 flex items-center justify-between px-5 py-3 rounded-2xl border transition-all ${opt.includeInAssemblySchedule ? 'bg-blue-50/30 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30' : 'bg-slate-50/30 border-slate-100 dark:bg-slate-800/10 dark:border-slate-800/50'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <i className={`bi bi-calendar-check ${opt.includeInAssemblySchedule ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${opt.includeInAssemblySchedule ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-600'}`}>
+                                                        Incluir no cronograma de montagem
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const next = [...options];
+                                                        next[idx] = { ...next[idx], includeInAssemblySchedule: !next[idx].includeInAssemblySchedule };
+                                                        onChange(path, next);
+                                                    }}
+                                                    className={`w-10 h-5 rounded-full p-1 transition-colors relative ${opt.includeInAssemblySchedule ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                                >
+                                                    <div className={`w-3 h-3 bg-white rounded-full transition-transform ${opt.includeInAssemblySchedule ? 'translate-x-5' : 'translate-x-0'}`} />
+                                                </button>
                                             </div>
                                         </div>
                                     )}
@@ -82,9 +103,10 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                 </Droppable>
             </DragDropContext>
 
+
             <button 
                 onClick={() => {
-                    onChange(path, [...(options || []), "Nova Opção"]);
+                    onChange(path, [...(options || []), { label: "Nova Opção", includeInAssemblySchedule: false }]);
                 }}
                 className="w-full mt-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all flex items-center justify-center gap-2"
             >
@@ -108,7 +130,7 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                         >
                             <option value="">Selecione...</option>
                             {(settings.deliveryHandlingOptions || []).map(opt => (
-                                <option key={opt} value={opt}>{opt}</option>
+                                <option key={opt.label} value={opt.label}>{opt.label}</option>
                             ))}
                         </select>
                     </div>
@@ -122,7 +144,7 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                         >
                             <option value="">Selecione...</option>
                             {(settings.pickupHandlingOptions || []).map(opt => (
-                                <option key={opt} value={opt}>{opt}</option>
+                                <option key={opt.label} value={opt.label}>{opt.label}</option>
                             ))}
                         </select>
                     </div>

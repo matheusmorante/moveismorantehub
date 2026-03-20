@@ -10,6 +10,11 @@ export interface OrderStatusConfig {
 
 export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 'rose' | 'indigo' | 'emerald' | 'cyan' | 'pink';
 
+export interface HandlingOption {
+    label: string;
+    includeInAssemblySchedule: boolean;
+}
+
 export interface AppSettings {
     // Automação e Status
     showManualFulfillmentPrompt: boolean;
@@ -33,8 +38,8 @@ export interface AppSettings {
         pickup: OrderTypeColor;
         assistance: OrderTypeColor;
     };
-    deliveryHandlingOptions: string[];
-    pickupHandlingOptions: string[];
+    deliveryHandlingOptions: HandlingOption[];
+    pickupHandlingOptions: HandlingOption[];
     defaultDeliveryHandling: string;
     defaultPickupHandling: string;
 
@@ -190,6 +195,29 @@ const deepMerge = (target: any, source: any) => {
     return output;
 };
 
+/**
+ * Migra configurações antigas para o novo formato
+ */
+const migrateSettings = (settings: any): AppSettings => {
+    if (!settings) return settings;
+
+    // Migração de manuseio: string[] -> HandlingOption[]
+    if (settings.deliveryHandlingOptions && settings.deliveryHandlingOptions.length > 0 && typeof settings.deliveryHandlingOptions[0] === 'string') {
+        settings.deliveryHandlingOptions = settings.deliveryHandlingOptions.map((label: string) => ({
+            label,
+            includeInAssemblySchedule: label.toLowerCase().includes('montagem')
+        }));
+    }
+    if (settings.pickupHandlingOptions && settings.pickupHandlingOptions.length > 0 && typeof settings.pickupHandlingOptions[0] === 'string') {
+        settings.pickupHandlingOptions = settings.pickupHandlingOptions.map((label: string) => ({
+            label,
+            includeInAssemblySchedule: label.toLowerCase().includes('montagem')
+        }));
+    }
+
+    return settings as AppSettings;
+};
+
 const SETTINGS_KEY = 'pdv_app_settings';
 const SUPABASE_SETTINGS_TABLE = 'settings';
 const SETTINGS_ID = 'app';
@@ -220,17 +248,17 @@ export const getDefaultSettings = (): AppSettings => ({
         assistance: 'orange'
     },
     deliveryHandlingOptions: [
-        'Para Montar (Desmontado)',
-        'Já Montado',
-        'Montagem no Local',
-        'Manuseio Especial'
+        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false },
+        { label: 'Já Montado', includeInAssemblySchedule: false },
+        { label: 'Montagem no Local', includeInAssemblySchedule: true },
+        { label: 'Manuseio Especial', includeInAssemblySchedule: false }
     ],
     pickupHandlingOptions: [
-        'Para Montar (Desmontado)',
-        'Já Montado',
-        'Manuseio Especial'
+        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false },
+        { label: 'Já Montado', includeInAssemblySchedule: false },
+        { label: 'Manuseio Especial', includeInAssemblySchedule: false }
     ],
-    defaultDeliveryHandling: 'Entrega com montagem no local',
+    defaultDeliveryHandling: 'Montagem no Local',
     defaultPickupHandling: 'Já Montado',
     freightPerKm: 0,
     openRouteServiceApiKey: '',
@@ -416,9 +444,12 @@ RESPOSTA NO FORMATO JSON:
         deleteOrders: ['administrator', 'manager'],
         manageSettings: ['administrator']
     },
+    whatsappTemplates: {
+        reviewRequest: '*Olá {{customerName}}!* 👋\n\nFicamos muito felizes com sua compra na Móveis Morante! \n\nPoderia nos ajudar avaliando nosso atendimento no Google? Leva menos de 1 minuto e nos ajuda muito: \n\n{{reviewUrl}}\n\nMuito obrigado!',
         orderConfirmation: '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n*Vendedor:* {{seller}}\n\n*Anote aí, a sua entrega está agendada para:* \n{{deliveryDate}} | {{deliveryTime}}\n\n*Endereço:* \n{{address}}\n\n*Itens:* \n{{items}}\n\n*Valor Total:* R$ {{totalValue}}\n\n*Pagamento:* \n{{payments}}',
         deliveryInfo: '____________________\n\n*Novo Pedido para {{customerName}}* 📦\n\n*Vendedor:* {{seller}}\n\n𝐈𝐌𝐏𝐎𝐑𝐓𝐀𝐍𝐓𝐄:\n{{observation}}\n\n🗓️ *Agendamento:*\n{{deliveryDate}} | {{deliveryTime}}\n\n📞 *Contato:*\n{{phone}}\n\n🏠 *Endereço:*\n{{address}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Total:* R$ {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}',
         assistanceConfirmation: '*Olá {{customerName}}!* 🔧\n\nSeu atendimento de assistência técnica foi confirmado! \n\n*Técnico/Responsável:* {{seller}}\n\n🗓️ *Data:* {{assistanceDate}}\n🕒 *Horário:* {{assistanceTime}}\n\n📋 *Descrição do serviço:*\n{{assistanceDescription}}\n\n📞 *Nosso contato:* {{companyPhone}}\n\nEm caso de dúvidas, entre em contato!'
+    },
     receiptConfig: {
         footerText: 'Obrigado pela preferência! Guarde este recibo para sua garantia.',
         showSeller: true,
@@ -494,7 +525,8 @@ export const getSettings = (): AppSettings => {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            return deepMerge(defaults, parsed);
+            const migrated = migrateSettings(parsed);
+            return deepMerge(defaults, migrated);
         } catch (e) {
             return defaults;
         }
@@ -515,8 +547,9 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void) =
         .single()
         .then(({ data, error }: { data: any, error: any }) => {
             if (data && !error) {
-                const settingsFromCloud = data.data as AppSettings;
-                const mergedSettings = deepMerge(defaults, settingsFromCloud);
+                const settingsFromCloud = data.data as any;
+                const migrated = migrateSettings(settingsFromCloud);
+                const mergedSettings = deepMerge(defaults, migrated);
                 localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
                 callback(mergedSettings);
             }
@@ -527,8 +560,9 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void) =
             { event: '*', schema: 'public', table: SUPABASE_SETTINGS_TABLE, filter: `id=eq.${SETTINGS_ID}` },
             (payload: any) => {
                 if (payload.new) {
-                    const settingsFromCloud = (payload.new as any).data as AppSettings;
-                    const mergedSettings = deepMerge(defaults, settingsFromCloud);
+                    const settingsFromCloud = (payload.new as any).data as any;
+                    const migrated = migrateSettings(settingsFromCloud);
+                    const mergedSettings = deepMerge(defaults, migrated);
                     localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
                     callback(mergedSettings);
                 }

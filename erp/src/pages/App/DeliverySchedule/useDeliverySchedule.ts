@@ -4,14 +4,23 @@ import { subscribeToOrders, updateOrder } from "../../utils/orderHistoryService"
 import { DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-toastify";
 import { getLocalISODate } from "../../utils/formatters";
+import { getSettings } from "@/pages/utils/settingsService";
+import { supabase } from "@/pages/utils/supabaseConfig";
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'all' | 'delivery' | 'pickup' | 'assistance';
+export type ScheduleType = 'delivery' | 'assembly';
 
 /**
  * Utility to group and sort orders by date and time with range filtering
  */
-const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: OrderTypeFilter, customRange?: { start: string, end: string }) => {
+const processOrders = (
+    orders: Order[], 
+    filter: ScheduleFilter, 
+    typeFilter: OrderTypeFilter, 
+    scheduleType: ScheduleType,
+    customRange?: { start: string, end: string }
+) => {
     const now = new Date();
     const todayStr = getLocalISODate(now);
 
@@ -37,6 +46,7 @@ const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: Orde
     };
 
     const scheduledOrders = orders.filter((o) => {
+        const settings = getSettings();
         const isAssistance = o.orderType === 'assistance';
 
         if (!isAssistance) {
@@ -68,6 +78,19 @@ const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: Orde
         if (typeFilter === 'pickup' && !isPickup) return false;
         if (typeFilter === 'assistance' && !isAssistance) return false;
         if (typeFilter === 'delivery' && !isDelivery) return false;
+
+        // Apply schedule type filter (Assembly vs Delivery)
+        if (scheduleType === 'assembly') {
+            const handlingLabel = o.shipping?.orderType;
+            if (!handlingLabel) return false;
+
+            const options = isPickup ? settings.pickupHandlingOptions : settings.deliveryHandlingOptions;
+            const option = options.find(opt => opt.label === handlingLabel);
+            
+            // Se for assistência, também pode ter lógica específica aqui futuramente
+            // Por enquanto, seguimos a flag do manuseio
+            if (!option?.includeInAssemblySchedule) return false;
+        }
 
         if (filter === 'all') return true;
 
@@ -110,13 +133,8 @@ const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: Orde
 
     Object.keys(grouped).forEach((date) => {
         grouped[date].sort((a, b) => {
-            const aDate = a.orderType === 'assistance' ? (a as any).scheduledDate : a.shipping?.scheduling?.date;
-            const bDate = b.orderType === 'assistance' ? (b as any).scheduledDate : b.shipping?.scheduling?.date;
-            if (a.orderIndex !== undefined && b.orderIndex !== undefined && aDate === bDate) {
-                return a.orderIndex - b.orderIndex;
-            }
-            const timeA = (a.orderType === 'assistance' ? (a as any).scheduledTime : null) || a.shipping?.scheduling?.startTime || a.shipping?.scheduling?.time || "";
-            const timeB = (b.orderType === 'assistance' ? (b as any).scheduledTime : null) || b.shipping?.scheduling?.startTime || b.shipping?.scheduling?.time || "";
+            const timeA = (a.orderType === 'assistance' ? (a as any).scheduledTime : null) || a.shipping?.scheduling?.startTime || a.shipping?.scheduling?.time || "23:59";
+            const timeB = (b.orderType === 'assistance' ? (b as any).scheduledTime : null) || b.shipping?.scheduling?.startTime || b.shipping?.scheduling?.time || "23:59";
             return timeA.localeCompare(timeB);
         });
     });
@@ -131,8 +149,23 @@ const processOrders = (orders: Order[], filter: ScheduleFilter, typeFilter: Orde
     return sortedGroups;
 };
 
+// Map showroom assemblies to order-like objects for display
+const mapShowroomToOrder = (as: any): Partial<Order> => ({
+    id: `showroom_${as.id}`,
+    customerData: { fullName: "🔹 MOSTRUÁRIO" } as any,
+    shipping: {
+        scheduling: { date: as.date, time: as.time },
+        orderType: "MOSTRUÁRIO",
+        deliveryMethod: 'delivery' // Default to show in delivery lists if needed
+    } as any,
+    orderType: 'showroom' as any,
+    items: [{ description: as.item, quantity: 1 }] as any,
+    status: 'scheduled'
+});
+
 export const useDeliverySchedule = () => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
+    const [showroomAssemblies, setShowroomAssemblies] = useState<any[]>([]);
     const [schedule, setSchedule] = useState<Record<string, Order[]>>({});
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<"card" | "table">("card");
@@ -140,25 +173,44 @@ export const useDeliverySchedule = () => {
     const [typeFilter, setTypeFilter] = useState<OrderTypeFilter>('all');
     const [startDate, setStartDate] = useState(getLocalISODate(new Date()));
     const [endDate, setEndDate] = useState(getLocalISODate(new Date()));
+    const [scheduleType, setScheduleType] = useState<ScheduleType>('delivery');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     useEffect(() => {
         const unsubscribe = subscribeToOrders((orders) => {
             setAllOrders(orders);
-            const processed = processOrders(orders, filter, typeFilter, { start: startDate, end: endDate });
+            const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
+            const processed = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, { start: startDate, end: endDate });
             setSchedule(processed);
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [filter, typeFilter]);
+    }, [filter, typeFilter, scheduleType, showroomAssemblies]);
+
+    // Fetch Showroom Assemblies
+    useEffect(() => {
+        const fetchShowroom = async () => {
+            const { data } = await supabase.from('showroom_assemblies').select('*');
+            if (data) setShowroomAssemblies(data);
+        };
+        fetchShowroom();
+
+        // Optional: subscribe to changes
+        const channel = supabase.channel('showroom_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, fetchShowroom)
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, []);
 
     // Re-process when filter changes locally
     useEffect(() => {
         if (!loading) {
-            setSchedule(processOrders(allOrders, filter, typeFilter, { start: startDate, end: endDate }));
+            const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
+            setSchedule(processOrders([...allOrders, ...showroomOrders], filter, typeFilter, scheduleType, { start: startDate, end: endDate }));
         }
-    }, [filter, typeFilter, startDate, endDate, allOrders, loading]);
+    }, [filter, typeFilter, scheduleType, startDate, endDate, allOrders, showroomAssemblies, loading]);
 
     const handleShare = () => {
         const scheduleUrl = `${window.location.origin}/schedule`;
@@ -170,33 +222,7 @@ export const useDeliverySchedule = () => {
         window.open(`https://api.whatsapp.com/send?text=${shareText}`, "_blank");
     };
 
-    const handleDragEnd = useCallback(async (result: DropResult) => {
-        if (!result.destination || viewMode === "table") return;
 
-        const sourceDate = result.source.droppableId;
-        const destDate = result.destination.droppableId;
-
-        if (sourceDate !== destDate) return;
-
-        const dateOrders = Array.from(schedule[sourceDate] || []);
-        const [reorderedItem] = dateOrders.splice(result.source.index, 1);
-        dateOrders.splice(result.destination.index, 0, reorderedItem);
-
-        setSchedule((prev) => ({
-            ...prev,
-            [sourceDate]: dateOrders,
-        }));
-
-        try {
-            const updatePromises = dateOrders.map((order, index) => {
-                return updateOrder(order.id!, { ...order, orderIndex: index });
-            });
-            await Promise.all(updatePromises);
-        } catch (error) {
-            console.error("Erro ao reordenar pedidos no Firebase", error);
-            toast.error("Erro ao salvar ordem no servidor.");
-        }
-    }, [schedule, viewMode]);
 
     const openOrderDetails = (order: Order) => setSelectedOrder(order);
     const closeOrderDetails = () => setSelectedOrder(null);
@@ -208,13 +234,15 @@ export const useDeliverySchedule = () => {
         setViewMode,
         filter,
         setFilter,
+        scheduleType,
+        setScheduleType,
         typeFilter,
         setTypeFilter,
         selectedOrder,
         openOrderDetails,
         closeOrderDetails,
         handleShare,
-        handleDragEnd,
+
         startDate,
         setStartDate,
         endDate,

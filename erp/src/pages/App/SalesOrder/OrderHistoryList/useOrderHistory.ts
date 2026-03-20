@@ -311,6 +311,24 @@ export const useOrderHistory = (filters?: any) => {
         }
     };
 
+    const handleBlingUpdate = async (id: string, value: boolean) => {
+        const currentOrder = orders.find(o => o.id === id);
+        if (!currentOrder) return;
+
+        // Optimistic update
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, isRegisteredInBling: value } : o));
+        
+        try {
+            await updateOrder(id, { isRegisteredInBling: value }, currentOrder);
+            toast.success(value ? "Pedido marcado como lançado no Bling!" : "Enviado para pendência do Bling.");
+        } catch (error) {
+            // Rollback
+            setOrders(prev => prev.map(o => o.id === id ? { ...o, isRegisteredInBling: currentOrder.isRegisteredInBling } : o));
+            console.error("Erro ao atualizar flag do Bling:", error);
+            toast.error("Erro ao atualizar status do Bling.");
+        }
+    };
+
     return {
         orders: paginatedOrders,
         totalItems,
@@ -333,6 +351,7 @@ export const useOrderHistory = (filters?: any) => {
         handleBulkRestore,
         handleBulkPermanentDelete,
         handleDeleteDrafts: handleBulkPermanentDelete, // Alias for drafts modal
+        handleBlingUpdate,
         refresh
     };
 };

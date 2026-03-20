@@ -24,7 +24,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
     return (
-        <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden" onClick={onClose}>
+        <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm xl:hidden" onClick={onClose}>
             <div
                 className="fixed inset-y-0 left-0 w-3/4 max-w-sm bg-white dark:bg-slate-900 shadow-2xl p-4 flex flex-col gap-4 z-50 overflow-y-auto animate-slide-right"
                 onClick={(e) => e.stopPropagation()}

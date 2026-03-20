@@ -5,6 +5,7 @@ import OrderDetailsModal from "./OrderDetailsModal";
 import DeliveryMap from "./DeliveryMap";
 import ScheduleCardView from "./ScheduleCardView/Index";
 import ScheduleTableView from "./ScheduleTableView/Index";
+import ShowroomAssemblyModal from "./ShowroomAssemblyModal";
 
 const DeliverySchedule = () => {
     const {
@@ -14,13 +15,14 @@ const DeliverySchedule = () => {
         setViewMode: setHookViewMode,
         filter,
         setFilter,
+        scheduleType,
+        setScheduleType,
         typeFilter,
         setTypeFilter,
         selectedOrder,
         openOrderDetails,
         closeOrderDetails,
         handleShare,
-        handleDragEnd,
         startDate,
         setStartDate,
         endDate,
@@ -28,6 +30,7 @@ const DeliverySchedule = () => {
     } = useDeliverySchedule();
 
     const [viewMode, setViewMode] = useState<"card" | "table" | "map">("card");
+    const [showShowroomModal, setShowShowroomModal] = useState(false);
     const { state } = useLocation();
 
     useEffect(() => {
@@ -91,6 +94,32 @@ const DeliverySchedule = () => {
 
                 {/* Drawer body */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                    {/* Schedule Type (Logistics vs Assembly) */}
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
+                            <i className="bi bi-layers-half" /> Modo do Cronograma
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setScheduleType('delivery')}
+                                className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${scheduleType === 'delivery' 
+                                    ? 'bg-blue-50 border-blue-600 text-blue-600 dark:bg-blue-900/20 dark:border-blue-500 dark:text-blue-400' 
+                                    : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-800 dark:border-slate-700'}`}
+                            >
+                                <i className="bi bi-truck text-xl" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Logística</span>
+                            </button>
+                            <button
+                                onClick={() => setScheduleType('assembly')}
+                                className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${scheduleType === 'assembly' 
+                                    ? 'bg-indigo-50 border-indigo-600 text-indigo-600 dark:bg-indigo-900/20 dark:border-indigo-500 dark:text-indigo-400' 
+                                    : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-800 dark:border-slate-700'}`}
+                            >
+                                <i className="bi bi-hammer text-xl" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Montagem</span>
+                            </button>
+                        </div>
+                    </div>
                     {/* Period filter */}
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
@@ -212,16 +241,36 @@ const DeliverySchedule = () => {
     const renderHeader = () => (
         <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 ${isStandalone ? 'bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
             <div className="flex items-center gap-4 w-full xl:w-auto">
-                <div className="bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-100 dark:shadow-blue-900/20">
-                    <i className="bi bi-truck text-white text-2xl" />
+                <div className={`${scheduleType === 'assembly' ? 'bg-indigo-600' : 'bg-blue-600'} p-3 rounded-2xl shadow-xl ${scheduleType === 'assembly' ? 'shadow-indigo-100 dark:shadow-indigo-900/20' : 'shadow-blue-100 dark:shadow-blue-900/20'} transition-all duration-500`}>
+                    <i className={`bi ${scheduleType === 'assembly' ? 'bi-hammer' : 'bi-truck'} text-white text-2xl`} />
                 </div>
                 <div className="flex-1">
                     <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">
-                        Cronograma Logístico
+                        {scheduleType === 'assembly' ? 'Cronograma de Montagem' : 'Cronograma Logístico'}
                     </h2>
                     <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-[0.2em] mt-2">
-                        {isStandalone ? "Visualização em Tempo Real" : "Gestão Logística v2.0"}
+                        {scheduleType === 'assembly' ? 'Gestão de Montadores e Equipes' : (isStandalone ? "Visualização em Tempo Real" : "Gestão Logística v2.0")}
                     </p>
+                </div>
+
+                {/* Alternador de Cronograma */}
+                <div className="hidden sm:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl gap-1 border border-slate-200/50 dark:border-slate-700/50 shadow-inner">
+                    <button
+                        onClick={() => setScheduleType('delivery')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${scheduleType === 'delivery' 
+                            ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-md scale-[1.02]' 
+                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    >
+                        <i className="bi bi-truck" /> Logística
+                    </button>
+                    <button
+                        onClick={() => setScheduleType('assembly')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${scheduleType === 'assembly' 
+                            ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-md scale-[1.02]' 
+                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    >
+                        <i className="bi bi-hammer" /> Montagem
+                    </button>
                 </div>
 
                 {/* Mobile: Filter button */}
@@ -246,6 +295,17 @@ const DeliverySchedule = () => {
                         <i className="bi bi-gear-fill" />
                     </Link>
                 </div>
+
+                {/* Showroom Button for Desktop */}
+                {scheduleType === 'assembly' && (
+                    <button
+                        onClick={() => setShowShowroomModal(true)}
+                        className="hidden xl:flex items-center gap-2 px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-red-100 dark:shadow-red-950/20 transition-all active:scale-95 group"
+                    >
+                        <i className="bi bi-hammer text-lg group-hover:rotate-12 transition-transform" />
+                        Montagem p/ Mostruário
+                    </button>
+                )}
             </div>
 
             {/* Desktop: FILTERS TOOLBAR */}
@@ -399,7 +459,7 @@ const DeliverySchedule = () => {
                         <div className="absolute inset-0 border-[6px] border-blue-600 dark:border-blue-500 rounded-full border-t-transparent animate-spin"></div>
                     </div>
                     <p className="mt-8 text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">
-                        Sincronizando Agenda...
+                        Sincronizando {scheduleType === 'assembly' ? 'Cronograma de Montagem' : 'Agenda'}...
                     </p>
                 </div>
             );
@@ -430,7 +490,6 @@ const DeliverySchedule = () => {
                 {viewMode === "card" ? (
                     <ScheduleCardView
                         schedule={schedule}
-                        handleDragEnd={handleDragEnd}
                         onOrderClick={openOrderDetails}
                     />
                 ) : viewMode === "table" ? (
@@ -460,6 +519,12 @@ const DeliverySchedule = () => {
                 <OrderDetailsModal
                     order={selectedOrder}
                     onClose={closeOrderDetails}
+                />
+            )}
+
+            {showShowroomModal && (
+                <ShowroomAssemblyModal
+                    onClose={() => setShowShowroomModal(false)}
                 />
             )}
 

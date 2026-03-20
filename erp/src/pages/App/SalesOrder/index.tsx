@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useWindowSize } from "../../../hooks/useWindowSize";
 import OrderHistoryList from "./OrderHistoryList";
 import OrderEditModal from "./OrderEditModal";
 import NewSaleOrder from "./NewSaleOrder";
@@ -10,6 +11,8 @@ import OrderFilters, { Filters } from "./OrderFilters";
 import { OrderHistoryListRef } from "./OrderHistoryList";
 
 const SalesOrder = () => {
+    const { width } = useWindowSize();
+    const isMobile = width <= 900;
     const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [filters, setFilters] = useState<Filters>({
@@ -143,14 +146,7 @@ const SalesOrder = () => {
                                 <span className="hidden sm:inline">Lixeira</span>
                             </button>
 
-                            <button
-                                onClick={() => setIsDraftsOpen(true)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-800 hover:text-amber-500`}
-                                title="Rascunhos"
-                            >
-                                <i className="bi bi-pencil-square"></i>
-                                <span className="hidden sm:inline">Rascunhos</span>
-                            </button>
+
 
                             <Link
                                 to="/delivery-schedule"
@@ -161,13 +157,13 @@ const SalesOrder = () => {
                                 <span className="hidden sm:inline">Cronograma</span>
                             </Link>
 
-                            <div className="hidden min-[1100px]:flex items-center gap-2 ml-4 border-l border-slate-200 dark:border-slate-800 pl-4">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">Legenda:</span>
+                            <div className="flex items-center gap-2 ml-0 sm:ml-4 border-l-0 sm:border-l border-slate-200 dark:border-slate-800 pl-0 sm:pl-4 flex-wrap mt-2 min-[1100px]:mt-0">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1 w-full min-[1100px]:w-auto mb-1 min-[1100px]:mb-0">Legenda:</span>
                                 <div className="flex items-center gap-2 px-2.5 py-1 bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 border-l-[4px] border-l-green-600 rounded-lg">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-400 opacity-80">Entrega</span>
                                 </div>
-                                <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 border-l-[4px] border-l-purple-600 rounded-lg">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400 opacity-80">Retirada</span>
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-100/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/50 border-l-[4px] border-l-purple-700 rounded-lg shadow-sm">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-800 dark:text-purple-300">Retirada</span>
                                 </div>
                                 <div className="flex items-center gap-2 px-2.5 py-1 bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 border-l-[4px] border-l-orange-600 rounded-lg">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400 opacity-80">Assistência</span>
@@ -175,52 +171,55 @@ const SalesOrder = () => {
                             </div>
                         </div>
 
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowSettings(!showSettings)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
-                                    ? 'border-blue-200 text-blue-600 dark:border-blue-800'
-                                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
-                                    }`}
-                                title="Visualização"
-                            >
-                                <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
-                                <span className="hidden sm:inline">Visualização</span>
-                            </button>
+                        {!isMobile && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowSettings(!showSettings)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
+                                        ? 'border-blue-200 text-blue-600 dark:border-blue-800'
+                                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
+                                        }`}
+                                    title="Visualização"
+                                >
+                                    <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                                    <span className="hidden sm:inline">Visualização</span>
+                                </button>
 
-                            {showSettings && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
-                                    <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {[
-                                                { key: 'id', label: 'ID do Pedido' },
-                                                { key: 'orderDate', label: 'Data do Pedido' },
-                                                { key: 'deliveryDate', label: 'Data de Entrega' },
-                                                { key: 'customer', label: 'Cliente' },
-                                                { key: 'totalValue', label: 'Valor Total' },
-                                                { key: 'status', label: 'Status' },
-                                                { key: 'actions', label: 'Ações' },
-                                            ].map((col) => (
-                                                <button
-                                                    key={col.key}
-                                                    onClick={() => toggleVisibility(col.key as keyof VisibilitySettings)}
-                                                    className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
-                                                >
-                                                    <span className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}>
-                                                        {col.label}
-                                                    </span>
-                                                    <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}>
-                                                        <div className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                    </div>
-                                                </button>
-                                            ))}
+                                {showSettings && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+                                        <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
+                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {[
+                                                    { key: 'id', label: 'ID do Pedido' },
+                                                    { key: 'orderDate', label: 'Data do Pedido' },
+                                                    { key: 'deliveryDate', label: 'Data de Entrega' },
+                                                    { key: 'customer', label: 'Cliente' },
+                                                    { key: 'totalValue', label: 'Valor Total' },
+                                                    { key: 'status', label: 'Status' },
+                                                    { key: 'actions', label: 'Ações' },
+                                                ].map((col) => (
+                                                    <button
+                                                        key={col.key}
+                                                        onClick={() => toggleVisibility(col.key as keyof VisibilitySettings)}
+                                                        className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
+                                                    >
+                                                        <span className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}>
+                                                            {col.label}
+                                                        </span>
+                                                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                                                            <div className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
                     </div>
 
                     <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-2xl shadow-none md:shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors flex-1 flex flex-col min-h-0">

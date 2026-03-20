@@ -57,7 +57,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                     onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
                                 >
                                     {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
-                                        <option key={opt} value={opt} className="dark:bg-slate-900">{opt}</option>
+                                        <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
                                     ))}
                                 </select>
                             </div>
@@ -165,7 +165,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                     >
                         <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
                         {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
-                            <option key={opt} value={opt} className="dark:bg-slate-900">{opt}</option>
+                            <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
                         ))}
                     </select>
                 )}

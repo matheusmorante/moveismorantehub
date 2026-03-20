@@ -186,11 +186,10 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                                     {state.items.map((item, idx) => (
                                                         <tr key={idx} className="group">
                                                             <td className="py-1.5 font-bold text-slate-700 dark:text-slate-300 pr-2">
-                                                                {item.productName}
-                                                                {item.variationDescription && <span className="block text-[8px] text-slate-400 font-normal">{item.variationDescription}</span>}
+                                                                {item.description}
                                                             </td>
                                                             <td className="py-1.5 text-center font-bold">{item.quantity}</td>
-                                                            <td className="py-1.5 text-right font-black text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total)}</td>
+                                                            <td className="py-1.5 text-right font-black text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice * item.quantity)}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -207,7 +206,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                         <div className="grid grid-cols-2 gap-2">
                                             {state.payments.map((p, idx) => (
                                                 <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-bold">
-                                                    <span className="text-slate-400 uppercase tracking-tighter">{p.methodName || 'Pagamento'}</span>
+                                                    <span className="text-slate-400 uppercase tracking-tighter">{p.method || 'Pagamento'}</span>
                                                     <span className="text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.amount)}</span>
                                                 </div>
                                             ))}
@@ -349,7 +348,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     isSaving={state.isSaving}
                     onCompleteOrder={actions.handleCompleteOrder}
                     onPrev={actions.goToPrevStep}
-                    buttonLabel={state.currentOrderId ? "Salvar Alterações" : "Concluir Pedido"}
+                    buttonLabel="Finalizar Venda"
                 />
             )}
             

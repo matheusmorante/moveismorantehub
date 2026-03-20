@@ -25,7 +25,7 @@ const AssistanceActions = ({ onClose, isLoading, isEditing }: AssistanceActionsP
             ) : (
                 <i className="bi bi-check-lg" />
             )}
-            {isLoading ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Pedido"}
+            {isLoading ? "Salvando..." : "Finalizar Assistência"}
         </button>
     </div>
 );

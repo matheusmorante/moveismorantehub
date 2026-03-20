@@ -25,15 +25,15 @@ const COLOR_MAP: Record<OrderTypeColor, OrderTypeColorClasses> = {
         rowActive:   'ring-2 ring-orange-500',
     },
     purple: {
-        badge:       'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-900/30',
-        cardBg:      'bg-purple-50/20 dark:bg-purple-900/5',
-        cardBorder:  'border-purple-100 dark:border-purple-900/30 hover:border-purple-400 dark:hover:border-purple-500',
-        headerBg:    'bg-purple-50/80 dark:bg-purple-900/10 group-hover:bg-purple-100/50 dark:group-hover:bg-purple-900/20',
-        timeText:    'text-purple-600 dark:text-purple-400',
-        dotBg:       'bg-purple-600 dark:bg-purple-500 text-white',
-        handleHover: 'hover:text-purple-600 dark:hover:text-purple-400',
-        rowHover:    'bg-purple-50/20 dark:bg-purple-900/5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10',
-        rowActive:   'ring-2 ring-purple-500',
+        badge:       'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/50',
+        cardBg:      'bg-purple-50/30 dark:bg-purple-900/10',
+        cardBorder:  'border-purple-200 dark:border-purple-800/50 hover:border-purple-500 dark:hover:border-purple-400',
+        headerBg:    'bg-purple-100/50 dark:bg-purple-900/20 group-hover:bg-purple-200/50 dark:group-hover:bg-purple-900/40',
+        timeText:    'text-purple-800 dark:text-purple-300 font-bold',
+        dotBg:       'bg-purple-700 dark:bg-purple-500 text-white',
+        handleHover: 'hover:text-purple-700 dark:hover:text-purple-400',
+        rowHover:    'bg-purple-50/40 dark:bg-purple-900/10 hover:bg-purple-100/40 dark:hover:bg-purple-900/20',
+        rowActive:   'ring-2 ring-purple-600',
     },
     green: {
         badge:       'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/30',
@@ -135,6 +135,7 @@ export const resolveOrderColor = (
     deliveryMethod: string | undefined,
     colors: { delivery: OrderTypeColor; pickup: OrderTypeColor; assistance: OrderTypeColor }
 ): OrderTypeColor => {
+    if (orderType === 'showroom') return 'rose';
     if (orderType === 'assistance') return colors.assistance;
     if (deliveryMethod === 'pickup') return colors.pickup;
     return colors.delivery;
