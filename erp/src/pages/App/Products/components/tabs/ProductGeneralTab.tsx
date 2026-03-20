@@ -354,7 +354,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <div className="flex flex-col gap-2 md:col-span-2">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de MÃ³vel <span className="text-red-500">*</span></label>
-                            <button type="button" onClick={onOpenProductTypeModal} className="text-[9px] text-blue-600 font-bold hover:underline">Novo Tipo</button>
+                            <button type="button" onClick={onOpenProductTypeModal} className="text-[9px] text-blue-600 font-bold hover:underline">Configurar Categorias</button>
                         </div>
                         <CategoryAutocomplete
                             selectedIds={formData.categoryIds || []}
@@ -580,7 +580,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 if (!formData.description) return toast.warning("Digite o tÃ­tulo para gerar o SKU");
                                 const newPrefix = generateProductCode(formData.description || '', formData.productTypeName, formData.line);
                                 setFormData({ ...formData, code: newPrefix });
-                                toast.info(`Prefixo SKU Sugerido: ${newPrefix}. O número final será gerado ao salvar.`);
+                                toast.info(`Prefixo SKU Sugerido: ${newPrefix}. O nï¿½mero final serï¿½ gerado ao salvar.`);
                             }}
                             className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 transition-all"
                             title="Regerar SKU baseado no tÃ­tulo"

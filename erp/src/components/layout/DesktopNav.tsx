@@ -29,7 +29,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 Dashboard
             </Link>
 
-            {/* Produtos e Serviços */}
+            {/* Catálogo do Site */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('products')}
@@ -37,14 +37,14 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             >
                 <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
                     <i className="bi bi-box-seam"></i>
-                    <span>Produtos e Serviços</span>
+                    <span>Catálogo do Site</span>
                     <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'products')}></i>
                 </button>
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Produtos e Serviços</Link>
-                        <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Tipos de Móveis</Link>
+                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Todos os Produtos</Link>
+                        <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Categorias</Link>
                         <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Atributos e Valores</Link>
                     </div>
                 )}
@@ -70,25 +70,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
             </div>
 
-            {/* Estoque */}
-            <div
-                className="relative h-full flex items-center"
-                onMouseEnter={() => setActiveMenu('stock')}
-                onMouseLeave={() => setActiveMenu(null)}
-            >
-                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
-                    <i className="bi bi-box-seam-fill"></i>
-                    <span>Estoque</span>
-                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                    <i className={chevronClass(activeMenu === 'stock')}></i>
-                </button>
-                {activeMenu === 'stock' && (
-                    <div className={dropdownClass}>
-                        <Link to="/stock" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Controle de Saldo</Link>
-                        <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Pedidos de Compra</Link>
-                    </div>
-                )}
-            </div>
+
 
             {/* Pedidos */}
             <div
@@ -113,27 +95,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             </div>
 
 
-            {/* Financeiro */}
-            <div
-                className="relative h-full flex items-center"
-                onMouseEnter={() => setActiveMenu('finance')}
-                onMouseLeave={() => setActiveMenu(null)}
-            >
-                <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', true)}>
-                    <i className="bi bi-wallet2"></i>
-                    <span>Financeiro</span>
-                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                    <i className={chevronClass(activeMenu === 'finance')}></i>
-                </button>
-                {activeMenu === 'finance' && (
-                    <div className={dropdownClass}>
-                        <Link to="/finance/dashboard" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Gestão de Caixa</Link>
-                        <Link to="/finance/payables" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Contas a Pagar</Link>
-                        <Link to="/finance/receivables" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Contas a Receber</Link>
-                        <Link to="/finance/transactions" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Movimentações (Extrato)</Link>
-                    </div>
-                )}
-            </div>
+
 
 
             {/* Marketing */}
@@ -162,9 +124,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/design/labels" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiquetas de Marca (MDF)
                         </Link>
-                        <Link to="/stock/label-printing" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-printer-fill mr-2 text-amber-500"></i> Rótulos de Produtos
-                        </Link>
+
                     </div>
                 )}
             </div>

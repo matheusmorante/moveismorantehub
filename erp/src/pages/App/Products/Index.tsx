@@ -172,10 +172,10 @@ const Products = () => {
                     <div className="flex items-start xl:items-center gap-4 xl:gap-6">
                         <div>
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Produtos e Serviços
+                                Catálogo do Site
                             </h1>
                             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Catálogo de Produtos, Serviços e Gestão de Estoque
+                                Gestão de Catálogo, Fotos e Preços para o Site
                             </p>
                         </div>
                     </div>
@@ -189,62 +189,15 @@ const Products = () => {
                             <i className="bi bi-gear-fill text-lg xl:text-xl" />
                         </Link>
                         <button
-                            onClick={() => setIsNewMenuOpen(!isNewMenuOpen)}
+                            onClick={() => { setEditingProduct(null); setInitialFormData({ itemType: 'product' }); setIsFormModalOpen(true); }}
                             className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
-                            title="Opções de Novo Item"
+                            title="Adicionar Novo Produto ao Catálogo"
                         >
                             <i className="bi bi-plus-lg text-lg xl:text-xl" />
-                            Novo Item
-                            <i className={`bi bi-chevron-down ml-1 transition-transform ${isNewMenuOpen ? 'rotate-180' : ''}`}></i>
+                            Novo Produto
                         </button>
 
-                        {isNewMenuOpen && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setIsNewMenuOpen(false)} />
-                                <div className="absolute top-[calc(100%+8px)] right-0 w-52 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl py-2 shadow-2xl flex flex-col z-50 animate-slide-up">
-                                    <h4 className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Escolha o Tipo</h4>
-                                    
-                                    <button
-                                        onClick={() => { setIsNewMenuOpen(false); setEditingProduct(null); setInitialFormData({ itemType: 'product' }); setIsFormModalOpen(true); }}
-                                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left outline-none group"
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <i className="bi bi-box-seam" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Produto</span>
-                                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Item físico padrão</span>
-                                        </div>
-                                    </button>
-
-                                    <button
-                                        onClick={() => { setIsNewMenuOpen(false); setEditingProduct(null); setInitialFormData({ itemType: 'service' }); setIsFormModalOpen(true); }}
-                                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left outline-none group"
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <i className="bi bi-tools" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Serviço</span>
-                                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Sem controle de estoque</span>
-                                        </div>
-                                    </button>
-
-                                    <button
-                                        onClick={() => { setIsNewMenuOpen(false); setEditingProduct(null); setInitialFormData({ itemType: 'product', isCombo: true }); setIsFormModalOpen(true); }}
-                                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left outline-none group border-t border-slate-100 dark:border-slate-800 mt-1"
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <i className="bi bi-layers-fill" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Combo</span>
-                                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Kit de vários produtos</span>
-                                        </div>
-                                    </button>
-                                </div>
-                            </>
-                        )}
+                        {/* Menu de Tipos removido conforme solicitado (Foco apenas em Produto) */}
                     </div>
                 </div>
 

@@ -49,20 +49,20 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         Dashboard
                     </Link>
 
-                    {/* Produtos e Serviços */}
+                    {/* Catálogo do Site */}
                     <div className="flex flex-col">
                         <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-box-seam text-lg"></i>
-                                <span>Produtos e Serviços</span>
+                                <span>Catálogo do Site</span>
                                 <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'products' ? 'rotate-180' : ''}`}></i>
                         </button>
                         {activeMenu === 'products' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Lista de Produtos e Serviços</Link>
-                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Tipos de Móveis</Link>
+                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Todos os Produtos</Link>
+                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Categorias</Link>
                                 <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>Atributos e Valores</Link>
                             </div>
                         )}

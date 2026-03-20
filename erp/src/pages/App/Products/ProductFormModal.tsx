@@ -19,11 +19,9 @@ import CategorySearchModal from "./CategorySearchModal";
 
 // Modular Tab Components
 import ProductGeneralTab from "./components/tabs/ProductGeneralTab";
-import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
 import { generateProductCode } from '@/pages/utils/formatters';
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
-import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
 import ProductConversionModal from "./components/ProductConversionModal";
 import CartesianVariationModal from "./components/CartesianVariationModal";
 import ProductTypeManagementModal from "./components/ProductTypeManagementModal";
@@ -201,7 +199,7 @@ const INITIAL_FORM_DATA: Partial<Product> = {
 
 const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: ProductFormModalProps) => {
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'variacoes' | 'ecommerce'>('geral');
     const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>('vitrine');
     const [loading, setLoading] = useState(false);
     const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
@@ -234,9 +232,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const isService = formData.itemType === 'service';
 
-    // Reset tab when switching type to service (tabs estoque/variacoes/ecommerce are unavailable)
+    // Reset tab when switching type to service (tabs variacoes/ecommerce are unavailable)
     useEffect(() => {
-        if (isService && (activeTab === 'estoque' || activeTab === 'variacoes' || activeTab === 'ecommerce')) {
+        if (isService && (activeTab === 'variacoes' || activeTab === 'ecommerce')) {
             setActiveTab('geral');
         }
     }, [isService, activeTab]);
@@ -276,60 +274,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         return () => { isMounted = false; };
     }, [product, initialData, isOpen]);
 
-    // Handle automatic variation name updates when parent title changes
-    useEffect(() => {
-        if (!formData.description) return;
-        
-        setFormData(prev => {
-            if (!prev.variations?.length) return prev;
-            
-            const updatedVars = prev.variations.map(v => {
-                if (v.syncDescription !== false) { // Default to true or if explicitly true
-                    const attrParts = v.attributes?.map(a => {
-                        const val = a.value.toUpperCase();
-                        return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
-                    }).join(' ');
-                    
-                    // NEW: Prefix with parent description
-                    const newName = attrParts ? `${prev.description} ${attrParts}` : prev.description!;
-                    return { ...v, name: newName.toUpperCase() };
-                }
-                return v;
-            });
+    // Removido sync automático de descrições de variações baseado no pai (Título manual agora)
 
-            // Only update if something actually changed to avoid loops
-            if (JSON.stringify(updatedVars) === JSON.stringify(prev.variations)) return prev;
-            
-            return { ...prev, variations: updatedVars };
-        });
-    }, [formData.description]);
-
-    const generateAutoTitle = useCallback((currentData: Partial<Product>) => {
-        const order = currentData.titleOrder || ["type", "environment", "line", "brand", "complement"];
-        const parts: string[] = [];
-
-        order.forEach(key => {
-            if (key === "type" && currentData.includeType !== false && currentData.productTypeName) {
-                parts.push(currentData.productTypeName);
-            } else if (key === "environment" && currentData.includeEnvironment && currentData.environment) {
-                parts.push(currentData.environment);
-            } else if (key === "line" && currentData.includeLine && currentData.line) {
-                parts.push(currentData.line);
-            } else if (key === "brand" && currentData.includeBrand && currentData.brand) {
-                parts.push(currentData.brand);
-            } else if (key === "complement" && currentData.includeComplement && currentData.titleComplement) {
-                parts.push(currentData.titleComplement);
-            } else {
-                // Check dynamic extra fields
-                const extraField = currentData.extraFields?.find(f => f.id === key);
-                if (extraField && extraField.value) {
-                    parts.push(extraField.value);
-                }
-            }
-        });
-
-        return parts.join(' ').toUpperCase().trim();
-    }, []);
+    // Geração de título removida (agora é manual)
 
     // Fetch product types
     useEffect(() => {
@@ -943,8 +890,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
                     <div>
                         <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${formData.isCombo ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                                {formData.isCombo ? 'Ficha de Combo/Kit' : 'Ficha de Produto'}
+                            <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-600">
+                                Ficha de Produto
                             </span>
                             <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">v2.5 Refined</span>
                         </div>
@@ -997,16 +944,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         />
                     )}
 
-                    {activeTab === 'estoque' && (
-                        <ProductInventoryTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            suppliers={suppliers}
-                            handleSuggestPrices={handleSuggestPrices}
-                            isSuggestingPrices={isSuggestingPrices}
-                            suggestPricesResults={suggestPricesResults}
-                        />
-                    )}
+                    {/* Abas de estoque e fiscal removidas */}
 
                     {activeTab === 'variacoes' && (
                         <ProductVariationsTab
@@ -1017,7 +955,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             updateVariation={updateVariation}
                             removeVariation={removeVariation}
                             setFormData={setFormData}
-                            isCombo={formData.isCombo || false}
+                            isCombo={false}
                             onEditCombo={setEditingVariationComboId}
                             onEdit={setEditingVariationId}
                             regenerateAllSkus={regenerateAllVariationSkus}
@@ -1043,14 +981,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         />
                     )}
 
-                    {activeTab === 'fiscal' && (
-                        <ProductFiscalTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            handleGenerateNCM={handleGenerateNCM}
-                            isGeneratingNCM={isGeneratingNCM}
-                        />
-                    )}
+                    {/* Aba fiscal removida */}
                 </div>
 
                 {/* Footer Buttons */}
@@ -1063,7 +994,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     </div>
 
                     <div className="flex gap-3">
-                        {!formData.hasVariations && !formData.isCombo && formData.id && (
+                        {!formData.hasVariations && formData.id && (
                             <button
                                 type="button"
                                 onClick={() => setIsConversionModalOpen(true)}
@@ -1112,7 +1043,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         description: formData.description || '',
                         unitPrice: formData.unitPrice || 0,
                         costPrice: formData.costPrice || 0,
-                        isCombo: formData.isCombo || false,
+                        isCombo: false,
                         mainSupplierId: formData.mainSupplierId,
                         images: formData.images || []
                     }}

@@ -66,11 +66,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             {/* Sub-tabs Navigation */}
             <div className="flex gap-4 p-1 bg-slate-100 dark:bg-slate-950/50 rounded-2xl self-start">
                 {[
-                    { id: 'vitrine', label: 'Dashboard Vitrine', icon: 'bi-grid-1x2-fill' },
-                    { id: 'photos', label: 'Fotos', icon: 'bi-images' },
-                    { id: 'descriptions', label: 'Descrição / Canais', icon: 'bi-pencil-square' },
-                    { id: 'logistics', label: 'Logística / Frete', icon: 'bi-truck' },
-                    { id: 'seo', label: 'SEO e URL', icon: 'bi-search' },
+                    { id: 'vitrine', label: 'Resumo Catálogo', icon: 'bi-grid-1x2-fill' },
+                    { id: 'photos', label: 'Galeria de Fotos', icon: 'bi-images' },
+                    { id: 'descriptions', label: 'Descrição & WhatsApp', icon: 'bi-pencil-square' },
+                    { id: 'logistics', label: 'Envio / Cubagem', icon: 'bi-truck' },
+                    { id: 'seo', label: 'SEO (Google)', icon: 'bi-search' },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -96,9 +96,9 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 <i className={`bi ${formData.active ? 'bi-toggle-on' : 'bi-toggle-off'}`}></i>
                             </div>
                             <div>
-                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Status Global de Venda</h4>
+                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Status de Exibição no Site</h4>
                                 <p className={`text-[10px] font-black uppercase tracking-widest ${formData.active ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                    {formData.active ? 'Publicado nos Canais' : 'Pausado em todos Canais'}
+                                    {formData.active ? 'Visível no Catálogo Online' : 'Oculto no Catálogo Online'}
                                 </p>
                             </div>
                         </div>
@@ -120,14 +120,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         <i className="bi bi-globe"></i>
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Canais E-commerce (Site)</h4>
+                                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Presença no Site</h4>
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                            {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'Não Apto para Sincronizar' : 'Apto para Sincronizar'}
+                                            {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'Incompleto para o Site' : 'Apto para o Site'}
                                         </p>
                                     </div>
                                 </div>
                                 <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                    {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'Pendente' : 'Completo'}
+                                    {(!formData.ecommerceDescription || !formData.images?.length || !formData.unitPrice) ? 'Revisar' : 'Pronto'}
                                 </div>
                             </div>
 
@@ -158,9 +158,9 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         <i className="bi bi-whatsapp"></i>
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Catálogo WhatsApp Business</h4>
+                                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Catálogo WhatsApp (Botão Comprar)</h4>
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                            {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Faltam Dados' : 'Apto para Sincronizar'}
+                                            {(!formData.whatsappDescription || !formData.images?.length || !formData.unitPrice || (!formData.line && !formData.hasNoLine)) ? 'Informações Pendentes' : 'Sincronizado'}
                                         </p>
                                     </div>
                                 </div>

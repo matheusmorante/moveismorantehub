@@ -14,6 +14,7 @@ export type Variation = {
     name: string; // e.g., "Cor: Azul, Tamanho: P"
     stock: number;
     unitPrice: number;
+    promoPrice?: number; // Preço promocional
     costPrice?: number;
     active: boolean;
     condition?: 'novo' | 'usado' | 'salvado' | '';
@@ -92,6 +93,7 @@ export type Product = {
     categoryIds?: string[]; // IDs das categorias/subcategorias associadas
     condition?: 'novo' | 'usado' | 'salvado' | ''; // Condição do Móvel
     unitPrice: number;
+    promoPrice?: number; // Preço promocional
     costPrice?: number; // Preço de custo base
     freightType?: 'fixed' | 'percentage' | 'none';
     freightCost?: number; 
