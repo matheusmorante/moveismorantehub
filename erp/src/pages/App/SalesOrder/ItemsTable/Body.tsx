@@ -10,9 +10,10 @@ interface Props {
     deliveryMethod: 'delivery' | 'pickup';
     errors: ValidationErrors;
     isMobile?: boolean;
+    onSelectProduct: (idx: number, product: any, variation?: any) => void;
 }
 
-const Body = ({ items, setItems, deliveryMethod, errors, isMobile }: Props) => {
+const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProduct }: Props) => {
     const toggleDiscountType = (idx: number) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
@@ -61,6 +62,7 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile }: Props) => {
             deliveryMethod={deliveryMethod}
             errors={errors}
             isMobile={isMobile}
+            onSelectProduct={onSelectProduct}
         />
     ));
 

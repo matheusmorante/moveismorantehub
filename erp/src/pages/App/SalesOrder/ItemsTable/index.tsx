@@ -10,10 +10,11 @@ interface Props {
     setItems: React.Dispatch<React.SetStateAction<Item[]>>
     summary: ItemsSummary,
     deliveryMethod: 'delivery' | 'pickup',
-    errors: ValidationErrors
+    errors: ValidationErrors,
+    onSelectProduct: (idx: number, product: any, variation?: any) => void
 }
 
-const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors }: Props) => {
+const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct }: Props) => {
     const addItem = () => {
         setItems((prev: Item[]) => {
             return ([
@@ -48,7 +49,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors }: Props)
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 overflow-y-auto custom-scrollbar pr-1">
-                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} />
+                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} />
                 </div>
 
                 <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -80,7 +81,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors }: Props)
                     </th>
                 </tr>
             </thead>
-            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} />
+            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} />
             <Footer summary={summary} />
         </table>
     );

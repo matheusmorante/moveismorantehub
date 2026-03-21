@@ -10,24 +10,24 @@ type Props = {
 const PaymentsTable = ({ payments, summary }: Props) => {
 
     return (
-        <table className="break-words w-[70%] [&_td]:border-2 [&_th]:border-2
-            [&_th]:font-bold [&_th]:text-center dark:[&_td]:border-slate-800 dark:[&_th]:border-slate-800 transition-colors duration-300">
-            <colgroup>
-                <col className="w-[35%]" />
-                <col className="w-[25%]" />
-                <col className="w-[35%]" />
-            </colgroup>
-            <thead>
-
-                <tr className="">
-                    <th>Forma de Pagamento</th>
-                    <th>Valor</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <Body payments={payments} />
-            <Footer summary={summary} />
-        </table>
+        <div className="flex flex-col border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+            <table className="break-words w-full text-left border-collapse">
+                <colgroup>
+                    <col className="w-[45%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[35%]" />
+                </colgroup>
+                <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Forma de Pagamento</th>
+                        <th className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Valor</th>
+                        <th className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 text-center">Status</th>
+                    </tr>
+                </thead>
+                <Body payments={payments} />
+                <Footer summary={summary} />
+            </table>
+        </div>
     )
 }
 export default PaymentsTable;

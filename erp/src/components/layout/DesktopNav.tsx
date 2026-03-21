@@ -86,8 +86,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'salesOrder' && (
                     <div className={dropdownClass}>
                         <Link to="/sales-order" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Pedidos</Link>
-                        <Link to="/delivery-schedule" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cronograma Logístico</Link>
-                        <Link to="/delivery-schedule" state={{ view: 'map' }} onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Mapa de Entregas</Link>
                         <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                         <Link to="/attendance-dashboard" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>BI de Atendimento</Link>
                     </div>
@@ -97,6 +95,27 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
 
 
 
+
+
+            {/* Logística */}
+            <div
+                className="relative h-full flex items-center"
+                onMouseEnter={() => setActiveMenu('logistics')}
+                onMouseLeave={() => setActiveMenu(null)}
+            >
+                <button onClick={() => toggle('logistics')} className={menuBtnClass(activeMenu === 'logistics', false)}>
+                    <i className="bi bi-truck"></i>
+                    Logística
+                    <i className={chevronClass(activeMenu === 'logistics')}></i>
+                </button>
+                {activeMenu === 'logistics' && (
+                    <div className={dropdownClass}>
+                        <Link to="/delivery-schedule" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cronograma Logístico</Link>
+                        <Link to="/delivery-schedule" state={{ view: 'map' }} onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Mapa de Entregas</Link>
+                        <Link to="/logistics/assembly-list" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Montagem</Link>
+                    </div>
+                )}
+            </div>
 
             {/* Marketing */}
             <div

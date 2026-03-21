@@ -73,6 +73,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                         summary={state.itemsSummary}
                                         deliveryMethod={state.shipping.deliveryMethod}
                                         errors={state.errors}
+                                        onSelectProduct={actions.handleSelectProduct}
                                     />
                                 </div>
                             </SectionCard>

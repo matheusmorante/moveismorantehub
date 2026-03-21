@@ -50,6 +50,7 @@ export const getAddressByCep = async (cep: string): Promise<AddressViaCep> => {
 
 export interface RouteResult {
     distanceKm: number;
+    durationMinutes: number;
     destinationCoords: [number, number]; // [lng, lat] (MapLibre/GeoJSON format)
     routeGeoJSON: any; // GeoJSON geometry from ORS
 }
@@ -92,7 +93,7 @@ const calculateRouteViaORS = async (
     origin: [number, number],
     destination: [number, number],
     apiKey: string
-): Promise<{ distanceKm: number; geometry: any } | null> => {
+): Promise<{ distanceKm: number; durationMinutes: number; geometry: any } | null> => {
     try {
         const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
             method: 'POST',
@@ -110,9 +111,12 @@ const calculateRouteViaORS = async (
             if (data.features && data.features.length > 0) {
                 const route = data.features[0];
                 const distanceMeters = route.properties.summary.distance;
+                const durationSeconds = route.properties.summary.duration;
                 const distanceKm = Number((distanceMeters / 1000).toFixed(1));
+                const durationMinutes = Math.ceil(durationSeconds / 60);
                 return {
                     distanceKm,
+                    durationMinutes,
                     geometry: route.geometry
                 };
             }
@@ -132,7 +136,7 @@ const calculateRouteViaORS = async (
 const calculateRouteViaOSRM = async (
     origin: [number, number],
     destination: [number, number]
-): Promise<{ distanceKm: number; geometry: any } | null> => {
+): Promise<{ distanceKm: number; durationMinutes: number; geometry: any } | null> => {
     try {
         const res = await fetch(
             `https://router.project-osrm.org/route/v1/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?overview=full&geometries=geojson`
@@ -142,9 +146,12 @@ const calculateRouteViaOSRM = async (
             const data = await res.json();
             if (data.routes && data.routes.length > 0) {
                 const distanceMeters = data.routes[0].distance;
+                const durationSeconds = data.routes[0].duration;
                 const distanceKm = Number((distanceMeters / 1000).toFixed(1));
+                const durationMinutes = Math.ceil(durationSeconds / 60);
                 return {
                     distanceKm,
+                    durationMinutes,
                     geometry: data.routes[0].geometry
                 };
             }
@@ -183,6 +190,7 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
 
         return {
             distanceKm: routeData.distanceKm,
+            durationMinutes: routeData.durationMinutes,
             destinationCoords: destCoords, // [lng, lat]
             routeGeoJSON: routeData.geometry
         };

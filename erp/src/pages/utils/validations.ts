@@ -144,13 +144,13 @@ export const validateOrder = (order: Order): ValidationErrors => {
 
     const errors: ValidationErrors = {
         ...validateItems(items),
-        ...validateCustomerData(order.customerData, isPickup)
+        ...validateCustomerData(order.customerData, isPickup),
+        ...validateSeller(order.seller)
     };
 
     // If it's not a draft, we require full validation
     if (!isDraft) {
         Object.assign(errors, {
-            ...validateSeller(order.seller),
             ...validateShipping(order.shipping, order.customerData),
             ...validatePayments(payments, amountRemaining)
         });

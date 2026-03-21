@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product, { Variation } from '../pages/types/product.type';
 import { supabase } from '../pages/utils/supabaseConfig';
-import { toast } from 'react-toastify';
+import { searchHistoricalItems } from '../pages/utils/productService';
 import DropdownPortal from './shared/DropdownPortal';
 
 interface ProductAutocompleteProps {
     onSelect: (product: Product, variation?: Variation) => void;
+    onSelectDescription?: (description: string) => void;
     onChange?: (value: string) => void;
     onSearch?: () => void;
     onCreateNew?: () => void;
@@ -16,12 +17,15 @@ interface ProductAutocompleteProps {
 }
 
 type SuggestionItem = {
-    product: Product;
+    type: 'product' | 'historical';
+    product?: Product;
     variation?: Variation;
+    description?: string;
 };
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onSelect,
+    onSelectDescription,
     onChange,
     onSearch,
     onCreateNew,
@@ -59,18 +63,18 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
             setIsLoading(true);
             try {
-                const { data, error } = await supabase
+                // 1. Buscar no Catálogo de Produtos
+                const { data: productsData, error: productsError } = await supabase
                     .from('products')
                     .select('*')
                     .or(`description.ilike.%${query}%,code.ilike.%${query}%`)
                     .eq('deleted', false)
                     .limit(10);
 
-                if (error) throw error;
+                if (productsError) throw productsError;
                 
                 const items: SuggestionItem[] = [];
-                (data || []).forEach((raw: any) => {
-                    // Map to product type to ensure correct property names
+                (productsData || []).forEach((raw: any) => {
                     const p: Product = {
                         id: String(raw.id),
                         code: raw.code,
@@ -89,18 +93,32 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     if (p.hasVariations && p.variations && p.variations.length > 0) {
                         p.variations.forEach(v => {
                             if (v.active !== false) {
-                                items.push({ product: p, variation: v });
+                                items.push({ type: 'product', product: p, variation: v });
                             }
                         });
                     } else {
-                        items.push({ product: p });
+                        items.push({ type: 'product', product: p });
                     }
                 });
+
+                // 2. Buscar no Histórico (Pedidos/Compras)
+                if (items.length < 10) {
+                    const historicalDescriptions = await searchHistoricalItems(query);
+                    historicalDescriptions.forEach(desc => {
+                        // Evitar duplicados se já existir no catálogo com o mesmo nome
+                        const alreadyExists = items.some(it => 
+                            it.product?.description.toLowerCase() === desc.toLowerCase() ||
+                            (it.variation && `${it.product?.description} (${it.variation.name})`.toLowerCase() === desc.toLowerCase())
+                        );
+                        if (!alreadyExists) {
+                            items.push({ type: 'historical', description: desc });
+                        }
+                    });
+                }
 
                 setSuggestions(items);
             } catch (error) {
                 console.error('Erro ao buscar sugestões:', error);
-                // No toast here to avoid spamming while typing
             } finally {
                 setIsLoading(false);
             }
@@ -160,18 +178,42 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && suggestions.length > 0}>
                 <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                     {suggestions.map((item, index) => {
-                        const { product: p, variation: v } = item;
-                        const displayName = v ? `${p.description} (${v.name})` : p.description;
-                        const displayCode = v?.sku || p.code || 'S/REF';
-                        const displayPrice = v ? v.unitPrice : p.unitPrice;
-                        const displayStock = v ? v.stock : p.stock;
+                        const { type, product: p, variation: v, description: histDesc } = item;
+                        
+                        if (type === 'historical') {
+                            return (
+                                <button
+                                    key={`hist-${index}`}
+                                    type="button"
+                                    onClick={() => {
+                                        if (onSelectDescription) onSelectDescription(histDesc!);
+                                        else onChange?.(histDesc!);
+                                        setQuery(histDesc!);
+                                        setShowSuggestions(false);
+                                    }}
+                                    className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex flex-col gap-0.5"
+                                >
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{histDesc}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 rounded">HISTÓRICO</span>
+                                        <span className="text-[10px] text-slate-400">Item de pedido anterior</span>
+                                    </div>
+                                </button>
+                            );
+                        }
+
+                        // Catalogo Item
+                        const displayName = v ? `${p!.description} (${v.name})` : p!.description;
+                        const displayCode = v?.sku || p!.code || 'S/REF';
+                        const displayPrice = v ? v.unitPrice : p!.unitPrice;
+                        const displayStock = v ? v.stock : p!.stock;
 
                         return (
                             <button
-                                key={`${p.id}-${v?.id || 'base'}-${index}`}
+                                key={`${p!.id}-${v?.id || 'base'}-${index}`}
                                 type="button"
                                 onClick={() => {
-                                    onSelect(p, v);
+                                    onSelect(p!, v);
                                     setQuery(displayName);
                                     setShowSuggestions(false);
                                 }}

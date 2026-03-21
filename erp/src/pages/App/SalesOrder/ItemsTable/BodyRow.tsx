@@ -1,4 +1,6 @@
 import React from 'react';
+import Product, { Variation } from '../../../types/product.type';
+import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import Item from '../../../types/items.type';
 import { calcItemTotalValue } from '../../../utils/calculations';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
@@ -18,9 +20,10 @@ interface Props {
     deliveryMethod: 'delivery' | 'pickup';
     errors: ValidationErrors;
     isMobile?: boolean;
+    onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
 }
 
-const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile }: Props) => {
+const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct }: Props) => {
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
     const settings = getSettings();
@@ -34,12 +37,13 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                         <div className="flex-[3] min-w-0">
                             <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Descrição do Item</label>
                             {!item.isComboItem ? (
-                                <input
-                                    type="text"
-                                    className={`w-full bg-slate-50 dark:bg-slate-800 border px-3 py-2 rounded-xl text-sm font-bold outline-none placeholder:text-slate-300 dark:text-slate-200 transition-all ${error ? 'border-red-500 focus:ring-4 focus:ring-red-500/10' : 'border-slate-100 dark:border-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'}`}
+                                <ProductAutocomplete
                                     value={item.description}
-                                    onChange={(e) => onChange(idx, 'description', e.target.value)}
+                                    onChange={(val) => onChange(idx, 'description', val)}
+                                    onSelect={(p, v) => onSelectProduct(idx, p, v)}
+                                    onSelectDescription={(desc) => onChange(idx, 'description', desc)}
                                     placeholder="Produto..."
+                                    className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500/10' : ''}
                                 />
                             ) : (
                                 <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800 p-2 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
@@ -138,12 +142,13 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
         <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans">
             <td className="px-4 py-2 relative group/desc">
                 {!item.isComboItem ? (
-                    <input
-                        type="text"
-                        className={`w-full bg-transparent border px-3 py-1.5 rounded-xl outline-none transition-all text-sm placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-200 ${error ? 'border-red-500 ring-2 ring-red-500 rounded-xl' : 'border-slate-100 dark:border-slate-800 focus:border-blue-500'}`}
+                    <ProductAutocomplete
                         value={item.description}
-                        onChange={(e) => onChange(idx, 'description', e.target.value)}
+                        onChange={(val) => onChange(idx, 'description', val)}
+                        onSelect={(p, v) => onSelectProduct(idx, p, v)}
+                        onSelectDescription={(desc) => onChange(idx, 'description', desc)}
                         placeholder="Descrição do item..."
+                        className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
                     />
                 ) : (
                     <div className="flex items-center gap-2 pl-3">

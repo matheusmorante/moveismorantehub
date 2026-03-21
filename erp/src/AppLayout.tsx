@@ -16,7 +16,7 @@ import { useEffect } from "react";
 import { redeConciliationService } from '@/pages/services/redeConciliationService';
 import logoMorante from "./assets/logo.jpeg";
 
-export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'registrations' | 'finance' | 'marketing' | null;
+export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
 
 export default function AppLayout() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);

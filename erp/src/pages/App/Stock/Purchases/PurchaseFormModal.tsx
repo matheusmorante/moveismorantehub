@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Purchase, { PurchaseItem } from "../../../types/purchase.type";
-import Product from "../../../types/product.type";
+import Product, { Variation } from "../../../types/product.type";
 import Person from "../../../types/person.type";
 import { subscribeToProducts } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { savePurchase } from "../../../utils/purchaseService";
+import ProductAutocomplete from '@/components/ProductAutocomplete';
 import { toast } from "react-toastify";
 import { formatCurrency } from "../../../utils/formatters";
 import ProductSearchModal from "../../SalesOrder/ProductSearchModal";
@@ -31,6 +32,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
     const [isSupplierSearchOpen, setIsSupplierSearchOpen] = useState(false);
     const [currentProductId, setCurrentProductId] = useState("");
     const [currentVariationId, setCurrentVariationId] = useState<string | undefined>(undefined);
+    const [currentDescription, setCurrentDescription] = useState("");
     const [currentQty, setCurrentQty] = useState(1);
     const [currentCost, setCurrentCost] = useState(0);
 
@@ -47,17 +49,24 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
     }, [isOpen]);
 
     const handleAddItem = () => {
-        const product = products.find(p => p.id === currentProductId);
-        if (!product || currentQty <= 0) return;
+        if ((!currentProductId && !currentDescription) || currentQty <= 0) return;
 
-        let finalDescription = product.description;
-        if (currentVariationId) {
-            const v = product.variations?.find(varItem => varItem.id === currentVariationId);
-            if (v) finalDescription += ` - ${v.name}`;
+        let finalDescription = currentDescription;
+        let productId = currentProductId;
+
+        if (currentProductId) {
+            const product = products.find(p => p.id === currentProductId);
+            if (product) {
+                if (!finalDescription) finalDescription = product.description;
+                if (currentVariationId) {
+                    const v = product.variations?.find(varItem => varItem.id === currentVariationId);
+                    if (v && !finalDescription.includes(v.name)) finalDescription += ` - ${v.name}`;
+                }
+            }
         }
 
         const newItem: PurchaseItem = {
-            productId: product.id!,
+            productId: productId || "",
             variationId: currentVariationId,
             description: finalDescription,
             quantity: currentQty,
@@ -68,6 +77,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
         setItems([...items, newItem]);
         setCurrentProductId("");
         setCurrentVariationId(undefined);
+        setCurrentDescription("");
         setCurrentQty(1);
         setCurrentCost(0);
     };
@@ -202,28 +212,20 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-4">Adicionar Item</h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="md:col-span-2">
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsProductSearchOpen(true)}
-                                        className="w-full bg-white dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm text-left flex items-center justify-between"
-                                    >
-                                        <span className={currentProductId ? "text-slate-800 dark:text-slate-100" : "text-slate-400"}>
-                                            {currentProductId 
-                                                ? (() => {
-                                                    const p = products.find(prod => prod.id === currentProductId);
-                                                    if (!p) return "Produto selecionado";
-                                                    if (currentVariationId) {
-                                                        const v = p.variations?.find(vi => vi.id === currentVariationId);
-                                                        return v ? `${p.description} (${v.name})` : p.description;
-                                                    }
-                                                    return p.description;
-                                                })()
-                                                : "Buscar produto..."}
-                                        </span>
-                                        <i className="bi bi-search text-slate-400"></i>
-                                    </button>
-                                </div>
+                                <ProductAutocomplete
+                                    value={currentDescription}
+                                    onChange={setCurrentDescription}
+                                    onSelect={(p, v) => {
+                                        setCurrentProductId(p.id!);
+                                        setCurrentVariationId(v?.id);
+                                        setCurrentDescription(v ? `${p.description} (${v.name})` : p.description);
+                                        if (v?.costPrice) setCurrentCost(v.costPrice);
+                                        else if (p.costPrice) setCurrentCost(p.costPrice);
+                                    }}
+                                    onSelectDescription={setCurrentDescription}
+                                    onSearch={() => setIsProductSearchOpen(true)}
+                                    placeholder="Buscar ou digitar produto..."
+                                />
                             </div>
                             <div>
                                 <input 

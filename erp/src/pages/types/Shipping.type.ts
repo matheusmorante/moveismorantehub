@@ -1,6 +1,7 @@
 type Shipping = {
     value: number,
     distance?: number,
+    durationMinutes?: number,
     deliveryMethod: 'delivery' | 'pickup',
     orderType: string,
     scheduling: {

@@ -1,4 +1,5 @@
 import Order, { OrderAction, IsButtonsClicked } from "../../../types/order.type";
+import { toast } from "react-toastify";
 
 import { 
     shippingOrderWhatsappUrl, 
@@ -12,10 +13,18 @@ import {
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_RECEIPT': (order) => {
+        if (!order.seller) {
+            toast.error("Vendedor obrigatório para imprimir recibo.");
+            return;
+        }
         sessionStorage.setItem('order', JSON.stringify(order));
         window.open('/receipt', '_blank');
     },
     'PRINT_SHIPPING_ORDER': (order) => {
+        if (!order.seller) {
+            toast.error("Vendedor obrigatório para imprimir o pedido.");
+            return;
+        }
         sessionStorage.setItem("order", JSON.stringify(order));
         window.open("/order", "_blank");
     },

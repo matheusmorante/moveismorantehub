@@ -5,14 +5,18 @@ import { toast } from "react-toastify";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_RECEIPT': (order) => {
-        console.log("Gerando Recibo para o pedido:", order.id);
+        if (!order.seller) {
+            toast.error("Vendedor obrigatório para imprimir recibo.");
+            return;
+        }
+        sessionStorage.setItem('order', JSON.stringify(order));
+        window.open('/receipt', '_blank');
     },
     'PRINT_SHIPPING_ORDER': (order) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        const itemsHtml = order.items.map(item => {
-            const unitPrice = item.unitPrice || 0;
+        if (!order.seller) {
+            toast.error("Vendedor obrigatório para imprimir o pedido.");
+            return;
+        }
             const quantity = item.quantity || 0;
             const discount = item.unitDiscount || 0;
             const total = (unitPrice - discount) * quantity;

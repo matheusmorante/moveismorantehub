@@ -1,39 +1,37 @@
 import Item from "../../types/items.type";
 import CurrencyDisplay from "../../../components/CurrencyDisplay";
-import { getFixedDiscount } from "../../utils/calculations";
-import { calcItemTotalValue } from "../../utils/calculations";
 import UnitDisplay from "../../../components/UnitDisplay";
 
 interface Props {
-    items: Item[];
+    items: Item[],
 }
 
 const Body = ({ items }: Props) => {
     return (
-        <tbody>
-            {
-                items.map((item, idx) => (
-                    <tr key={idx}>
-                        <td className="pl-2">
+        <tbody className="divide-y divide-slate-100 italic">
+            {items.map((item, index) => {
+                const total = (item.unitPrice - (item.unitDiscount || 0)) * item.quantity;
+                return (
+                    <tr key={index} className="text-[12px]">
+                        <td className="px-4 py-3 font-semibold text-slate-800 uppercase leading-snug">
                             {item.description}
                         </td>
-                        <td>
+                        <td className="px-4 py-3 text-center font-bold text-slate-600">
                             <UnitDisplay value={item.quantity} />
                         </td>
-                        <td>
-                            <CurrencyDisplay value={item.unitPrice}/>
+                        <td className="px-4 py-3 text-right text-slate-500 font-medium">
+                            <CurrencyDisplay value={item.unitPrice} />
                         </td>
-                        <td>
-                            <CurrencyDisplay value={getFixedDiscount(item)}/>
+                        <td className="px-4 py-3 text-right text-slate-500 font-medium">
+                            <CurrencyDisplay value={item.unitDiscount || 0} />
                         </td>
-                        <td>
-                            <CurrencyDisplay value={calcItemTotalValue(item)}/>
+                        <td className="px-4 py-3 text-right font-black text-slate-900 bg-slate-50/30">
+                            <CurrencyDisplay value={total} />
                         </td>
                     </tr>
-                ))
-            }
-        </ tbody>
+                );
+            })}
+        </tbody>
     )
-};
-
+}
 export default Body;

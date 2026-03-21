@@ -1,30 +1,29 @@
 import { Payment } from "../../types/payments.type";
 import CurrencyDisplay from '../../../components/CurrencyDisplay';
-import { calcPaymentTotalValue } from '../../utils/calculations';
 
 interface Props {
-    payments: Payment[];
+    payments: Payment[],
 }
 
 const Body = ({ payments }: Props) => {
     return (
-        <tbody>
-            {payments.map((payment) => (
-                <tr>
-                    <td className='pl-2'>
-                        {payment.method}
+        <tbody className="divide-y divide-slate-100 italic">
+            {payments.map((payment, index) => (
+                <tr key={index} className="text-sm">
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                        {payment.method.toUpperCase()}
                     </td>
-                    <td>
-                        <CurrencyDisplay value={calcPaymentTotalValue(payment)} />
+                    <td className="px-4 py-3 text-right font-black text-slate-900">
+                        <CurrencyDisplay value={payment.amount} />
                     </td>
-                    <td className='pl-2'>
-                        {payment.status}
+                    <td className="px-4 py-3 text-center">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200">
+                            {payment.status}
+                        </span>
                     </td>
                 </tr>
             ))}
         </tbody>
     )
 }
-
-
 export default Body;

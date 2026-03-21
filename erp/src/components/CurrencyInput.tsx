@@ -4,12 +4,13 @@ const NumericFormat = NumericFormatBase as any;
 interface Props {
     value: number
     onChange: (val: number) => void
+    className?: string
 }
 
-const CurrencyInput = ({ value, onChange }: Props) => {
+const CurrencyInput = ({ value, onChange, className }: Props) => {
     return (
         <NumericFormat
-            className="w-full min-w-[110px] text-right bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm"
+            className={className || "w-full min-w-[110px] text-right bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm"}
             value={value}
             disabled={false}
             allowNegative={false}

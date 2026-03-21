@@ -13,48 +13,52 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
     const showAddress = !isPickup && hasAnyAddress;
 
     return (
-        <div className="flex flex-wrap my-4 gap-x-10 gap-y-4 font-sans bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
-            <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Cliente</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{customerData.fullName}</span>
+        <div className="flex flex-col my-2 gap-4 font-sans border border-slate-200 rounded-3xl overflow-hidden shadow-sm bg-white">
+            <div className="bg-slate-900 px-6 py-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/70">Dados do Destinatário</span>
             </div>
             
-            {customerData.phone && (
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">WhatsApp</span>
-                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{customerData.phone}</span>
-                </div>
-            )}
-
-            {showAddress && (
-                <div className="flex flex-wrap gap-x-10 gap-y-4 w-full pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+            <div className="px-6 pb-6 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Logradouro</span>
-                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{addr.street}{addr.number ? `, ${addr.number}` : ''}</span>
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Nome Completo</span>
+                        <span className="text-sm font-bold text-slate-900 leading-tight uppercase">{customerData.fullName}</span>
                     </div>
                     
-                    {addr.neighborhood && (
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Bairro</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{addr.neighborhood}</span>
-                        </div>
-                    )}
-
-                    {addr.city && (
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Cidade</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{addr.city}</span>
-                        </div>
-                    )}
-
-                    {addr.complement && (
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Compl.</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{addr.complement}</span>
+                    {customerData.phone && (
+                        <div className="flex flex-col border-l border-slate-100 pl-6">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">WhatsApp / Telefone</span>
+                            <span className="text-sm font-bold text-slate-900">{customerData.phone}</span>
                         </div>
                     )}
                 </div>
-            )}
+
+                {showAddress && (
+                    <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="flex flex-col lg:col-span-2">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Logradouro</span>
+                            <span className="text-sm font-bold text-slate-900 uppercase">
+                                {addr.street}{addr.number ? `, ${addr.number}` : ''}
+                                {addr.complement && <span className="text-slate-400 ml-2 font-medium">({addr.complement})</span>}
+                            </span>
+                        </div>
+                        
+                        {addr.neighborhood && (
+                            <div className="flex flex-col border-l border-slate-100 pl-6">
+                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Bairro</span>
+                                <span className="text-sm font-bold text-slate-900 uppercase">{addr.neighborhood}</span>
+                            </div>
+                        )}
+
+                        {addr.city && (
+                            <div className="flex flex-col border-l border-slate-100 pl-6">
+                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Cidade / UF</span>
+                                <span className="text-sm font-bold text-slate-900 uppercase">{addr.city}{addr.state ? ` - ${addr.state}` : ''}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

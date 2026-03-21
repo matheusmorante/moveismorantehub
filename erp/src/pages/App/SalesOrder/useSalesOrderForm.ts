@@ -276,7 +276,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
             const settings = getSettings();
             const routeResult = await autoCalculateRouteDistance(address);
             if (routeResult !== null) {
-                const { distanceKm, destinationCoords, routeGeoJSON } = routeResult;
+                const { distanceKm, durationMinutes, destinationCoords, routeGeoJSON } = routeResult;
 
                 setShipping(prev => {
                     let value = prev.value;
@@ -287,6 +287,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
                     return {
                         ...prev,
                         distance: distanceKm,
+                        durationMinutes,
                         value,
                         destinationCoords,
                         routeGeoJSON

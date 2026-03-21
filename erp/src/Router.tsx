@@ -37,6 +37,7 @@ import FinanceSettings from './pages/App/Finance/Settings';
 import LabelPrinting from './pages/App/Stock/LabelPrinting/Index';
 import SystemDocs from './pages/App/SystemDocs/Index';
 import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
+import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
@@ -127,6 +128,8 @@ function Router() {
             <Route path='/finance/receivables' element={<AdminRoute><Receivables /></AdminRoute>} />
             <Route path='/finance/transactions' element={<AdminRoute><Transactions /></AdminRoute>} />
             <Route path='/finance/settings' element={<AdminRoute><FinanceSettings /></AdminRoute>} />
+            <Route path='/logistics/assembly-list' element={<AssemblyListPage />} />
+            <Route path='/system-docs' element={<AdminRoute><SystemDocs /></AdminRoute>} />
             <Route path='/system-docs' element={<AdminRoute><SystemDocs /></AdminRoute>} />
           </Route>
         </Routes>

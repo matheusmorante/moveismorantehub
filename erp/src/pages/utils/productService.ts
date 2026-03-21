@@ -1150,3 +1150,60 @@ export const migrateProductReferences = async (oldId: string, newId: string): Pr
         throw error;
     }
 };
+
+/**
+ * Busca descrições de produtos baseadas em pedidos e compras passadas.
+ * Útil para itens que não estão cadastrados formalmente (serviços ad-hoc, fretes, etc).
+ */
+export const searchHistoricalItems = async (query: string): Promise<string[]> => {
+    if (!query || query.length < 2) return [];
+
+    try {
+        const queryLower = query.toLowerCase();
+
+        // 1. Buscar em Pedidos de Venda
+        const { data: salesData } = await supabase
+            .from('orders')
+            .select('order_data')
+            .eq('deleted', false)
+            .order('id', { ascending: false })
+            .limit(100);
+
+        // 2. Buscar em Pedidos de Compra
+        const { data: purchaseData } = await supabase
+            .from('purchases')
+            .select('items')
+            .order('id', { ascending: false })
+            .limit(100);
+
+        const descriptions = new Set<string>();
+
+        // Processar Vendas
+        salesData?.forEach((row: any) => {
+            const items = row.order_data?.items || [];
+            items.forEach((item: any) => {
+                const desc = item.description || "";
+                if (desc.toLowerCase().includes(queryLower)) {
+                    descriptions.add(desc);
+                }
+            });
+        });
+
+        // Processar Compras
+        purchaseData?.forEach((row: any) => {
+            const items = row.items || [];
+            items.forEach((item: any) => {
+                const desc = item.description || "";
+                if (desc.toLowerCase().includes(queryLower)) {
+                    descriptions.add(desc);
+                }
+            });
+        });
+
+        return Array.from(descriptions).slice(0, 10);
+    } catch (error) {
+        console.error("Erro ao buscar histórico de itens:", error);
+        return [];
+    }
+};
+
