@@ -89,11 +89,12 @@ const processOrders = (
             const checkItems = (itemsList: any[]) => itemsList?.some(item => {
                 const hLabel = (item.handlingType || "").trim().toLowerCase();
                 if (!hLabel) return false;
-                const opt = allHandlingOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
-                return opt?.includeInAssemblySchedule === true;
+                // Use a different name for the option to avoid shadowing the order 'o'
+                const foundOpt = allHandlingOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+                return foundOpt?.includeInAssemblySchedule === true;
             });
 
-            const hasAssembly = checkItems(o.items) || checkItems((o as any).assistanceItems || []);
+            const hasAssembly = o.orderType === 'showroom' || checkItems(o.items) || checkItems((o as any).assistanceItems || []);
             if (!hasAssembly) return false;
         }
 

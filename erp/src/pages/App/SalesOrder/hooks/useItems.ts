@@ -9,7 +9,7 @@ const useItems = () => {
             unitPrice: 0,
             unitDiscount: 0,
             discountType: 'fixed',
-            handlingType: 'Entrega com montagem no local'
+            handlingType: ''
         }
     ])
 

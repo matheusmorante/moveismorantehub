@@ -64,8 +64,8 @@ const OrderHistoryCard = ({
     const checkItems = (itemsList: any[]) => itemsList?.some(item => {
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
-        const opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
-        return opt?.includeInAssemblySchedule === true;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.includeInAssemblySchedule === true;
     });
 
     const hasAssembly = checkItems(order.items) || checkItems(order.assistanceItems as any);

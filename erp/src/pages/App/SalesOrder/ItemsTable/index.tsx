@@ -4,6 +4,7 @@ import Body from "./Body";
 import { Item, ItemsSummary } from "../../../types/items.type";
 import { ValidationErrors } from "../../../utils/validations";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
+import { getSettings } from "@/pages/utils/settingsService";
 
 interface Props {
     items: Item[],
@@ -25,7 +26,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                     unitPrice: 0,
                     unitDiscount: 0,
                     discountType: 'fixed',
-                    handlingType: deliveryMethod === 'delivery' ? 'Montagem no Local' : 'Para Montar (Desmontado)'
+                    handlingType: deliveryMethod === 'delivery' ? getSettings().defaultDeliveryHandling : getSettings().defaultPickupHandling
                 }
             ])
         })

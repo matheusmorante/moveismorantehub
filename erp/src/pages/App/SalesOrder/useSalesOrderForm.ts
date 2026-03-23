@@ -86,6 +86,9 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
     const [linkedOrderId, setLinkedOrderId] = useState("");
     const [currentStep, setCurrentStep] = useState(1);
     const lastCalculatedAddressRef = useRef<string>("");
+    const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
+    const prevGlobalOrderTypeRef = useRef(shipping.orderType);
+    const prevFirstItemHandlingRef = useRef(items[0]?.handlingType);
 
     // Auto-save control
     const autoSaveTimerRef = useRef<any>(null);
@@ -262,10 +265,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
         setLinkedOrderId(order.linkedOrderId || "");
         setStatus(order.status || 'draft');
         setErrors({});
-        // Initialize calculation ref to prevent instant recalculation if address exists
-        if (order.customerData?.fullAddress) {
-            lastCalculatedAddressRef.current = JSON.stringify(order.customerData.fullAddress);
-        }
+        // Update refs to reflect loaded data and prevent immediate sync triggers/resets
+        prevDeliveryMethodRef.current = order.shipping?.deliveryMethod || 'delivery';
+        prevGlobalOrderTypeRef.current = order.shipping?.orderType || '';
+        prevFirstItemHandlingRef.current = order.items?.[0]?.handlingType || '';
     }, [setItems, setShipping, setPayments, setCustomerData, setObservation, setSeller, setMarketingOrigin]);
 
     const handleAutoCalculateDistance = useCallback(async (address: CustomerData['fullAddress']) => {
@@ -349,9 +352,14 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
         }
     }, [customerData.fullAddress, shipping.deliveryAddress, shipping.useCustomerAddress, handleAutoCalculateDistance]);
 
-    // Sync item handling type when delivery method changes
+    // Sync item handling type when delivery method changes manually
     useEffect(() => {
+        // Only run if delivery method actually changed (manual toggle in UI)
+        if (prevDeliveryMethodRef.current === shipping.deliveryMethod) return;
+        
+        prevDeliveryMethodRef.current = shipping.deliveryMethod;
         const settings = getSettings();
+        
         setItems(prev => prev.map(item => {
             // Don't change handling for services
             if (item.handlingType === 'Execução no local') return item;
@@ -360,31 +368,42 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
                 ? settings.defaultPickupHandling 
                 : settings.defaultDeliveryHandling;
                 
+            // Avoid redundant update if already matches
+            if (item.handlingType === newDefault) return item;
+
             return { ...item, handlingType: newDefault };
         }));
     }, [shipping.deliveryMethod, setItems]);
 
-    // Synchronize handling modalities between global shipping and items
-    // Priority: If the global orderType is changed manually, propagate to the first item.
+    // Synchronize handling modality between Global (Label) and Item 1
+    // This allows the top icon to match the first item and vice versa.
     useEffect(() => {
-        if (items.length > 0) {
-            const firstItem = items[0];
-            const globalType = shipping.orderType;
-            if (firstItem.handlingType !== globalType) {
-                setItems(prev => prev.map((it, idx) => idx === 0 ? { ...it, handlingType: globalType } : it));
-            }
-        }
-    }, [shipping.orderType, setItems]);
+        const globalType = (shipping.orderType || "").trim();
+        const firstItemHandling = (items[0]?.handlingType || "").trim();
 
-    // Reverse sync: if items change (e.g. in items table), update the global type.
-    useEffect(() => {
-        if (items.length > 0) {
-            const h = items[0].handlingType;
-            if (h && h !== shipping.orderType) {
-                setShipping(prev => ({ ...prev, orderType: h }));
+        // Check if Global was changed manually (or via another sync)
+        if (globalType !== prevGlobalOrderTypeRef.current) {
+            prevGlobalOrderTypeRef.current = globalType;
+            // Only update item if it actually differs
+            if (firstItemHandling !== globalType && items.length > 0) {
+                setItems(prev => prev.map((it, idx) => 
+                    idx === 0 && (it.handlingType || "").trim() !== globalType ? { ...it, handlingType: globalType } : it
+                ));
+                prevFirstItemHandlingRef.current = globalType;
+            }
+            return;
+        }
+
+        // Check if Item 1 was changed manually (in the items table)
+        if (firstItemHandling !== prevFirstItemHandlingRef.current) {
+            prevFirstItemHandlingRef.current = firstItemHandling;
+            // Only update global if it actually differs
+            if (globalType !== firstItemHandling) {
+                setShipping(prev => prev.orderType === firstItemHandling ? prev : ({ ...prev, orderType: firstItemHandling }));
+                prevGlobalOrderTypeRef.current = firstItemHandling;
             }
         }
-    }, [items, setShipping]);
+    }, [items, shipping.orderType, setItems, setShipping]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();

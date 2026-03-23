@@ -58,7 +58,25 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                                         className="flex-1 bg-transparent border-none text-sm font-bold text-slate-700 dark:text-slate-300 focus:ring-0 outline-none transition-all placeholder:text-slate-300"
                                                         placeholder="Nome da opção"
                                                     />
-                                                    <div className="flex items-center gap-2 ml-2">
+                                                     <div className="flex items-center gap-2 ml-2">
+                                                        <div className="flex flex-col items-center gap-1 mr-2 group/toggle">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const next = [...options];
+                                                                    next[idx] = { ...next[idx], includeInAssemblySchedule: !opt.includeInAssemblySchedule };
+                                                                    onChange(path, next);
+                                                                }}
+                                                                className={`w-10 h-5 rounded-full transition-all relative border-2 ${opt.includeInAssemblySchedule ? 'bg-indigo-600 border-indigo-600' : 'bg-slate-200 border-slate-200 dark:bg-slate-800 dark:border-slate-800'}`}
+                                                                title={opt.includeInAssemblySchedule ? "Enviar p/ Lista de Montagem (ON)" : "Enviar p/ Lista de Montagem (OFF)"}
+                                                            >
+                                                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm ${opt.includeInAssemblySchedule ? 'left-6' : 'left-0.5'}`} />
+                                                            </button>
+                                                            <span className={`text-[8px] font-black uppercase tracking-widest ${opt.includeInAssemblySchedule ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                                                {opt.includeInAssemblySchedule ? 'Montar' : 'S/ Mont.'}
+                                                            </span>
+                                                        </div>
+
                                                         <button 
                                                             onClick={() => {
                                                                 const next = [...options];
@@ -88,7 +106,7 @@ export default function HandlingSection({ settings, onChange }: Props): any {
 
             <button 
                 onClick={() => {
-                    onChange(path, [...(options || []), { label: "Nova Opção" }]);
+                    onChange(path, [...(options || []), { label: "Nova Opção", includeInAssemblySchedule: false }]);
                 }}
                 className="w-full mt-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all flex items-center justify-center gap-2"
             >

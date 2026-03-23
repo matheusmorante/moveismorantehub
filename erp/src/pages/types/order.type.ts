@@ -3,7 +3,7 @@ import CustomerData from "./customerData.type";
 import { Payment, PaymentsSummary } from "./payments.type";
 import Shipping from "./Shipping.type";
 
-export type OrderType = 'sale' | 'assistance';
+export type OrderType = 'sale' | 'assistance' | 'showroom';
 
 export type AssistanceItem = {
     id: string; // ID for internal keying
