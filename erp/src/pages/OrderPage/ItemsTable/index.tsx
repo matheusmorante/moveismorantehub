@@ -12,21 +12,23 @@ const ItemsTable = ({ items, summary }: Props) => {
 
 
     return (
-        <table className="break-words w-full [&_td]:border-2 [&_th]:border-2 dark:[&_td]:border-slate-800 dark:[&_th]:border-slate-800 transition-colors duration-300">
+        <table className="break-words w-full border-collapse [&_td]:border-2 [&_th]:border-2 [&_td]:border-slate-300 [&_th]:border-slate-300 dark:[&_td]:border-slate-800 dark:[&_th]:border-slate-800 transition-colors duration-300">
             <colgroup>
-                <col className="w-[40%]" />
-                <col className="w-[10%]" />
-                <col className="w-[16%]" />
-                <col className="w-[12%]" />
-                <col className="w-[16%]" />
+                <col className="w-full" /> {/* Descrição greedy */}
+                <col className="w-[1px]" /> {/* Modalidade minimal */}
+                <col className="w-[1px]" /> {/* Qtd maximal minimal */}
+                <col className="w-[1px]" /> {/* Preço Un. minimal */}
+                <col className="w-[1px]" /> {/* Desc. Un. minimal */}
+                <col className="w-[1px]" /> {/* Valor Total minimal */}
             </colgroup>
             <thead>
-                <tr>
-                    <th className="">Descrição do Produto/Serviço</th>
-                    <th>Quant.</th>
-                    <th>Preço Un.</th>
-                    <th>Desconto Unitário</th>
-                    <th>Valor Total</th>
+                <tr className="text-base font-black uppercase tracking-tight text-slate-400 bg-slate-50/50">
+                    <th className="px-3 py-1 text-left whitespace-nowrap">DESC. PRODUTO/SERVIÇO</th>
+                    <th className="px-1 py-1 text-center whitespace-nowrap">Modalidade</th>
+                    <th className="px-1 py-1 text-right whitespace-nowrap">Qtd</th>
+                    <th className="px-2 py-1 text-right whitespace-nowrap">Preço Un.</th>
+                    <th className="px-2 py-1 text-right whitespace-nowrap">Desc. Un.</th>
+                    <th className="px-2 py-1 text-right whitespace-nowrap">Valor Total</th>
                 </tr>
             </thead>
 

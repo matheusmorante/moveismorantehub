@@ -31,7 +31,7 @@ const ScheduleTableView = ({ schedule, onOrderClick }: Props) => {
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="">
                         {Object.entries(schedule).map(([date, orders]) => {
                             const lanes = calculateLanes(orders);
 
@@ -39,8 +39,13 @@ const ScheduleTableView = ({ schedule, onOrderClick }: Props) => {
                                 // Keep track of hours already covered by a colSpan in this lane
                                 const coveredUntil = { value: -1 };
 
-                                return (
-                                    <tr key={`${date}-${laneIdx}`} className="h-32 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors">
+                                 const isLastLaneOfDay = laneIdx === lanes.length - 1;
+                                 
+                                 return (
+                                     <tr 
+                                        key={`${date}-${laneIdx}`} 
+                                        className={`h-32 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors border-b-2 border-slate-100 dark:border-slate-800 ${isLastLaneOfDay ? '!border-b-8 border-slate-900 dark:border-slate-100 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)]' : ''}`}
+                                     >
                                         {/* Date Column - Only render on the first lane of the day */}
                                         {laneIdx === 0 && (
                                             <td

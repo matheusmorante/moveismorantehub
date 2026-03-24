@@ -53,20 +53,35 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 </div>
 
                 {!isPickup && (
-                    <div
-                        className="text-[8px] text-slate-400 dark:text-slate-500 font-bold leading-snug truncate"
-                        title={stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
-                    >
-                        <i className="bi bi-geo-alt-fill text-red-400 mr-0.5" />
-                        {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
+                    <div className="flex flex-col gap-1.5">
+                        <div
+                            className="text-[8px] text-slate-400 dark:text-slate-500 font-bold leading-snug truncate"
+                            title={stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
+                        >
+                            <i className="bi bi-geo-alt-fill text-red-400 mr-0.5" />
+                            {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
+                        </div>
+                        
+                        {(order.shipping?.distance || order.shipping?.durationMinutes) && (
+                            <div className="flex items-center gap-2 group-hover:gap-3 transition-all duration-300">
+                                {order.shipping?.distance !== undefined && (
+                                    <span className="flex items-center gap-1 text-[7px] font-black text-blue-500/80 uppercase">
+                                        <i className="bi bi-map-fill" />
+                                        {order.shipping.distance.toFixed(1)} KM
+                                    </span>
+                                )}
+                                {order.shipping?.durationMinutes !== undefined && (
+                                    <span className="flex items-center gap-1 text-[7px] font-black text-blue-500/80 uppercase">
+                                        <i className="bi bi-hourglass-fill" />
+                                        {order.shipping.durationMinutes} MIN
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                    <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${cls.badge}`}>
-                        {primaryHandlingLabel || typeLabel}
-                    </span>
-
                     {settings.showScheduleNoticeLabels && order.observation && order.observation.split(';').filter((t: string) => t.trim() !== "").map((tag: string, i: number) => (
                         <span key={i} className="text-[7px] font-black px-1.5 py-0.5 rounded border bg-amber-100/50 dark:bg-amber-900/40 border-amber-200/50 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 capitalize max-w-[100px] truncate" title={tag}>
                             {tag}

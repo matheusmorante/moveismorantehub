@@ -83,9 +83,6 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
             <div className={`px-5 py-4 border-b dark:border-slate-800 flex justify-between items-center transition-colors ${cls.headerBg}`}>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col">
-                        <span className="font-black text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">
-                            {primaryHandlingLabel || typeLabel}
-                        </span>
                         <span className="font-black text-sm tracking-tight flex items-center text-slate-800 dark:text-slate-200">
                             <i className={`bi bi-clock-fill mr-2 ${cls.timeText}`} />
                             {displayTime}
@@ -99,14 +96,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
                 )}
             </div>
 
-            {/* Tipo de Pedido & Manuseio Labels */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
-                <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${cls.badge}`}>
-                    <i className={`bi ${isShowroom || hasAssembly ? 'bi-hammer' : (isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'))}`} />
-                    {primaryHandlingLabel || typeLabel}
-                    {hasAssembly && <i className="bi bi-hammer text-red-500 animate-pulse ml-1" title="Exige Montagem" />}
-                </span>
-
+            <div className="flex items-center justify-end px-5 pt-4">
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={(e) => { e.stopPropagation(); setShowStatusPicker(!showStatusPicker); }}
@@ -181,14 +171,37 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
                     </div>
                 )}
 
-                {!isPickup && !isAssistance && !isShowroom && (
-                    <div className="flex items-start gap-3 text-slate-500 dark:text-slate-400 font-bold bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 transition-colors">
-                        <i className="bi bi-geo-alt-fill text-red-500 mt-0.5" />
-                        <span className="leading-snug text-xs">
-                            {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
-                        </span>
-                    </div>
-                )}
+                <div className="flex flex-col gap-2">
+                    {!isPickup && (
+                        <div className="flex items-start gap-4 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group/addr hover:bg-white dark:hover:bg-slate-950 transition-all duration-300">
+                            <i className="bi bi-geo-alt-fill text-red-500 mt-0.5 group-hover/addr:scale-110 transition-transform" />
+                            <span className="leading-snug text-xs font-bold text-slate-500 dark:text-slate-400">
+                                {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
+                            </span>
+                        </div>
+                    )}
+                    
+                    {(order.shipping?.distance || order.shipping?.durationMinutes) && (
+                        <div className="flex items-center gap-6 px-4 py-2.5 bg-blue-50/40 dark:bg-blue-900/10 rounded-2xl border border-blue-100/40 dark:border-blue-900/20">
+                            {order.shipping?.distance !== undefined && (
+                                <div className="flex items-center gap-2 min-w-fit">
+                                    <i className="bi bi-map-fill text-blue-500 text-xs" />
+                                    <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest leading-none">
+                                        {order.shipping.distance.toFixed(1)} KM
+                                    </span>
+                                </div>
+                            )}
+                            {order.shipping?.durationMinutes !== undefined && (
+                                <div className="flex items-center gap-2 min-w-fit border-l border-blue-100 dark:border-blue-900 pl-6 ml-auto">
+                                    <i className="bi bi-hourglass-fill text-blue-500 text-xs" />
+                                    <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest leading-none">
+                                        ~ {order.shipping.durationMinutes} MIN
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 {((order.items && order.items.length > 0) || (order.assistanceItems && order.assistanceItems.length > 0)) && (
                 <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">

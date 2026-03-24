@@ -8,9 +8,9 @@ interface Props {
 const CurrencyDisplay = ({ value }: Props) => {
     return (
         <NumericFormat
+            displayType="text"
             className="w-full text-end"
-            value={value}
-            disabled={true}
+            value={value || 0}
             thousandSeparator="."
             prefix={"R$ "}
             decimalScale={2}

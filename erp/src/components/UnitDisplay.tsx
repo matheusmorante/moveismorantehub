@@ -10,15 +10,13 @@ const UnitDisplay = ({ value }: Props) => {
 
     return (
         <NumericFormat
-            className="w-full text-right"
             value={value}
             allowNegative={false}
-            disabled={true}
+            displayType="text"
             thousandSeparator="."
             suffix={" UN"}
             decimalScale={0}
             decimalSeparator=","
-            fixedDecimalScale
         />
     )
 }

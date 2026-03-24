@@ -12,20 +12,23 @@ const Body = ({ items }: Props) => {
             {items.map((item, index) => {
                 const total = (item.unitPrice - (item.unitDiscount || 0)) * item.quantity;
                 return (
-                    <tr key={index} className="text-[12px]">
-                        <td className="px-4 py-3 font-semibold text-slate-800 uppercase leading-snug">
+                    <tr key={index} className="text-lg">
+                        <td className="px-3 py-1 font-bold text-slate-800 uppercase leading-tight">
                             {item.description}
                         </td>
-                        <td className="px-4 py-3 text-center font-bold text-slate-600">
+                        <td className="px-1 py-0.5 text-center font-bold text-slate-500 uppercase text-[11px] leading-tight">
+                            {item.handlingType || item.condition || "-"}
+                        </td>
+                        <td className="px-1 py-0.5 text-right font-bold text-slate-600 whitespace-nowrap">
                             <UnitDisplay value={item.quantity} />
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-500 font-medium">
+                        <td className="px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap">
                             <CurrencyDisplay value={item.unitPrice} />
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-500 font-medium">
+                        <td className="px-2 py-0.5 text-right text-slate-500 font-medium whitespace-nowrap">
                             <CurrencyDisplay value={item.unitDiscount || 0} />
                         </td>
-                        <td className="px-4 py-3 text-right font-black text-slate-900 bg-slate-50/30">
+                        <td className="px-2 py-0.5 text-right font-black text-slate-900 bg-slate-50/10 whitespace-nowrap">
                             <CurrencyDisplay value={total} />
                         </td>
                     </tr>
