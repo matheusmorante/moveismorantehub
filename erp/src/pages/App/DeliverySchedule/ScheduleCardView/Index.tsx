@@ -279,10 +279,28 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
  * Main component for the Card Visualization of the Delivery Schedule
  */
 const ScheduleCardView = ({ schedule, onOrderClick }: Props) => {
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        // Wait a bit for the layout to settle
+        setTimeout(() => {
+            const element = document.getElementById(`date-${todayStr}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    }, [schedule]);
+
     return (
-        <div className="flex flex-col gap-12 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+        <div ref={scrollContainerRef} className="flex flex-col gap-12 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
             {Object.entries(schedule).map(([date, orders]) => (
-                <div key={date} className="w-full">
+                <div key={date} id={`date-${date}`} className="w-full scroll-mt-4">
                     {/* Date Divider */}
                     <div className="flex items-center gap-6 mb-8">
                         <div className="h-0.5 flex-1 bg-gradient-to-r from-transparent to-slate-200 dark:to-slate-800"></div>
