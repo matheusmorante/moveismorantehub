@@ -12,11 +12,11 @@ const Body = ({ items }: Props) => {
             {items.map((item, index) => {
                 const total = (item.unitPrice - (item.unitDiscount || 0)) * item.quantity;
                 return (
-                    <tr key={index} className="text-lg">
-                        <td className="px-3 py-1 font-bold text-slate-800 uppercase leading-tight">
+                    <tr key={index} className="text-sm">
+                        <td className="px-3 py-1 font-bold text-slate-700 uppercase leading-tight text-[13px]">
                             {item.description}
                         </td>
-                        <td className="px-1 py-0.5 text-center font-bold text-slate-500 uppercase text-[11px] leading-tight">
+                        <td className="px-1 py-0.5 text-center font-bold text-slate-500 uppercase text-[9px] leading-tight">
                             {item.handlingType || item.condition || "-"}
                         </td>
                         <td className="px-1 py-0.5 text-right font-bold text-slate-600 whitespace-nowrap">

@@ -18,7 +18,7 @@ const PaymentsTable = ({ payments, summary }: Props) => {
                     <col className="w-[30%]" /> {/* Status comfortable wrapping width */}
                 </colgroup>
                 <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr className="text-xs font-black uppercase tracking-tight text-slate-500 whitespace-nowrap">
+                    <tr className="text-[10px] font-black uppercase tracking-tight text-slate-500 whitespace-nowrap">
                         <th className="px-4 py-1">MÉTODO</th>
                         <th className="px-4 py-1 text-right">Valor</th>
                         <th className="px-4 py-1 text-center">Status</th>

@@ -71,30 +71,45 @@ export const OrderTypeLabelsSection = ({ deliveryMethod, orderType, handlingModa
 
 import MapRoute from "../../SalesOrder/ShippingComponents/MapRoute";
 
-export const ShippingSection = ({ fullAddress, destinationCoords, routeGeoJSON }: { fullAddress: any, destinationCoords?: [number, number], routeGeoJSON?: any }) => (
+export const ShippingSection = ({ fullAddress, destinationCoords, distance, durationMinutes }: { fullAddress: any, destinationCoords?: [number, number], distance?: number, durationMinutes?: number }) => (
     <section>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
             <i className="bi bi-geo-alt-fill" /> Endereço de Entrega
         </h3>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="bg-slate-50/50 dark:bg-slate-800/20 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 transition-colors duration-300">
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-relaxed mb-4">
+            <div className="bg-slate-50/50 dark:bg-slate-800/20 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 transition-colors duration-300 flex flex-col gap-4">
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-relaxed">
                     {stringifyFullAddressWithObservation(fullAddress)}
                 </p>
+                
+                {(distance !== undefined || durationMinutes !== undefined) && (
+                    <div className="flex items-center gap-6 mt-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        {distance !== undefined && (
+                            <div>
+                                <p className="text-[8px] font-black uppercase text-slate-400 mb-0.5 tracking-widest">Distância</p>
+                                <p className="text-xs font-black text-slate-700 dark:text-slate-200">{distance.toFixed(1)} km</p>
+                            </div>
+                        )}
+                        {durationMinutes !== undefined && (
+                            <div>
+                                <p className="text-[8px] font-black uppercase text-slate-400 mb-0.5 tracking-widest">Tempo Est.</p>
+                                <p className="text-xs font-black text-slate-700 dark:text-slate-200">{durationMinutes} min</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {destinationCoords && (
                     <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${destinationCoords[1]},${destinationCoords[0]}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors mt-auto"
+                        className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors mt-auto w-fit"
                     >
                         <i className="bi bi-geo-fill" />
-                        Abrir no Google Maps
+                        Ver no Google Maps
                     </a>
                 )}
             </div>
-
-        </div>
     </section>
 );
 

@@ -24,10 +24,9 @@ const OrderPage = () => {
             {/* Professional Header */}
             <div className="flex justify-between items-center border-b-8 border-slate-900 pb-2 mb-1">
                 <div className="flex gap-4 items-center">
-                    <img src={logoMorante} alt="Móveis Morante" className="w-16 h-16 rounded-full object-cover border-4 border-slate-100 shadow-md" />
+                    <img src={logoMorante} alt="Móveis Morante" className="w-12 h-12 rounded-full object-cover border-2 border-slate-100 shadow-sm" />
                     <div>
-                        <h1 className="text-4xl font-black tracking-tighter text-slate-900 leading-none">MÓVEIS MORANTE</h1>
-                        
+                        <h1 className="text-2xl font-black tracking-tighter text-slate-900 leading-none">MÓVEIS MORANTE</h1>
                     </div>
                 </div>
                 <div className="text-right">
@@ -38,22 +37,22 @@ const OrderPage = () => {
 
             <div className="flex justify-between items-center px-2 py-0">
                 <div className="flex items-center gap-2">
-                    <i className="bi bi-person-badge text-slate-400 text-lg"></i>
-                    <span className="text-[15px] font-black uppercase tracking-widest text-slate-400">Vendedor:</span>
-                    <span className="text-xl font-bold text-slate-900 ml-1 uppercase">{order.seller}</span>
+                    <i className="bi bi-person-badge text-slate-400 text-base"></i>
+                    <span className="text-[12px] font-black uppercase tracking-widest text-slate-400">Vendedor:</span>
+                    <span className="text-base font-bold text-slate-900 ml-1 uppercase">{order.seller}</span>
                 </div>
             </div>
 
             {/* Observações de Entrega - NOW RED / ALERT STYLE */}
             {order.observation && (
                 <div className="border border-red-500 rounded-2xl p-2 bg-red-50/50">
-                    <h2 className="text-base font-black uppercase tracking-widest text-red-600 mb-1 flex items-center gap-2">
+                    <h2 className="text-sm font-black uppercase tracking-widest text-red-600 mb-1 flex items-center gap-2">
                         <i className="bi bi-exclamation-triangle-fill"></i>
                         AVISOS IMPORTANTES SOBRE A ENTREGA
                     </h2>
                     <div className="flex flex-wrap gap-1">
                         {order.observation.split(';').filter((t: string) => t.trim() !== "").map((tag: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-white border border-red-200 text-base font-black rounded-xl text-red-700 uppercase tracking-tight shadow-sm">
+                            <span key={i} className="px-2 py-0.5 bg-white border border-red-200 text-xs font-black rounded text-red-700 uppercase tracking-tight shadow-sm">
                                 {tag}
                             </span>
                         ))}
@@ -63,21 +62,21 @@ const OrderPage = () => {
 
             <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
             
-            <div className="my-1">
-                <div className="text-base font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">ITENS DO PEDIDO</div>
+            <div className="mt-1">
+                <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">ITENS DO PEDIDO</div>
                 <ItemsTable items={order.items} summary={order.itemsSummary} />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t-2 border-slate-200">
-                <div className="space-y-1">
-                    <div className="text-base font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">DETALHES DA ENTREGA</div>
+            <div className="grid grid-cols-2 gap-2 mt-1 pt-1 border-t border-slate-200">
+                <div className="space-y-0.5">
+                    <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">DETALHES DA ENTREGA</div>
                     <div className="bg-white p-1 rounded-2xl border border-slate-50 shadow-sm">
                         <ShippingData shipping={order.shipping} />
                     </div>
                 </div>
 
-                <div className="space-y-1">
-                    <div className="text-base font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">RESUMO FINANCEIRO</div>
+                <div className="space-y-0.5">
+                    <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">RESUMO FINANCEIRO</div>
                     <div className="bg-white p-1 rounded-2xl border border-slate-50 shadow-sm">
                         <PaymentsTable
                             payments={order.payments}

@@ -40,6 +40,14 @@ const OrderHistoryCard = ({
     const [showMenu, setShowMenu] = React.useState(false);
     const [showPicker, setShowPicker] = React.useState(false);
     const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
+    const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
+
+    // Auto-dismiss the "Sim/Não" confirmation after 5 seconds with no action
+    React.useEffect(() => {
+        if (!showFulfillmentConfirm) return;
+        const timer = setTimeout(() => setShowFulfillmentConfirm(false), 5000);
+        return () => clearTimeout(timer);
+    }, [showFulfillmentConfirm]);
 
     const statuses = (settings.orderStatuses || [
         { id: 'draft', label: 'Rascunho', color: 'slate' },
@@ -69,6 +77,25 @@ const OrderHistoryCard = ({
     });
 
     const hasAssembly = checkItems(order.items) || checkItems(order.assistanceItems as any);
+    
+    // Delivery Date calculation
+    const deliveryDateStr = order.shipping?.scheduling?.date;
+    let isPastDelivery = false;
+    if (deliveryDateStr) {
+        try {
+            const dateParts = deliveryDateStr.includes('/') ? deliveryDateStr.split('/') : deliveryDateStr.split('-');
+            const day = deliveryDateStr.includes('/') ? Number(dateParts[0]) : Number(dateParts[2]);
+            const month = deliveryDateStr.includes('/') ? Number(dateParts[1]) : Number(dateParts[1]);
+            const year = deliveryDateStr.includes('/') ? Number(dateParts[2]) : Number(dateParts[0]);
+
+            const deliveryDate = new Date(year, month - 1, day);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            isPastDelivery = deliveryDate < today;
+        } catch (e) {
+            console.error("Erro ao processar data de entrega:", e);
+        }
+    }
     
     // Explicit colors to match legend and be visible
     const cardBgClass = 
@@ -162,6 +189,13 @@ const OrderHistoryCard = ({
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
                 
+                {order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                    <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm">
+                        <i className="bi bi-check-circle-fill text-[10px]" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Lançado no Bling</span>
+                    </div>
+                )}
+
                 {/* Bling Pending Flag */}
                 {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>
@@ -195,6 +229,64 @@ const OrderHistoryCard = ({
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Manual Fulfillment Prompt */}
+                {isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' && !showTrash && settings.showManualFulfillmentPrompt && (
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                        {!showFulfillmentConfirm ? (
+                            <button
+                                onClick={() => setShowFulfillmentConfirm(true)}
+                                className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500 rounded-lg border border-amber-200 dark:border-amber-900/30 w-fit animate-pulse hover:scale-105 transition-all active:scale-95 shadow-sm"
+                                title="A data de entrega passou. Este pedido já foi atendido?"
+                            >
+                                <i className="bi bi-clock-history text-[10px]" />
+                                <span className="text-[9px] font-black uppercase tracking-widest">Pedido Atendido?</span>
+                            </button>
+                        ) : (
+                            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
+                                <span className="text-[9px] font-black uppercase text-slate-500 ml-1">Confirmar?</span>
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={() => {
+                                            onStatusUpdate(order.id!, 'fulfilled');
+                                            setShowFulfillmentConfirm(false);
+                                        }}
+                                        className="px-2.5 py-1 bg-emerald-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-emerald-700 transition-colors"
+                                    >
+                                        Sim
+                                    </button>
+                                    <button
+                                        onClick={() => setShowFulfillmentConfirm(false)}
+                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                    >
+                                        Não
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Review Request Button */}
+                {order.status === 'fulfilled' && !order.reviewRequested && !showTrash && !(order.shipping?.deliveryMethod === 'pickup' && (order.customerData?.fullName === "Consumidor Final" || order.customerData?.fullName === "Ao Consumidor")) && (
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            onClick={() => onAction("sendCustomerReviews", order)}
+                            className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit animate-pulse hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
+                        >
+                            <i className="bi bi-star-fill text-[10px]" />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Enviar Avaliação</span>
+                        </button>
+                    </div>
+                )}
+
+                {/* Review Already Requested Label */}
+                {order.status === 'fulfilled' && order.reviewRequested && !showTrash && (
+                    <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-900/20 w-fit shadow-sm">
+                        <i className="bi bi-star-half text-[10px]" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Avaliação Solicitada</span>
                     </div>
                 )}
 

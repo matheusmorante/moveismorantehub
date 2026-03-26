@@ -10,8 +10,50 @@ interface Props {
     onEdit?: (order: Order) => void;
 }
 
-const OrderDetailsModal = ({ order, onClose, onEdit }: Props) => {
+import { autoCalculateRouteDistance } from "../../utils/maps";
+import { updateOrder } from "../../utils/orderHistoryService";
+import { toast } from "react-toastify";
+import { useState, useEffect } from "react";
+
+const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit }: Props) => {
+    const [order, setOrder] = useState(initialOrder);
+    const [isRecalculating, setIsRecalculating] = useState(false);
     const isPickup = order.shipping?.deliveryMethod === 'pickup';
+
+    const handleRecalculate = async () => {
+        if (!order.customerData?.fullAddress) return;
+        setIsRecalculating(true);
+        try {
+            const res = await autoCalculateRouteDistance(order.customerData.fullAddress);
+            if (res) {
+                const updatedOrder = {
+                    ...order,
+                    shipping: {
+                        ...order.shipping!,
+                        distance: res.distanceKm,
+                        durationMinutes: res.durationMinutes,
+                        destinationCoords: res.destinationCoords,
+                        routeGeoJSON: res.routeGeoJSON
+                    }
+                };
+                await updateOrder(order.id!, updatedOrder);
+                setOrder(updatedOrder);
+                // No toast on automatic success to avoid cluttering, but keeping for manual if needed
+            }
+        } catch (e) {
+            console.error("Erro no cálculo automático de rota:", e);
+        } finally {
+            setIsRecalculating(false);
+        }
+    };
+
+    useEffect(() => {
+        const needsCalc = !isPickup && (!order.shipping?.distance || !order.shipping?.durationMinutes);
+        if (needsCalc) {
+            handleRecalculate();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div
@@ -39,11 +81,20 @@ const OrderDetailsModal = ({ order, onClose, onEdit }: Props) => {
 
 
                             {!isPickup && (
-                                <ShippingSection
-                                    fullAddress={order.customerData?.fullAddress}
-                                    destinationCoords={order.shipping?.destinationCoords}
-                                    routeGeoJSON={order.shipping?.routeGeoJSON}
-                                />
+                                <div className="relative group/shipping">
+                                    <ShippingSection
+                                        fullAddress={order.customerData?.fullAddress}
+                                        destinationCoords={order.shipping?.destinationCoords}
+                                        distance={order.shipping?.distance}
+                                        durationMinutes={order.shipping?.durationMinutes}
+                                    />
+                                    {isRecalculating && (
+                                        <div className="absolute top-0 right-0 p-2 text-[10px] font-black uppercase tracking-widest text-blue-500 transition-colors flex items-center gap-2">
+                                            <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                            Calculando Dados Logísticos...
+                                        </div>
+                                    )}
+                                </div>
                             )}
                             <SchedulingSection
                                 scheduling={order.shipping?.scheduling}

@@ -171,9 +171,16 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
         const origin: [number, number] = settings.storeOriginCoords;
 
         // 1. Geocode the destination
-        const destCoords = await geocodeAddress(address);
+        let destCoords = await geocodeAddress(address);
+        
+        // Fallback to neighborhood/city coordinates if direct geocoding fails
         if (!destCoords) {
-            return null;
+            const fallback = getNeighborhoodCoords(address.neighborhood, address.city);
+            if (fallback) {
+                destCoords = [fallback.lng, fallback.lat];
+            } else {
+                return null;
+            }
         }
 
         // 2. Calculate route (prefer OSRM as it is faster, fallback to ORS if needed)

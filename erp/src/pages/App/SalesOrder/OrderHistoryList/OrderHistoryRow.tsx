@@ -230,6 +230,13 @@ const OrderHistoryRow = ({
                                     <span className="text-[9px] font-black uppercase tracking-widest">Enviar Avaliação</span>
                                 </button>
                             )}
+
+                            {order.status === 'fulfilled' && order.reviewRequested && !showTrash && (
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-900/20 w-fit shadow-sm">
+                                    <i className="bi bi-star-half text-[10px]" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">Avaliação Solicitada</span>
+                                </div>
+                            )}
                         </div>
                     </td>
                 );
@@ -239,6 +246,13 @@ const OrderHistoryRow = ({
                         <div className="flex flex-col gap-1">
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{order.customerData?.fullName || "Não informado"}</span>
                             
+                             {order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                                <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm mt-1">
+                                    <i className="bi bi-check-circle-fill text-[8px]" />
+                                    <span className="text-[8px] font-black uppercase tracking-tight">Lançado Bling</span>
+                                </div>
+                            )}
+
                             {/* Bling Pending Flag */}
                             {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                                 <div className="mt-1" onClick={(e) => e.stopPropagation()}>

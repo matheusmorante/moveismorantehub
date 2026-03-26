@@ -173,33 +173,42 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
 
                 <div className="flex flex-col gap-2">
                     {!isPickup && (
-                        <div className="flex items-start gap-4 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group/addr hover:bg-white dark:hover:bg-slate-950 transition-all duration-300">
-                            <i className="bi bi-geo-alt-fill text-red-500 mt-0.5 group-hover/addr:scale-110 transition-transform" />
-                            <span className="leading-snug text-xs font-bold text-slate-500 dark:text-slate-400">
-                                {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
-                            </span>
-                        </div>
-                    )}
-                    
-                    {(order.shipping?.distance || order.shipping?.durationMinutes) && (
-                        <div className="flex items-center gap-6 px-4 py-2.5 bg-blue-50/40 dark:bg-blue-900/10 rounded-2xl border border-blue-100/40 dark:border-blue-900/20">
-                            {order.shipping?.distance !== undefined && (
-                                <div className="flex items-center gap-2 min-w-fit">
-                                    <i className="bi bi-map-fill text-blue-500 text-xs" />
-                                    <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest leading-none">
-                                        {order.shipping.distance.toFixed(1)} KM
+                        <>
+                            <div className="flex items-start gap-4 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group/addr hover:bg-white dark:hover:bg-slate-950 transition-all duration-300">
+                                <i className="bi bi-geo-alt-fill text-red-500 mt-0.5 group-hover/addr:scale-110 transition-transform" />
+                                <span className="leading-snug text-xs font-bold text-slate-500 dark:text-slate-400">
+                                    {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
+                                </span>
+                            </div>
+
+                            {(order.shipping?.distance || order.shipping?.durationMinutes) ? (
+                                <div className="flex items-center gap-6 px-4 py-2 bg-blue-50/40 dark:bg-blue-900/10 rounded-2xl border border-blue-100/30 dark:border-blue-900/20">
+                                    {order.shipping?.distance !== undefined && (
+                                        <div className="flex items-center gap-2 min-w-fit">
+                                            <i className="bi bi-map-fill text-blue-500 text-xs" />
+                                            <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest leading-none">
+                                                {order.shipping.distance.toFixed(1)} KM
+                                            </span>
+                                        </div>
+                                    )}
+                                    {order.shipping?.durationMinutes !== undefined && (
+                                        <div className="flex items-center gap-2 min-w-fit border-l border-blue-100 dark:border-blue-900 pl-6 ml-auto">
+                                            <i className="bi bi-hourglass-fill text-blue-500 text-xs" />
+                                            <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest leading-none">
+                                                ~ {order.shipping.durationMinutes} MIN
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-slate-100/30 dark:bg-slate-800/20 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                                    <i className="bi bi-geo-fill text-slate-300 dark:text-slate-600 text-[10px]" />
+                                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
+                                        Percurso não calculado
                                     </span>
                                 </div>
                             )}
-                            {order.shipping?.durationMinutes !== undefined && (
-                                <div className="flex items-center gap-2 min-w-fit border-l border-blue-100 dark:border-blue-900 pl-6 ml-auto">
-                                    <i className="bi bi-hourglass-fill text-blue-500 text-xs" />
-                                    <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest leading-none">
-                                        ~ {order.shipping.durationMinutes} MIN
-                                    </span>
-                                </div>
-                            )}
-                        </div>
+                        </>
                     )}
                 </div>
 

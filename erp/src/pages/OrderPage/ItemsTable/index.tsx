@@ -22,7 +22,7 @@ const ItemsTable = ({ items, summary }: Props) => {
                 <col className="w-[1px]" /> {/* Valor Total minimal */}
             </colgroup>
             <thead>
-                <tr className="text-base font-black uppercase tracking-tight text-slate-400 bg-slate-50/50">
+                <tr className="text-xs font-black uppercase tracking-tight text-slate-400 bg-slate-50/50">
                     <th className="px-3 py-1 text-left whitespace-nowrap">DESC. PRODUTO/SERVIÇO</th>
                     <th className="px-1 py-1 text-center whitespace-nowrap">Modalidade</th>
                     <th className="px-1 py-1 text-right whitespace-nowrap">Qtd</th>
