@@ -351,29 +351,18 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                 </div>
             </div>
 
-            {currentStep < 5 && (
-                 <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/95 backdrop-blur-md py-3 px-6 shrink-0 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)]">
-                     <div className="max-w-[1400px] mx-auto flex items-center justify-end">
-                             <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 mr-2 shadow-sm min-w-fit">
-                                 <span className="text-[9px] font-black uppercase text-slate-400 block tracking-widest mb-0">Total</span>
-                                 <span className="text-lg font-black italic text-blue-600 dark:text-blue-400 tracking-tighter whitespace-nowrap">
-                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(state.paymentsSummary.totalOrderValue)}
-                                 </span>
-                             </div>
-                     </div>
-                 </div>
-            )}
-            {currentStep === 5 && (
-                <FormFooter
-                    currentOrder={state.currentOrder}
-                    totalOrderValue={state.paymentsSummary.totalOrderValue}
-                    isSaving={state.isSaving}
-                    onCompleteOrder={actions.handleCompleteOrder}
-                    onPrev={actions.goToPrevStep}
-                    buttonLabel={state.status === 'draft' ? "Cadastrar Venda" : "Salvar Edição"}
-                    colorScheme={state.status === 'draft' ? "emerald" : "blue"}
-                />
-            )}
+            <FormFooter
+                currentOrder={state.currentOrder}
+                totalOrderValue={state.paymentsSummary.totalOrderValue}
+                isSaving={state.isSaving}
+                isSavingDraft={state.isSavingDraft}
+                onCompleteOrder={state.status === 'draft' ? actions.handleCompleteOrder : actions.handleSaveOrder}
+                onPrev={actions.goToPrevStep}
+                onNext={actions.goToNextStep}
+                currentStep={currentStep}
+                buttonLabel={state.status === 'draft' ? "Cadastrar Pedido" : "Salvar Edição"}
+                colorScheme={state.status === 'draft' ? "emerald" : "blue"}
+            />
             
             <style dangerouslySetInnerHTML={{ __html: `@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }` }} />
         </form>

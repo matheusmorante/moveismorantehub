@@ -192,7 +192,7 @@ export const useDeliverySchedule = () => {
         });
 
         return () => unsubscribe();
-    }, [filter, typeFilter, scheduleType, showroomAssemblies]);
+    }, [filter, typeFilter, scheduleType, showroomAssemblies, startDate, endDate]);
 
     // Fetch Showroom Assemblies
     useEffect(() => {

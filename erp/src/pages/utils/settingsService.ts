@@ -13,6 +13,7 @@ export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 
 export interface HandlingOption {
     label: string;
     includeInAssemblySchedule: boolean;
+    color?: string; // Cor personalizada para identificação visual (Hex)
 }
 
 export interface AppSettings {

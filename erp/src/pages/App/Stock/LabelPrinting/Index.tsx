@@ -31,6 +31,13 @@ export interface LabelConfig {
     qrContent: string;
     customText: string;
     imageScale: number;
+    // Margins & Gaps (in mm)
+    marginT: number;
+    marginB: number;
+    marginL: number;
+    marginR: number;
+    gapH: number;
+    gapV: number;
 }
 
 const LabelPrinting: React.FC = () => {
@@ -59,7 +66,7 @@ const LabelPrinting: React.FC = () => {
         preset: isProductContext ? 'qr_product' : 'store_logo',
         layout: isProductContext ? 'horizontal' : 'vertical',
         showName: isProductContext,
-        showPrice: false, // Default to false as per user request for product identification
+        showPrice: false,
         showQR: isProductContext,
         showSKU: isProductContext,
         showStoreName: !isProductContext,
@@ -70,7 +77,14 @@ const LabelPrinting: React.FC = () => {
         sku: 'SKU-001',
         qrContent: 'https://moveismorante.com.br',
         customText: 'Qualidade Garantida',
-        imageScale: 1
+        imageScale: 1,
+        // Default values as per user request for round labels (in mm)
+        marginT: 8,
+        marginB: 8,
+        marginL: 9,
+        marginR: 9,
+        gapH: 10,
+        gapV: 2
     });
 
     useEffect(() => {
@@ -84,7 +98,7 @@ const LabelPrinting: React.FC = () => {
             if (data && !error) {
                 // Transform data into flattened list (Parent + Variations)
                 const flattened: any[] = [];
-                data.forEach(product => {
+                data.forEach((product: any) => {
                     // Base Product/Parent
                     flattened.push({ ...product, isParent: product.hasVariations });
 
@@ -324,7 +338,8 @@ const LabelPrinting: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-10 max-w-7xl mx-auto py-8 px-6 min-h-screen no-print">
+        <>
+            <div className="flex flex-col gap-10 max-w-7xl mx-auto py-8 px-6 min-h-screen no-print">
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-slide-down">
                 <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] mb-3">
@@ -586,6 +601,98 @@ const LabelPrinting: React.FC = () => {
                                         </div>
                                     </div>
                                 </section>
+
+                                <section className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                                            <i className="bi bi-rulers text-xs" />
+                                        </div>
+                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">Config. de Impressão (mm)</h3>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Topo</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={config.marginT} 
+                                                        onChange={e => setConfig({...config, marginT: parseFloat(e.target.value) || 0})}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                    <i className="bi bi-arrow-up-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Base</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={config.marginB} 
+                                                        onChange={e => setConfig({...config, marginB: parseFloat(e.target.value) || 0})}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                    <i className="bi bi-arrow-down-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Esq.</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={config.marginL} 
+                                                        onChange={e => setConfig({...config, marginL: parseFloat(e.target.value) || 0})}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                    <i className="bi bi-arrow-left-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Dir.</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={config.marginR} 
+                                                        onChange={e => setConfig({...config, marginR: parseFloat(e.target.value) || 0})}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                    <i className="bi bi-arrow-right-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Espaço Horiz.</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={config.gapH} 
+                                                        onChange={e => setConfig({...config, gapH: parseFloat(e.target.value) || 0})}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                    <i className="bi bi-distribute-horizontal absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Espaço Vert.</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={config.gapV} 
+                                                        onChange={e => setConfig({...config, gapV: parseFloat(e.target.value) || 0})}
+                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                    <i className="bi bi-distribute-vertical absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
                             </div>
                         </div>
                     </section>
@@ -646,7 +753,9 @@ const LabelPrinting: React.FC = () => {
                 onChange={handleImageUpload} 
             />
 
-            {/* Print Only View */}
+        </div>
+            
+            {/* Print Only View - FORA da div .no-print */}
             <div className="print-only fixed inset-0 bg-white z-[9999]">
                  <LabelGrid 
                     config={config} 
@@ -654,7 +763,7 @@ const LabelPrinting: React.FC = () => {
                     cellImages={cellImages} 
                 />
             </div>
-        </div>
+        </>
     );
 };
 

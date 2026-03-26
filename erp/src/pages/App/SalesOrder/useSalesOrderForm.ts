@@ -352,58 +352,26 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
         }
     }, [customerData.fullAddress, shipping.deliveryAddress, shipping.useCustomerAddress, handleAutoCalculateDistance]);
 
-    // Sync item handling type when delivery method changes manually
+    // Synchronize item handling defaults when switching global delivery method
     useEffect(() => {
-        // Only run if delivery method actually changed (manual toggle in UI)
         if (prevDeliveryMethodRef.current === shipping.deliveryMethod) return;
         
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
         const settings = getSettings();
         
         setItems(prev => prev.map(item => {
-            // Don't change handling for services
+            // Respect special service handling types
             if (item.handlingType === 'Execução no local') return item;
             
             const newDefault = shipping.deliveryMethod === 'pickup' 
                 ? settings.defaultPickupHandling 
                 : settings.defaultDeliveryHandling;
                 
-            // Avoid redundant update if already matches
             if (item.handlingType === newDefault) return item;
 
             return { ...item, handlingType: newDefault };
         }));
     }, [shipping.deliveryMethod, setItems]);
-
-    // Synchronize handling modality between Global (Label) and Item 1
-    // This allows the top icon to match the first item and vice versa.
-    useEffect(() => {
-        const globalType = (shipping.orderType || "").trim();
-        const firstItemHandling = (items[0]?.handlingType || "").trim();
-
-        // Check if Global was changed manually (or via another sync)
-        if (globalType !== prevGlobalOrderTypeRef.current) {
-            prevGlobalOrderTypeRef.current = globalType;
-            // Only update item if it actually differs
-            if (firstItemHandling !== globalType && items.length > 0) {
-                setItems(prev => prev.map((it, idx) => 
-                    idx === 0 && (it.handlingType || "").trim() !== globalType ? { ...it, handlingType: globalType } : it
-                ));
-                prevFirstItemHandlingRef.current = globalType;
-            }
-            return;
-        }
-
-        // Check if Item 1 was changed manually (in the items table)
-        if (firstItemHandling !== prevFirstItemHandlingRef.current) {
-            prevFirstItemHandlingRef.current = firstItemHandling;
-            // Only update global if it actually differs
-            if (globalType !== firstItemHandling) {
-                setShipping(prev => prev.orderType === firstItemHandling ? prev : ({ ...prev, orderType: firstItemHandling }));
-                prevGlobalOrderTypeRef.current = firstItemHandling;
-            }
-        }
-    }, [items, shipping.orderType, setItems, setShipping]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();

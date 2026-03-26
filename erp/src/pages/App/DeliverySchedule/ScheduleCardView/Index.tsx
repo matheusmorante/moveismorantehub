@@ -68,6 +68,17 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
 
     const { hasAssembly, label: primaryHandlingLabel } = getPrimaryHandlingInfo(order, settings);
 
+    const getHandlingColor = (label?: string) => {
+        if (!label) return undefined;
+        const allOptions = [
+            ...(settings.deliveryHandlingOptions || []),
+            ...(settings.pickupHandlingOptions || [])
+        ];
+        return allOptions.find(o => o.label === label)?.color;
+    };
+
+    const handlingColor = getHandlingColor(primaryHandlingLabel);
+
     const typeLabel = isShowroom 
         ? "Montagem Mostruário"
         : (isAssistance
@@ -97,7 +108,8 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
             </div>
 
             <div className="flex items-center justify-end px-5 pt-4">
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
+
+                <div className="relative ml-auto" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={(e) => { e.stopPropagation(); setShowStatusPicker(!showStatusPicker); }}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${order.status === 'fulfilled' 
@@ -244,7 +256,10 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
                                         )}
                                     </span>
                                     {(item as any).handlingType && (
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 dark:text-blue-400 mt-0.5">
+                                        <span 
+                                            className="text-[9px] font-black uppercase tracking-widest mt-0.5"
+                                            style={{ color: getHandlingColor((item as any).handlingType) || undefined }}
+                                        >
                                             {(item as any).handlingType}
                                         </span>
                                     )}

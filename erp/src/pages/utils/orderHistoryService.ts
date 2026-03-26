@@ -279,6 +279,10 @@ export const updateOrder = async (
             }
         }
 
+        if ((merged as any).shipping?.orderType) {
+            console.log(`[OrderUpdate] Salvando modalidade global: ${(merged as any).shipping.orderType}`);
+        }
+
         const { error } = await supabase
             .from(TABLE_NAME)
             .update({

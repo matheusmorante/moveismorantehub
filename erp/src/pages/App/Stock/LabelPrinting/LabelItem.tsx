@@ -35,8 +35,8 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
     if (isRound) {
         containerStyle = {
             ...containerStyle,
-            width: '40mm',
-            height: '40mm',
+            width: '42mm',
+            height: '42mm',
             borderRadius: '50%',
             flexDirection: 'column',
             padding: '5mm'

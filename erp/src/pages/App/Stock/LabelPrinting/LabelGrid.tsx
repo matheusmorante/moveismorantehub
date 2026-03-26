@@ -20,16 +20,17 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
     
     // Style for the A4 sheet
     const sheetStyle: React.CSSProperties = {
-        width: '210mm',
-        height: '297mm',
+        width: '216mm',
+        height: '279mm',
         backgroundColor: 'white',
         margin: '0 auto',
-        padding: isRound ? '20mm 8mm' : '8mm 6mm', // More compact margins to use more page space
+        padding: `${config.marginT}mm ${config.marginR}mm ${config.marginB}mm ${config.marginL}mm`, 
         display: 'grid',
-        gridTemplateColumns: `repeat(${columns}, 1fr)`,
-        gridTemplateRows: isRound ? `repeat(6, 1fr)` : `repeat(7, 1fr)`,
-        rowGap: isRound ? '2mm' : '0mm',
-        columnGap: isRound ? '2mm' : '0mm',
+        gridTemplateColumns: isRound ? `repeat(${columns}, 42mm)` : `repeat(${columns}, 1fr)`,
+        gridTemplateRows: isRound ? `repeat(6, 42mm)` : `repeat(7, 1fr)`,
+        rowGap: `${config.gapV}mm`,
+        columnGap: `${config.gapH}mm`,
+        justifyContent: 'center',
         boxSizing: 'border-box',
         overflow: 'hidden'
     };
@@ -59,36 +60,35 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
             <style dangerouslySetInnerHTML={{ __html: `
                 @media print {
                     @page {
-                        size: A4;
+                        size: 216mm 279mm;
                         margin: 0;
                     }
                     body {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        overflow: visible !important;
-                    }
-                    .no-print {
-                        display: none !important;
-                    }
-                    header, nav, footer, aside, .lg\\:col-span-4, .lg\\:col-span-8 > div:not(.bg-white) {
-                        display: none !important;
-                    }
-                    #root > div:not(.print-only) {
-                        display: none !important;
+                        visibility: hidden !important;
                     }
                     .print-only {
+                        visibility: visible !important;
                         display: block !important;
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 210mm;
-                        height: 297mm;
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 216mm !important;
+                        height: 279mm !important;
+                        background: white !important;
+                        z-index: 99999 !important;
+                    }
+                    .print-only * {
+                        visibility: visible !important;
                     }
                     .label-sheet {
                         box-shadow: none !important;
                         border: none !important;
-                        page-break-after: always;
+                    }
+                    .no-print {
+                        display: none !important;
                     }
                 }
                 .print-only {

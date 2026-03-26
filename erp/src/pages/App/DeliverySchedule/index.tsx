@@ -6,6 +6,7 @@ import DeliveryMap from "./DeliveryMap";
 import ScheduleCardView from "./ScheduleCardView/Index";
 import ScheduleTableView from "./ScheduleTableView/Index";
 import ShowroomAssemblyModal from "./ShowroomAssemblyModal";
+import OrderEditModal from "../SalesOrder/OrderEditModal";
 
 const DeliverySchedule = () => {
     const {
@@ -31,6 +32,7 @@ const DeliverySchedule = () => {
 
     const [viewMode, setViewMode] = useState<"card" | "table" | "map">("card");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
+    const [orderToEdit, setOrderToEdit] = useState<any>(null);
     const { state } = useLocation();
 
     useEffect(() => {
@@ -519,6 +521,18 @@ const DeliverySchedule = () => {
                 <OrderDetailsModal
                     order={selectedOrder}
                     onClose={closeOrderDetails}
+                    onEdit={(ord) => {
+                        setOrderToEdit(ord);
+                        closeOrderDetails();
+                    }}
+                />
+            )}
+
+            {orderToEdit && (
+                <OrderEditModal
+                    order={orderToEdit}
+                    onClose={() => setOrderToEdit(null)}
+                    onSaveSuccess={() => setOrderToEdit(null)}
                 />
             )}
 

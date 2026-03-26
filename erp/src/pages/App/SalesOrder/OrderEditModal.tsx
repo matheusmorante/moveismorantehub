@@ -59,7 +59,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
         }
 
         try {
-            await updateOrder(order.id!, updatedOrder);
+            await updateOrder(order.id!, updatedOrder, order);
             toast.success("Edição salva com sucesso!");
             onSaveSuccess(order.id);
             onClose();
