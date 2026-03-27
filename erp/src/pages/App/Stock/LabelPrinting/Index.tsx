@@ -195,7 +195,7 @@ const LabelPrinting: React.FC = () => {
                 newConfig.showName = true;
                 newConfig.showPrice = true;
                 newConfig.showQR = false;
-                newConfig.showSKU = true;
+                newConfig.showSKU = false;
                 newConfig.showStoreLogo = false;
                 newConfig.showStoreName = true;
                 newConfig.showCustomText = false;

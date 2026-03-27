@@ -60,6 +60,7 @@ export interface AppSettings {
     // Logística e Valores
     freightPerKm: number;
     openRouteServiceApiKey: string;
+    googleMapsApiKey: string;
     storeOriginCoords: [number, number]; // [lng, lat]
     companyName: string;
     companyAddress: string;
@@ -232,6 +233,9 @@ const migrateSettings = (settings: any): AppSettings => {
     // O usuário gerenciará as opções de manuseio através da interface de configurações
     // Não forçamos mais a remoção automática de 'Montagem no Local' aqui.
 
+    if (!settings.googleMapsApiKey) {
+        settings.googleMapsApiKey = 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
+    }
 
     return settings as AppSettings;
 };
@@ -294,6 +298,7 @@ export const getDefaultSettings = (): AppSettings => ({
     ],
     freightPerKm: 0,
     openRouteServiceApiKey: '',
+    googleMapsApiKey: 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk',
     storeOriginCoords: [-49.16928181659719, -25.352030536045138],
     companyName: 'Móveis Morante',
     companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',

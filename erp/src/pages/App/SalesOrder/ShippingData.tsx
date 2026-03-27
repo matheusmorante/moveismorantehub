@@ -27,6 +27,8 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
     const [streetSuggestions, setStreetSuggestions] = React.useState<any[]>([]);
     const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = React.useState(false);
     const streetWrapperRef = React.useRef<HTMLDivElement>(null);
+    const lastStreetSearchRef = React.useRef<string>("");
+    const [isSearchingStreet, setIsSearchingStreet] = React.useState(false);
 
     const activeAddress = (shipping.useCustomerAddress === false || orderType === 'budget') && shipping.deliveryAddress
         ? shipping.deliveryAddress
@@ -45,7 +47,8 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
             const distance = isNaN(numValue) ? undefined : numValue;
             let value = prev.value;
 
-            if (prev.autoCalculateValue && distance !== undefined && settings.freightPerKm > 0) {
+            // Calcula o frete baseado na distância APENAS se o cálculo automático estiver ativado
+            if (distance !== undefined && settings.freightPerKm > 0 && prev.autoCalculateValue) {
                 value = distance * settings.freightPerKm;
             }
 
@@ -75,13 +78,31 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
 
     const handleStreetChange = async (val: string) => {
         updateDeliveryAddress('street', val);
+        lastStreetSearchRef.current = val;
+
         if (val.length >= 3) {
-            const suggestions = await searchAddressSuggestions(val);
-            setStreetSuggestions(suggestions);
-            setIsStreetSuggestionsOpen(true);
+            setIsSearchingStreet(true);
+            try {
+                const suggestions = await searchAddressSuggestions(val);
+                if (lastStreetSearchRef.current === val) {
+                    setStreetSuggestions(suggestions);
+                    setIsStreetSuggestionsOpen(suggestions.length > 0);
+                }
+            } catch (e) {
+                console.error("Erro nas sugestões:", e);
+                if (lastStreetSearchRef.current === val) {
+                    setStreetSuggestions([]);
+                    setIsStreetSuggestionsOpen(false);
+                }
+            } finally {
+                if (lastStreetSearchRef.current === val) {
+                    setIsSearchingStreet(false);
+                }
+            }
         } else {
             setStreetSuggestions([]);
             setIsStreetSuggestionsOpen(false);
+            setIsSearchingStreet(false);
         }
     };
 
@@ -192,6 +213,11 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                             onChange={e => handleStreetChange(e.target.value)}
                                             onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
                                         />
+                                        {isSearchingStreet && (
+                                            <div className="absolute right-3 top-[34px] -translate-y-1/2">
+                                                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                            </div>
+                                        )}
                                         <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen && streetSuggestions.length > 0}>
                                             <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
                                                 {streetSuggestions.map((s, i) => (

@@ -168,6 +168,104 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
         );
     }
 
+    // Special handling for Price Only Label (Etiqueta de Preço)
+    if (config.preset === 'price_only') {
+        return (
+            <div style={{
+                ...containerStyle,
+                flexDirection: 'column',
+                justifyContent: 'flex-start',
+                padding: '2mm',
+                gap: 0
+            }}>
+                {/* Imagem de Fundo/Marca d'água */}
+                {image && (
+                    <img 
+                        src={image} 
+                        alt="" 
+                        style={{ 
+                            position: 'absolute', 
+                            inset: 0, 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'cover', 
+                            opacity: 0.1, 
+                            zIndex: 0,
+                            transform: `scale(${config.imageScale || 1})`,
+                            transition: 'transform 0.2s ease-out'
+                        }} 
+                    />
+                )}
+                
+                <div style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    height: '100%', 
+                    width: '100%',
+                    justifyContent: 'space-between', 
+                    zIndex: 2,
+                }}>
+                    {/* Top: Título do Produto (Esquerda) */}
+                    <div style={{ width: '100%', textAlign: 'left', minHeight: '6mm' }}>
+                        {config.showName && (
+                            <div style={{ 
+                                fontSize: '10px', 
+                                fontWeight: '900', 
+                                color: '#0f172a', 
+                                textTransform: 'uppercase', 
+                                lineHeight: '1.05', 
+                                letterSpacing: '-0.02em',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                            }}>
+                                {config.text}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Middle: Preço Centralizado Gigante */}
+                    <div style={{ 
+                        flex: 1, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        width: '100%',
+                        padding: '1mm 0'
+                    }}>
+                        {config.showPrice && (
+                            <div style={{ 
+                                fontSize: '28px',
+                                fontWeight: '950', 
+                                color: '#1d4ed8', 
+                                letterSpacing: '-0.05em',
+                                lineHeight: '1',
+                                textAlign: 'center',
+                                width: '100%',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {config.price}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Bottom: Espaço base ou QR */}
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: config.showQR ? 'auto' : '1mm' }}>
+                        {config.showQR && (
+                            <img 
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(config.qrContent)}`} 
+                                alt="QR Code" 
+                                style={{ width: '10mm', height: '10mm', imageRendering: 'pixelated', padding: '0.5mm', backgroundColor: 'white', borderRadius: '1mm', border: '1px solid #e2e8f0' }}
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // Renderização para Modelos Quadrados ou Retangulares (Default)
     return (
         <div style={containerStyle}>
@@ -217,7 +315,6 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                         />
                     )}
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '60%' }}>
-                        {config.showStoreName && <div style={{ fontSize: '6px', fontWeight: '950', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1px' }}>Moveismorantehub</div>}
                         {config.showSKU && (
                             <div style={{ 
                                 fontSize: '8px', 

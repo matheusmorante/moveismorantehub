@@ -8,6 +8,7 @@ import { getNeighborhoodCoords, geocodeAddress } from '@/pages/utils/maps';
 interface DeliveryMapProps {
     orders: Order[];
     onOrderClick: (order: Order) => void;
+    onOrderEdit?: (order: Order) => void;
 }
 
 interface RoutePoint {
@@ -21,7 +22,7 @@ interface RoutePoint {
     duration?: string;
 }
 
-export default function DeliveryMap({ orders, onOrderClick }: DeliveryMapProps) {
+export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: DeliveryMapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<maplibregl.Map | null>(null);
     const markers = useRef<maplibregl.Marker[]>([]);
@@ -44,7 +45,8 @@ export default function DeliveryMap({ orders, onOrderClick }: DeliveryMapProps) 
                     if (order.shipping?.destinationCoords && order.shipping.destinationCoords[0] !== 0) {
                         newGeocoded[order.id] = { 
                             lng: order.shipping.destinationCoords[0], 
-                            lat: order.shipping.destinationCoords[1] 
+                            lat: order.shipping.destinationCoords[1],
+                            isPrecision: true
                         };
                         changed = true;
                         continue;
@@ -56,8 +58,8 @@ export default function DeliveryMap({ orders, onOrderClick }: DeliveryMapProps) 
                         : order.customerData.fullAddress;
 
                     if (address.street && address.number) {
-                        // Pequeno atraso para respeitar limites do Nominatim
-                        if (!order.shipping?.destinationCoords) await new Promise(r => setTimeout(r, 250));
+                        // Respeitar limites do Nominatim (1 req/sec recomendado)
+                        await new Promise(r => setTimeout(r, 600));
                         
                         const geoRes = await geocodeAddress(address);
                         if (geoRes) {
@@ -206,8 +208,15 @@ export default function DeliveryMap({ orders, onOrderClick }: DeliveryMapProps) 
             const order = orders.find(o => o.id === orderId);
             if (order) onOrderClick(order);
         };
-        return () => { delete (window as any).handleMapOrderClick; };
-    }, [orders, onOrderClick]);
+        (window as any).handleMapOrderEdit = (orderId: string) => {
+            const order = orders.find(o => o.id === orderId);
+            if (order && onOrderEdit) onOrderEdit(order);
+        };
+        return () => { 
+            delete (window as any).handleMapOrderClick; 
+            delete (window as any).handleMapOrderEdit;
+        };
+    }, [orders, onOrderClick, onOrderEdit]);
 
     // Update markers when points or routeInfo change
     useEffect(() => {
@@ -289,8 +298,14 @@ export default function DeliveryMap({ orders, onOrderClick }: DeliveryMapProps) 
                     </a>
 
                     <button onclick="handleMapOrderClick('${p.id}')" style="display: block; width: 100%; margin-top: 8px; padding: 10px; background: #f1f5f9; color: #1e293b; border-radius: 12px; border: none; text-align: center; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;">
-                        Ver Informações Completas
+                        Ver Detalhes
                     </button>
+
+                    ${onOrderEdit ? `
+                    <button onclick="handleMapOrderEdit('${p.id}')" style="display: block; width: 100%; margin-top: 8px; padding: 10px; background: white; color: #2563eb; border-radius: 12px; border: 2px solid #2563eb; text-align: center; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;">
+                        <i class="bi bi-pencil-square" style="margin-right: 4px;"></i> Editar Pedido
+                    </button>
+                    ` : ''}
                 </div>
             `;
 

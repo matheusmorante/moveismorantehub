@@ -8,12 +8,12 @@ interface ProfitHeatMapProps {
     orders: Order[];
 }
 
-type MetricType = 'profit' | 'value' | 'count';
+type MetricType = 'value' | 'count';
 
 export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<maplibregl.Map | null>(null);
-    const [metric, setMetric] = useState<MetricType>('profit');
+    const [metric, setMetric] = useState<MetricType>('value');
     const [opacity, setOpacity] = useState(0.8);
     const [isLoaded, setIsLoaded] = useState(false);
     const [ordersWithCoords, setOrdersWithCoords] = useState<Record<string, [number, number]>>({});
@@ -98,13 +98,10 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
             const jitterLng = ((Math.floor(seed / 5) % 20) - 10) * jitterScale;
 
             const totalValue = order.itemsSummary?.itemsTotalValue || 0;
-            const totalCost = order.itemsSummary?.totalItemsCost || 0;
-            const profitValue = totalValue - totalCost;
 
             return {
                 type: 'Feature',
                 properties: {
-                    profit: Math.max(0, profitValue),
                     value: totalValue,
                     count: 1
                 },
@@ -154,9 +151,9 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                         ['heatmap-density'],
                         0, 'rgba(0,0,0,0)',
                         0.2, '#fde047', // Amarelo
-                        0.5, metric === 'profit' ? '#22c55e' : '#f97316', // Verde (Lucro) vs Laranja (Venda)
-                        0.8, metric === 'profit' ? '#166534' : '#dc2626', // Verde Escuro vs Vermelho
-                        1.0, metric === 'profit' ? '#052e16' : '#7f1d1d'
+                        0.5, '#f97316', // Laranja
+                        0.8, '#dc2626', // Vermelho
+                        1.0, '#7f1d1d' // Vermelho escuro
                     ],
                     'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 9, 20, 15, 40],
                     'heatmap-opacity': opacity
@@ -190,9 +187,9 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
             ['heatmap-density'],
             0, 'rgba(0,0,0,0)',
             0.2, '#fde047',
-            0.5, metric === 'profit' ? '#22c55e' : '#f97316',
-            0.8, metric === 'profit' ? '#166534' : '#dc2626',
-            1.0, metric === 'profit' ? '#052e16' : '#7f1d1d'
+            0.5, '#f97316',
+            0.8, '#dc2626',
+            1.0, '#7f1d1d'
         ]);
 
         map.current.setPaintProperty('heat-layer', 'heatmap-opacity', opacity);
@@ -203,8 +200,8 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                        <i className="bi bi-geo-alt-fill text-green-500"></i>
-                        Radar Geográfico de Lucro
+                        <i className="bi bi-geo-alt-fill text-blue-500"></i>
+                        Radar Geográfico de Vendas
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 uppercase tracking-widest text-[10px]">
                         Mapeamento Térmico de Performance - Curitiba e RMC
@@ -213,7 +210,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
 
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                        {(['profit', 'value', 'count'] as MetricType[]).map((m) => (
+                        {(['value', 'count'] as MetricType[]).map((m) => (
                             <button
                                 key={m}
                                 onClick={() => setMetric(m)}
@@ -223,7 +220,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                                     : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                             >
-                                {m === 'profit' ? 'Lucro' : m === 'value' ? 'Venda' : 'Pedidos'}
+                                {m === 'value' ? 'Venda' : 'Pedidos'}
                             </button>
                         ))}
                     </div>
@@ -256,7 +253,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                             </div>
                             <div className="flex justify-between text-[8px] font-black text-white uppercase tracking-tighter">
                                 <span>Baixo</span>
-                                <span>{metric === 'profit' ? 'Lucro' : 'Volume'}</span>
+                                <span>Volume</span>
                                 <span>Alto</span>
                             </div>
                         </div>

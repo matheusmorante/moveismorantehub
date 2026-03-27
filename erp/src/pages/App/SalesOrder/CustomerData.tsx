@@ -36,6 +36,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
     const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const streetWrapperRef = useRef<HTMLDivElement>(null);
+    const lastStreetSearchRef = useRef<string>("");
+    const [isSearchingStreet, setIsSearchingStreet] = useState(false);
 
     useEffect(() => {
         const unsubscribe = subscribeToPeople('customers', (data) => {
@@ -93,18 +95,31 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
 
     const handleStreetChange = async (val: string) => {
         updateAddress('street', val);
+        lastStreetSearchRef.current = val;
+
         if (val.length >= 3) {
+            setIsSearchingStreet(true);
             try {
                 const suggestions = await searchAddressSuggestions(val, customerData.fullAddress?.city);
-                setStreetSuggestions(suggestions);
-                setIsStreetSuggestionsOpen(suggestions.length > 0);
+                if (lastStreetSearchRef.current === val) {
+                    setStreetSuggestions(suggestions);
+                    setIsStreetSuggestionsOpen(suggestions.length > 0);
+                }
             } catch (e) {
                 console.error("Erro nas sugestões:", e);
-                setStreetSuggestions([]);
+                if (lastStreetSearchRef.current === val) {
+                    setStreetSuggestions([]);
+                    setIsStreetSuggestionsOpen(false);
+                }
+            } finally {
+                if (lastStreetSearchRef.current === val) {
+                    setIsSearchingStreet(false);
+                }
             }
         } else {
             setStreetSuggestions([]);
             setIsStreetSuggestionsOpen(false);
+            setIsSearchingStreet(false);
         }
     };
 
@@ -416,6 +431,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                     onChange={e => handleStreetChange(e.target.value)}
                                     onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
                                 />
+                                {isSearchingStreet && (
+                                    <div className="absolute right-3 top-[34px] -translate-y-1/2">
+                                        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                )}
                                 {isStreetError && (
                                     <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
                                         {errors['customer_street']}

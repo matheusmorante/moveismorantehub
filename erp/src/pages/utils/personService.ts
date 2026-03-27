@@ -24,6 +24,7 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     if (p.isDraft !== undefined) dbObj.is_draft = p.isDraft;
     if (p.leadTime !== undefined) dbObj.lead_time = p.leadTime;
     if (p.deleted !== undefined) dbObj.deleted = p.deleted;
+    if (p.marketingOrigin !== undefined) dbObj.marketing_origin = p.marketingOrigin;
 
     // Special handling for address
     if (p.fullAddress || p.address) {
@@ -78,6 +79,7 @@ const mapFromDB = (data: any): Person => {
         position: data.position || '',
         type: data.person_type as any,
         leadTime: data.lead_time || 0,
+        marketingOrigin: data.marketing_origin || '',
         createdAt: data.created_at,
         updatedAt: data.updated_at
     };

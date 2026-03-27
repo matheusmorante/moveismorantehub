@@ -45,7 +45,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
                                  return (
                                      <tr 
                                         key={`${date}-${laneIdx}`} 
-                                        className={`h-32 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors border-b-2 border-slate-100 dark:border-slate-800 ${isLastLaneOfDay ? '!border-b-8 border-slate-900 dark:border-slate-100 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)]' : ''}`}
+                                        className={`h-52 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors border-b-2 border-slate-100 dark:border-slate-800 ${isLastLaneOfDay ? '!border-b-8 border-slate-900 dark:border-slate-100 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)]' : ''}`}
                                      >
                                         {/* Date Column - Only render on the first lane of the day */}
                                         {laneIdx === 0 && (

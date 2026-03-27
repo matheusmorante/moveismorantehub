@@ -179,8 +179,8 @@ const DeliverySchedule = () => {
                         </p>
                         <div className="flex gap-2">
                             {[
-                                { id: 'card', label: 'Cards', icon: 'bi-grid-fill' },
-                                { id: 'table', label: 'Tabela', icon: 'bi-table' },
+                                { id: 'card', label: 'Grade', icon: 'bi-grid-fill' },
+                                { id: 'table', label: 'Tarefa', icon: 'bi-table' },
                                 { id: 'map', label: 'Mapa', icon: 'bi-map-fill' },
                             ].map(v => (
                                 <button
@@ -335,7 +335,7 @@ const DeliverySchedule = () => {
                             : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                             }`}
                     >
-                        <i className="bi bi-grid-fill mr-2" />Cards
+                        <i className="bi bi-grid-fill mr-2" />Grade
                     </button>
                     <button
                         onClick={() => setViewMode("table")}
@@ -344,7 +344,7 @@ const DeliverySchedule = () => {
                             : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                             }`}
                     >
-                        <i className="bi bi-table mr-2" />Tabela
+                        <i className="bi bi-table mr-2" />Tarefa
                     </button>
                     <button
                         onClick={() => setViewMode("map")}
@@ -450,14 +450,18 @@ const DeliverySchedule = () => {
                         isReadOnly={isStandalone}
                     />
                 ) : (
-                    <DeliveryMap orders={Object.values(schedule).flat()} onOrderClick={openOrderDetails} />
+                    <DeliveryMap 
+                        orders={Object.values(schedule).flat()} 
+                        onOrderClick={openOrderDetails} 
+                        onOrderEdit={isStandalone ? undefined : setOrderToEdit}
+                    />
                 )}
             </div>
         );
     };
 
     return (
-        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-2 sm:p-4' : 'max-w-[1700px] mt-4 sm:mt-8 p-3 sm:p-6 md:p-10'}`}>
+        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-2 sm:p-4' : 'max-w-full mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}>
             {renderHeader()}
 
             <div className="relative">

@@ -90,7 +90,6 @@ export default function Dashboard() {
 
     const trends = {
         sales: calculateTrend(stats.totalSales, prevStats.totalSales),
-        profit: calculateTrend(stats.totalProfit, prevStats.totalProfit),
         count: calculateTrend(stats.saleCount, prevStats.saleCount),
         ticket: calculateTrend(stats.avgTicket, prevStats.avgTicket),
     };
@@ -160,10 +159,6 @@ export default function Dashboard() {
                         trend={trends.sales.trend} trendValue={trends.sales.value} color="bg-blue-600"
                     />
                     <StatsCard 
-                        title="Lucro Estimado" value={formatCurrency(stats.totalProfit)} icon="graph-up-arrow" 
-                        trend={trends.profit.trend} trendValue={trends.profit.value} color="bg-indigo-600" 
-                    />
-                    <StatsCard 
                         title="Vendas" value={stats.saleCount} icon="cart-check-fill" 
                         trend={trends.count.trend} trendValue={trends.count.value} color="bg-emerald-600" 
                     />
@@ -190,7 +185,7 @@ export default function Dashboard() {
                 <div className="space-y-6 animate-reveal">
                     <div className="flex items-center justify-between px-2">
                         <div>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-tight">Radar Geográfico de Lucro</h3>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-tight">Radar Geográfico de Vendas</h3>
                             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Concentração de vendas e performance por região</p>
                         </div>
                         <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl shadow-premium-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center text-blue-600">
