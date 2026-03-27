@@ -8,6 +8,7 @@ import FormFooter from "./FormFooter";
 import SectionCard from "../../../components/SectionCard";
 import { useSalesOrderForm } from "./useSalesOrderForm";
 import NoticeInput from "../../../components/NoticeInput";
+import PaymentSimulator from "./PaymentSimulator";
 
 import { getSettings } from "../../../pages/utils/settingsService";
 
@@ -20,6 +21,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
+    const isBudget = state.currentOrder.orderType === 'budget';
     
     // Resolve all handling options
     const settings = getSettings();
@@ -114,6 +116,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     isCalculatingDistance={state.isCalculatingDistance}
                                     onAutoCalculateDistance={() => actions.handleAutoCalculateDistance(state.customerData.fullAddress)}
                                     errors={state.errors}
+                                    orderType={state.currentOrder.orderType}
                                 />
                             </SectionCard>
 
@@ -135,17 +138,21 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     {currentStep === 4 && (
                         <div className="max-w-5xl mx-auto animate-fade-in">
                             <SectionCard
-                                icon="bi bi-credit-card-2-front"
+                                icon={isBudget ? "bi bi-calculator" : "bi bi-credit-card-2-front"}
                                 iconBg="bg-indigo-600 shadow-indigo-100 dark:shadow-indigo-900/20"
-                                title="Condição de Pagamento"
-                                subtitle="Formas e prazos acordados"
+                                title={isBudget ? "Simulação Financeira" : "Condição de Pagamento"}
+                                subtitle={isBudget ? "Opções de parcelamento por bandeira" : "Formas e prazos acordados"}
                             >
                                 <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
-                                    <PaymentsTable
-                                        payments={state.payments}
-                                        setPayments={actions.setPayments}
-                                        summary={state.paymentsSummary}
-                                    />
+                                    {isBudget ? (
+                                        <PaymentSimulator totalValue={state.paymentsSummary.totalOrderValue} />
+                                    ) : (
+                                        <PaymentsTable
+                                            payments={state.payments}
+                                            setPayments={actions.setPayments}
+                                            summary={state.paymentsSummary}
+                                        />
+                                    )}
                                 </div>
                             </SectionCard>
                         </div>
@@ -160,11 +167,25 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                         <i className="bi bi-check-all text-2xl" />
                                      </div>
                                      <div className="flex flex-col">
-                                        <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none mb-0.5">Confirmação do Pedido</h2>
-                                        <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">#{state.currentOrderId?.slice(-6).toUpperCase() || 'NOVO-PEDIDO'}</span>
+                                        <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none mb-0.5">
+                                            {isBudget ? 'Resumo da Proposta' : 'Confirmação do Pedido'}
+                                        </h2>
+                                        <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">
+                                            {isBudget ? 'ORÇAMENTO' : `#{state.currentOrderId?.slice(-6).toUpperCase() || 'NOVO-PEDIDO'}`}
+                                        </span>
                                      </div>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right flex items-center gap-3">
+                                    {isBudget && state.currentOrderId && (
+                                        <button 
+                                            type="button"
+                                            onClick={() => window.open(`/sales-order/print/${state.currentOrderId}?type=budget`, '_blank')}
+                                            className="flex items-center gap-2 px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                        >
+                                            <i className="bi bi-printer-fill"></i>
+                                            Imprimir Orçamento
+                                        </button>
+                                    )}
                                     <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
                                         state.status === 'scheduled' ? 'bg-blue-100/50 text-blue-600 dark:bg-blue-900/40' : 
                                         state.status === 'fulfilled' ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-900/40' : 
@@ -217,21 +238,29 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                         </div>
                                     </div>
 
-                                    {/* Payments Table Compact */}
+                                    {/* Payments Table Compact / Simulator info */}
                                     <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-slate-100 dark:border-slate-800 p-3 flex-shrink-0">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <i className="bi bi-credit-card-2-front text-indigo-500 text-xs" />
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Condição de Pagamento</span>
+                                            <i className={`bi ${isBudget ? 'bi-calculator' : 'bi-credit-card-2-front'} text-indigo-500 text-xs`} />
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">
+                                                {isBudget ? 'Opções Financeiras Simuladas' : 'Condição de Pagamento'}
+                                            </span>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {state.payments.map((p, idx) => (
-                                                <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-bold">
-                                                    <span className="text-slate-400 uppercase tracking-tighter">{p.method || 'Pagamento'}</span>
-                                                    <span className="text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.amount)}</span>
-                                                </div>
-                                            ))}
-                                            {state.payments.length === 0 && <span className="text-[10px] text-slate-400 italic">Venda sem pagamentos informados</span>}
-                                        </div>
+                                        {isBudget ? (
+                                            <p className="text-[10px] text-slate-500 font-bold italic px-2">
+                                                Simulação baseada nas bandeiras: {settings.cardFlagRules?.map(r => r.flag).join(', ') || 'Nenhuma configurada'}
+                                            </p>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {state.payments.map((p, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-bold">
+                                                        <span className="text-slate-400 uppercase tracking-tighter">{p.method || 'Pagamento'}</span>
+                                                        <span className="text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.amount)}</span>
+                                                    </div>
+                                                ))}
+                                                {state.payments.length === 0 && <span className="text-[10px] text-slate-400 italic">Venda sem pagamentos informados</span>}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -261,7 +290,9 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                             </div>
                                             <div className="flex flex-col overflow-hidden">
                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Cliente / Fantasia</span>
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase truncate">{state.customerData.fullName || 'CONSUMIDOR FINAL'}</span>
+                                                <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase truncate">
+                                                    {!state.customerData.fullName || state.customerData.fullName === 'Nenhum' ? (isBudget ? 'NÃO INFORMADO (OPCIONAL)' : 'CONSUMIDOR FINAL') : state.customerData.fullName}
+                                                </span>
                                             </div>
                                         </div>
                                         <button type="button" onClick={() => actions.jumpToStep(1)} className="p-2 text-slate-300 hover:text-purple-500 opacity-0 group-hover:opacity-100 transition-all shrink-0">
@@ -332,10 +363,10 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     </div>
 
                                     {/* Total Order Summary Button-like Badge */}
-                                    <div className={`p-4 rounded-3xl flex items-center justify-between shadow-xl transition-all ${isPickup ? 'bg-purple-600 shadow-purple-500/10' : 'bg-emerald-600 shadow-emerald-500/10'} text-white`}>
+                                    <div className={`p-4 rounded-3xl flex items-center justify-between shadow-xl transition-all ${isBudget ? 'bg-indigo-600 shadow-indigo-500/10' : isPickup ? 'bg-purple-600 shadow-purple-500/10' : 'bg-emerald-600 shadow-emerald-500/10'} text-white`}>
                                         <div className="flex flex-col">
-                                             <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Valor Geral do Pedido</span>
-                                             <span className="text-[9px] font-bold opacity-60">Status: Aguardando Conferência</span>
+                                             <span className="text-[9px] font-black uppercase tracking-widest opacity-80">{isBudget ? 'Total da Proposta' : 'Valor Geral do Pedido'}</span>
+                                             <span className="text-[9px] font-bold opacity-60">Status: {isBudget ? 'Em Simulação' : 'Aguardando Conferência'}</span>
                                         </div>
                                         <div className="flex items-end gap-1 font-black italic">
                                              <span className="text-[10px] tracking-widest mb-1 opacity-80">R$</span>
@@ -360,8 +391,8 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                 onPrev={actions.goToPrevStep}
                 onNext={actions.goToNextStep}
                 currentStep={currentStep}
-                buttonLabel={state.status === 'draft' ? "Cadastrar Pedido" : "Salvar Edição"}
-                colorScheme={state.status === 'draft' ? "emerald" : "blue"}
+                buttonLabel={isBudget ? "Salvar Orçamento" : (state.status === 'draft' ? "Cadastrar Pedido" : "Salvar Edição")}
+                colorScheme={isBudget ? "indigo" : (state.status === 'draft' ? "emerald" : "blue")}
             />
             
             <style dangerouslySetInnerHTML={{ __html: `@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }` }} />

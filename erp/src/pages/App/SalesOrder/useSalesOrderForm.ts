@@ -64,9 +64,17 @@ const parseStorageDateToLocal = (dateStr: string) => {
     return `${y}-${mo}-${d}T${h}:${mi}`;
 };
 
-export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup') => {
+export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup', initialOrderType: Order['orderType'] = 'sale') => {
     const { items, setItems } = useItems();
     const { shipping, setShipping } = useShipping(initialDeliveryMethod);
+    
+    // When initializing as budget, we don't have customer data step, so we force manual address entry
+    useEffect(() => {
+        if (initialOrderType === 'budget') {
+            setShipping(prev => ({ ...prev, useCustomerAddress: false }));
+        }
+    }, [initialOrderType, setShipping]);
+
     const { payments, setPayments } = usePaymentsData();
     const { customerData, setCustomerData } = useCustomerData();
     const [observation, setObservation] = useState("");
@@ -79,7 +87,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
     const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [isSavingDraft, setIsSavingDraft] = useState(false);
-    const [orderType, setOrderType] = useState<Order['orderType']>('sale');
+    const [orderType, setOrderType] = useState<Order['orderType']>(initialOrderType);
     const [assistanceItems, setAssistanceItems] = useState<AssistanceItem[]>([]);
     const [assistanceServiceValue, setAssistanceServiceValue] = useState(0);
     const [assistanceCost, setAssistanceCost] = useState(0);
@@ -354,7 +362,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
 
     // Synchronize item handling defaults when switching global delivery method
     useEffect(() => {
-        if (prevDeliveryMethodRef.current === shipping.deliveryMethod) return;
+        const prevMethod = prevDeliveryMethodRef.current;
+        if (prevMethod === shipping.deliveryMethod) return;
         
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
         const settings = getSettings();
@@ -363,13 +372,20 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
             // Respect special service handling types
             if (item.handlingType === 'Execução no local') return item;
             
+            const oldDefault = prevMethod === 'pickup' 
+                ? settings.defaultPickupHandling 
+                : settings.defaultDeliveryHandling;
+
             const newDefault = shipping.deliveryMethod === 'pickup' 
                 ? settings.defaultPickupHandling 
                 : settings.defaultDeliveryHandling;
                 
-            if (item.handlingType === newDefault) return item;
+            // Only update if it was the default value or empty (untouched)
+            if (item.handlingType === oldDefault || !item.handlingType) {
+                return { ...item, handlingType: newDefault };
+            }
 
-            return { ...item, handlingType: newDefault };
+            return item;
         }));
     }, [shipping.deliveryMethod, setItems]);
 
@@ -442,7 +458,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
 
     const currentOrder = useMemo((): Order => ({
         id: currentOrderId,
-        orderType: 'sale',
+        orderType,
         status: status as any,
         items,
         itemsSummary,
@@ -523,10 +539,25 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup')
         setErrors,
         validateOrder,
         setOrderDate,
-        goToNextStep: () => setCurrentStep(prev => Math.min(prev + 1, 5)),
-        goToPrevStep: () => setCurrentStep(prev => Math.max(prev - 1, 1)),
-        jumpToStep: (step: number) => setCurrentStep(step),
-    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm]);
+        goToNextStep: () => {
+            setCurrentStep(prev => {
+                const next = prev + 1;
+                if (next === 2 && initialOrderType === 'budget') return 3;
+                return Math.min(next, 5);
+            });
+        },
+        goToPrevStep: () => {
+            setCurrentStep(prev => {
+                const next = prev - 1;
+                if (next === 2 && initialOrderType === 'budget') return 1;
+                return Math.max(next, 1);
+            });
+        },
+        jumpToStep: (step: number) => {
+            if (step === 2 && initialOrderType === 'budget') return;
+            setCurrentStep(step);
+        },
+    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, initialOrderType]);
 
     return { state, actions };
 };

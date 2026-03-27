@@ -26,6 +26,7 @@ import ValidationConfigSection from './components/ValidationConfigSection';
 // import ImportMappingSection from './components/ImportMappingSection'; // Removido por não existir e não ser utilizado
 import InventoryAutomationSection from './components/InventoryAutomationSection';
 import ProductMaterialsSection from './components/ProductMaterialsSection';
+import CardFlagSettings from './components/CardFlagSettings';
 // import SaveButton from './components/SaveButton'; // Removido para auto-save
 
 const categories: any[] = [
@@ -47,6 +48,7 @@ const categories: any[] = [
     { id: 'estoqueAutomacao', label: 'Automação de Estoque', icon: 'bi-box-arrow-right', group: 'system', keywords: ['estoque', 'movimentação', 'venda', 'compra', 'automação'] },
     { id: 'materiais', label: 'Materiais de Móveis', icon: 'bi-hammer', group: 'system', keywords: ['material', 'mdp', 'mdf', 'madeira', 'vidro', 'metal', 'móvel'] },
     { id: 'manuseio', label: 'Manuseio de Pedidos', icon: 'bi-hand-index-thumb', group: 'system', keywords: ['manuseio', 'montagem', 'entrega', 'retirada', 'padrão'] },
+    { id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
 ];
 
 /**
@@ -106,7 +108,7 @@ export default function Settings(): any {
             saveTimeoutRef.current = setTimeout(async () => {
                 await saveSettings(next);
                 setIsSaving(false);
-                // toast.success("Configurações sincronizadas! ✨", { autoClose: 500, hideProgressBar: true });
+                toast.success("Configurações salvas com sucesso! ✨", { autoClose: 5000 });
             }, 1000);
 
             return next;
@@ -299,6 +301,11 @@ export default function Settings(): any {
                     <SettingsSection id="materiais" title="Materiais de Móveis" icon="bi-hammer" isVisible={isVisible('materiais')}>
                         <ProductMaterialsSection />
                     </SettingsSection>
+
+                    <SettingsSection id="bandeiras" title="Bandeiras e Juros de Cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')}>
+                        <CardFlagSettings settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
 
                     
 

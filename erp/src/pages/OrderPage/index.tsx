@@ -9,6 +9,8 @@ import logoMorante from "../../assets/logo.jpeg";
 const OrderPage = () => {
     const storedOrder = sessionStorage.getItem('order');
     const order = storedOrder ? JSON.parse(storedOrder) : null;
+    const queryParams = new URLSearchParams(window.location.search);
+    const isBudget = queryParams.get('type') === 'budget' || order?.orderType === 'budget';
 
     useEffect(() => {
         if (order) {
@@ -30,7 +32,9 @@ const OrderPage = () => {
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">PEDIDO DE VENDA</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {isBudget ? 'ORÇAMENTO / PROPOSTA COMERCIAL' : 'PEDIDO DE VENDA'}
+                    </div>
                     <div className="text-[11px] font-bold text-slate-900 mt-1 uppercase tracking-tight">EMISSÃO: {formatToBRDate(order.date)}</div>
                 </div>
             </div>

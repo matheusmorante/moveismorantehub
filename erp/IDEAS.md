@@ -11,6 +11,9 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **Validação Inteligente (Hover):** Botões de ação desativados (Imprimir, Enviar) agora exibem um overlay premium ao passar o mouse, detalhando quais campos obrigatórios ainda faltam.
 - **Navegação Simplificada:** Remoção dos botões "Anterior" e "Próximo" do rodapé nos passos intermediários, centralizando o controle no Stepper superior.
 - **Identificação Visual:** Cores associadas aos métodos de logística: **Esmeralda/Verde** para Entrega e **Roxo/Índigo** para Retirada na Loja.
+- **Módulo de Orçamentos:** Novo fluxo de "Orçamento" integrado ao menu de Pedidos. Permite criar propostas sem obrigatoriedade de cliente ou forma de pagamento imediata, com interface simplificada que foca nos itens e logística de frete. Botão de impressão de orçamento adicionado.
+- **Configuração de Juros e Bandeiras:** Nova interface premium para configurar taxas de juros por número de parcelas (limitado a 10x). Pré-configuradas bandeiras VISA, MASTER, ELO e HIPERCARD com 0% e SENFF com juros customizáveis.
+- **Logística de Montagem:** Corrigida a lista de montagem para filtrar corretamente os itens baseando-se na modalidade (Entrega vs Retirada) e nas configurações de cada opção de manuseio. Resolvidos erros de carregamento (400) e avisos de DOM nesting.
 
 ### 🛠️ Módulo de Assistência Técnica
 - **Ajuste de Fluxo:** Campo de vínculo com pedido original movido para o topo do formulário.
@@ -27,7 +30,7 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **[IDEIA] Sugestão de Rota:** Agrupar entregas por bairro/cidade automaticamente no cronograma.
 
 ### 💳 Financeiro
-- **[IDEIA] Link de Pagamento Dinâmico:** Gerar QR Code Pix dinâmico diretamente no resumo do pedido (Passo 5).
+- **[IDEIA] Link de Pagamento Dinâmico:** Gerar QR Code Pix dinâmico diretamente no resumo do pedido (Passo 5). (Parcialmente implementado: QR Code Pix estático/manual disponível no modal de pagamento).
 - **[IDEIA] Fluxo de Caixa:** Criar uma aba de "Entradas do Dia" baseada nos pagamentos de pedidos finalizados.
 
 ### 🧩 Experiência do Usuário (UX/UI)

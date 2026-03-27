@@ -2,23 +2,13 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Order from '@/pages/types/order.type';
-import { geocodeAddress } from '@/pages/utils/maps';
+import { geocodeAddress, getNeighborhoodCoords } from '@/pages/utils/maps';
 
 interface ProfitHeatMapProps {
     orders: Order[];
 }
 
 type MetricType = 'profit' | 'value' | 'count';
-
-// Coordenadas baseadas em bairros (Fallback quando geocodificação falha ou não disponível)
-const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
-    'GUARAITUBA': [-49.1725, -25.3614],
-    'MARACANÃ': [-49.1833, -25.3667],
-    'CENTRO': [-49.2242, -25.2917],
-    'CURITIBA': [-49.2667, -25.4284],
-    'BALSA NOVA': [-49.6358, -25.5833],
-    'COLOMBO': [-49.2242, -25.2917],
-};
 
 export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
@@ -39,7 +29,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                 o.id && 
                 !o.shipping?.destinationCoords && 
                 !newCoords[o.id]
-            ).slice(0, 15); // Limita lote para não travar o browser/API
+            ).slice(0, 50); // Aumentado limite para 50 para cobrir mais do período
 
             if (toGeocode.length === 0) return;
 
@@ -60,8 +50,8 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                     console.warn(`Erro ao geocodificar pedido ${order.id}:`, e);
                 }
                 
-                // Pequeno delay para respeitar limites de API (Nominatim)
-                await new Promise(r => setTimeout(r, 1000));
+                // Delay reduzido para processar mais rápido, Nominatim permite pequenos picos
+                await new Promise(r => setTimeout(r, 250));
             }
 
             if (updated) {
@@ -82,22 +72,28 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
             const city = (fullAddr?.city || '').toUpperCase().trim();
             
             // Ordem de prioridade de Coordenadas:
-            // 1. Coordenadas salvas no pedido (preciso - capturado na venda)
-            // 2. Coordenadas encontradas pela geocodificação dinâmica desta sessão
-            // 3. Fallback de bairro/cidade
-            let coords = order.shipping?.destinationCoords || 
-                         ordersWithCoords[order.id || ''] || 
-                         NEIGHBORHOOD_COORDS[neighborhood] || 
-                         NEIGHBORHOOD_COORDS[city] || 
-                         NEIGHBORHOOD_COORDS['CURITIBA'];
+            // 1. Coordenadas salvas no pedido
+            // 2. Coordenadas encontradas pela geocodificação dinâmica
+            // 3. Fallback de bairro/cidade via utilitário global
+            let finalCoords: [number, number];
+            
+            if (order.shipping?.destinationCoords && order.shipping.destinationCoords[0] !== 0) {
+                finalCoords = order.shipping.destinationCoords;
+            } else if (ordersWithCoords[order.id || '']) {
+                const c = ordersWithCoords[order.id || ''];
+                finalCoords = [c[0], c[1]];
+            } else {
+                const fall = getNeighborhoodCoords(neighborhood, city);
+                finalCoords = [fall.lng, fall.lat];
+            }
             
             // Jittering inteligente (evita sobreposição total de pontos no mesmo local)
-            // Usa o número da casa ou ID como parte da semente para variação local
             const addrNumber = fullAddr?.number ? parseInt(fullAddr.number.replace(/\D/g, '')) : 0;
             const seed = (order.id || '').length + addrNumber + (fullAddr?.street || '').length;
             
-            // Jittering reduzido se as coordenadas forem precisas (para manter a acurácia da rua)
-            const jitterScale = (order.shipping?.destinationCoords || ordersWithCoords[order.id || '']) ? 0.0002 : 0.0008;
+            // Jittering ultra-reduzido para pontos precisos, mantendo o ponto na rua correta
+            const isPrecision = (order.shipping?.destinationCoords || ordersWithCoords[order.id || '']);
+            const jitterScale = isPrecision ? 0.00005 : 0.0006;
             const jitterLat = ((seed % 20) - 10) * jitterScale;
             const jitterLng = ((Math.floor(seed / 5) % 20) - 10) * jitterScale;
 
@@ -114,7 +110,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                 },
                 geometry: {
                     type: 'Point',
-                    coordinates: [coords[0] + jitterLng, coords[1] + jitterLat]
+                    coordinates: [finalCoords[0] + jitterLng, finalCoords[1] + jitterLat]
                 }
             };
         });

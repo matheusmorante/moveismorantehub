@@ -86,11 +86,15 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'salesOrder' && (
                     <div className={dropdownClass}>
                         <Link to="/sales-order" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Pedidos</Link>
-                        <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                         <Link to="/attendance-dashboard" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>BI de Atendimento</Link>
+                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
+                        <div className="px-3 py-1 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Fluxo de Orçamentos</div>
+                        <Link to="/sales-order?type=budget&new=true" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Novo Orçamento</Link>
+                        <Link to="/sales-order?type=budget" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Orçamentos</Link>
                     </div>
                 )}
             </div>
+
 
 
 
@@ -113,6 +117,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/delivery-schedule" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cronograma Logístico</Link>
                         <Link to="/delivery-schedule" state={{ view: 'map' }} onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Mapa de Entregas</Link>
                         <Link to="/logistics/assembly-list" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Montagem</Link>
+                        <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                     </div>
                 )}
             </div>

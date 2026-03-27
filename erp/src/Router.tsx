@@ -38,6 +38,7 @@ import LabelPrinting from './pages/App/Stock/LabelPrinting/Index';
 import SystemDocs from './pages/App/SystemDocs/Index';
 import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
 import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
+import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
@@ -92,6 +93,7 @@ function Router() {
           <Route path='/order' element={<OrderPage />} />
           <Route path='/shipping-label' element={<ShippingLabelPage />} />
           <Route path='/schedule' element={<DeliverySchedule />} />
+          <Route path='/logistics/assembly-print' element={<AssemblyPrintPage />} />
 
           {/* Protected ERP Application */}
           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

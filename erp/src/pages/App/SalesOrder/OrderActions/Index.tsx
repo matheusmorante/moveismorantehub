@@ -18,7 +18,8 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     sendCustomerReviews: false,
     printShippingLabel: false,
     printProductLabel: false,
-    generatePaymentLink: false
+    generatePaymentLink: false,
+    printBudget: false
   });
 
   async function markClicked(key: keyof IsButtonsClicked) {

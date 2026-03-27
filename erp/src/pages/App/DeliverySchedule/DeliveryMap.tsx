@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Order from "@/pages/types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
-import { getNeighborhoodCoords } from '@/pages/utils/maps';
+import { getNeighborhoodCoords, geocodeAddress } from '@/pages/utils/maps';
 
 interface DeliveryMapProps {
     orders: Order[];
@@ -28,21 +28,73 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
 
     const [routeInfo, setRouteInfo] = useState<Record<string, { distance: string, duration: string }>>({});
 
+    const [geocodedPoints, setGeocodedPoints] = useState<Record<string, { lat: number, lng: number }>>({});
+
+    // Geocoding effect
+    useEffect(() => {
+        const geocodeAll = async () => {
+            const newGeocoded = { ...geocodedPoints };
+            let changed = false;
+            
+            for (const order of orders) {
+                if (order.id && !newGeocoded[order.id]) {
+                    // 1. Coordenadas já salvas no pedido (Melhor opção)
+                    if (order.shipping?.destinationCoords && order.shipping.destinationCoords[0] !== 0) {
+                        newGeocoded[order.id] = { 
+                            lng: order.shipping.destinationCoords[0], 
+                            lat: order.shipping.destinationCoords[1] 
+                        };
+                        changed = true;
+                        continue;
+                    }
+
+                    // 2. Geocodificação Dinâmica (OSM Nominatim)
+                    const address = order.shipping?.useCustomerAddress === false && order.shipping?.deliveryAddress 
+                        ? order.shipping.deliveryAddress 
+                        : order.customerData.fullAddress;
+
+                    if (address.street && address.number) {
+                        // Pequeno atraso para respeitar limites do Nominatim (1 req/s recomendado, fazemos 250ms)
+                        if (!order.shipping?.destinationCoords) await new Promise(r => setTimeout(r, 250));
+                        
+                        const coords = await geocodeAddress(address);
+                        if (coords) {
+                            newGeocoded[order.id] = { lng: coords[0], lat: coords[1] };
+                            changed = true;
+                            continue;
+                        }
+                    }
+
+                    // 3. Fallback: Bairro (O que estava acontecendo)
+                    const fallback = getNeighborhoodCoords(address.neighborhood, address.city);
+                    if (fallback) {
+                        newGeocoded[order.id] = fallback;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) setGeocodedPoints(newGeocoded);
+        };
+        geocodeAll();
+    }, [orders]);
+
     const points = useMemo(() => {
         return orders.map(order => {
             const isAssistance = order.orderType === 'assistance';
-            const fullAddress = order.customerData?.fullAddress;
+            const coords = geocodedPoints[order.id || ""];
             
-            const neighborhood = fullAddress?.neighborhood || "";
-            const city = fullAddress?.city || "";
-
-            const coords = getNeighborhoodCoords(neighborhood, city);
             if (!coords) return null;
 
-            // Simple jittering
-            const seed = parseInt(order.id?.slice(-4) || "0", 16);
-            const jitterLat = (seed % 100 - 50) * 0.0001;
-            const jitterLng = (seed % 100 - 50) * 0.0001;
+            // Jittering apenas se for fallback de bairro (campos de lat/lng inteiros indicam baixa precisão)
+            const isPrecision = coords.lat.toString().split('.')[1]?.length > 4;
+            let jitterLat = 0;
+            let jitterLng = 0;
+            
+            if (!isPrecision) {
+                const seed = parseInt(order.id?.slice(-4) || "0", 16);
+                jitterLat = (seed % 100 - 50) * 0.0001;
+                jitterLng = (seed % 100 - 50) * 0.0001;
+            }
 
             return {
                 id: order.id,
@@ -52,8 +104,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                 isAssistance
             };
         }).filter(Boolean) as RoutePoint[];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [JSON.stringify(orders.map(o => o.id))]);
+    }, [orders, geocodedPoints]);
 
     // Fetch routing info from OSRM
     useEffect(() => {

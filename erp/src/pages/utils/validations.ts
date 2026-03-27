@@ -142,29 +142,46 @@ export const validateOrder = (order: Order): ValidationErrors => {
         shippingValue
     );
 
+    const isBudget = order.orderType === 'budget';
     const errors: ValidationErrors = {
         ...validateItems(items),
-        ...validateCustomerData(order.customerData, isPickup),
+        ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
         ...validateSeller(order.seller)
     };
 
-    // If it's not a draft, we require full validation
-    if (!isDraft) {
+    // If it's not a draft and not a budget, we require full validation
+    if (!isDraft && !isBudget) {
         Object.assign(errors, {
             ...validateShipping(order.shipping, order.customerData),
             ...validatePayments(payments, amountRemaining)
         });
+    }
 
-        // Validate items presence for non-drafts. Must have either regular items or assistance items.
+    // Items presence validation (required for both non-draft sales and non-draft budgets)
+    if (!isDraft) {
         const hasRegularItems = items.length > 0;
         const hasAssistanceItems = order.assistanceItems && order.assistanceItems.length > 0;
         
         if (!hasRegularItems && !hasAssistanceItems) {
             if (isAssistance) {
-                errors['items_summary'] = "O pedido de assistência deve conter pelo menos um item (vinculado ao pedido original ou peça avulsa).";
+                errors['items_summary'] = "O pedido de assistência deve conter pelo menos um item.";
             } else {
-                errors['items_summary'] = "O pedido deve conter pelo menos um produto para ser finalizado.";
+                errors['items_summary'] = "O pedido/orçamento deve conter pelo menos um produto.";
             }
+        }
+    }
+
+    // For budgets, we still want to validate shipping but without date/time requirements
+    if (isBudget && order.shipping?.deliveryMethod === 'delivery') {
+        const s = order.shipping;
+        if (s.useCustomerAddress !== false) {
+            const addr = order.customerData?.fullAddress;
+            if (!addr?.street) errors['customer_street'] = "Rua é obrigatória (para frete).";
+            if (!addr?.city) errors['customer_city'] = "Cidade é obrigatória (para frete).";
+        } else {
+            const dAddr = s.deliveryAddress;
+            if (!dAddr?.street) errors['deliveryAddress_street'] = "Rua é obrigatória (para frete).";
+            if (!dAddr?.city) errors['deliveryAddress_city'] = "Cidade é obrigatória (para frete).";
         }
     }
 

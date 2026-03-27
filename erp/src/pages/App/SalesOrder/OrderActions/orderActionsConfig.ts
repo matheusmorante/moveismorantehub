@@ -56,6 +56,10 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     },
     'GENERATE_PAYMENT_LINK': (order) => {
         console.log("Gerando link de pagamento para o pedido:", order.id);
+    },
+    'PRINT_BUDGET': (order) => {
+        sessionStorage.setItem("order", JSON.stringify(order));
+        window.open("/order?type=budget", "_blank");
     }
 };
 
@@ -124,5 +128,14 @@ export const buttons: OrderButton[] = [
         color: "text-yellow-500 hover:bg-yellow-50",
         tooltip: "Enviar pedido de avaliação da loja no Google Maps"
         // All order types
+    },
+    {
+        key: "printBudget",
+        icon: "bi-printer-fill",
+        action: "PRINT_BUDGET",
+        label: "Imprimir Orçamento",
+        color: "text-indigo-600 hover:bg-indigo-50",
+        tooltip: "Imprimir Proposta Comercial (Orçamento)",
+        orderTypes: ['budget']
     },
 ];

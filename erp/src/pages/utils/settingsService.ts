@@ -16,6 +16,14 @@ export interface HandlingOption {
     color?: string; // Cor personalizada para identificação visual (Hex)
 }
 
+export interface CardFlagRule {
+    flag: string; // VISA, MASTERCARD, etc.
+    interestRates: {
+        installments: number;
+        rate: number; // Porcentagem de juros
+    }[];
+}
+
 export interface AppSettings {
     // Automação e Status
     showManualFulfillmentPrompt: boolean;
@@ -33,16 +41,21 @@ export interface AppSettings {
         delivery: string;
         pickup: string;
         assistance: string;
+        budget: string;
     };
     orderTypeColors: {
         delivery: OrderTypeColor;
         pickup: OrderTypeColor;
         assistance: OrderTypeColor;
+        budget: OrderTypeColor;
     };
     deliveryHandlingOptions: HandlingOption[];
     pickupHandlingOptions: HandlingOption[];
     defaultDeliveryHandling: string;
     defaultPickupHandling: string;
+
+    // Regras de Pagamento
+    cardFlagRules: CardFlagRule[];
 
     // Logística e Valores
     freightPerKm: number;
@@ -216,6 +229,10 @@ const migrateSettings = (settings: any): AppSettings => {
         }));
     }
 
+    // O usuário gerenciará as opções de manuseio através da interface de configurações
+    // Não forçamos mais a remoção automática de 'Montagem no Local' aqui.
+
+
     return settings as AppSettings;
 };
 
@@ -241,12 +258,14 @@ export const getDefaultSettings = (): AppSettings => ({
     orderTypeLabels: {
         delivery: 'Entrega/Serviço',
         pickup: 'Retirada',
-        assistance: 'Assistência'
+        assistance: 'Assistência',
+        budget: 'Orçamento'
     },
     orderTypeColors: {
         delivery: 'green',
         pickup: 'purple',
-        assistance: 'orange'
+        assistance: 'orange',
+        budget: 'blue'
     },
     deliveryHandlingOptions: [
         { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false },
@@ -257,10 +276,22 @@ export const getDefaultSettings = (): AppSettings => ({
     pickupHandlingOptions: [
         { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false },
         { label: 'Já Montado', includeInAssemblySchedule: false },
+        { label: 'Montagem no Local', includeInAssemblySchedule: true },
         { label: 'Manuseio Especial', includeInAssemblySchedule: false }
     ],
-    defaultDeliveryHandling: 'Montagem no Local',
+    defaultDeliveryHandling: 'Para Montar (Desmontado)',
     defaultPickupHandling: 'Já Montado',
+    cardFlagRules: [
+        { flag: 'VISA', interestRates: [{ installments: 10, rate: 0 }] },
+        { flag: 'MASTERCARD', interestRates: [{ installments: 10, rate: 0 }] },
+        { flag: 'HIPERCARD', interestRates: [{ installments: 10, rate: 0 }] },
+        { flag: 'ELO', interestRates: [{ installments: 10, rate: 0 }] },
+        { flag: 'SENFF', interestRates: [
+            { installments: 3, rate: 3.5 },
+            { installments: 6, rate: 6.8 },
+            { installments: 10, rate: 9.9 }
+        ] }
+    ],
     freightPerKm: 0,
     openRouteServiceApiKey: '',
     storeOriginCoords: [-49.16928181659719, -25.352030536045138],

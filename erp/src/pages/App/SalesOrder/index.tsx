@@ -13,7 +13,7 @@ import { OrderHistoryListRef } from "./OrderHistoryList";
 const SalesOrder = () => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
-    const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | null>(null);
+    const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [filters, setFilters] = useState<Filters>({
         dateRange: { start: "", end: "" },
@@ -28,6 +28,19 @@ const SalesOrder = () => {
         sortOrder: "desc" as any, // Legacy field
         multiSort: [{ key: 'date', order: 'desc' }] as { key: string, order: 'asc' | 'desc' }[]
     });
+
+    React.useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const typeParam = queryParams.get('type');
+        const newParam = queryParams.get('new');
+
+        if (typeParam === 'budget') {
+            setFilters(prev => ({ ...prev, orderType: 'budget' }));
+            if (newParam === 'true') {
+                setOrderModalType('budget');
+            }
+        }
+    }, [window.location.search]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
@@ -111,12 +124,19 @@ const SalesOrder = () => {
 
                     <div className="flex gap-2">
                         <Link
-                            to="/app/configuracoes"
+                            to="/settings"
                             className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
-                            title="Configurar Campos Obrigatórios"
+                            title="Configurações do Sistema"
                         >
                             <i className="bi bi-gear-fill text-lg" />
                         </Link>
+                        <button
+                            onClick={() => setOrderModalType('budget')}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                        >
+                            <i className="bi bi-calculator-fill text-sm" />
+                            Novo Orçamento
+                        </button>
                         <NewOrderDropdown onSelect={(type) => setOrderModalType(type)} />
                     </div>
                 </div>
@@ -335,9 +355,10 @@ const SalesOrder = () => {
             )}
 
 
-            {(orderModalType === 'sale' || orderModalType === 'pickup') && (
+            {(orderModalType === 'sale' || orderModalType === 'pickup' || orderModalType === 'budget') && (
                 <NewSaleOrder
                     initialDeliveryMethod={orderModalType === 'pickup' ? 'pickup' : 'delivery'}
+                    orderType={orderModalType === 'budget' ? 'budget' : 'sale'}
                     onClose={() => setOrderModalType(null)}
                     onSaveSuccess={(id) => {
                         if (id) {

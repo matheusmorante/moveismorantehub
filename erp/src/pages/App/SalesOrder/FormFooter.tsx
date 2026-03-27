@@ -13,7 +13,7 @@ interface FormFooterProps {
     onNext?: () => void;
     currentStep: number;
     buttonLabel?: string;
-    colorScheme?: 'blue' | 'emerald';
+    colorScheme?: 'blue' | 'emerald' | 'indigo';
 }
 
 const FormFooter = ({ 
@@ -82,6 +82,8 @@ const FormFooter = ({
                                     ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none"
                                     : colorScheme === 'blue'
                                     ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 dark:shadow-blue-900/40 shadow-lg"
+                                    : colorScheme === 'indigo'
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-indigo-900/40 shadow-lg"
                                     : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 dark:shadow-emerald-900/40 shadow-lg"
                                     }`}
                             >

@@ -61,9 +61,24 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                         value={item.handlingType || ''}
                                         onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
                                     >
-                                        {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
-                                            <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                                        ))}
+                                        <option value="" disabled className="dark:bg-slate-900">Selecione...</option>
+                                        {(() => {
+                                            const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
+                                            const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
+                                            
+                                            return (
+                                                <>
+                                                    {options.map(opt => (
+                                                        <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                                                    ))}
+                                                    {item.handlingType && !isSelectedInOptions && (
+                                                        <option value={item.handlingType} className="italic text-slate-400">
+                                                            {item.handlingType} (Valor Atual)
+                                                        </option>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </select>
                                 </div>
                             </div>
@@ -172,9 +187,23 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                             onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
                         >
                             <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
-                            {(deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || [])).map(opt => (
-                                <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                            ))}
+                            {(() => {
+                                const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
+                                const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
+                                
+                                return (
+                                    <>
+                                        {options.map(opt => (
+                                            <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                                        ))}
+                                        {item.handlingType && !isSelectedInOptions && (
+                                            <option value={item.handlingType} className="italic text-slate-400">
+                                                {item.handlingType} (Atual)
+                                            </option>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </select>
                     </div>
                 )}
