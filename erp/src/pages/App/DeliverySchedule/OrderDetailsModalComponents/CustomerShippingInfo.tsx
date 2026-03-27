@@ -71,7 +71,7 @@ export const OrderTypeLabelsSection = ({ deliveryMethod, orderType, handlingModa
 
 import MapRoute from "../../SalesOrder/ShippingComponents/MapRoute";
 
-export const ShippingSection = ({ fullAddress, destinationCoords, distance, durationMinutes }: { fullAddress: any, destinationCoords?: [number, number], distance?: number, durationMinutes?: number }) => (
+export const ShippingSection = ({ fullAddress, destinationCoords, distance, durationMinutes, isReadOnly }: { fullAddress: any, destinationCoords?: [number, number], distance?: number, durationMinutes?: number, isReadOnly?: boolean }) => (
     <section>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
             <i className="bi bi-geo-alt-fill" /> Endereço de Entrega

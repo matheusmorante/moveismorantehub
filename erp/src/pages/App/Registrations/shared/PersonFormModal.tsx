@@ -7,6 +7,9 @@ import SmartInput from "../../../../components/SmartInput";
 import { getSettings } from "../../../utils/settingsService";
 import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
+import { getAddressByCep, searchAddressSuggestions } from "../../../utils/maps";
+import DropdownPortal from "../../../../components/shared/DropdownPortal";
+import AddressVerificationMap from "../../SalesOrder/AddressVerificationMap";
 
 interface PersonFormModalProps {
     isOpen: boolean;
@@ -44,8 +47,24 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
     const isEmployee = collectionName === 'employees';
 
     const [loading, setLoading] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [settings, setSettings] = useState(getSettings());
     const isInitialMount = useRef(true);
+
+    const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
+    const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = useState(false);
+    const streetWrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (streetWrapperRef.current && !streetWrapperRef.current.contains(e.target as Node)) {
+                setIsStreetSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
 
     useEffect(() => {
         if (person) {
@@ -93,23 +112,72 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
     const handleAddressChange = (field: string, value: string) => {
         setFormData((prev: Partial<Person>) => {
             const currentAddress = prev.fullAddress || {
-                cep: "",
-                street: "",
-                number: "",
-                neighborhood: "",
-                city: "",
-                housingType: "",
-                complement: "",
-                observation: ""
+                cep: "", street: "", number: "", neighborhood: "",
+                city: "", housingType: "", complement: "", observation: ""
             };
             return {
                 ...prev,
-                fullAddress: {
-                    ...currentAddress,
-                    [field]: value
-                }
+                fullAddress: { ...currentAddress, [field]: value }
             };
         });
+    };
+
+    const handleStreetChange = async (val: string) => {
+        handleAddressChange('street', val);
+        if (val.length >= 3) {
+            setLoadingSuggestions(true);
+            setIsStreetSuggestionsOpen(true);
+            try {
+                const suggestions = await searchAddressSuggestions(val, formData.fullAddress?.city);
+                setStreetSuggestions(suggestions);
+                // No need to set isOpen true here as we did it before
+                if (suggestions.length === 0) setIsStreetSuggestionsOpen(false);
+            } catch {
+                setStreetSuggestions([]);
+                setIsStreetSuggestionsOpen(false);
+            } finally {
+                setLoadingSuggestions(false);
+            }
+        } else {
+            setStreetSuggestions([]);
+            setIsStreetSuggestionsOpen(false);
+            setLoadingSuggestions(false);
+        }
+    };
+
+    const handleSelectAddressSuggestion = (suggestion: any) => {
+        const addr = suggestion.address;
+        setFormData((prev: Partial<Person>) => ({
+            ...prev,
+            fullAddress: {
+                ...prev.fullAddress!,
+                street: addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0],
+                neighborhood: addr.neighbourhood || addr.suburb || prev.fullAddress?.neighborhood || "",
+                city: addr.city || addr.town || addr.village || prev.fullAddress?.city || "",
+                cep: addr.postcode ? addr.postcode.replace(/\D/g, '') : prev.fullAddress?.cep || ""
+            }
+        }));
+        setIsStreetSuggestionsOpen(false);
+    };
+
+    const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+        const cepValue = e.target.value.replace(/\D/g, "");
+        if (cepValue.length === 8) {
+            try {
+                const data = await getAddressByCep(cepValue);
+                if (data && !(data as any).error) {
+                    setFormData((prev: Partial<Person>) => ({
+                        ...prev,
+                        fullAddress: {
+                            ...prev.fullAddress!,
+                            street: data.street || prev.fullAddress?.street || "",
+                            neighborhood: data.neighborhood || prev.fullAddress?.neighborhood || "",
+                            city: data.city || prev.fullAddress?.city || "",
+                        }
+                    }));
+                }
+            } catch (error) { /* ignore */ }
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -432,17 +500,48 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     type="text"
                                     value={formData.fullAddress?.cep || ""}
                                     onChange={(e) => handleAddressChange("cep", e.target.value)}
+                                    onBlur={handleCepBlur}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
                             </div>
-                            <div className="md:col-span-2 flex flex-col gap-2">
+                            <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro</label>
                                 <input
                                     type="text"
                                     value={formData.fullAddress?.street || ""}
-                                    onChange={(e) => handleAddressChange("street", e.target.value)}
+                                    onChange={(e) => handleStreetChange(e.target.value)}
+                                    onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 />
+                                <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
+                                    <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                        {loadingSuggestions && (
+                                            <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                                <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                                Buscando endereços...
+                                            </div>
+                                        )}
+                                        {!loadingSuggestions && streetSuggestions.length === 0 && (
+                                            <div className="p-4 text-center text-xs text-slate-400">
+                                                Nenhum endereço encontrado.
+                                            </div>
+                                        )}
+                                        {streetSuggestions.map((s, i) => (
+                                            <button key={i} type="button"
+                                                onClick={() => handleSelectAddressSuggestion(s)}
+                                                className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
+                                            >
+                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                    {[
+                                                        s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
+                                                        s.address.neighbourhood || s.address.suburb,
+                                                        s.address.city || s.address.town || s.address.village
+                                                    ].filter(Boolean).join(', ')}
+                                                </p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </DropdownPortal>
                             </div>
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número</label>
@@ -507,6 +606,18 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     placeholder="Ponto de referência, etc."
                                 />
                             </div>
+                        </div>
+
+                        {/* Map Verification */}
+                        <div className="md:col-span-3 mt-4">
+                            <AddressVerificationMap 
+                                address={{
+                                    street: formData.fullAddress?.street || "",
+                                    number: formData.fullAddress?.number || "",
+                                    neighborhood: formData.fullAddress?.neighborhood || "",
+                                    city: formData.fullAddress?.city || ""
+                                }}
+                            />
                         </div>
                     </div>
                 </form>

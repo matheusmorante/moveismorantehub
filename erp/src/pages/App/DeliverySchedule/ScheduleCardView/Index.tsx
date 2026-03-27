@@ -10,12 +10,13 @@ import { toast } from "react-toastify";
 interface Props {
     schedule: Record<string, Order[]>;
     onOrderClick: (order: Order) => void;
+    isReadOnly?: boolean;
 }
 
 /**
  * Renders an individual delivery order as a card
  */
-const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index: number; onOrderClick: (order: Order) => void }) => {
+const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: Order; index: number; onOrderClick: (order: Order) => void; isReadOnly?: boolean }) => {
     const settings = getSettings();
     const [showStatusPicker, setShowStatusPicker] = React.useState(false);
 
@@ -123,7 +124,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
                         <i className="bi bi-chevron-down text-[8px] opacity-50" />
                     </button>
 
-                    {showStatusPicker && (
+                    {!isReadOnly && showStatusPicker && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setShowStatusPicker(false)} />
                             <div className="absolute top-full right-0 mt-3 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] shadow-2xl z-[100] p-3 flex flex-col gap-1.5 animate-slide-up">
@@ -293,7 +294,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick }: { order: Order; index
 /**
  * Main component for the Card Visualization of the Delivery Schedule
  */
-const ScheduleCardView = ({ schedule, onOrderClick }: Props) => {
+const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
@@ -341,6 +342,7 @@ const ScheduleCardView = ({ schedule, onOrderClick }: Props) => {
                                 order={order}
                                 index={index}
                                 onOrderClick={onOrderClick}
+                                isReadOnly={isReadOnly}
                             />
                         ))}
                     </div>

@@ -7,19 +7,23 @@ import { getSettings } from '@/pages/utils/settingsService';
 
 export const getNeighborhoodCoords = (neighborhood?: string, city?: string) => {
     const neighborhoodCoords: Record<string, { lat: number, lng: number }> = {
-        "Guaraituba": { lat: -25.3520, lng: -49.1692 },
-        "Colombo": { lat: -25.2917, lng: -49.2242 },
-        "Curitiba": { lat: -25.4290, lng: -49.2671 },
-        "Centro": { lat: -25.4320, lng: -49.2710 },
-        "Pinhais": { lat: -25.4411, lng: -49.1931 },
-        "Balsa Nova": { lat: -25.5833, lng: -49.6333 },
-        "Piraquara": { lat: -25.4417, lng: -49.0633 },
-        "São José dos Pinhais": { lat: -25.5348, lng: -49.2064 }
+        "guaraituba": { lat: -25.3520, lng: -49.1692 },
+        "parque dos lagos": { lat: -25.3622, lng: -49.1387 },
+        "colombo": { lat: -25.2917, lng: -49.2242 },
+        "curitiba": { lat: -25.4290, lng: -49.2671 },
+        "centro": { lat: -25.4320, lng: -49.2710 },
+        "pinhais": { lat: -25.4411, lng: -49.1931 },
+        "piraquara": { lat: -25.4417, lng: -49.0633 },
+        "sao jose dos pinhais": { lat: -25.5348, lng: -49.2064 },
+        "são josé dos pinhais": { lat: -25.5348, lng: -49.2064 }
     };
 
-    if (neighborhood && neighborhoodCoords[neighborhood]) return neighborhoodCoords[neighborhood];
-    if (city && neighborhoodCoords[city]) return neighborhoodCoords[city];
-    return neighborhoodCoords["Curitiba"];
+    const n = neighborhood?.toLowerCase() || "";
+    const c = city?.toLowerCase() || "";
+
+    if (neighborhoodCoords[n]) return neighborhoodCoords[n];
+    if (neighborhoodCoords[c]) return neighborhoodCoords[c];
+    return null;
 };
 
 // ─── Google Maps URL (for "Ver Rota" link) ───────────────────────────────────
@@ -57,31 +61,66 @@ export interface RouteResult {
 
 // ─── Geocode address ─────────────────────────────────────────────
 
-export const geocodeAddress = async (address: CustomerData['fullAddress'] | string): Promise<[number, number] | null> => {
-    // 1. Convert to string using only Street, Number, Neighborhood and City as requested
-    let addressString = '';
+export interface GeocodeResponse {
+    coords: [number, number];
+    isPrecision: boolean;
+}
+
+export const geocodeAddress = async (address: CustomerData['fullAddress'] | string): Promise<GeocodeResponse | null> => {
+    let street = '';
+    let neighborhood = '';
+    let city = '';
+    
     if (typeof address === 'string') {
-        addressString = address;
+        street = address;
     } else {
-        const { street, number, neighborhood, city } = address;
-        // Strict list: Street, Number, Neighborhood, City
-        addressString = [street, number, neighborhood, city].filter(Boolean).join(', ') + ' - PR';
+        street = address.street;
+        neighborhood = address.neighborhood;
+        city = address.city;
     }
 
-    const encodedAddress = encodeURIComponent(addressString);
-
-    try {
-        const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodedAddress}&format=json&limit=1`, {
-            headers: { 'Accept-Language': 'pt-BR' }
-        });
-        if (nomRes.ok) {
-            const nomData = await nomRes.json();
-            if (nomData && nomData.length > 0) {
-                return [Number(nomData[0].lon), Number(nomData[0].lat)];
+    const fetchNom = async (q: string) => {
+        try {
+            const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+                headers: { 
+                    'Accept-Language': 'pt-BR',
+                    'User-Agent': 'AntigravityERP/1.0 (brasillogistics; contact@morante.com.br)'
+                }
+            });
+            if (nomRes.ok) {
+                const nomData = await nomRes.json();
+                if (nomData && nomData.length > 0) {
+                    return [Number(nomData[0].lon), Number(nomData[0].lat)] as [number, number];
+                }
             }
-        }
-    } catch (e) {
-        console.warn("Nominatim indisponível", e);
+        } catch {}
+        return null;
+    };
+
+    // 1. Tenta Busca Completa (Rua + Número + Bairro + Cidade)
+    if (typeof address !== 'string') {
+        const full = [address.street, address.number, address.neighborhood, address.city].filter(Boolean).join(', ') + ' - PR';
+        let res = await fetchNom(full);
+        if (res) return { coords: res, isPrecision: true };
+    }
+
+    // 2. Tenta Busca Social (Rua + Bairro + Cidade)
+    const simpler = [street, neighborhood, city].filter(Boolean).join(', ') + ' - PR';
+    let resSimpler = await fetchNom(simpler);
+    if (resSimpler) return { coords: resSimpler, isPrecision: true };
+
+    // 3. Fallback: Bairro (Coordenadas Fixas ou Busca por Bairro)
+    const fallback = getNeighborhoodCoords(neighborhood, city);
+    if (fallback) return { coords: [fallback.lng, fallback.lat], isPrecision: false };
+
+    const neighborhoodSearch = [neighborhood, city].filter(Boolean).join(', ') + ' - PR';
+    let resNeighborhood = await fetchNom(neighborhoodSearch);
+    if (resNeighborhood) return { coords: resNeighborhood, isPrecision: false };
+
+    // 4. Fallback Final: Cidade
+    if (city) {
+        let resCity = await fetchNom(city + ' - PR');
+        if (resCity) return { coords: resCity, isPrecision: false };
     }
 
     return null;
@@ -120,12 +159,9 @@ const calculateRouteViaORS = async (
                     geometry: route.geometry
                 };
             }
-        } else {
-            const errorData = await res.json().catch(() => ({}));
-            console.error("OpenRouteService error:", res.status, errorData);
         }
     } catch (e) {
-        console.error("Erro na chamada ao OpenRouteService:", e);
+        console.error("ORS error:", e);
     }
 
     return null;
@@ -157,7 +193,7 @@ const calculateRouteViaOSRM = async (
             }
         }
     } catch (e) {
-        console.error("Erro na chamada ao OSRM:", e);
+        console.error("OSRM error:", e);
     }
 
     return null;
@@ -171,19 +207,12 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
         const origin: [number, number] = settings.storeOriginCoords;
 
         // 1. Geocode the destination
-        let destCoords = await geocodeAddress(address);
+        let geoRes = await geocodeAddress(address);
+        if (!geoRes) return null;
         
-        // Fallback to neighborhood/city coordinates if direct geocoding fails
-        if (!destCoords) {
-            const fallback = getNeighborhoodCoords(address.neighborhood, address.city);
-            if (fallback) {
-                destCoords = [fallback.lng, fallback.lat];
-            } else {
-                return null;
-            }
-        }
+        let destCoords = geoRes.coords;
 
-        // 2. Calculate route (prefer OSRM as it is faster, fallback to ORS if needed)
+        // 2. Calculate route (prefer OSRM)
         let routeData = await calculateRouteViaOSRM(origin, destCoords);
 
         // Fallback to ORS if OSRM fails and API key is available
@@ -209,15 +238,78 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
 
 // ─── Search Address Suggestions (Autocomplete) ──────────────────────────────
 
-export const searchAddressSuggestions = async (query: string): Promise<any[]> => {
+export const searchAddressSuggestions = async (query: string, city?: string): Promise<any[]> => {
     if (!query || query.length < 3) return [];
-    try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5&countrycodes=br`);
-        if (res.ok) {
-            return await res.json();
-        }
-    } catch (e) {
-        console.warn("Erro ao buscar sugestões de endereço (Nominatim)", e);
+    
+    let results: any[] = [];
+    const settings = getSettings();
+
+    // Normalização básica: Remover prefixos comuns
+    const cleanQuery = query.replace(/^(rua|travessa|avenida|trav|r\.|av\.|aven|rod\.|rodovia)\s+/i, '');
+
+    const tryFetch = async (q: string, contextCity?: string) => {
+        const searchSuffix = contextCity ? `, ${contextCity}, Paraná` : ', Paraná';
+        const fullQuery = q + searchSuffix;
+
+        try {
+            const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullQuery)}&format=json&addressdetails=1&limit=10&countrycodes=br`, {
+                headers: { 
+                    'Accept-Language': 'pt-BR',
+                    'User-Agent': 'AntigravityERP/1.0 (brasillogistics; contact@morante.com.br)'
+                }
+            });
+            if (nomRes.ok) {
+                return await nomRes.json();
+            }
+        } catch {}
+        return [];
+    };
+
+    // 1. Tentar Busca Original com Cidade
+    results = await tryFetch(query, city);
+
+    // 2. Se falhar, tentar busca sem o prefixo
+    if (results.length === 0 && cleanQuery !== query) {
+        results = await tryFetch(cleanQuery, city);
     }
-    return [];
+
+    // 3. Se ainda falhar, tentar busca ampla (apenas estado)
+    if (results.length === 0 && city) {
+        results = await tryFetch(query);
+    }
+
+    // 4. Fallback: Photon (Komoot)
+    if (results.length < 3) {
+        try {
+            const photonQuery = city ? `${query}, ${city}` : query;
+            const photonRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(photonQuery)}&limit=5&lat=-25.3&lon=-49.2`); 
+            if (photonRes.ok) {
+                const photonData = await photonRes.json();
+                if (photonData.features) {
+                    const photonMapped = photonData.features
+                        .filter((f: any) => 
+                            f.properties.country === 'Brazil' || f.properties.countrycode === 'BR'
+                        )
+                        .map((f: any) => ({
+                            display_name: [f.properties.name, f.properties.district, f.properties.city, f.properties.state].filter(Boolean).join(', '),
+                            lat: f.geometry.coordinates[1],
+                            lon: f.geometry.coordinates[0],
+                            address: {
+                                road: f.properties.name,
+                                suburb: f.properties.district,
+                                neighbourhood: f.properties.district,
+                                city: f.properties.city || f.properties.town,
+                                postcode: f.properties.postcode
+                            }
+                        }));
+                    
+                    results = [...results, ...photonMapped.filter((o: any) => 
+                        !results.some((r: any) => r.display_name.toLowerCase().includes(o.address.road?.toLowerCase()))
+                    )];
+                }
+            }
+        } catch {}
+    }
+
+    return results;
 }

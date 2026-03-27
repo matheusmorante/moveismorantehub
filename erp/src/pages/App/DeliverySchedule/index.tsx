@@ -106,7 +106,7 @@ const DeliverySchedule = () => {
                             {filters.map(f => (
                                 <div key={f.id} className="flex flex-col gap-2">
                                     <button
-                                        onClick={() => setFilter(f.id)}
+                                        onClick={() => { setFilter(f.id); if (f.id !== 'custom') setSidebarOpen(false); }}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all text-left ${filter === f.id
                                                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/30'
                                                 : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
@@ -441,21 +441,23 @@ const DeliverySchedule = () => {
                     <ScheduleCardView
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
+                        isReadOnly={isStandalone}
                     />
                 ) : viewMode === "table" ? (
                     <ScheduleTableView
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
+                        isReadOnly={isStandalone}
                     />
                 ) : (
-                    <DeliveryMap orders={Object.values(schedule).flat()} />
+                    <DeliveryMap orders={Object.values(schedule).flat()} onOrderClick={openOrderDetails} />
                 )}
             </div>
         );
     };
 
     return (
-        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-4' : 'max-w-[1700px] mt-8 p-4 sm:p-6 md:p-10'}`}>
+        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-2 sm:p-4' : 'max-w-[1700px] mt-4 sm:mt-8 p-3 sm:p-6 md:p-10'}`}>
             {renderHeader()}
 
             <div className="relative">
@@ -469,10 +471,11 @@ const DeliverySchedule = () => {
                 <OrderDetailsModal
                     order={selectedOrder}
                     onClose={closeOrderDetails}
-                    onEdit={(ord) => {
-                        setOrderToEdit(ord);
-                        closeOrderDetails();
-                    }}
+                        onEdit={isStandalone ? undefined : (ord) => {
+                            setOrderToEdit(ord);
+                            closeOrderDetails();
+                        }}
+                    isReadOnly={isStandalone}
                 />
             )}
 

@@ -8,6 +8,7 @@ interface Props {
     order: Order;
     onClose: () => void;
     onEdit?: (order: Order) => void;
+    isReadOnly?: boolean;
 }
 
 import { autoCalculateRouteDistance } from "../../utils/maps";
@@ -15,7 +16,7 @@ import { updateOrder } from "../../utils/orderHistoryService";
 import { toast } from "react-toastify";
 import { useState, useEffect } from "react";
 
-const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit }: Props) => {
+const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }: Props) => {
     const [order, setOrder] = useState(initialOrder);
     const [isRecalculating, setIsRecalculating] = useState(false);
     const isPickup = order.shipping?.deliveryMethod === 'pickup';
@@ -48,7 +49,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit }: Props) => {
     };
 
     useEffect(() => {
-        const needsCalc = !isPickup && (!order.shipping?.distance || !order.shipping?.durationMinutes);
+        const needsCalc = !isReadOnly && !isPickup && (!order.shipping?.distance || !order.shipping?.durationMinutes);
         if (needsCalc) {
             handleRecalculate();
         }
@@ -87,6 +88,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit }: Props) => {
                                         destinationCoords={order.shipping?.destinationCoords}
                                         distance={order.shipping?.distance}
                                         durationMinutes={order.shipping?.durationMinutes}
+                                        isReadOnly={isReadOnly}
                                     />
                                     {isRecalculating && (
                                         <div className="absolute top-0 right-0 p-2 text-[10px] font-black uppercase tracking-widest text-blue-500 transition-colors flex items-center gap-2">

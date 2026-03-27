@@ -11,6 +11,7 @@ import MapRoute from "./ShippingComponents/MapRoute";
 import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
 import SmartInput from "../../../components/SmartInput";
+import AddressVerificationMap from "./AddressVerificationMap";
 
 interface Props {
     shipping: Shipping;
@@ -198,7 +199,13 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                                         onClick={() => handleSelectAddressSuggestion(s)}
                                                         className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
                                                     >
-                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{s.display_name}</p>
+                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                            {[
+                                                                s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
+                                                                s.address.neighbourhood || s.address.suburb,
+                                                                s.address.city || s.address.town || s.address.village
+                                                            ].filter(Boolean).join(', ')}
+                                                        </p>
                                                     </button>
                                                 ))}
                                             </div>
@@ -278,6 +285,18 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                             className="bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Address Verification Map for custom address */}
+                                <div className="mt-2 animate-fade-in">
+                                    <AddressVerificationMap 
+                                        address={{
+                                            street: shipping.deliveryAddress?.street || "",
+                                            number: shipping.deliveryAddress?.number || "",
+                                            neighborhood: shipping.deliveryAddress?.neighborhood || "",
+                                            city: shipping.deliveryAddress?.city || ""
+                                        }}
+                                    />
                                 </div>
                             </div>
                         )}

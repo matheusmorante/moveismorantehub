@@ -8,11 +8,12 @@ import { ORDER_TYPE_COLOR_OPTIONS } from "../../../utils/orderTypeColorUtils";
 interface Props {
     schedule: Record<string, Order[]>;
     onOrderClick: (order: Order) => void;
+    isReadOnly?: boolean;
 }
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 to 20:00
 
-const ScheduleTableView = ({ schedule, onOrderClick }: Props) => {
+const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
     const settings = getSettings();
 
     return (

@@ -7,6 +7,7 @@ import { getNeighborhoodCoords, geocodeAddress } from '@/pages/utils/maps';
 
 interface DeliveryMapProps {
     orders: Order[];
+    onOrderClick: (order: Order) => void;
 }
 
 interface RoutePoint {
@@ -15,11 +16,12 @@ interface RoutePoint {
     lng: number;
     order: Order;
     isAssistance: boolean;
+    isPrecision: boolean;
     distance?: string;
     duration?: string;
 }
 
-export default function DeliveryMap({ orders }: DeliveryMapProps) {
+export default function DeliveryMap({ orders, onOrderClick }: DeliveryMapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<maplibregl.Map | null>(null);
     const markers = useRef<maplibregl.Marker[]>([]);
@@ -28,7 +30,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
 
     const [routeInfo, setRouteInfo] = useState<Record<string, { distance: string, duration: string }>>({});
 
-    const [geocodedPoints, setGeocodedPoints] = useState<Record<string, { lat: number, lng: number }>>({});
+    const [geocodedPoints, setGeocodedPoints] = useState<Record<string, { lat: number, lng: number, isPrecision?: boolean }>>({});
 
     // Geocoding effect
     useEffect(() => {
@@ -54,12 +56,12 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                         : order.customerData.fullAddress;
 
                     if (address.street && address.number) {
-                        // Pequeno atraso para respeitar limites do Nominatim (1 req/s recomendado, fazemos 250ms)
+                        // Pequeno atraso para respeitar limites do Nominatim
                         if (!order.shipping?.destinationCoords) await new Promise(r => setTimeout(r, 250));
                         
-                        const coords = await geocodeAddress(address);
-                        if (coords) {
-                            newGeocoded[order.id] = { lng: coords[0], lat: coords[1] };
+                        const geoRes = await geocodeAddress(address);
+                        if (geoRes) {
+                            newGeocoded[order.id] = { lng: geoRes.coords[0], lat: geoRes.coords[1], isPrecision: geoRes.isPrecision };
                             changed = true;
                             continue;
                         }
@@ -68,7 +70,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                     // 3. Fallback: Bairro (O que estava acontecendo)
                     const fallback = getNeighborhoodCoords(address.neighborhood, address.city);
                     if (fallback) {
-                        newGeocoded[order.id] = fallback;
+                        newGeocoded[order.id] = { ...fallback, isPrecision: false };
                         changed = true;
                     }
                 }
@@ -86,7 +88,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
             if (!coords) return null;
 
             // Jittering apenas se for fallback de bairro (campos de lat/lng inteiros indicam baixa precisão)
-            const isPrecision = coords.lat.toString().split('.')[1]?.length > 4;
+            const isPrecision =  !!coords.isPrecision;
             let jitterLat = 0;
             let jitterLng = 0;
             
@@ -101,7 +103,10 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                 lat: coords.lat + jitterLat,
                 lng: coords.lng + jitterLng,
                 order,
-                isAssistance
+                isAssistance,
+                isPrecision,
+                distance: order.shipping?.distance ? `${order.shipping.distance.toFixed(1)} km` : undefined,
+                duration: order.shipping?.durationMinutes ? `${order.shipping.durationMinutes} min` : undefined
             };
         }).filter(Boolean) as RoutePoint[];
     }, [orders, geocodedPoints]);
@@ -110,8 +115,10 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
     useEffect(() => {
         const fetchAllRoutes = async () => {
             const newInfo: Record<string, { distance: string, duration: string }> = {};
-            
-            for (const p of points) {
+            const toFetch = points.filter(p => !p.distance || !p.duration);
+            if (toFetch.length === 0) return;
+
+            for (const p of toFetch) {
                 try {
                     const url = `https://router.project-osrm.org/route/v1/driving/${storeOrigin[0]},${storeOrigin[1]};${p.lng},${p.lat}?overview=false`;
                     const res = await fetch(url);
@@ -128,7 +135,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                     console.warn(`Erro ao calcular rota para ${p.id}:`, e);
                 }
             }
-            setRouteInfo(newInfo);
+            setRouteInfo(prev => ({ ...prev, ...newInfo }));
         };
 
         if (points.length > 0) {
@@ -192,6 +199,15 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
             }
         };
     }, []);
+    
+    // Global handler for popup buttons
+    useEffect(() => {
+        (window as any).handleMapOrderClick = (orderId: string) => {
+            const order = orders.find(o => o.id === orderId);
+            if (order) onOrderClick(order);
+        };
+        return () => { delete (window as any).handleMapOrderClick; };
+    }, [orders, onOrderClick]);
 
     // Update markers when points or routeInfo change
     useEffect(() => {
@@ -207,14 +223,33 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
         markers.current = [];
 
         points.forEach((p) => {
-            const info = routeInfo[p.id];
-            const color = p.isAssistance ? '#f59e0b' : '#3b82f6';
+            const info = routeInfo[p.id] || (p.distance ? { distance: p.distance, duration: p.duration } : null);
+            const color = !p.isPrecision ? '#ef4444' : (p.isAssistance ? '#f59e0b' : '#3b82f6');
             
             const el = document.createElement('div');
             el.className = 'custom-marker';
-            el.innerHTML = `<div style="background-color: ${color}; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); color: white;">
-                <i class="bi bi-${p.isAssistance ? 'tools' : 'truck'}"></i>
-            </div>`;
+            
+            const rawDate = p.order.shipping?.scheduling?.date || (p.order as any).scheduledDate || "";
+            
+            // Priority: User friendly string (Morning/Afternoon/Fixed) > Start Time > Assistance Time
+            const time = p.order.shipping?.scheduling?.time || p.order.shipping?.scheduling?.startTime || (p.order as any).scheduledTime || "";
+            
+            // Format date to DD/MM
+            const date = rawDate.includes('-') 
+                ? rawDate.split('-').reverse().slice(0, 2).join('/') 
+                : rawDate.split('/').slice(0, 2).join('/');
+            
+            el.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; pointer-events: none;">
+                    <div style="background-color: ${color}; min-width: 44px; width: 44px; height: 44px; border-radius: 50%; border: 4px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); color: white; cursor: pointer; pointer-events: auto;">
+                        <i class="bi bi-${p.isAssistance ? 'tools' : 'truck'}" style="font-size: 1.2rem;"></i>
+                    </div>
+                    <div style="background: white; padding: 6px 12px; border-radius: 12px; border: 2px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); white-space: nowrap; line-height: 1.3; transform: translateY(-2px);">
+                        <p style="margin: 0; font-size: 10px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">${date}</p>
+                        <p style="margin: 0; font-size: 13px; font-weight: 900; color: #1e293b;">${time}</p>
+                    </div>
+                </div>
+            `;
 
             const gMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${storeOrigin[1]},${storeOrigin[0]}&destination=${p.lat},${p.lng}&travelmode=driving`;
 
@@ -222,7 +257,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                 <div style="font-family: 'Inter', sans-serif; padding: 12px; min-width: 240px; border-radius: 20px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="background: ${color}; color: white; padding: 3px 8px; border-radius: 6px; font-size: 8px; font-weight: 900; text-transform: uppercase; tracking: 0.1em;">
-                            ${p.isAssistance ? 'Assistência' : 'Entrega'}
+                            ${!p.isPrecision ? 'Localização Imprecisa' : (p.isAssistance ? 'Assistência' : 'Entrega')}
                         </span>
                         <span style="font-size: 10px; font-weight: 900; color: #94a3b8;">#${p.order.id?.slice(-5)}</span>
                     </div>
@@ -230,7 +265,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                     <h4 style="margin: 0 0 4px; font-weight: 900; color: #1e293b; font-size: 14px;">${p.order.customerData?.fullName || 'Cliente'}</h4>
                     <p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.4;">
                         <i class="bi bi-geo-alt-fill" style="color: #ef4444; margin-right: 4px;"></i>
-                        ${p.order.customerData?.fullAddress?.street}, ${p.order.customerData?.fullAddress?.number}
+                        ${p.order.customerData?.fullAddress?.street}, ${p.order.customerData?.fullAddress?.number} - ${p.order.customerData?.fullAddress?.neighborhood}, ${p.order.customerData?.fullAddress?.city}
                     </p>
                     
                     ${info ? `
@@ -252,6 +287,10 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
                     <a href="${gMapsUrl}" target="_blank" style="display: block; width: 100%; margin-top: 12px; padding: 10px; background: #1e293b; color: white; border-radius: 12px; text-align: center; text-decoration: none; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s;">
                         Abrir no Google Maps
                     </a>
+
+                    <button onclick="handleMapOrderClick('${p.id}')" style="display: block; width: 100%; margin-top: 8px; padding: 10px; background: #f1f5f9; color: #1e293b; border-radius: 12px; border: none; text-align: center; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;">
+                        Ver Informações Completas
+                    </button>
                 </div>
             `;
 
@@ -265,7 +304,7 @@ export default function DeliveryMap({ orders }: DeliveryMapProps) {
     };
 
     return (
-        <div className="h-[600px] w-full rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl relative animate-fade-in">
+        <div className="h-[450px] sm:h-[600px] md:h-[700px] w-full rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl relative animate-fade-in">
             <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
         </div>
     );

@@ -41,9 +41,9 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
 
                 try {
                     // Tenta geocodificar usando Rua, Número, Bairro e Cidade
-                    const coords = await geocodeAddress(fullAddr);
-                    if (coords) {
-                        newCoords[order.id] = coords;
+                    const geoRes = await geocodeAddress(fullAddr);
+                    if (geoRes) {
+                        newCoords[order.id] = geoRes.coords;
                         updated = true;
                     }
                 } catch (e) {
@@ -84,7 +84,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                 finalCoords = [c[0], c[1]];
             } else {
                 const fall = getNeighborhoodCoords(neighborhood, city);
-                finalCoords = [fall.lng, fall.lat];
+                finalCoords = fall ? [fall.lng, fall.lat] : [-49.2671, -25.4290];
             }
             
             // Jittering inteligente (evita sobreposição total de pontos no mesmo local)

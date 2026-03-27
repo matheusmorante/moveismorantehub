@@ -59,9 +59,11 @@ const DEFAULT_SHIPPING: any = {
 };
 
 const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: AssistanceOrderModalProps) => {
-    const [customerName, setCustomerName] = useState(order?.customerData?.fullName || initialData?.customerName || "");
-    const [customerPhone, setCustomerPhone] = useState(order?.customerData?.phone || initialData?.customerPhone || "");
-    const [customerNoPhone, setCustomerNoPhone] = useState(!!order?.customerData?.noPhone);
+    const [customerData, setCustomerData] = useState<CustomerData>(order?.customerData || {
+        ...EMPTY_CUSTOMER,
+        fullName: initialData?.customerName || "",
+        phone: initialData?.customerPhone || ""
+    });
     const [description, setDescription] = useState(order?.assistanceDescription || initialData?.description || "");
     const [observation, setObservation] = useState(order?.observation || "");
     const [scheduledDate, setScheduledDate] = useState(order?.scheduledDate || "");
@@ -150,9 +152,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     const handleSelectOrder = (selectedOrder: Order) => {
         setLinkedOrderId(selectedOrder.id || "");
         setSelectedAssistanceItems([]);
-        setCustomerName(selectedOrder.customerData.fullName);
-        setCustomerPhone(selectedOrder.customerData.phone || "");
-        setCustomerNoPhone(!!(selectedOrder.customerData as any).noPhone);
+        setCustomerData(selectedOrder.customerData);
         setIsSelectionModalOpen(false);
         toast.info(`Pedido #${selectedOrder.id} selecionado.`);
     };
@@ -168,10 +168,9 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                 orderType: 'assistance',
                 status: order?.status || (scheduledDate ? 'scheduled' : 'fulfilled'),
                 customerData: {
-                    ...(order?.customerData || EMPTY_CUSTOMER),
-                    fullName: customerName.trim(),
-                    phone: customerPhone.trim(),
-                    noPhone: customerNoPhone,
+                    ...customerData,
+                    fullName: customerData.fullName.trim(),
+                    phone: customerData.phone.trim()
                 },
                 assistanceDescription: description.trim(),
                 observation: observation.trim(),
@@ -255,12 +254,8 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                     />
 
                     <AssistanceCustomerSection 
-                        customerName={customerName}
-                        setCustomerName={setCustomerName}
-                        customerPhone={customerPhone}
-                        setCustomerPhone={setCustomerPhone}
-                        customerNoPhone={customerNoPhone}
-                        setCustomerNoPhone={setCustomerNoPhone}
+                        customerData={customerData}
+                        setCustomerData={setCustomerData}
                         onOpenSearch={() => setIsCustomerSearchOpen(true)}
                         errors={validationErrors}
                         isLinked={isLinked}
@@ -322,9 +317,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                 <CustomerSearchModal 
                     onClose={() => setIsCustomerSearchOpen(false)}
                     onSelect={(c) => {
-                        setCustomerName(c.fullName);
-                        setCustomerPhone(c.phone || "");
-                        setCustomerNoPhone(!!c.noPhone);
+                        setCustomerData(c);
                         setIsCustomerSearchOpen(false);
                     }}
                 />

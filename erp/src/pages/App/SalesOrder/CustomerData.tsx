@@ -9,6 +9,8 @@ import PersonFormModal from "../Registrations/shared/PersonFormModal";
 import { getAddressByCep, searchAddressSuggestions } from "../../utils/maps";
 import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
+import { toast } from "react-toastify";
+import AddressVerificationMap from "./AddressVerificationMap";
 
 interface Props {
     customerData: CustomerData;
@@ -23,6 +25,7 @@ const EMPTY_ADDRESS = {
 };
 
 const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }: Props) => {
+    const [isSyncing, setIsSyncing] = useState(false);
     const [customers, setCustomers] = useState<Person[]>([]);
     const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -91,9 +94,14 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
     const handleStreetChange = async (val: string) => {
         updateAddress('street', val);
         if (val.length >= 3) {
-            const suggestions = await searchAddressSuggestions(val);
-            setStreetSuggestions(suggestions);
-            setIsStreetSuggestionsOpen(true);
+            try {
+                const suggestions = await searchAddressSuggestions(val, customerData.fullAddress?.city);
+                setStreetSuggestions(suggestions);
+                setIsStreetSuggestionsOpen(suggestions.length > 0);
+            } catch (e) {
+                console.error("Erro nas sugestões:", e);
+                setStreetSuggestions([]);
+            }
         } else {
             setStreetSuggestions([]);
             setIsStreetSuggestionsOpen(false);
@@ -119,22 +127,31 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
     useEffect(() => {
         if (!customerData.id || customerData.fullName === 'Consumidor Final') return;
 
+        setIsSyncing(true);
         const timer = setTimeout(async () => {
             try {
-                // Determine collection name based on existing logic or data
-                // For now we assume 'customers' since this is the customer data section
                 await updatePerson('customers', customerData.id!, {
                     fullName: customerData.fullName,
                     phone: customerData.phone,
                     noPhone: customerData.noPhone,
                     fullAddress: customerData.fullAddress
                 });
+                toast.success("Cadastro do cliente atualizado automaticamente", { 
+                    toastId: 'customer-sync-success',
+                    autoClose: 2000,
+                    position: "bottom-right"
+                });
             } catch (e) {
                 console.error("Erro ao sincronizar dados do cliente:", e);
+                toast.error("Falha ao sincronizar dados com o servidor");
+            } finally {
+                setIsSyncing(false);
             }
-        }, 1500); // 1.5s debounce to avoid too many writes
+        }, 2000); // 2s debounce to avoid too many writes
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+        };
     }, [customerData.fullName, customerData.phone, customerData.noPhone, customerData.fullAddress, customerData.id]);
 
     const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
@@ -181,9 +198,17 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
 
             {/* ── Customer search ─────────────────────────────── */}
             <div className="flex flex-col relative w-full group">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 ml-1">
-                    Selecionar Cliente
-                </label>
+                <div className="flex items-center justify-between mb-2 ml-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        Selecionar Cliente
+                    </label>
+                    {isSyncing && (
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500 animate-pulse flex items-center gap-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            Sincronizando Cadastro Central...
+                        </span>
+                    )}
+                </div>
 
                 <div className="relative flex gap-2">
                     {/* Search input */}
@@ -404,7 +429,13 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                                 onClick={() => handleSelectAddressSuggestion(s)}
                                                 className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
                                             >
-                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{s.display_name}</p>
+                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                    {[
+                                                        s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
+                                                        s.address.neighbourhood || s.address.suburb,
+                                                        s.address.city || s.address.town || s.address.village
+                                                    ].filter(Boolean).join(', ')}
+                                                </p>
                                             </button>
                                         ))}
                                     </div>
@@ -466,6 +497,18 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 placeholder="Ex: Casa verde em frente à padaria..."
                                 value={customerData.fullAddress?.observation || ''}
                                 onChange={e => updateAddress('observation', e.target.value)}
+                            />
+                        </div>
+
+                        {/* Map Verification */}
+                        <div className="pt-2 animate-fade-in">
+                            <AddressVerificationMap
+                                address={{
+                                    street: customerData.fullAddress.street,
+                                    number: customerData.fullAddress.number,
+                                    neighborhood: customerData.fullAddress.neighborhood,
+                                    city: customerData.fullAddress.city
+                                }}
                             />
                         </div>
                     </div>
