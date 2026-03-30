@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Purchase, { PurchaseItem } from "../../../../types/purchase.type";
 import { updatePurchase } from "../../../../utils/purchaseService";
 import QRScannerModal from "@/components/shared/QRScannerModal";
@@ -50,7 +50,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
 
     if (!isOpen || !purchase) return null;
 
-    const handleScan = (code: string) => {
+    const handleScan = useCallback((code: string) => {
         const cleanCode = code.trim().toLowerCase();
         
         // Try to find product by code or supplierRef
@@ -63,8 +63,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
             const purchaseItem = purchase.items.find(i => i.productId === product.id && !i.variationId);
             if (purchaseItem) {
                 const key = purchaseItem.productId;
-                const current = scannedItems[key] || 0;
-                updateReceivedQty(key, current + 1);
+                setScannedItems(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
                 toast.success(`+1 ${purchaseItem.description}`);
                 return;
             }
@@ -78,8 +77,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
                     const purchaseItem = purchase.items.find(i => i.productId === p.id && i.variationId === variation.id);
                     if (purchaseItem) {
                         const key = purchaseItem.productId + (purchaseItem.variationId || '');
-                        const current = scannedItems[key] || 0;
-                        updateReceivedQty(key, current + 1);
+                        setScannedItems(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
                         toast.success(`+1 ${purchaseItem.description}`);
                         return;
                     }
@@ -88,7 +86,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
         }
 
         toast.warning("Item não encontrado neste pedido.");
-    };
+    }, [products, purchase]);
 
     const updateReceivedQty = (key: string, val: number) => {
         setScannedItems(prev => ({ ...prev, [key]: val }));

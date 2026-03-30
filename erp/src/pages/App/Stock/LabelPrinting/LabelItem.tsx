@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LabelConfig } from './Index';
 import logoMorante from '../../../../assets/logo.jpeg';
+import bwipjs from 'bwip-js';
 
 interface Props {
     config: LabelConfig;
@@ -8,12 +9,40 @@ interface Props {
     index: number;
 }
 
+const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 15 }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        if (canvasRef.current && text) {
+            try {
+                bwipjs.toCanvas(canvasRef.current, {
+                    bcid: 'code128',       // Barcode type
+                    text: text,            // Text to encode
+                    scale: 3,              // 3x scaling factor
+                    height: height,        // Bar height
+                    includetext: true,     // Show human-readable text
+                    textxalign: 'center',  // Center the text
+                    backgroundcolor: 'ffffff'
+                });
+                setError(false);
+            } catch (e) {
+                console.error('Barcode error:', e);
+                setError(true);
+            }
+        }
+    }, [text, height]);
+
+    if (error) return <div className="text-[8px] text-red-500">Erro no Código</div>;
+    return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />;
+};
+
 const LabelItem: React.FC<Props> = ({ config, image }) => {
     const isRound = config.type === 'round';
     const isSquare = config.preset === 'qr_product' || config.preset === 'price_only';
     
-    // Check if QR is the only active element (ignoring background image)
-    const isOnlyQR = config.showQR && 
+    // Check if Barcode is the only active element (ignoring background image)
+    const isOnlyBarcode = config.showBarcode && 
         !config.showName && 
         !config.showPrice && 
         !config.showSKU && 
@@ -93,75 +122,72 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
         );
     }
 
-    // Special handling for SKU + NAME in Left Vertical Block and HUGE QR on the Right
+    // IDENTIFICAÇÃO DE PRODUTO (SKU/NOME TOP + CÓD. BARRAS BOTTOM)
     if (config.preset === 'qr_product') {
         return (
             <div style={{
                 ...containerStyle,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                padding: '1mm',
-                alignItems: 'stretch',
-                gap: 0
+                flexDirection: 'column',
+                justifyContent: 'flex-start',
+                padding: '2mm',
+                gap: '1.5mm',
+                alignItems: 'stretch'
             }}>
-                {/* Left Section: SKU + NAME (Stacked) */}
+                {/* Top Section: SKU + NAME in a single row */}
                 <div style={{
-                    width: '30%',
                     display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    borderRight: '0.1px solid #f1f5f9',
-                    paddingRight: '1mm',
-                    gap: '1mm'
+                    alignItems: 'baseline',
+                    gap: '2mm',
+                    borderBottom: '0.1px solid #f1f5f9',
+                    paddingBottom: '1mm'
                 }}>
-                    <div style={{
-                        fontSize: '7.5px',
-                        fontWeight: '900',
-                        color: '#64748b',
-                        fontFamily: 'monospace',
-                        textTransform: 'uppercase',
-                        lineBreak: 'anywhere'
-                    }}>
-                        {config.sku}
-                    </div>
-                    <div style={{
-                        fontSize: '9px',
-                        fontWeight: '950',
-                        color: '#0f172a',
-                        textTransform: 'uppercase',
-                        lineHeight: '1.1',
-                        wordBreak: 'break-word',
-                        overflow: 'hidden',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 6,
-                        WebkitBoxOrient: 'vertical'
-                    }}>
-                        {config.text}
-                    </div>
+                    {config.showSKU && (
+                        <div style={{
+                            fontSize: '8px',
+                            fontWeight: '900',
+                            color: '#1e293b',
+                            fontFamily: 'monospace',
+                            backgroundColor: '#f1f5f9',
+                            padding: '0.2mm 1mm',
+                            borderRadius: '0.5mm',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {config.sku}
+                        </div>
+                    )}
+                    {config.showName && (
+                        <div style={{
+                            fontSize: '10px',
+                            fontWeight: '950',
+                            color: '#0f172a',
+                            textTransform: 'uppercase',
+                            lineHeight: '1',
+                            flex: 1,
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            textOverflow: 'ellipsis'
+                        }}>
+                            {config.text}
+                        </div>
+                    )}
                 </div>
 
-                {/* Right Section: Massive QR Code */}
+                {/* Bottom Section: Wide Barcode Area */}
                 <div style={{
                     flex: 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     background: 'white',
-                    paddingLeft: '1mm'
+                    width: '100%',
+                    overflow: 'hidden'
                 }}>
                     {config.qrContent ? (
-                        <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(config.qrContent)}`} 
-                            alt="QR Code" 
-                            style={{ 
-                                height: '98%', 
-                                width: 'auto', 
-                                maxWidth: '100%',
-                                imageRendering: 'pixelated' 
-                            }}
-                        />
+                        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                            <Barcode text={config.qrContent} height={22} />
+                        </div>
                     ) : (
-                        <i className="bi bi-qr-code text-slate-200 text-6xl"></i>
+                        <i className="bi bi-barcode text-slate-200 text-6xl"></i>
                     )}
                 </div>
             </div>
@@ -251,14 +277,12 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                         )}
                     </div>
 
-                    {/* Bottom: Espaço base ou QR */}
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: config.showQR ? 'auto' : '1mm' }}>
-                        {config.showQR && (
-                            <img 
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(config.qrContent)}`} 
-                                alt="QR Code" 
-                                style={{ width: '10mm', height: '10mm', imageRendering: 'pixelated', padding: '0.5mm', backgroundColor: 'white', borderRadius: '1mm', border: '1px solid #e2e8f0' }}
-                            />
+                    {/* Bottom: Barcode Space */}
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: config.showBarcode ? 'auto' : '1mm', width: '100%' }}>
+                        {config.showBarcode && (
+                           <div style={{ width: '100%', maxWidth: '30mm', padding: '0.5mm', backgroundColor: 'white', borderRadius: '0.5mm', border: '0.5px solid #e2e8f0' }}>
+                               <Barcode text={config.qrContent} height={8} />
+                           </div>
                         )}
                     </div>
                 </div>
@@ -355,21 +379,22 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                     )}
                 </div>
 
-                {/* Bottom Section: Preço + QR */}
+                {/* Bottom Section: Preço + Barcode */}
                 <div style={{ 
                     display: 'flex', 
-                    alignItems: isOnlyQR ? 'center' : 'flex-end', 
-                    justifyContent: isOnlyQR ? 'center' : 'space-between',
-                    flex: isOnlyQR ? 1 : 'none',
+                    alignItems: isOnlyBarcode ? 'center' : 'flex-end', 
+                    justifyContent: isOnlyBarcode ? 'center' : 'space-between',
+                    flex: isOnlyBarcode ? 1 : 'none',
                     marginTop: 'auto',
-                    width: '100%'
+                    width: '100%',
+                    gap: isOnlyBarcode ? '2mm' : '1mm'
                 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', flex: isOnlyQR ? 0 : 1 }}>
-                        {!isOnlyQR && config.showPrice && (
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: isOnlyBarcode ? 0 : 1 }}>
+                        {!isOnlyBarcode && config.showPrice && (
                             <div style={{ 
                                 fontSize: isSquare ? '16px' : '20px', 
                                 fontWeight: '950', 
-                                color: '#1d4ed8', // Darker blue for contrast
+                                color: '#1d4ed8', 
                                 letterSpacing: '-0.04em',
                                 lineHeight: '1'
                             }}>
@@ -377,30 +402,23 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                             </div>
                         )}
                     </div>
-
-                    {config.showQR && (
+                    {config.showBarcode && (
                         <div style={{ 
-                            width: isOnlyQR ? (isSquare ? '36mm' : '26mm') : (isSquare ? '15mm' : '11mm'), 
-                            height: isOnlyQR ? (isSquare ? '36mm' : '26mm') : (isSquare ? '15mm' : '11mm'), 
+                            width: isOnlyBarcode ? '90%' : (isSquare ? '100%' : '20mm'), 
                             background: 'white', 
-                            padding: isOnlyQR ? '2mm' : '1mm', 
-                            border: '1px solid #e2e8f0',
-                            borderRadius: isOnlyQR ? '3mm' : '1.5mm',
+                            padding: isOnlyBarcode ? '2mm' : '0.5mm', 
+                            border: '0.5px solid #e2e8f0',
+                            borderRadius: '1mm',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            transition: 'all 0.3s ease',
-                            boxShadow: isOnlyQR ? '0 10px 15px -3px rgb(0 0 0 / 0.1)' : '0 2px 4px 0 rgb(0 0 0 / 0.05)',
-                            marginLeft: isOnlyQR ? 0 : '1mm'
+                            marginLeft: isOnlyBarcode ? 0 : '1mm',
+                            overflow: 'hidden'
                         }}>
                             {config.qrContent ? (
-                                <img 
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=${isOnlyQR ? '350x350' : '150x150'}&data=${encodeURIComponent(config.qrContent)}`} 
-                                    alt="QR Code" 
-                                    style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }}
-                                />
+                                <Barcode text={config.qrContent} height={isOnlyBarcode ? 25 : 12} />
                             ) : (
-                                <i className="bi bi-qr-code text-slate-200 text-3xl"></i>
+                                <i className="bi bi-barcode text-slate-200 text-3xl"></i>
                             )}
                         </div>
                     )}

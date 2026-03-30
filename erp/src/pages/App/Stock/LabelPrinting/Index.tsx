@@ -20,7 +20,7 @@ export interface LabelConfig {
     layout: LabelLayout;
     showName: boolean;
     showPrice: boolean;
-    showQR: boolean;
+    showBarcode: boolean;
     showSKU: boolean;
     showStoreName: boolean;
     showStoreLogo: boolean;
@@ -67,7 +67,7 @@ const LabelPrinting: React.FC = () => {
         layout: isProductContext ? 'horizontal' : 'vertical',
         showName: isProductContext,
         showPrice: false,
-        showQR: isProductContext,
+        showBarcode: isProductContext,
         showSKU: isProductContext,
         showStoreName: !isProductContext,
         showStoreLogo: !isProductContext,
@@ -157,7 +157,7 @@ const LabelPrinting: React.FC = () => {
                 newConfig.layout = 'vertical';
                 newConfig.showName = false;
                 newConfig.showPrice = false;
-                newConfig.showQR = false;
+                newConfig.showBarcode = false;
                 newConfig.showStoreLogo = false;
                 newConfig.showStoreName = false;
                 newConfig.showSKU = false;
@@ -170,7 +170,7 @@ const LabelPrinting: React.FC = () => {
                 newConfig.layout = 'vertical';
                 newConfig.showName = false;
                 newConfig.showPrice = false;
-                newConfig.showQR = false;
+                newConfig.showBarcode = false;
                 newConfig.showStoreLogo = true;
                 newConfig.showStoreName = false;
                 newConfig.showSKU = false;
@@ -182,7 +182,7 @@ const LabelPrinting: React.FC = () => {
                 newConfig.layout = 'horizontal';
                 newConfig.showName = true;
                 newConfig.showPrice = false;
-                newConfig.showQR = true;
+                newConfig.showBarcode = true;
                 newConfig.showSKU = true;
                 newConfig.showStoreLogo = false;
                 newConfig.showStoreName = false;
@@ -194,7 +194,7 @@ const LabelPrinting: React.FC = () => {
                 newConfig.layout = 'vertical';
                 newConfig.showName = true;
                 newConfig.showPrice = true;
-                newConfig.showQR = false;
+                newConfig.showBarcode = false;
                 newConfig.showSKU = false;
                 newConfig.showStoreLogo = false;
                 newConfig.showStoreName = true;
@@ -206,7 +206,7 @@ const LabelPrinting: React.FC = () => {
                 newConfig.layout = 'vertical';
                 newConfig.showName = false;
                 newConfig.showPrice = false;
-                newConfig.showQR = false;
+                newConfig.showBarcode = false;
                 newConfig.showStoreLogo = false;
                 newConfig.showStoreName = false;
                 newConfig.showSKU = false;
@@ -244,11 +244,11 @@ const LabelPrinting: React.FC = () => {
 
     const handleQuickAction = (action: 'price_only' | 'qr_only' | 'full') => {
         if (action === 'price_only') {
-            setConfig(prev => ({ ...prev, showPrice: true, showQR: false, showName: true, showSKU: true, showStoreLogo: false }));
+            setConfig(prev => ({ ...prev, showPrice: true, showBarcode: false, showName: true, showSKU: true, showStoreLogo: false }));
         } else if (action === 'qr_only') {
-            setConfig(prev => ({ ...prev, showPrice: false, showQR: true, showName: true, showSKU: true, showStoreLogo: false }));
+            setConfig(prev => ({ ...prev, showPrice: false, showBarcode: true, showName: true, showSKU: true, showStoreLogo: false }));
         } else {
-            setConfig(prev => ({ ...prev, showPrice: true, showQR: true, showName: true, showSKU: true, showStoreLogo: false }));
+            setConfig(prev => ({ ...prev, showPrice: true, showBarcode: true, showName: true, showSKU: true, showStoreLogo: false }));
         }
     };
 
@@ -349,7 +349,7 @@ const LabelPrinting: React.FC = () => {
                         {isDesignMode ? 'Gerador de Rótulos' : 'Etiquetas de Produto'}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-500 mt-2 text-sm font-medium">
-                        Personalize e imprima etiquetas profissionais com QR Code e Preços.
+                        Personalize e imprima etiquetas profissionais com Código de Barras e Preços.
                     </p>
                 </div>
 
@@ -398,8 +398,8 @@ const LabelPrinting: React.FC = () => {
                                     onClick={() => handleQuickAction('qr_only')}
                                     className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:border-blue-500 transition-all group"
                                 >
-                                    <i className="bi bi-qr-code text-xl text-slate-400 group-hover:text-blue-600" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Apenas QR</span>
+                                    <i className="bi bi-barcode text-xl text-slate-400 group-hover:text-blue-600" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Apenas Barra</span>
                                 </button>
                             </div>
                         </section>
@@ -417,7 +417,7 @@ const LabelPrinting: React.FC = () => {
                                 </div>
                                 <div className="text-left">
                                     <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">Identificação de Produto</h4>
-                                    <p className="text-[9px] text-slate-500">Retangular / QR + Nome + SKU</p>
+                                    <p className="text-[9px] text-slate-500">Retangular / Barras + Nome + SKU</p>
                                 </div>
                             </button>
 
@@ -509,7 +509,7 @@ const LabelPrinting: React.FC = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Link do QR Code</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Conteúdo das Barras (SKU/EAN)</label>
                                 <input 
                                     type="text" 
                                     value={config.qrContent}
@@ -548,7 +548,7 @@ const LabelPrinting: React.FC = () => {
                                         {[
                                             { key: 'showName', label: 'Nome' },
                                             { key: 'showPrice', label: 'Preço' },
-                                            { key: 'showQR', label: 'QR Code' },
+                                            { key: 'showBarcode', label: 'Cód. Barras' },
                                             { key: 'showSKU', label: 'SKU' },
                                             { key: 'showStoreName', label: 'Nome Loja' },
                                             { key: 'showStoreLogo', label: 'Logo Loja' }
