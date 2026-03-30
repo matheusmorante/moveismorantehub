@@ -6,6 +6,7 @@ import Product from '../../../types/product.type';
 import { saveInventoryMove } from '../../../../pages/utils/inventoryService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import LabelGrid from './LabelGrid';
+import LabelModelCreationModal from './LabelModelCreationModal';
 import { formatCurrency, slugify } from '../../../utils/formatters';
 import logoMorante from '../../../../assets/logo.jpeg';
 import labelMdf from '../../../../assets/label_mdf.png';
@@ -60,6 +61,8 @@ const LabelPrinting: React.FC = () => {
     const [cellImages, setCellImages] = useState<Record<number, string>>({});
     const cellInputRef = useRef<HTMLInputElement>(null);
     const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
+    const [layoutModalOpen, setLayoutModalOpen] = useState(false); // Modal de config por modelo
+    const [creationModalOpen, setCreationModalOpen] = useState(false); // Modal de criação de modelo
 
     const [config, setConfig] = useState<LabelConfig>({
         type: isProductContext ? 'rect' : 'round',
@@ -382,97 +385,57 @@ const LabelPrinting: React.FC = () => {
                 {/* Configuration Sidebar */}
                 <div className="lg:col-span-4 flex flex-col gap-8 h-[calc(100vh-250px)] overflow-y-auto pr-2 custom-scrollbar">
                     
-                    {/* QUICK ACTIONS - ONLY FOR PRODUCTS */}
-                    {isProductContext && (
-                        <section className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/30 rounded-[2.5rem] p-6 shadow-xl shadow-blue-200/20 dark:shadow-none space-y-4">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">⚡ Opções Rápidas</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                    onClick={() => handleQuickAction('price_only')}
-                                    className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:border-blue-500 transition-all group"
-                                >
-                                    <i className="bi bi-tag-fill text-xl text-slate-400 group-hover:text-blue-600" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Com Preço</span>
-                                </button>
-                                <button 
-                                    onClick={() => handleQuickAction('qr_only')}
-                                    className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:border-blue-500 transition-all group"
-                                >
-                                    <i className="bi bi-barcode text-xl text-slate-400 group-hover:text-blue-600" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Apenas Barra</span>
-                                </button>
-                            </div>
-                        </section>
-                    )}
-
                     <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6">
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Modelos Disponíveis</h3>
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Modelos Disponíveis</h3>
                             <button
-                                onClick={() => applyPresetWithConfig('qr_product', config)}
-                                className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${config.preset === 'qr_product' ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                                onClick={() => setCreationModalOpen(true)}
+                                title="Criar modelo personalizado com imagem"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all text-[9px] font-black uppercase tracking-widest"
                             >
-                                <div className="w-10 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
-                                    <i className="bi bi-qr-code" />
-                                </div>
-                                <div className="text-left">
-                                    <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">Identificação de Produto</h4>
-                                    <p className="text-[9px] text-slate-500">Retangular / Barras + Nome + SKU</p>
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => applyPresetWithConfig('price_only', config)}
-                                className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${config.preset === 'price_only' ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-orange-200'}`}
-                            >
-                                <div className="w-10 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600">
-                                    <i className="bi bi-tag" />
-                                </div>
-                                <div className="text-left">
-                                    <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">Etiqueta de Preço</h4>
-                                    <p className="text-[9px] text-slate-500">Retangular / Preço + Nome + SKU</p>
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => applyPresetWithConfig('mdf', config)}
-                                className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${config.preset === 'mdf' ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-emerald-200'}`}
-                            >
-                                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
-                                    <i className="bi bi-circle-fill" />
-                                </div>
-                                <div className="text-left">
-                                    <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">Rótulo 100% MDF</h4>
-                                    <p className="text-[9px] text-slate-500">Circular / Design Fixo</p>
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => applyPresetWithConfig('store_logo', config)}
-                                className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${config.preset === 'store_logo' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-indigo-200'}`}
-                            >
-                                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
-                                    <i className="bi bi-shop" />
-                                </div>
-                                <div className="text-left">
-                                    <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">Logo da Loja</h4>
-                                    <p className="text-[9px] text-slate-500">Circular / apenas logo</p>
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => applyPresetWithConfig('custom', config)}
-                                className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${config.preset === 'custom' ? 'border-slate-800 bg-slate-50 dark:bg-slate-800/50' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300'}`}
-                            >
-                                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600">
-                                    <i className="bi bi-image" />
-                                </div>
-                                <div className="text-left">
-                                    <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">Personalizado</h4>
-                                    <p className="text-[9px] text-slate-500">Retangular ou Circular / Upload Livre</p>
-                                </div>
+                                <i className="bi bi-plus-circle-fill" />
+                                Criar Modelo
                             </button>
                         </div>
+                        <div className="grid grid-cols-1 gap-3">
+                            {[
+                                { preset: 'qr_product' as LabelPreset, label: 'Identificação de Produto', sub: 'Retangular / Barras + Nome + SKU', color: 'blue', icon: 'bi-qr-code', shape: 'rounded-lg', bg: 'blue' },
+                                { preset: 'price_only' as LabelPreset, label: 'Etiqueta de Preço', sub: 'Retangular / Preço + Nome + SKU', color: 'orange', icon: 'bi-tag', shape: 'rounded-lg', bg: 'orange' },
+                                { preset: 'mdf' as LabelPreset, label: 'Rótulo 100% MDF', sub: 'Circular / Design Fixo', color: 'emerald', icon: 'bi-circle-fill', shape: 'rounded-full', bg: 'emerald' },
+                                { preset: 'store_logo' as LabelPreset, label: 'Logo da Loja', sub: 'Circular / apenas logo', color: 'indigo', icon: 'bi-shop', shape: 'rounded-full', bg: 'indigo' },
+                                { preset: 'custom' as LabelPreset, label: 'Personalizado', sub: 'Retangular ou Circular / Upload Livre', color: 'slate', icon: 'bi-image', shape: 'rounded-xl', bg: 'slate' },
+                            ].map(({ preset, label, sub, color, icon, shape, bg }) => (
+                                <div key={preset} className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+                                    config.preset === preset
+                                        ? `border-${color}-500 bg-${color}-50/50 dark:bg-${color}-900/10`
+                                        : 'border-slate-100 dark:border-slate-800'
+                                }`}>
+                                    <button
+                                        onClick={() => applyPresetWithConfig(preset, config)}
+                                        className="flex items-center gap-4 flex-1 text-left"
+                                    >
+                                        <div className={`w-10 h-10 ${shape} bg-${bg}-100 dark:bg-${bg}-900/30 flex items-center justify-center text-${bg}-600 shrink-0`}>
+                                            <i className={`bi ${icon}`} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-[11px] uppercase text-slate-800 dark:text-slate-100 tracking-tight">{label}</h4>
+                                            <p className="text-[9px] text-slate-500">{sub}</p>
+                                        </div>
+                                    </button>
+                                    {/* Botão engrenagem: abre modal de config do modelo ativo */}
+                                    {config.preset === preset && (
+                                        <button
+                                            onClick={() => setLayoutModalOpen(true)}
+                                            title="Configurar layout e escala"
+                                            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                        >
+                                            <i className="bi bi-gear-fill text-sm" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
                     </section>
 
                     <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6">
@@ -539,160 +502,6 @@ const LabelPrinting: React.FC = () => {
                                     <span>Padrão (100%)</span>
                                     <span>Maior</span>
                                 </div>
-                            </div>
-
-                            <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                <section>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Elementos Visíveis</span>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {[
-                                            { key: 'showName', label: 'Nome' },
-                                            { key: 'showPrice', label: 'Preço' },
-                                            { key: 'showBarcode', label: 'Cód. Barras' },
-                                            { key: 'showSKU', label: 'SKU' },
-                                            { key: 'showStoreName', label: 'Nome Loja' },
-                                            { key: 'showStoreLogo', label: 'Logo Loja' }
-                                        ].map(item => (
-                                            <label key={item.key} className="flex items-center gap-3 cursor-pointer group">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={(config as any)[item.key]} 
-                                                    onChange={e => setConfig({...config, [item.key]: e.target.checked})} 
-                                                    className="w-5 h-5 rounded-lg border-2 border-slate-200 dark:border-slate-800 text-blue-600 focus:ring-blue-500" 
-                                                />
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">{item.label}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </section>
-
-                                <section>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Formato & Layout</span>
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex gap-2">
-                                            {(['round', 'rect'] as const).map(t => {
-                                                const isRestricted = (config.preset === 'mdf' || config.preset === 'store_logo') && t === 'rect';
-                                                const isRestrictedRect = (config.preset === 'qr_product' || config.preset === 'price_only') && t === 'round';
-                                                
-                                                if (isRestricted || isRestrictedRect) return null;
-
-                                                return (
-                                                    <button 
-                                                        key={t}
-                                                        onClick={() => setConfig({...config, type: t})}
-                                                        className={`flex-1 px-2 py-3 rounded-xl border-2 text-[8px] font-black uppercase tracking-tighter transition-all ${config.type === t ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-blue-200'}`}
-                                                    >
-                                                        {t === 'round' ? <><i className="bi bi-circle mr-1" /> Redondo</> : <><i className="bi bi-bounding-box mr-1" /> Retâng.</>}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {(['vertical', 'horizontal'] as const).map(l => (
-                                                <button 
-                                                    key={l}
-                                                    onClick={() => setConfig({...config, layout: l})}
-                                                    className={`px-2 py-3 rounded-xl border-2 text-[8px] font-black uppercase tracking-tighter transition-all ${config.layout === l ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-blue-200'}`}
-                                                >
-                                                    {l === 'vertical' ? 'Vertical' : 'Horizontal'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </section>
-
-                                <section className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
-                                            <i className="bi bi-rulers text-xs" />
-                                        </div>
-                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">Config. de Impressão (mm)</h3>
-                                    </div>
-                                    
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Topo</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="number" 
-                                                        value={config.marginT} 
-                                                        onChange={e => setConfig({...config, marginT: parseFloat(e.target.value) || 0})}
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                    <i className="bi bi-arrow-up-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Base</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="number" 
-                                                        value={config.marginB} 
-                                                        onChange={e => setConfig({...config, marginB: parseFloat(e.target.value) || 0})}
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                    <i className="bi bi-arrow-down-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Esq.</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="number" 
-                                                        value={config.marginL} 
-                                                        onChange={e => setConfig({...config, marginL: parseFloat(e.target.value) || 0})}
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                    <i className="bi bi-arrow-left-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Margem Dir.</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="number" 
-                                                        value={config.marginR} 
-                                                        onChange={e => setConfig({...config, marginR: parseFloat(e.target.value) || 0})}
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                    <i className="bi bi-arrow-right-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Espaço Horiz.</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="number" 
-                                                        value={config.gapH} 
-                                                        onChange={e => setConfig({...config, gapH: parseFloat(e.target.value) || 0})}
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                    <i className="bi bi-distribute-horizontal absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Espaço Vert.</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="number" 
-                                                        value={config.gapV} 
-                                                        onChange={e => setConfig({...config, gapV: parseFloat(e.target.value) || 0})}
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                    <i className="bi bi-distribute-vertical absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
                             </div>
                         </div>
                     </section>
@@ -763,8 +572,117 @@ const LabelPrinting: React.FC = () => {
                     cellImages={cellImages} 
                 />
             </div>
-        </>
-    );
+            {/* Modal de Configuração de Layout por Modelo */}
+            {layoutModalOpen && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setLayoutModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                        <div className="px-8 py-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Configuração do Modelo</h3>
+                                <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Layout, Escala e Margens</p>
+                            </div>
+                            <button onClick={() => setLayoutModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                <i className="bi bi-x-lg text-lg" />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                            {/* Layout: só para modelos rect */}
+                            {(config.preset === 'qr_product' || config.preset === 'price_only' || config.preset === 'custom') && (
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Layout dos Elementos</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {(['vertical', 'horizontal'] as const).map(l => (
+                                            <button
+                                                key={l}
+                                                onClick={() => setConfig({...config, layout: l})}
+                                                className={`px-4 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                                                    config.layout === l
+                                                        ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20'
+                                                        : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-blue-200'
+                                                }`}
+                                            >
+                                                <i className={`bi ${l === 'vertical' ? 'bi-layout-text-window-reverse' : 'bi-layout-text-sidebar-reverse'}`} />
+                                                {l === 'vertical' ? 'Vertical' : 'Horizontal'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Escala da imagem/logo */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Escala (Imagem / Logo)</label>
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="number"
+                                            min={50} max={500} step={1}
+                                            value={Math.round((config.imageScale || 1) * 100)}
+                                            onChange={e => setConfig({...config, imageScale: Math.max(0.5, Math.min(5, (parseInt(e.target.value) || 100) / 100))})}
+                                            className="w-16 text-center text-xs font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-400"
+                                        />
+                                        <span className="text-[10px] font-black text-slate-400">%</span>
+                                    </div>
+                                </div>
+                                <input
+                                    type="range" min="0.5" max="5" step="0.05"
+                                    value={config.imageScale}
+                                    onChange={e => setConfig({...config, imageScale: parseFloat(e.target.value)})}
+                                    className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                />
+                                <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                    <span>50%</span><span>100%</span><span>500%</span>
+                                </div>
+                            </div>
+                            {/* Margens */}
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 block flex items-center gap-2"><i className="bi bi-rulers" /> Margens e Espaçamento (mm)</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { key: 'marginT', label: 'Topo', icon: 'bi-arrow-up-circle' },
+                                        { key: 'marginB', label: 'Base', icon: 'bi-arrow-down-circle' },
+                                        { key: 'marginL', label: 'Esq.', icon: 'bi-arrow-left-circle' },
+                                        { key: 'marginR', label: 'Dir.', icon: 'bi-arrow-right-circle' },
+                                        { key: 'gapH', label: 'Esp. Horiz.', icon: 'bi-distribute-horizontal' },
+                                        { key: 'gapV', label: 'Esp. Vert.', icon: 'bi-distribute-vertical' },
+                                    ].map(({ key, label, icon }) => (
+                                        <div key={key} className="flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{label}</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    value={(config as any)[key]}
+                                                    onChange={e => setConfig({...config, [key]: parseFloat(e.target.value) || 0})}
+                                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold pl-8 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                />
+                                                <i className={`bi ${icon} absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]`} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-8 py-5 border-t border-slate-50 dark:border-slate-800 flex justify-end">
+                            <button
+                                onClick={() => setLayoutModalOpen(false)}
+                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-200/50"
+                            >
+                                <i className="bi bi-check-circle mr-2" />Aplicar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal Criação de Modelo */}
+            <LabelModelCreationModal
+                isOpen={creationModalOpen}
+                onClose={() => setCreationModalOpen(false)}
+                onApply={(imageDataUrl, scale) => {
+                    setSelectedImage(imageDataUrl);
+                    setConfig(prev => ({ ...prev, preset: 'custom', imageScale: scale, type: 'rect' }));
+                }}
+            />
+            </>);
 };
 
 export default LabelPrinting;

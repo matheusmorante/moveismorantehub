@@ -64,6 +64,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'stock' && (
                     <div className={dropdownClass}>
                         <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Movimentações</Link>
+                        <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Pedidos de Compras</Link>
                     </div>
                 )}
             </div>

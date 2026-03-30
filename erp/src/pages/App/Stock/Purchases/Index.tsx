@@ -28,8 +28,8 @@ const PurchasesPage = () => {
     );
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
+        <div className="flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0 p-4 md:p-8">
                 <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-6">
                     <div className="flex items-start xl:items-center gap-4 xl:gap-6">
                         <div className="w-12 h-12 xl:w-16 xl:h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200 dark:shadow-none">

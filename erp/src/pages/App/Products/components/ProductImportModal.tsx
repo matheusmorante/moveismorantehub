@@ -29,7 +29,9 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [encoding, setEncoding] = useState<'UTF-8' | 'ISO-8859-1'>('UTF-8');
     const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
-    const [nextSkuSequence, setNextSkuSequence] = useState<number>(1000001); // 7 digits
+    const [nextSkuSequence, setNextSkuSequence] = useState<number>(1000001);
+    const [importMode, setImportMode] = useState<'full' | 'update_by_id' | 'stock_by_code'>('full'); // Modo de importação
+    const [existingIds, setExistingIds] = useState<Set<string>>(new Set()); // IDs encontrados no banco
     
     // Mapping States
     const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
@@ -226,7 +228,7 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
         localStorage.setItem('blingImportMapping', JSON.stringify(savedMap));
     };
 
-    const processMappingToPreview = () => {
+    const processMappingToPreview = async () => {
         const mapped: ImportRow[] = csvRows.map((row): ImportRow => {
             const getVal = (field: string) => mapping[field] !== null ? row[mapping[field]!] : undefined;
 
@@ -286,7 +288,6 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
 
             if (!code) return { ...row, status: 'error', error: 'SKU Faltando' };
             if (skusInFile.has(code)) {
-                // Not an error anymore, just a warning that the last occurrence in file will win or they are identical
                 row.warning = "SKU duplicado no arquivo (o último será usado)";
             }
             skusInFile.add(code);
@@ -295,7 +296,30 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
         });
 
         setImportData(finalData);
-        setSelectedIndexes(new Set(finalData.map((_, i) => i)));
+
+        // [updateOnly compat] Ao ativar modo 'update_by_id', pré-selecionar apenas itens com ID mapeado
+        if (importMode === 'update_by_id' && mapping.id !== null) {
+            const idsInFile = new Set(finalData.map(r => r.data.id).filter(Boolean) as string[]);
+            // Consultar banco para verificar quais IDs existem
+            if (idsInFile.size > 0) {
+                const idArr = Array.from(idsInFile);
+                const { data: found } = await supabase.from('products').select('id').in('id', idArr);
+                const foundSet = new Set<string>((found || []).map((p: any) => String(p.id)));
+                setExistingIds(foundSet);
+                // Selecionar apenas os que existem
+                const validIndexes = new Set(
+                    finalData.map((r, i) => (r.data.id && foundSet.has(String(r.data.id))) ? i : -1).filter(i => i !== -1)
+                );
+                setSelectedIndexes(validIndexes);
+            } else {
+                setSelectedIndexes(new Set());
+                setExistingIds(new Set());
+            }
+        } else {
+            setExistingIds(new Set());
+            setSelectedIndexes(new Set(finalData.map((_, i) => i)));
+        }
+
         setStep('preview');
     };
 
@@ -345,6 +369,80 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
         if (selectedIndexes.size === importData.length) setSelectedIndexes(new Set());
         else setSelectedIndexes(new Set(importData.map((_, i) => i)));
     };
+
+    // ======== runImport stock_by_code mode ========
+    const runStockByCode = async () => {
+        setIsImporting(true);
+        setProgress(0);
+        abortRef.current = false;
+
+        // Build code → new stock map from preview data
+        const toProcess = importData
+            .map((r, i) => ({ r, i }))
+            .filter(x => selectedIndexes.has(x.i) && x.r.status !== 'success');
+
+        if (toProcess.length === 0) {
+            toast.warn('Selecione itens para atualizar.');
+            setIsImporting(false);
+            return;
+        }
+
+        const updated = [...importData];
+        let done = 0;
+
+        for (const { r, i } of toProcess) {
+            if (abortRef.current) break;
+            const code = r.data.code;
+            const newStock = r.data.stock;
+            if (!code) { updated[i].status = 'error'; updated[i].error = 'SKU vazio'; done++; continue; }
+
+            updated[i].status = 'processing';
+            setImportData([...updated]);
+
+            try {
+                // Find product by code
+                const { data: found } = await supabase
+                    .from('products')
+                    .select('id')
+                    .eq('code', code)
+                    .eq('deleted', false)
+                    .maybeSingle();
+
+                if (!found) {
+                    updated[i].status = 'error';
+                    updated[i].error = 'Código não encontrado';
+                } else {
+                    const { error } = await supabase
+                        .from('products')
+                        .update({ stock: newStock ?? 0, updated_at: new Date().toISOString() })
+                        .eq('id', found.id);
+                    updated[i].status = error ? 'error' : 'success';
+                    if (error) updated[i].error = error.message;
+                }
+            } catch (err: any) {
+                updated[i].status = 'error';
+                updated[i].error = err.message;
+            }
+
+            done++;
+            if (!abortRef.current) {
+                setProgress(Math.round((done / toProcess.length) * 100));
+                setImportData([...updated]);
+            }
+        }
+
+        setIsImporting(false);
+        if (abortRef.current) {
+            toast.info('Atualização cancelada.');
+            setProgress(0);
+        } else {
+            setIsCompleted(true);
+            const successCount = updated.filter(r => r.status === 'success').length;
+            toast.success(`${successCount} estoque(s) atualizado(s) com sucesso!`);
+            onSuccess();
+        }
+    };
+    // ==========================================
 
     const runImport = async () => {
         setIsImporting(true);
@@ -478,6 +576,11 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
         }
     };
 
+    const handleStartImport = () => {
+        if (importMode === 'stock_by_code') runStockByCode();
+        else runImport();
+    };
+
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={!isImporting ? onClose : undefined} />
@@ -529,10 +632,74 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
 
                 <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
                     {step === 'upload' && (
-                        <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] p-32 flex flex-col items-center justify-center gap-8 hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all cursor-pointer group">
-                             <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-[2rem] flex items-center justify-center group-hover:scale-110 transition-transform"><i className="bi bi-file-earmark-arrow-up text-5xl text-blue-600"></i></div>
-                             <div className="text-center"><h3 className="text-2xl font-black text-slate-800 dark:text-white mb-2 tracking-tight">Arraste seu Catálogo</h3><p className="text-slate-400 font-medium max-w-sm">Dica: Se nomes como SOFÁ ficarem estranhos, mude o Encoding para ANSI acima.</p></div>
-                             <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleFileLoad(e.target.files[0])} accept=".csv" className="hidden" />
+                        <div className="flex flex-col gap-8">
+                            {/* Mode selector */}
+                            <div className="grid grid-cols-3 gap-4">
+                                {[
+                                    {
+                                        id: 'full' as const,
+                                        icon: 'bi-cloud-arrow-up-fill',
+                                        color: 'blue',
+                                        title: 'Importação Completa',
+                                        desc: 'Cria novos produtos e atualiza os existentes pelo SKU ou ID'
+                                    },
+                                    {
+                                        id: 'update_by_id' as const,
+                                        icon: 'bi-pencil-square',
+                                        color: 'amber',
+                                        title: 'Atualizar por ID',
+                                        desc: 'Atualiza todos os dados apenas de produtos já cadastrados (pelo ID do Bling)'
+                                    },
+                                    {
+                                        id: 'stock_by_code' as const,
+                                        icon: 'bi-boxes',
+                                        color: 'emerald',
+                                        title: 'Atualizar Estoque',
+                                        desc: 'Atualiza somente o estoque de produtos que tiverem o mesmo código (SKU)'
+                                    }
+                                ].map(mode => (
+                                    <button
+                                        key={mode.id}
+                                        onClick={() => setImportMode(mode.id)}
+                                        className={`flex flex-col gap-3 p-6 rounded-[2rem] border-2 text-left transition-all ${
+                                            importMode === mode.id
+                                                ? `border-${mode.color}-400 bg-${mode.color}-50 dark:bg-${mode.color}-900/10 shadow-lg shadow-${mode.color}-100/50`
+                                                : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
+                                        }`}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                            importMode === mode.id
+                                                ? `bg-${mode.color}-100 dark:bg-${mode.color}-900/30 text-${mode.color}-600`
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                        }`}>
+                                            <i className={`bi ${mode.icon} text-lg`} />
+                                        </div>
+                                        <div>
+                                            <p className={`text-xs font-black uppercase tracking-widest ${importMode === mode.id ? `text-${mode.color}-700 dark:text-${mode.color}-300` : 'text-slate-700 dark:text-slate-200'}`}>
+                                                {mode.title}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed font-medium">{mode.desc}</p>
+                                        </div>
+                                        {importMode === mode.id && (
+                                            <div className={`self-start text-[9px] font-black uppercase tracking-widest text-${mode.color}-600 bg-${mode.color}-100 dark:bg-${mode.color}-900/30 px-2 py-1 rounded-lg`}>
+                                                ✓ Selecionado
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Upload zone */}
+                            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] p-24 flex flex-col items-center justify-center gap-6 hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all cursor-pointer group">
+                                <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-[2rem] flex items-center justify-center group-hover:scale-110 transition-transform"><i className="bi bi-file-earmark-arrow-up text-4xl text-blue-600"></i></div>
+                                <div className="text-center">
+                                    <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2 tracking-tight">Arraste seu CSV</h3>
+                                    <p className="text-slate-400 font-medium max-w-sm">
+                                        {importMode === 'stock_by_code' ? 'CSV com colunas de Código (SKU) e Estoque' : 'Dica: Se nomes como SOFÁ ficarem estranhos, mude o Encoding para ANSI acima.'}
+                                    </p>
+                                </div>
+                                <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleFileLoad(e.target.files[0])} accept=".csv" className="hidden" />
+                            </div>
                         </div>
                     )}
 
@@ -541,25 +708,36 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                             <div className="bg-blue-50 dark:bg-blue-950/30 p-8 rounded-[2.5rem] border border-blue-100 dark:border-blue-900/50">
                                 <h3 className="text-lg font-black text-blue-800 dark:text-blue-200 uppercase tracking-tight mb-2">Mapear Colunas</h3>
                                 <p className="text-sm text-blue-600 dark:text-blue-400 font-medium italic">Relacione os campos do seu sistema com as colunas do arquivo CSV selecionado.</p>
+                                {importMode === 'stock_by_code' && (
+                                    <div className="mt-3 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-widest">
+                                        <i className="bi bi-boxes" /> Modo Atualizar Estoque — mapeie apenas SKU e Estoque
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-x-12 gap-y-6 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                                {[
-                                    { id: 'id', label: 'ID do Produto' },
-                                    { id: 'code', label: 'SKU / Código Comercial' },
-                                    { id: 'description', label: 'Descrição / Nome', required: true },
-                                    { id: 'unitPrice', label: 'Preço de Venda', required: true },
-                                    { id: 'costPrice', label: 'Preço de Custo' },
-                                    { id: 'stock', label: 'Estoque Atual' },
-                                    { id: 'minStock', label: 'Estoque Mínimo' },
-                                    { id: 'unit', label: 'Unidade (UN, KG, etc)' },
-                                    { id: 'brand', label: 'Marca' },
-                                    { id: 'parentId', label: 'Código do Pai (Variações)' },
-                                    { id: 'ncm', label: 'NCM' },
-                                    { id: 'width', label: 'Largura' },
-                                    { id: 'height', label: 'Altura' },
-                                    { id: 'depth', label: 'Profundidade' },
-                                ].map((field) => (
+                                {(importMode === 'stock_by_code'
+                                    ? [
+                                        { id: 'code', label: 'SKU / Código Comercial', required: true },
+                                        { id: 'stock', label: 'Estoque Atual', required: true },
+                                    ]
+                                    : [
+                                        { id: 'id', label: 'ID do Produto' },
+                                        { id: 'code', label: 'SKU / Código Comercial' },
+                                        { id: 'description', label: 'Descrição / Nome', required: true },
+                                        { id: 'unitPrice', label: 'Preço de Venda', required: true },
+                                        { id: 'costPrice', label: 'Preço de Custo' },
+                                        { id: 'stock', label: 'Estoque Atual' },
+                                        { id: 'minStock', label: 'Estoque Mínimo' },
+                                        { id: 'unit', label: 'Unidade (UN, KG, etc)' },
+                                        { id: 'brand', label: 'Marca' },
+                                        { id: 'parentId', label: 'Código do Pai (Variações)' },
+                                        { id: 'ncm', label: 'NCM' },
+                                        { id: 'width', label: 'Largura' },
+                                        { id: 'height', label: 'Altura' },
+                                        { id: 'depth', label: 'Profundidade' },
+                                    ]
+                                ).map((field) => (
                                     <div key={field.id} className="flex flex-col gap-2 group transition-all">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-focus-within:text-blue-600 transition-colors">
                                             {field.label} {field.required && <span className="text-red-500">*</span>}
@@ -583,8 +761,13 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                                 </button>
                                 <button 
                                     onClick={() => {
-                                        if (mapping.description === null || mapping.unitPrice === null) {
-                                            toast.warn("Os campos Descrição e Preço de Venda são obrigatórios.");
+                                        if (importMode === 'stock_by_code') {
+                                            if (mapping.code === null || mapping.stock === null) {
+                                                toast.warn('Para atualizar estoque, mapeie os campos SKU e Estoque.');
+                                                return;
+                                            }
+                                        } else if (mapping.description === null || mapping.unitPrice === null) {
+                                            toast.warn('Os campos Descrição e Preço de Venda são obrigatórios.');
                                             return;
                                         }
                                         processMappingToPreview();
@@ -594,6 +777,26 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                                     Continuar para Visualização
                                 </button>
                             </div>
+
+                            {/* Modo toggle info */}
+                            {importMode === 'update_by_id' && (
+                                <div className="flex items-center justify-between p-6 bg-amber-50 dark:bg-amber-900/10 rounded-[2rem] border border-amber-200 dark:border-amber-800/30">
+                                    <div>
+                                        <h4 className="text-sm font-black text-amber-800 dark:text-amber-200 uppercase tracking-tight">Modo Atualização por ID</h4>
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Somente produtos já cadastrados com o mesmo ID serão atualizados. Novos registros serão ignorados.</p>
+                                    </div>
+                                    <i className="bi bi-shield-lock-fill text-amber-500 text-2xl ml-6 shrink-0" />
+                                </div>
+                            )}
+                            {importMode === 'stock_by_code' && (
+                                <div className="flex items-center justify-between p-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-[2rem] border border-emerald-200 dark:border-emerald-800/30">
+                                    <div>
+                                        <h4 className="text-sm font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-tight">Modo Atualizar Estoque por SKU</h4>
+                                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Somente o campo de estoque será atualizado nos produtos encontrados pelo código (SKU). Nenhum outro dado será alterado.</p>
+                                    </div>
+                                    <i className="bi bi-boxes text-emerald-500 text-2xl ml-6 shrink-0" />
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -619,11 +822,24 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                                     <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Com Alertas</p>
                                     <p className="text-2xl font-black text-amber-600">{importData.filter(r => r.warning).length}</p>
                                 </div>
-                                <div className="bg-red-50 dark:bg-red-900/10 p-6 rounded-3xl border border-red-100/50 dark:border-red-800/30">
-                                    <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Críticos</p>
-                                    <p className="text-2xl font-black text-red-600">{importData.filter(r => r.status === 'error').length}</p>
-                                </div>
+                                {importMode !== 'full' ? (
+                                    <div className="bg-slate-100 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-700">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Novos (ignorados)</p>
+                                        <p className="text-2xl font-black text-slate-400">{importData.length - selectedIndexes.size}</p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-red-50 dark:bg-red-900/10 p-6 rounded-3xl border border-red-100/50 dark:border-red-800/30">
+                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Críticos</p>
+                                        <p className="text-2xl font-black text-red-600">{importData.filter(r => r.status === 'error').length}</p>
+                                    </div>
+                                )}
                             </div>
+                            {importMode !== 'full' && (
+                                <div className="flex items-center gap-3 px-6 py-3 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-400 text-xs font-black uppercase tracking-widest">
+                                    <i className="bi bi-shield-lock-fill" />
+                                    {importMode === 'update_by_id' ? 'Modo Atualização por ID — apenas produtos já cadastrados' : 'Modo Atualizar Estoque — apenas o campo estoque será atualizado'}
+                                </div>
+                            )}
 
                             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] overflow-hidden shadow-sm">
                                 <div className="overflow-x-auto">
@@ -636,7 +852,7 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID</th>
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">SKU</th>
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Produto / Alertas</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Venda</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{importMode === 'stock_by_code' ? 'Novo Estoque' : 'Venda'}</th>
                                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                             </tr>
                                         </thead>
@@ -666,7 +882,12 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm font-black text-slate-600 dark:text-slate-400">R$ {row.data.unitPrice?.toFixed(2)}</td>
+                                                    <td className="px-6 py-4 text-sm font-black text-slate-600 dark:text-slate-400">
+                                                        {importMode === 'stock_by_code'
+                                                            ? <span className="text-emerald-600 font-black">{row.data.stock ?? '—'} un</span>
+                                                            : `R$ ${row.data.unitPrice?.toFixed(2)}`
+                                                        }
+                                                    </td>
                                                     <td className="px-6 py-4">
                                                         {row.status === 'pending' && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aguardando</span>}
                                                         {row.status === 'processing' && <div className="flex items-center gap-2 text-blue-600"><div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div><span className="text-[9px] font-black uppercase">Importando</span></div>}
@@ -697,8 +918,8 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                         <button onClick={isImporting ? () => { abortRef.current = true; setProgress(0); } : () => { setFile(null); setImportData([]); setProgress(0); setIsCompleted(false); }} className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isImporting ? 'text-red-500 border-red-100 hover:bg-red-50' : 'text-slate-400 hover:text-slate-600'}`}>
                             {isImporting ? 'Cancelar Importação' : 'Limpar Arquivo'}
                         </button>
-                        <button onClick={runImport} disabled={!file || isImporting || selectedIndexes.size === 0 || isCompleted} className={`px-12 py-3 ${isCompleted ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700'} text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-xl flex items-center gap-2`}>
-                            {isCompleted ? <><i className="bi bi-check-all text-lg"></i> CONCLUÍDO</> : isImporting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> IMPORTANDO...</> : <><i className="bi bi-cloud-arrow-up-fill text-lg"></i> IMPORTAR SELECIONADOS</>}
+                        <button onClick={handleStartImport} disabled={!file || isImporting || selectedIndexes.size === 0 || isCompleted} className={`px-12 py-3 ${isCompleted ? 'bg-emerald-600 hover:bg-emerald-700' : importMode === 'stock_by_code' ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700'} text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-xl flex items-center gap-2`}>
+                            {isCompleted ? <><i className="bi bi-check-all text-lg"></i> CONCLUÍDO</> : isImporting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> PROCESSANDO...</> : importMode === 'stock_by_code' ? <><i className="bi bi-boxes text-lg"></i> ATUALIZAR ESTOQUES</> : <><i className="bi bi-cloud-arrow-up-fill text-lg"></i> IMPORTAR SELECIONADOS</>}
                         </button>
                     </div>
                 </div>

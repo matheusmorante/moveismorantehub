@@ -4,6 +4,7 @@ import StockList from "./components/StockList";
 import StockLaunchModal from "./components/StockLaunchModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
 import InventoryAudit from "./components/InventoryAudit";
+import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
 import QRScannerModal from "@/components/shared/QRScannerModal";
 import { toast } from "react-toastify";
@@ -14,19 +15,19 @@ const StockPage = () => {
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
-    const [activeTab, setActiveTab] = useState<'balance' | 'history' | 'audit'>(
+    const [activeTab, setActiveTab] = useState<'balance' | 'history' | 'audit' | 'purchases'>(
         (searchParams.get('tab') as any) || 'balance'
     );
     const [isScannerOpen, setIsScannerOpen] = useState(false);
 
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['balance', 'history', 'audit'].includes(tab)) {
+        if (tab && ['balance', 'history', 'audit', 'purchases'].includes(tab)) {
             setActiveTab(tab as any);
         }
     }, [searchParams]);
 
-    const handleTabChange = (tab: 'balance' | 'history' | 'audit') => {
+    const handleTabChange = (tab: 'balance' | 'history' | 'audit' | 'purchases') => {
         setActiveTab(tab);
         setSearchParams({ tab });
     };
@@ -69,6 +70,13 @@ const StockPage = () => {
                                 >
                                     Inventário
                                 </button>
+                                <button
+                                    onClick={() => handleTabChange('purchases')}
+                                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'purchases' ? 'text-blue-600 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+                                >
+                                    <i className="bi bi-cart-fill mr-1" />
+                                    Compras
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -97,8 +105,10 @@ const StockPage = () => {
                         <StockList onLaunch={handleLaunch} />
                     ) : activeTab === 'history' ? (
                         <InventoryMovesHistory />
-                    ) : (
+                    ) : activeTab === 'audit' ? (
                         <InventoryAudit />
+                    ) : (
+                        <PurchasesIndex />
                     )}
                 </div>
             </div>

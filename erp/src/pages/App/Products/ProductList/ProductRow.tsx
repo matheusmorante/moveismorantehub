@@ -5,6 +5,7 @@ import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import ProductMigrationModal from "../components/ProductMigrationModal";
+import LabelPrintSelectionModal, { LabelPrintType } from "../components/LabelPrintSelectionModal";
 
 interface ProductRowProps {
     product: Product;
@@ -45,6 +46,7 @@ const ProductRow = ({
 }: ProductRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isMigrationModalOpen, setIsMigrationModalOpen] = React.useState(false);
+    const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({ open: false, type: 'identification' });
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
     const renderCell = (key: string) => {
@@ -296,15 +298,25 @@ const ProductRow = ({
                                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Lançar Estoque</span>
                                                         </button>
                                                         
-                                                        <Link
-                                                            to="/stock/label-printing"
-                                                            state={{ product }}
-                                                            onClick={() => setIsMenuOpen(false)}
-                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
-                                                        >
-                                                            <i className="bi bi-printer text-indigo-500" />
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Imprimir Etiquetas</span>
-                                                        </Link>
+                                                        <div className="border-t border-slate-50 dark:border-slate-800/50 mt-1 pt-1">
+                                                            <div className="px-4 py-1.5">
+                                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Imprimir Etiqueta</span>
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setLabelModal({ open: true, type: 'identification' }); }}
+                                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full"
+                                                            >
+                                                                <i className="bi bi-qr-code text-blue-500" />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Etiq. de Identificação</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setLabelModal({ open: true, type: 'price' }); }}
+                                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full"
+                                                            >
+                                                                <i className="bi bi-tag-fill text-emerald-500" />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Etiq. de Preço</span>
+                                                            </button>
+                                                        </div>
                                                     </>
                                                 )}
                                                 
@@ -377,6 +389,20 @@ const ProductRow = ({
                     onSuccess={() => onRefresh?.()}
                 />
             )}
+
+            <LabelPrintSelectionModal
+                isOpen={labelModal.open}
+                onClose={() => setLabelModal(prev => ({ ...prev, open: false }))}
+                labelType={labelModal.type}
+                initialProduct={{
+                    id: product.id!,
+                    description: product.description,
+                    code: product.code,
+                    sku: product.sku,
+                    unitPrice: product.unitPrice,
+                    images: product.images,
+                }}
+            />
         </tr>
     );
 };
