@@ -19,6 +19,9 @@
     // Patch to protect Array.isArray and other primitives if they get messed up
     if (!Array.isArray) Array.isArray = function (arg) { return Object.prototype.toString.call(arg) === '[object Array]'; };
   </script>
+  <!-- Console de Celular (Eruda) -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
 </head>
 
 <body>

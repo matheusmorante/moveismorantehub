@@ -21,6 +21,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     const [showManualInput, setShowManualInput] = useState(false);
     const [manualCode, setManualCode] = useState("");
     
+    // ID único para evitar conflitos de DOM entre múltiplos scanners
     const uniqueId = useId().replace(/:/g, "");
     const scannerId = `qr-reader-${uniqueId}`;
     
@@ -39,8 +40,11 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                 scannerRef.current = null;
             }
         }
+        
         const container = document.getElementById(scannerId);
-        if (container) container.innerHTML = "";
+        if (container) {
+            container.innerHTML = "";
+        }
     }, [scannerId]);
 
     const startScanner = useCallback(async () => {
@@ -53,29 +57,26 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
         try {
             // VERIFICAÇÃO DE SEGURANÇA (HTTPS)
             if (!window.isSecureContext && window.location.hostname !== "localhost") {
-                throw new Error("⚠️ SEGURANÇA: Site detectado como inseguro (HTTP). No celular, a câmera SÓ abre via HTTPS. Se estiver testando no Vercel, certifique-se de que o cadeado está ativo no topo.");
+                throw new Error("⚠️ SITE INSEGURO (HTTP): A câmera SÓ abre via HTTPS em dispositivos móveis. Certifique-se de que o URL tem o cadeado (SSL) ativo.");
             }
 
             await stopScanner();
             await new Promise(r => setTimeout(r, 1200)); 
 
             const readerElem = document.getElementById(scannerId);
-            if (!readerElem) throw new Error("Área do sensor não carregada.");
+            if (!readerElem) throw new Error("Hardware de desenho não carregado.");
 
             const qrScanner = new Html5Qrcode(scannerId);
             scannerRef.current = qrScanner;
 
-            // CONFIGURAÇÃO MAIS FLEXÍVEL (Sem restrição de aspecto ou FPS exagerado)
             const config = {
                 fps: 15,
                 qrbox: { width: 250, height: 250 },
-                // Removido aspectRatio fixo para evitar rejeição do hardware de celulares antigos
             };
 
             const cameras = await Html5Qrcode.getCameras().catch(() => []);
             
             if (cameras && cameras.length > 0) {
-                // Seleção inteligente: Prioriza a traseira (back), senão pega qualquer uma
                 const backCamera = cameras.find(c => 
                     c.label.toLowerCase().includes('back') || 
                     c.label.toLowerCase().includes('traseira') ||
@@ -95,7 +96,6 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                     () => {}
                 );
             } else {
-                // Tenta pelo modo genérico do navegador se a lista estiver vazia
                 await qrScanner.start(
                     { facingMode: "environment" },
                     config,
@@ -108,15 +108,15 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             }
 
         } catch (err: any) {
-            console.error("Critical Scanner Failure:", err);
+            console.error("Critical Failure:", err);
             let msg = err?.message || String(err);
             
             if (msg.includes("Permission") || msg.includes("allowed") || msg.includes("denied")) {
-                msg = "🛑 PERMISSÃO BLOQUEADA: Vá nos ajustes do seu celular e libere o acesso à câmera para este site/navegador.";
+                msg = "📛 ACESSO NEGADO: Verifique se as permissões de câmera estão liberadas no cadeado (ícone ao lado do site).";
             } else if (msg.includes("NotFound") || msg.includes("Requested device not found")) {
-                msg = "📵 CÂMERA OCUPADA OU INEXISTENTE: Outro app (WhatsApp, Zoom, Instagram) pode estar usando a câmera agora. Feche tudo e tente novamente.";
-            } else if (msg.includes("Webcam Error")) {
-                msg = "⚠️ ERRO DE HARDWARE: O navegador não conseguiu conversar com o sensor. Dê F5 e tente novamente.";
+                msg = "📵 DISPOSITIVO OCUPADO: Outro aplicativo está travando a sua câmera agora. Feche tudo (Instagram, WhatsApp) e tente de novo.";
+            } else {
+                msg = `ERRO TÉCNICO: ${msg}`;
             }
             
             setError(msg);
@@ -142,10 +142,13 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-3xl animate-fade-in" onClick={onClose} />
+        <div 
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{ zIndex: 999999, backgroundColor: 'rgba(2, 6, 23, 0.98)' }}
+        >
+            <div className="absolute inset-0 backdrop-blur-3xl animate-fade-in" onClick={onClose} />
             
-            <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
+            <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[3rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                     <div className="text-left">
                         <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{title}</h3>
@@ -166,9 +169,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                         {isInitializing && (
                             <div className="absolute inset-0 z-20 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center text-white">
                                 <div className="w-16 h-16 border-[6px] border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-6" />
-                                <h4 className="text-xs font-black uppercase tracking-widest mb-2">Sincronizando Sensor</h4>
+                                <h4 className="text-xs font-black uppercase tracking-widest mb-2">Conectando...</h4>
                                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.15em] leading-relaxed">
-                                    Aguarde a liberação do Hardware...
+                                    Aguarde o hardware de vídeo responder...
                                 </p>
                             </div>
                         )}
@@ -182,14 +185,19 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                                     </p>
                                 </div>
                                 <div className="flex flex-col w-full gap-3">
-                                    <button onClick={() => startScanner()} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all">
-                                        REPETIR TENTATIVA
-                                    </button>
                                     <button 
-                                        onClick={() => setShowManualInput(true)} 
-                                        className="w-full py-5 bg-slate-800 text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[9px] border border-slate-700 active:scale-95 transition-all"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(error);
+                                            const btn = document.activeElement as HTMLButtonElement;
+                                            if (btn) btn.innerText = "COPIADO!";
+                                            setTimeout(() => { if (btn) btn.innerText = "COPIAR LOG TÉCNICO"; }, 2000);
+                                        }}
+                                        className="w-full py-5 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] border border-slate-600 active:scale-95 transition-all"
                                     >
-                                        ENTRADA POR CÓDIGO (MANUAL)
+                                        COPIAR LOG TÉCNICO
+                                    </button>
+                                    <button onClick={() => startScanner()} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all">
+                                        TENTAR NOVAMENTE
                                     </button>
                                 </div>
                             </div>
@@ -230,7 +238,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                             className="w-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-500 transition-colors flex items-center justify-center gap-3"
                         >
                             <i className={`bi ${showManualInput ? 'bi-camera-fill' : 'bi-keyboard-fill'} text-lg`} />
-                            {showManualInput ? 'SCANNER DE CÂMERA' : 'USAR ENTRADA MANUAL'}
+                            {showManualInput ? 'ABRIR CÂMERA' : 'USAR ENTRADA MANUAL'}
                         </button>
                     </div>
                 </div>
@@ -244,7 +252,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                     width: 100% !important; 
                     height: 100% !important; 
                     object-fit: cover !important;
-                    border-radius: 2rem !important;
+                    border-radius: 2.5rem !important;
                 }
             `}} />
         </div>
