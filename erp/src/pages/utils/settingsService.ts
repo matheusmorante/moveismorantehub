@@ -192,6 +192,11 @@ export interface AppSettings {
         timezone: string;
     };
     importMappings: ImportConfig[];
+    scannerConfig: {
+        delay: number;
+        enableBeep: boolean;
+        vibrate: boolean;
+    };
 }
 
 /**
@@ -563,7 +568,12 @@ RESPOSTA NO FORMATO JSON:
         BLING_SUPPLIER_DEFAULTS,
         BLING_ORDER_DEFAULTS,
         BLING_RECEIVABLE_DEFAULTS
-    ]
+    ],
+    scannerConfig: {
+        delay: 1500,
+        enableBeep: true,
+        vibrate: true
+    }
 });
 
 export const getSettings = (): AppSettings => {

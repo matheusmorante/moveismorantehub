@@ -194,17 +194,19 @@ const StockList = ({ onLaunch }: StockListProps) => {
                     <p className="text-sm text-slate-300 dark:text-slate-600 mt-2 max-w-xs">Tente ajustar seus filtros de busca ou cadastre novos produtos.</p>
                 </div>
             )}
-            <ErrorBoundary name="Scanner de Estoque">
-                <QRScannerModal 
-                    isOpen={isScannerOpen} 
-                    onClose={() => setIsScannerOpen(false)} 
-                    onScan={(code) => {
-                        setSearch(code);
-                        setIsScannerOpen(false);
-                    }}
-                    title="Escanear Produto"
-                />
-            </ErrorBoundary>
+            {isScannerOpen && (
+                <ErrorBoundary name="Scanner de Estoque">
+                    <QRScannerModal 
+                        isOpen={isScannerOpen} 
+                        onClose={() => setIsScannerOpen(false)} 
+                        onScan={(code) => {
+                            setSearch(code);
+                            setIsScannerOpen(false);
+                        }}
+                        title="Escanear Produto"
+                    />
+                </ErrorBoundary>
+            )}
         </div>
     );
 };

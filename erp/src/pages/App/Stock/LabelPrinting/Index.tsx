@@ -233,7 +233,7 @@ const LabelPrinting: React.FC = () => {
             text: fullName,
             price: product.unitPrice ? formatCurrency(product.unitPrice) : '',
             sku: product.code || (product as any).sku || '',
-            qrContent: `https://moveismorante.com.br/produto/${slugify(fullName)}`
+            qrContent: product.code || (product as any).sku || '' // Mudado de URL para SKU/Code
         };
         
         setConfig(updatedConfig);

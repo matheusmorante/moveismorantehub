@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import Product, { Variation } from "../../../types/product.type";
 import { subscribeToProducts } from '@/pages/utils/productService';
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
@@ -8,6 +9,7 @@ import QRScannerModal from "@/components/shared/QRScannerModal";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 const InventoryAudit = () => {
+    const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [counts, setCounts] = useState<Record<string, string>>({}); // Use string to allow empty input during typing
@@ -59,11 +61,17 @@ const InventoryAudit = () => {
         return items;
     }, [products]);
 
-    const filtered = flatItems.filter(item => 
-        item.name.toLowerCase().includes(search.toLowerCase()) || 
-        item.code?.toLowerCase().includes(search.toLowerCase()) ||
-        item.supplierRef?.toLowerCase().includes(search.toLowerCase())
-    );
+    // Filtro inteligente: Mostra apenas itens que foram contados ou que coincidem com a pesquisa atual
+    const filtered = flatItems.filter(item => {
+        const isCounted = counts[item.id] !== undefined && counts[item.id] !== "";
+        const matchesSearch = search.trim() !== "" && (
+            item.name.toLowerCase().includes(search.toLowerCase()) || 
+            item.code?.toLowerCase().includes(search.toLowerCase()) ||
+            item.supplierRef?.toLowerCase().includes(search.toLowerCase())
+        );
+
+        return isCounted || matchesSearch;
+    });
 
     const handleCountChange = (itemId: string, value: string) => {
         setCounts(prev => ({ ...prev, [itemId]: value }));
@@ -174,7 +182,10 @@ const InventoryAudit = () => {
 
                 <div className="flex flex-col md:flex-row gap-4 flex-1 max-w-2xl px-1">
                     <button
-                        onClick={() => setIsScannerOpen(true)}
+                        onClick={() => {
+                            console.log("Iniciando scanner...");
+                            setIsScannerOpen(true);
+                        }}
                         className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-xl shadow-slate-200 dark:shadow-none min-w-[200px]"
                     >
                         <i className="bi bi-qr-code-scan text-base" />
@@ -205,18 +216,28 @@ const InventoryAudit = () => {
                         )}
                         Finalizar
                     </button>
+
+                    <button
+                        onClick={() => navigate('/app/settings#scanner')}
+                        title="Configurações do Scanner"
+                        className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-blue-500 rounded-2xl transition-all active:scale-90"
+                    >
+                        <i className="bi bi-gear-fill text-xl" />
+                    </button>
                 </div>
             </div>
 
-            <ErrorBoundary name="Scanner de Inventário">
-                <QRScannerModal 
-                    isOpen={isScannerOpen} 
-                    onClose={() => setIsScannerOpen(false)} 
-                    closeOnScan={false} // Allow multiple scans
-                    onScan={handleScan}
-                    title="Contagem por Escaneamento"
-                />
-            </ErrorBoundary>
+            {isScannerOpen && (
+                <ErrorBoundary name="Scanner de Inventário">
+                    <QRScannerModal 
+                        isOpen={isScannerOpen} 
+                        onClose={() => setIsScannerOpen(false)} 
+                        closeOnScan={false} // Allow multiple scans
+                        onScan={handleScan}
+                        title="Contagem por Escaneamento"
+                    />
+                </ErrorBoundary>
+            )}
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse whitespace-nowrap">

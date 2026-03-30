@@ -114,22 +114,23 @@ const StockPage = () => {
                 targetProduct={selectedProduct}
                 targetVariation={selectedVariation}
             />
-            {/* Scanner Modal */}
-            <QRScannerModal 
-                isOpen={isScannerOpen} 
-                onClose={() => setIsScannerOpen(false)} 
-                onScan={async (code) => {
-                    const result = await getProductByCode(code);
-                    if (result) {
-                        toast.success(`Produto localizado: ${result.product.description}`);
-                        handleLaunch(result.product, result.variation);
-                        setIsScannerOpen(false);
-                    } else {
-                        toast.error(`Produto com código "${code}" não encontrado.`);
-                    }
-                }}
-                title="Escanear Inventário"
-            />
+            {isScannerOpen && (
+                <QRScannerModal 
+                    isOpen={isScannerOpen} 
+                    onClose={() => setIsScannerOpen(false)} 
+                    onScan={async (code) => {
+                        const result = await getProductByCode(code);
+                        if (result) {
+                            toast.success(`Produto localizado: ${result.product.description}`);
+                            handleLaunch(result.product, result.variation);
+                            setIsScannerOpen(false);
+                        } else {
+                            toast.error(`Produto com código "${code}" não encontrado.`);
+                        }
+                    }}
+                    title="Escanear Inventário"
+                />
+            )}
         </div>
     );
 };

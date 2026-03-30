@@ -25,6 +25,7 @@ import ReceiptConfigSection from './components/ReceiptConfigSection';
 import ValidationConfigSection from './components/ValidationConfigSection';
 // import ImportMappingSection from './components/ImportMappingSection'; // Removido por não existir e não ser utilizado
 import InventoryAutomationSection from './components/InventoryAutomationSection';
+import ScannerConfigSection from './components/ScannerConfigSection';
 import ProductMaterialsSection from './components/ProductMaterialsSection';
 import CardFlagSettings from './components/CardFlagSettings';
 // import SaveButton from './components/SaveButton'; // Removido para auto-save
@@ -49,6 +50,7 @@ const categories: any[] = [
     { id: 'materiais', label: 'Materiais de Móveis', icon: 'bi-hammer', group: 'system', keywords: ['material', 'mdp', 'mdf', 'madeira', 'vidro', 'metal', 'móvel'] },
     { id: 'manuseio', label: 'Manuseio de Pedidos', icon: 'bi-hand-index-thumb', group: 'system', keywords: ['manuseio', 'montagem', 'entrega', 'retirada', 'padrão'] },
     { id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
+    { id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
 ];
 
 /**
@@ -304,6 +306,10 @@ export default function Settings(): any {
 
                     <SettingsSection id="bandeiras" title="Bandeiras e Juros de Cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')}>
                         <CardFlagSettings settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="scanner" title="Leitor de Código de Barras" icon="bi-qr-code-scan" isVisible={isVisible('scanner')}>
+                        <ScannerConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
 

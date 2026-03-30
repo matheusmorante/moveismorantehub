@@ -16,13 +16,21 @@ const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 1
     useEffect(() => {
         if (canvasRef.current && text) {
             try {
+                const trimmedText = text.trim();
+                const isNumeric = /^\d+$/.test(trimmedText);
+                
+                // EAN-13 exige 12 ou 13 dígitos numéricos.
+                // Se não for EAN ou conter letras, usa CODE-128 (que é universal)
+                const isEanCompatible = isNumeric && (trimmedText.length === 12 || trimmedText.length === 13);
+                const bcidType = isEanCompatible ? 'ean13' : 'code128';
+
                 bwipjs.toCanvas(canvasRef.current, {
-                    bcid: 'code128',       // Barcode type
-                    text: text,            // Text to encode
-                    scale: 3,              // 3x scaling factor
-                    height: height,        // Bar height
-                    includetext: true,     // Show human-readable text
-                    textxalign: 'center',  // Center the text
+                    bcid: bcidType,         // EAN-13 (solicitado) ou CODE128 (segurança)
+                    text: trimmedText, 
+                    scale: 3, 
+                    height: height, 
+                    includetext: true, 
+                    textxalign: 'center', 
                     backgroundcolor: 'ffffff'
                 });
                 setError(false);
@@ -33,7 +41,7 @@ const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 1
         }
     }, [text, height]);
 
-    if (error) return <div className="text-[8px] text-red-500">Erro no Código</div>;
+    if (error) return <div className="text-[10px] font-black text-rose-500 uppercase px-2 py-1 bg-rose-50 rounded italic">Formato Inválido (EAN13 exige 13 números)</div>;
     return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />;
 };
 
