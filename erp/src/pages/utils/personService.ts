@@ -48,6 +48,20 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     return dbObj;
 };
 
+export const mapAddress = (data: any) => {
+    return {
+        zipCode: data.zipCode || data.cep || '',
+        cep: data.zipCode || data.cep || '',
+        street: data.street || data.address || '',
+        number: data.number || '',
+        complement: data.complement || '',
+        neighborhood: data.neighborhood || data.bairro || '',
+        city: data.city || '',
+        state: data.state || data.uf || '',
+        observation: ''
+    };
+};
+
 const mapFromDB = (data: any): Person => {
     if (!data) return {} as Person;
     let parsedAddress = data.address;
@@ -193,6 +207,20 @@ export const savePerson = async (collectionName: string, person: Person): Promis
         return mapFromDB(data[0]);
     } catch (error) {
         console.error(`Erro ao salvar em ${collectionName}: `, error);
+        throw error;
+    }
+};
+
+export const savePeopleBatch = async (collectionName: string, people: Partial<Person>[]): Promise<void> => {
+    try {
+        const dbPeople = people.map(p => mapToDB(collectionName, p));
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .insert(dbPeople);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error(`Erro ao salvar lote em ${collectionName}: `, error);
         throw error;
     }
 };

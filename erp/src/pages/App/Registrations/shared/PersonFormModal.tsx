@@ -31,16 +31,19 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         phone: "",
         noPhone: false,
         active: true,
+        type: collectionName as any,
         fullAddress: {
             cep: "",
             street: "",
             number: "",
             neighborhood: "",
             city: "",
+            state: "",
             housingType: "",
             complement: "",
             observation: ""
         },
+        noAddress: false,
         marketingOrigin: "",
         position: "",
         additionalContacts: [],
@@ -80,6 +83,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     number: person.fullAddress?.number || "",
                     neighborhood: person.fullAddress?.neighborhood || "",
                     city: person.fullAddress?.city || "",
+                    state: person.fullAddress?.state || "",
                     housingType: (person.fullAddress as any)?.housingType || "",
                     complement: person.fullAddress?.complement || "",
                     observation: person.fullAddress?.observation || ""
@@ -97,16 +101,19 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 phone: "",
                 noPhone: false,
                 active: true,
+                type: collectionName as any,
                 fullAddress: {
                     cep: "",
                     street: "",
                     number: "",
                     neighborhood: "",
                     city: "",
+                    state: "",
                     housingType: "",
                     complement: "",
                     observation: ""
                 },
+                noAddress: false,
                 marketingOrigin: "",
                 position: title === "Vendedor" ? "Vendedor" : "",
                 additionalContacts: [],
@@ -161,6 +168,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 street: addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0],
                 neighborhood: addr.neighbourhood || addr.suburb || prev.fullAddress?.neighborhood || "",
                 city: addr.city || addr.town || addr.village || prev.fullAddress?.city || "",
+                state: addr.state || prev.fullAddress?.state || "",
                 cep: addr.postcode ? addr.postcode.replace(/\D/g, '') : prev.fullAddress?.cep || ""
             }
         }));
@@ -180,6 +188,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             street: data.street || prev.fullAddress?.street || "",
                             neighborhood: data.neighborhood || prev.fullAddress?.neighborhood || "",
                             city: data.city || prev.fullAddress?.city || "",
+                            state: data.state || prev.fullAddress?.state || "",
                         }
                     }));
                 }
@@ -238,10 +247,10 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (requiredFields.customer?.address) {
+        if (!formData.noAddress) {
             const addr = formData.fullAddress;
-            if (!addr?.street || !addr?.number || !addr?.neighborhood || !addr?.city) {
-                toast.error("O endereço completo (Rua, Número, Bairro, Cidade) é obrigatório.");
+            if (!addr?.street || !addr?.number || !addr?.city) {
+                toast.error("Rua, Número e Cidade são obrigatórios no endereço.");
                 return;
             }
         }
@@ -299,7 +308,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             if (dataToSave.position?.trim() === "") {
                 dataToSave.position = null as any;
             }
-            const savedPerson = await savePerson(collectionName, dataToSave);
+            const savedPerson = await savePerson(formData.type || collectionName, dataToSave);
             toast.success(person ? "Atualizado com sucesso!" : "Criado com sucesso!");
             if (onSuccess) onSuccess(savedPerson);
             onClose();
@@ -333,6 +342,8 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
                 <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Customer / Supplier Toggle */}
+
                         {/* PF/PJ Toggle */}
                         {!isEmployee && (
                             <div className="md:col-span-2 flex items-center gap-6 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -570,124 +581,144 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     </div>
 
                     <div className="flex flex-col gap-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center gap-2">
-                            <i className="bi bi-geo-alt-fill text-blue-600"></i>
-                            Endereço {settings.requiredFields.customer?.address ? <span className="text-red-500">*</span> : null}
+                        <h4 className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center justify-between gap-2">
+                             <div className="flex items-center gap-2">
+                                <i className="bi bi-geo-alt-fill text-blue-600"></i>
+                                Endereço {!formData.noAddress && <span className="text-red-500">*</span>}
+                             </div>
+
+                             <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, noAddress: !formData.noAddress })}
+                                className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${formData.noAddress ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-100 dark:bg-slate-900 dark:border-slate-800'}`}
+                             >
+                                {formData.noAddress ? <><i className="bi bi-geo-alt mr-1"></i> Informar Endereço</> : 'Não Informar'}
+                             </button>
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.cep || ""}
-                                    onChange={(e) => handleAddressChange("cep", e.target.value)}
-                                    onBlur={handleCepBlur}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
+                            <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.cep || ""}
+                                        onChange={(e) => handleAddressChange("cep", e.target.value)}
+                                        onBlur={handleCepBlur}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.street || ""}
+                                        onChange={(e) => handleStreetChange(e.target.value)}
+                                        onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                    <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
+                                        <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                            {loadingSuggestions && (
+                                                <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                                    <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                                    Buscando endereços...
+                                                </div>
+                                            )}
+                                            {!loadingSuggestions && streetSuggestions.length === 0 && (
+                                                <div className="p-4 text-center text-xs text-slate-400">
+                                                    Nenhum endereço encontrado.
+                                                </div>
+                                            )}
+                                            {streetSuggestions.map((s, i) => (
+                                                <button key={i} type="button"
+                                                    onClick={() => handleSelectAddressSuggestion(s)}
+                                                    className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
+                                                >
+                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                        {[
+                                                            s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
+                                                            s.address.neighbourhood || s.address.suburb,
+                                                            s.address.city || s.address.town || s.address.village
+                                                        ].filter(Boolean).join(', ')}
+                                                    </p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </DropdownPortal>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.number || ""}
+                                        onChange={(e) => handleAddressChange("number", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.neighborhood || ""}
+                                        onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.complement || ""}
+                                        onChange={(e) => handleAddressChange("complement", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.city || ""}
+                                        onChange={(e) => handleAddressChange("city", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Estado</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.state || ""}
+                                        onChange={(e) => handleAddressChange("state", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
+                                    <select
+                                        value={(formData.fullAddress as any)?.housingType || ""}
+                                        onChange={(e) => handleAddressChange("housingType", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    >
+                                        <option value="" disabled>Selecione...</option>
+                                        <option value="Casa">Casa</option>
+                                        <option value="Apartamento">Apartamento</option>
+                                        <option value="Condomínio Residencial">Condomínio Residencial</option>
+                                        <option value="Kitnet">Kitnet</option>
+                                        <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
+                                        <option value="Chácara">Chácara</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-3 flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.observation || ""}
+                                        onChange={(e) => handleAddressChange("observation", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        placeholder="Ponto de referência, etc."
+                                    />
+                                </div>
                             </div>
-                            <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.street || ""}
-                                    onChange={(e) => handleStreetChange(e.target.value)}
-                                    onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                                <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
-                                    <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
-                                        {loadingSuggestions && (
-                                            <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                                                <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
-                                                Buscando endereços...
-                                            </div>
-                                        )}
-                                        {!loadingSuggestions && streetSuggestions.length === 0 && (
-                                            <div className="p-4 text-center text-xs text-slate-400">
-                                                Nenhum endereço encontrado.
-                                            </div>
-                                        )}
-                                        {streetSuggestions.map((s, i) => (
-                                            <button key={i} type="button"
-                                                onClick={() => handleSelectAddressSuggestion(s)}
-                                                className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
-                                            >
-                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                                    {[
-                                                        s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
-                                                        s.address.neighbourhood || s.address.suburb,
-                                                        s.address.city || s.address.town || s.address.village
-                                                    ].filter(Boolean).join(', ')}
-                                                </p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </DropdownPortal>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.number || ""}
-                                    onChange={(e) => handleAddressChange("number", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.neighborhood || ""}
-                                    onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.complement || ""}
-                                    onChange={(e) => handleAddressChange("complement", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="Opcional"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.city || ""}
-                                    onChange={(e) => handleAddressChange("city", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia {settings.requiredFields.customer?.address ? <span className="text-red-500">*</span> : null}</label>
-                                <select
-                                    value={(formData.fullAddress as any)?.housingType || ""}
-                                    onChange={(e) => handleAddressChange("housingType", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                >
-                                    <option value="" disabled>Selecione...</option>
-                                    <option value="Casa">Casa</option>
-                                    <option value="Apartamento">Apartamento</option>
-                                    <option value="Condomínio Residencial">Condomínio Residencial</option>
-                                    <option value="Kitnet">Kitnet</option>
-                                    <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
-                                    <option value="Chácara">Chácara</option>
-                                </select>
-                            </div>
-                            <div className="md:col-span-3 flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.observation || ""}
-                                    onChange={(e) => handleAddressChange("observation", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="Ponto de referência, etc."
-                                />
-                            </div>
-                        </div>
 
                         {/* Map Verification */}
                         <div className="md:col-span-3 mt-4">

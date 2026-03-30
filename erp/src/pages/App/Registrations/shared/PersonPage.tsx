@@ -3,6 +3,7 @@ import PersonFilters from "./PersonFilters";
 import PersonList from "./PersonList";
 import PersonFormModal from "./PersonFormModal";
 import PersonPurchaseHistoryModal from "./PersonPurchaseHistoryModal";
+import PersonImportModal from "./PersonImportModal";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
 import { useNavigate } from "react-router-dom";
 import { PersonListRef } from "./PersonList";
@@ -35,13 +36,14 @@ const DEFAULT_VISIBILITY: PersonVisibilitySettings = {
     actions: true,
 };
 
-interface PersonPageProps {
+export interface PersonPageProps {
     title: string;
     subtitle: string;
     newLabel: string;
     newIcon: string;
     collectionName: string;
     storageKey: string;
+    canImport?: boolean;
 }
 
 const PersonPage = ({
@@ -51,6 +53,7 @@ const PersonPage = ({
     newIcon,
     collectionName,
     storageKey,
+    canImport = false,
 }: PersonPageProps) => {
     const isEmployee = collectionName === "employees";
 
@@ -78,6 +81,7 @@ const PersonPage = ({
     const [editingPerson, setEditingPerson] = useState<Person | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [historyPerson, setHistoryPerson] = useState<Person | null>(null);
     const [filters, setFilters] = useState<PersonFiltersData>(DEFAULT_FILTERS);
     const [visibilitySettings, setVisibilitySettings] =
@@ -172,6 +176,15 @@ const PersonPage = ({
                         >
                             <i className="bi bi-gear-fill text-lg xl:text-xl" />
                         </button>
+                        {canImport && (
+                            <button
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="flex items-center justify-center gap-2 xl:gap-3 bg-white hover:bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm shadow-slate-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
+                            >
+                                <i className="bi bi-cloud-arrow-up-fill text-lg xl:text-xl" />
+                                Importar
+                            </button>
+                        )}
                         <button
                             onClick={openAdd}
                             className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
@@ -352,6 +365,16 @@ const PersonPage = ({
                     person={historyPerson}
                 />
             )}
+
+            <PersonImportModal 
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onSuccess={() => {
+                    listRef.current?.refresh();
+                }}
+                collectionName={collectionName}
+                title={title}
+            />
         </div>
     );
 };

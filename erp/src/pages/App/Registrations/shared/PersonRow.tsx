@@ -47,17 +47,24 @@ const PersonRow = ({
                 return (
                     <td key="fullName" className="px-3 py-1.5 text-left">
                         <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                {person.fullName}
-                                {person.personType === 'PF' && person.socialName && (
-                                    <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.socialName})</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    {person.fullName}
+                                    {person.personType === 'PF' && person.socialName && (
+                                        <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.socialName})</span>
+                                    )}
+                                    {person.personType === 'PJ' && person.tradeName && (
+                                        <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.tradeName})</span>
+                                    )}
+                                </span>
+                                {person.type === 'suppliers' && (
+                                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/30">
+                                        Fornecedor
+                                    </span>
                                 )}
-                                {person.personType === 'PJ' && person.tradeName && (
-                                    <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.tradeName})</span>
-                                )}
-                            </span>
+                            </div>
                             {person.cpfCnpj && (
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-0.5">
                                     {person.cpfCnpj}
                                 </span>
                             )}
@@ -87,11 +94,25 @@ const PersonRow = ({
             case 'address':
                 return (
                     <td key="address" className="px-3 py-1.5 text-left">
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                            {person.fullAddress?.street
-                                ? `${person.fullAddress.street}, ${person.fullAddress.number || 'S/N'}`
-                                : "-"}
-                        </span>
+                        {person.noAddress ? (
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic flex items-center gap-1">
+                                <i className="bi bi-geo-alt-fill text-slate-300"></i>
+                                Não informado
+                            </span>
+                        ) : (
+                            <div className="flex flex-col">
+                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                    {person.fullAddress?.street
+                                        ? `${person.fullAddress.street}, ${person.fullAddress.number || 'S/N'}`
+                                        : "-"}
+                                </span>
+                                {(person.fullAddress?.city || person.fullAddress?.state) && (
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                                        {person.fullAddress.city}{person.fullAddress.state ? ` / ${person.fullAddress.state}` : ""}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </td>
                 );
             case 'actions':
@@ -142,7 +163,7 @@ const PersonRow = ({
                                                 className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
                                                 title="Ver Histórico de Pedidos"
                                             >
-                                                <i className="bi bi-clock-history text-sm" />
+                                                <i className="bi bi-bag-check-fill text-sm" />
                                             </button>
                                         )}
 

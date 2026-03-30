@@ -11,6 +11,7 @@ const AssemblyListPage = () => {
     const [assemblies, setAssemblies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const isStandalone = window.location.pathname.includes("/assembly-schedule");
     
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,8 +121,8 @@ const AssemblyListPage = () => {
     };
 
     const handleShareWhatsApp = () => {
-        const url = window.location.origin + '/logistics/assembly-print';
-        const message = `🛠️ *Móveis Morante - Lista de Montagem*\n\nOlá! Segue o link de acesso à lista de montagens consolidada atualizada:\n\n${url}\n\n_Favor conferir os itens antes de sair para o cliente._`;
+        const url = `${window.location.origin}/assembly-schedule`;
+        const message = `🛠️ *Móveis Morante - Cronograma de Montagens*\n\nOlá! Segue o link para *visualização em tempo real* da lista de montagens atualizada:\n\n🔗 ${url}\n\n_Favor conferir os itens e horários no link antes de iniciar os serviços._`;
         const encoded = encodeURIComponent(message);
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
     };
@@ -137,7 +138,9 @@ const AssemblyListPage = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Logística de Montagens</h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Gestão de serviços técnicos e montagens em domicílio ou mostruário</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
+                        {isStandalone ? "Visualização em Tempo Real" : "Gestão de serviços técnicos e montagens em domicílio ou mostruário"}
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="relative">
@@ -150,29 +153,42 @@ const AssemblyListPage = () => {
                             className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all w-full md:w-60 outline-none"
                         />
                     </div>
-                    <button 
-                        onClick={handleShareWhatsApp}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#128C7E] active:scale-95 transition-all outline-none"
-                        title="Enviar acesso via WhatsApp"
-                    >
-                        <i className="bi bi-whatsapp"></i>
-                        WhatsApp
-                    </button>
-                    <button 
-                        onClick={() => window.open('/logistics/assembly-print', '_blank')}
-                        className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all outline-none"
-                        title="Imprimir lista consolidada"
-                    >
-                        <i className="bi bi-printer"></i>
-                        Imprimir
-                    </button>
-                    <button 
-                        onClick={handleAddShowcase}
-                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-700 active:scale-95 transition-all"
-                    >
-                        <i className="bi bi-plus-lg"></i>
-                        Novo Item
-                    </button>
+                    {isStandalone && (
+                         <button 
+                            onClick={fetchAllAssemblies}
+                            className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm"
+                            title="Recarregar lista"
+                        >
+                            <i className="bi bi-arrow-clockwise text-lg"></i>
+                        </button>
+                    )}
+                    {!isStandalone && (
+                        <>
+                            <button 
+                                onClick={handleShareWhatsApp}
+                                className="flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#128C7E] active:scale-95 transition-all outline-none"
+                                title="Enviar acesso via WhatsApp"
+                            >
+                                <i className="bi bi-whatsapp"></i>
+                                WhatsApp
+                            </button>
+                            <button 
+                                onClick={() => window.open('/logistics/assembly-print', '_blank')}
+                                className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all outline-none"
+                                title="Imprimir lista consolidada"
+                            >
+                                <i className="bi bi-printer"></i>
+                                Imprimir
+                            </button>
+                            <button 
+                                onClick={handleAddShowcase}
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-700 active:scale-95 transition-all"
+                            >
+                                <i className="bi bi-plus-lg"></i>
+                                Novo Item
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -190,7 +206,7 @@ const AssemblyListPage = () => {
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                             Itens para Montar
                                         </th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
+                                        {!isStandalone && <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -237,16 +253,18 @@ const AssemblyListPage = () => {
                                                         ))}
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        {item.origin === 'showcase' && (
-                                                            <>
-                                                                <button onClick={() => handleEditShowcase(item.fullData)} className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><i className="bi bi-pencil-square text-lg"></i></button>
-                                                                <button onClick={() => handleDeleteShowcase(item.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="bi bi-trash text-lg"></i></button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </td>
+                                                {!isStandalone && (
+                                                    <td className="px-8 py-6 text-right">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            {item.origin === 'showcase' && (
+                                                                <>
+                                                                    <button onClick={() => handleEditShowcase(item.fullData)} className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><i className="bi bi-pencil-square text-lg"></i></button>
+                                                                    <button onClick={() => handleDeleteShowcase(item.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="bi bi-trash text-lg"></i></button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))
                                     )}

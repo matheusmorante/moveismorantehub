@@ -13,6 +13,7 @@ export type Person = {
     phone?: string;
     noPhone?: boolean;
     fullAddress?: FullAddress;
+    noAddress?: boolean;
     type: 'customers' | 'suppliers' | 'employees';
     marketingOrigin?: 'organic' | 'paid' | ''; // Origem de marketing (organic = loja física, paid = tráfego pago)
     active: boolean;

@@ -56,13 +56,47 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
             label: purchase.invoiceNumber ? `Entrada NF-${purchase.invoiceNumber}` : `Entrada do Pedido nº ${savedId}`,
             relatedEntityId: savedId,
             relatedEntityType: 'purchase_order',
-            observation: `Pedido de Compra | Fornecedor: ${purchase.supplierName || 'Desconhecido'}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}`,
+            observation: `Pedido de Compra #${savedId} | Fornecedor: ${purchase.supplierName || 'Desconhecido'}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}`,
             unitCost: item.unitCost
         }, currentStockValue);
     }
     
-    // Mark purchase as processed so we don't duplicate on future updates
     await supabase.from(TABLE_NAME).update({ stockProcessed: true }).eq('id', savedId);
+};
+
+const reverseInventoryMoves = async (purchaseId: string) => {
+    // Procura por movimentações que tenham o ID do pedido na observação
+    const searchPattern = `Pedido de Compra #${purchaseId}%`;
+    const { data: moves, error } = await supabase
+        .from('inventory_moves')
+        .select('id')
+        .ilike('observation', searchPattern);
+
+    if (error) {
+        console.error("Erro ao buscar lançamentos para estorno:", error);
+        throw error;
+    }
+
+    if (moves && moves.length > 0) {
+        // Importamos a função de deletar do inventoryService para garantir que o estoque seja revertido
+        const { deleteInventoryMove } = await import('@/pages/utils/inventoryService');
+        for (const move of moves) {
+            await deleteInventoryMove(move.id);
+        }
+    }
+
+    // Marcar como não processado
+    await supabase.from(TABLE_NAME).update({ stockProcessed: false }).eq('id', purchaseId);
+};
+
+export const toggleStockProcessing = async (purchase: Purchase): Promise<void> => {
+    if (!purchase.id) return;
+    
+    if (purchase.stockProcessed) {
+        await reverseInventoryMoves(purchase.id);
+    } else {
+        await processInventoryMoves(purchase, purchase.id);
+    }
 };
 
 export const savePurchase = async (purchase: Purchase): Promise<void> => {
@@ -75,11 +109,8 @@ export const savePurchase = async (purchase: Purchase): Promise<void> => {
         if (error) throw error;
         const savedId = data?.[0]?.id;
 
-        // Automation Check
-        const settings = getSettings();
-        const shouldEnterStock = purchase.status && settings.inventoryAutomation?.autoEntryOnPurchaseStatus?.includes(purchase.status);
-
-        if (shouldEnterStock && !purchase.stockProcessed) {
+        const isEntryStatus = purchase.status === 'ordered' || purchase.status === 'fulfilled';
+        if (isEntryStatus && !purchase.stockProcessed) {
             await processInventoryMoves(purchase, savedId);
         }
     } catch (error) {
@@ -118,11 +149,13 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
         if (error) throw error;
 
         // Automation Check on Update
-        const settings = getSettings();
-        const shouldEnterStock = merged.status && settings.inventoryAutomation?.autoEntryOnPurchaseStatus?.includes(merged.status);
-
-        if (shouldEnterStock && !merged.stockProcessed) {
+        const isEntryStatus = merged.status === 'ordered' || merged.status === 'fulfilled';
+        const isCancelled = merged.status === 'cancelled';
+        
+        if (isEntryStatus && !merged.stockProcessed) {
             await processInventoryMoves(merged, id);
+        } else if (isCancelled && merged.stockProcessed) {
+            await reverseInventoryMoves(id);
         }
 
         // Propagate cost changes to inventory_moves if items updated ONLY if already processed

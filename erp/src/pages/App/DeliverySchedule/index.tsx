@@ -359,6 +359,13 @@ const DeliverySchedule = () => {
 
                 {!isStandalone && (
                     <div className="flex items-center gap-3">
+                        <Link
+                            to="/logistics/assembly-list"
+                            className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-widest py-4 px-8 rounded-2xl flex items-center justify-center transition-all active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-800/40"
+                        >
+                            <i className="bi bi-list-check mr-2 text-lg" />
+                            Lista de Montagem
+                        </Link>
                         <button
                             onClick={handleShare}
                             className="bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest py-4 px-8 rounded-2xl shadow-xl shadow-emerald-100 dark:shadow-emerald-900/20 flex items-center justify-center transition-all active:scale-95 group"
@@ -390,12 +397,20 @@ const DeliverySchedule = () => {
                     {viewMode === 'card' ? 'Cards' : viewMode === 'table' ? 'Tabela' : 'Mapa'}
                 </span>
                 {!isStandalone && (
-                    <button
-                        onClick={handleShare}
-                        className="ml-auto inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-xl shadow-md shadow-emerald-100 dark:shadow-emerald-900/20 transition-all active:scale-95"
-                    >
-                        <i className="bi bi-whatsapp" /> Compartilhar
-                    </button>
+                    <div className="flex items-center gap-2 ml-auto w-full sm:w-auto mt-2 sm:mt-0">
+                        <Link
+                            to="/logistics/assembly-list"
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-black text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800"
+                        >
+                            <i className="bi bi-list-check" /> Lista
+                        </Link>
+                        <button
+                            onClick={handleShare}
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-xl shadow-md shadow-emerald-100 dark:shadow-emerald-900/20 transition-all active:scale-95"
+                        >
+                            <i className="bi bi-whatsapp" /> Compartilhar
+                        </button>
+                    </div>
                 )}
             </div>
         </div>

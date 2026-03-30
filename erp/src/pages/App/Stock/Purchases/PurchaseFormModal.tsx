@@ -88,7 +88,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
 
     const totalValue = items.reduce((sum, item) => sum + item.totalCost, 0);
 
-    const handleSave = async (status: 'pending' | 'completed') => {
+    const handleSave = async (status: 'opened' | 'ordered' | 'fulfilled') => {
         if (!selectedSupplierId || items.length === 0) {
             toast.error("Selecione um fornecedor e adicione pelo menos um item.");
             return;
@@ -108,11 +108,16 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                 status,
                 invoiceNumber,
                 invoiceDate,
-                invoiceStatus: status === 'completed' ? 'received' : 'pending'
+                invoiceStatus: status === 'fulfilled' ? 'received' : 'pending'
             };
 
             await savePurchase(purchase);
-            toast.success(status === 'completed' ? "Compra finalizada e estoque atualizado! ✨" : "Pedido de compra salvo!");
+            
+            let message = "Pedido de compra salvo!";
+            if (status === 'ordered') message = "Pedido confirmado e estoque atualizado! 📦";
+            if (status === 'fulfilled') message = "Pedido atendido e estoque atualizado! ✨";
+            
+            toast.success(message);
             onClose();
         } catch (error) {
             toast.error("Erro ao salvar o pedido de compra.");
@@ -309,19 +314,26 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
 
                 <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-900/50">
                     <button 
-                        onClick={() => handleSave('pending')}
+                        onClick={() => handleSave('opened')}
                         disabled={isSaving || items.length === 0}
-                        className="flex-1 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
+                        className="flex-1 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
                     >
-                        Pendente / Rascunho
+                        Salvar como Aberto
                     </button>
                     <button 
-                        onClick={() => handleSave('completed')}
+                        onClick={() => handleSave('ordered')}
                         disabled={isSaving || items.length === 0}
-                        className="flex-[2] py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                        className="flex-1 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-amber-200/50 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 text-[9px]"
                     >
-                        {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <i className="bi bi-check-lg text-xl" />}
-                        Finalizar e Entrar Estoque
+                        Confirmar Pedido (Em Ordem)
+                    </button>
+                    <button 
+                        onClick={() => handleSave('fulfilled')}
+                        disabled={isSaving || items.length === 0}
+                        className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 text-[9px]"
+                    >
+                        {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <i className="bi bi-check-lg" />}
+                        Finalizar (Atendido)
                     </button>
                 </div>
             </div>

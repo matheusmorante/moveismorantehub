@@ -93,6 +93,7 @@ function Router() {
           <Route path='/order' element={<OrderPage />} />
           <Route path='/shipping-label' element={<ShippingLabelPage />} />
           <Route path='/schedule' element={<DeliverySchedule />} />
+          <Route path='/assembly-schedule' element={<AssemblyListPage />} />
           <Route path='/logistics/assembly-print' element={<AssemblyPrintPage />} />
 
           {/* Protected ERP Application */}

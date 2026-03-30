@@ -16,7 +16,7 @@ export type Purchase = {
     items: PurchaseItem[];
     totalValue: number;
     observation?: string;
-    status: 'pending' | 'completed' | 'cancelled';
+    status: 'opened' | 'ordered' | 'fulfilled' | 'cancelled'; // Em Aberto, Em Ordem, Atendido, Cancelado
     createdAt?: string;
     stockProcessed?: boolean;
     invoiceNumber?: string;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Purchase from "../../../types/purchase.type";
-import { subscribeToPurchases } from "../../../utils/purchaseService";
+import { subscribeToPurchases, toggleStockProcessing } from "../../../utils/purchaseService";
 import PurchaseFormModal from "./PurchaseFormModal";
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { toast } from "react-toastify";
@@ -98,11 +98,14 @@ const PurchasesPage = () => {
                                         <td className="px-8 py-5 text-center">
                                             <div className="flex flex-col items-center gap-2">
                                                 <span className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                                                    purchase.status === 'completed' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20' : 
-                                                    purchase.status === 'pending' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20' : 
-                                                    'bg-slate-100 text-slate-600 dark:bg-slate-800'
+                                                    purchase.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20' : 
+                                                    purchase.status === 'ordered' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/20' : 
+                                                    purchase.status === 'opened' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20' :
+                                                    'bg-red-100 text-red-600 dark:bg-red-900/20'
                                                 }`}>
-                                                    {purchase.status === 'completed' ? 'Finalizado' : 'Pendente'}
+                                                    {purchase.status === 'fulfilled' ? 'Atendido' : 
+                                                     purchase.status === 'ordered' ? 'Em Ordem' : 
+                                                     purchase.status === 'opened' ? 'Em Aberto' : 'Cancelado'}
                                                 </span>
                                                 {purchase.invoiceNumber && (
                                                     <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md border ${
@@ -113,23 +116,55 @@ const PurchasesPage = () => {
                                                         NF: {purchase.invoiceNumber}
                                                     </span>
                                                 )}
+                                                {purchase.stockProcessed && (
+                                                    <span className="flex items-center gap-1 text-[8px] font-black uppercase text-emerald-600">
+                                                        <i className="bi bi-box-fill"></i> ESTOQUE LANÇADO
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-right font-black text-slate-700 dark:text-slate-200">
                                             {formatCurrency(purchase.totalValue)}
                                         </td>
                                         <td className="px-8 py-5 text-right flex items-center justify-end gap-2">
-                                            <button 
-                                                onClick={() => {
-                                                    setSelectedPurchase(purchase);
-                                                    setIsScannerOpen(true);
-                                                }}
-                                                className="p-2 text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                title="Conferir Recebimento"
-                                            >
-                                                <i className="bi bi-qr-code-scan"></i>
-                                                <span className="text-[10px] font-black uppercase tracking-widest hidden xl:inline">Conferir</span>
-                                            </button>
+                                                <button 
+                                                    onClick={async () => {
+                                                        const confirmMsg = purchase.stockProcessed 
+                                                            ? "Deseja realmente estornar a entrada de estoque deste pedido?" 
+                                                            : "Deseja lançar a entrada de estoque deste pedido agora?";
+                                                        
+                                                        if (window.confirm(confirmMsg)) {
+                                                            try {
+                                                                await toggleStockProcessing(purchase);
+                                                                toast.success(purchase.stockProcessed ? "Estorno realizado!" : "Estoque lançado com sucesso!");
+                                                            } catch (e) {
+                                                                toast.error("Erro ao processar estoque.");
+                                                            }
+                                                        }
+                                                    }}
+                                                    className={`p-2 transition-colors flex items-center gap-2 rounded-lg ${
+                                                        purchase.stockProcessed 
+                                                            ? 'text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100' 
+                                                            : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100'
+                                                    }`}
+                                                    title={purchase.stockProcessed ? "Estornar Entrada" : "Lançar Entrada"}
+                                                >
+                                                    <i className={`bi ${purchase.stockProcessed ? 'bi-arrow-left-right' : 'bi-box-arrow-in-down'}`}></i>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest hidden xl:inline">
+                                                        {purchase.stockProcessed ? 'Estornar' : 'Lançar'}
+                                                    </span>
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        setSelectedPurchase(purchase);
+                                                        setIsScannerOpen(true);
+                                                    }}
+                                                    className="p-2 text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                    title="Conferir Recebimento"
+                                                >
+                                                    <i className="bi bi-qr-code-scan"></i>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest hidden xl:inline">Conferir</span>
+                                                </button>
                                             <button className="p-2 text-slate-300 hover:text-blue-600 transition-colors">
                                                 <i className="bi bi-eye"></i>
                                             </button>

@@ -8,6 +8,7 @@ const Suppliers = () => (
         newIcon="bi bi-truck"
         collectionName="suppliers"
         storageKey="suppliers_table"
+        canImport={true}
     />
 );
 
