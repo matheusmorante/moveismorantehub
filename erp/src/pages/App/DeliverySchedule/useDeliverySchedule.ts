@@ -174,7 +174,7 @@ export const useDeliverySchedule = () => {
     const [showroomAssemblies, setShowroomAssemblies] = useState<any[]>([]);
     const [schedule, setSchedule] = useState<Record<string, Order[]>>({});
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<"card" | "table">("card");
+    const [viewMode, setViewMode] = useState<"card" | "table">("table");
     const [filter, setFilter] = useState<ScheduleFilter>('default');
     const [typeFilter, setTypeFilter] = useState<OrderTypeFilter>('all');
     const [startDate, setStartDate] = useState(getLocalISODate(new Date()));

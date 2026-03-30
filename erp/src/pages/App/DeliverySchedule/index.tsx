@@ -30,7 +30,7 @@ const DeliverySchedule = () => {
         setEndDate,
     } = useDeliverySchedule();
 
-    const [viewMode, setViewMode] = useState<"card" | "table" | "map">("card");
+    const [viewMode, setViewMode] = useState<"card" | "table" | "map">("table");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<any>(null);
     const { state } = useLocation();
