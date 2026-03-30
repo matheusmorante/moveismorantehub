@@ -50,8 +50,8 @@ const processOrders = (
         const isAssistance = o.orderType === 'assistance';
 
         if (!isAssistance) {
-            // Regular orders: need scheduled/fulfilled status
-            if (o.status !== 'scheduled' && o.status !== 'fulfilled') return false;
+            // Regular orders: need scheduled, fulfilled or draft status
+            if (o.status !== 'scheduled' && o.status !== 'fulfilled' && o.status !== 'draft') return false;
         } else {
             // Assistance orders: show any non-deleted status if they have a scheduled date
             if (o.deleted) return false;

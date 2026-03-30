@@ -26,6 +26,8 @@ export type Person = {
     deletedAt?: string;
     createdAt?: string;
     updatedAt?: string;
+    additionalContacts?: { name: string; phone: string }[];
+    observations?: string;
 };
 
 export type PersonVisibilitySettings = {

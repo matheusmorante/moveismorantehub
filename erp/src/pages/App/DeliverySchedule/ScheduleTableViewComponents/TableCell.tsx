@@ -29,11 +29,11 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     return (
         <td
             colSpan={duration}
-            className="p-1.5 align-top bg-transparent transition-colors duration-300"
+            className="p-3 align-middle bg-transparent transition-colors duration-300"
         >
             <div
                 onClick={() => onOrderClick(order)}
-                className={`h-full border-2 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col gap-2 cursor-pointer ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''}`}
+                className={`w-[380px] h-[190px] mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-hidden flex flex-col gap-2 cursor-pointer ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''} ${order.status === 'draft' ? 'border-dashed opacity-80' : ''}`}
             >
                 <div className="flex justify-between items-start mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">
                     <span className={`font-black text-[12px] uppercase tracking-widest whitespace-nowrap ${cls.timeText}`}>
@@ -43,6 +43,11 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                     {order.shipping.scheduling.type === 'range' && (
                         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${cls.dotBg}`}>
                             Período
+                        </span>
+                    )}
+                    {order.status === 'draft' && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase tracking-widest border border-slate-300">
+                            Rascunho
                         </span>
                     )}
                 </div>

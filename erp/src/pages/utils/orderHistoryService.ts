@@ -123,36 +123,27 @@ export const saveOrder = async (order: Order): Promise<string> => {
 };
 
 /**
- * Centrailized logic for stock movements based on settings and order state.
+ * Centralized logic for stock movements based on settings and order state.
  * Returns the modified order with stockProcessed flag if applicable.
  */
-async function handleStockAndBusinessRules(orderId: string, order: Order): Promise<Order> {
+export async function handleStockAndBusinessRules(orderId: string, order: Order, force: boolean = false): Promise<Order> {
     const settings = getSettings();
     const { businessRules, inventoryAutomation } = settings;
     const orderToUpdate = { ...order };
 
-    // Don't process assistance orders or orders already processed
-    if (order.orderType !== 'sale' || order.stockProcessed) return orderToUpdate;
+    // Don't process assistance orders or orders already processed (unless forced)
+    if (order.orderType !== 'sale' || (order.stockProcessed && !force)) return orderToUpdate;
 
-    // Determine if stock should be subtracted based on new automation settings
-    const shouldSubtractStock = order.status && inventoryAutomation?.autoWithdrawalOnStatus?.includes(order.status);
+    // Determine if stock should be subtracted based on new automation settings or force flag
+    const shouldSubtractStock = force || (order.status && inventoryAutomation?.autoWithdrawalOnStatus?.includes(order.status));
 
     if (shouldSubtractStock && order.items) {
-        // Rule: Negative Stock Check (if disabled)
-        if (!businessRules.allowNegativeStock) {
-            for (const item of order.items) {
-                if (item.productId) {
-                    const { data: p } = await supabase.from('products').select('stock, description').eq('id', item.productId).single();
-                    if (p && (p.stock || 0) < item.quantity) {
-                        console.warn(`[Stock] Estoque insuficiente para ${p.description}. Saldo: ${p.stock || 0}, Necessário: ${item.quantity}. Permitindo conforme configuração.`);
-                    }
-                }
-            }
-        }
+        let itemsProcessed = 0;
 
         // All checks passed, proceed with withdrawal
         for (const item of order.items) {
-            if (item.productId) {
+            if (item.productId && item.productId.trim() !== '') {
+                itemsProcessed++;
                 const { data: p } = await supabase.from('products').select('*').eq('id', item.productId).single();
                 if (!p) continue;
                 
@@ -238,10 +229,22 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                 }
             }
         }
-        orderToUpdate.stockProcessed = true;
+
+        if (itemsProcessed > 0) {
+            orderToUpdate.stockProcessed = true;
+        } else if (force) {
+            throw new Error("Nenhum item deste pedido está vinculado a um produto do catálogo. Não há estoque para lançar.");
+        }
     }
 
     return orderToUpdate;
+}
+
+/**
+ * Manually reverses stock movements for an order.
+ */
+export async function manuallyReverseStock(orderId: string): Promise<void> {
+    await cancelInventoryMovesByRelatedEntity(orderId, 'sales_order');
 }
 
 /**

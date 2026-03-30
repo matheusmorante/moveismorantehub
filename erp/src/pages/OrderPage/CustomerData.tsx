@@ -25,12 +25,23 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
                         <span className="text-lg font-bold text-slate-900 leading-tight uppercase">{customerData.fullName}</span>
                     </div>
                     
-                    {customerData.phone && (
-                        <div className="flex flex-col border-l border-slate-100 pl-4 min-w-[180px]">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">WhatsApp / Telefone</span>
-                            <span className="text-lg font-bold text-slate-900">{customerData.phone}</span>
-                        </div>
-                    )}
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
+                        {customerData.phone && !customerData.noPhone && (
+                            <div className="flex flex-col border-l border-slate-100 pl-4 min-w-[150px]">
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">WhatsApp / Principal</span>
+                                <span className="text-lg font-bold text-slate-900">{customerData.phone}</span>
+                            </div>
+                        )}
+
+                        {(customerData.additionalContacts || []).map((contact, idx) => (
+                            <div key={idx} className="flex flex-col border-l border-slate-100 pl-4 min-w-[150px]">
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none truncate max-w-[140px]">
+                                    {contact.name || 'Contato Extra'}
+                                </span>
+                                <span className="text-lg font-bold text-slate-900">{contact.phone}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {showAddress && (
@@ -56,6 +67,15 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
                                 <span className="text-lg font-bold text-slate-900 uppercase">{addr.city}{addr.state ? ` - ${addr.state}` : ''}</span>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {customerData.observations && (
+                    <div className="mt-1 pt-1 border-t border-slate-100 italic">
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-0.5">OBSERVAÇÕES SOBRE O CLIENTE:</span>
+                        <p className="text-sm font-bold text-slate-800 uppercase leading-snug">
+                            {customerData.observations}
+                        </p>
                     </div>
                 )}
             </div>

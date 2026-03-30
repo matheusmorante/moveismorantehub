@@ -65,7 +65,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isPickup ? 'px-12 py-7 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
+                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-wrap justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isPickup ? 'px-12 py-7 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
                     <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setIsScrolled(false)}>
                         <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
                             <i className={`bi ${isBudget ? 'bi-calculator-fill' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
@@ -80,7 +80,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
                         </div>
                     </div>
 
-                    <div className={`flex-1 transition-all duration-500 ${isScrolled ? 'max-w-xl mx-4' : 'max-w-2xl mx-12'}`}>
+                    <div className={`flex-1 transition-all duration-500 min-w-full lg:min-w-0 order-last lg:order-none mt-4 lg:mt-0 ${isScrolled ? 'max-w-xl mx-4' : 'max-w-2xl mx-6 lg:mx-12'}`}>
                         <OrderStepper 
                             currentStep={form.state.currentStep} 
                             jumpToStep={form.actions.jumpToStep} 

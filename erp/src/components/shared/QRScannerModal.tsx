@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 interface QRScannerModalProps {
     isOpen: boolean;
@@ -71,21 +71,43 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             scannerRef.current = qrCode;
             setScannerInstance(qrCode);
 
+            const formatsToSupport = [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_93,
+                Html5QrcodeSupportedFormats.ITF,
+            ];
+
             const config = {
-                fps: 15,
+                fps: 30, // Higher frequency for faster detection
                 qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
                     const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const size = Math.floor(minEdge * 0.7);
-                    return { width: size, height: size };
+                    // Larger area for barcode detection
+                    const width = Math.floor(viewfinderWidth * 0.85);
+                    const height = Math.floor(viewfinderHeight * 0.45); // Narrower height for 1D barcodes
+                    return { width, height };
                 },
                 aspectRatio: 1.0,
-                showTorchButtonIfSupported: true
+                formatsToSupport,
+                showTorchButtonIfSupported: true,
+                rememberLastUsedCamera: true
             };
 
             await qrCode.start(
                 { facingMode: "environment" },
                 config,
                 (decodedText: string) => {
+                    // Feedback visual/tátil
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate(50); } catch (e) { /* ignore */ }
+                    }
+                    
                     onScan(decodedText);
                     if (closeOnScan) onClose();
                 },

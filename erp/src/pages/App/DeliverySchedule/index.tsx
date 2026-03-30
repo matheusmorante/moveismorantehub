@@ -180,7 +180,7 @@ const DeliverySchedule = () => {
                         <div className="flex gap-2">
                             {[
                                 { id: 'card', label: 'Grade', icon: 'bi-grid-fill' },
-                                { id: 'table', label: 'Tarefa', icon: 'bi-table' },
+                                { id: 'table', label: 'Tabela', icon: 'bi-table' },
                                 { id: 'map', label: 'Mapa', icon: 'bi-map-fill' },
                             ].map(v => (
                                 <button
@@ -344,7 +344,7 @@ const DeliverySchedule = () => {
                             : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                             }`}
                     >
-                        <i className="bi bi-table mr-2" />Tarefa
+                        <i className="bi bi-table mr-2" />Tabela
                     </button>
                     <button
                         onClick={() => setViewMode("map")}
@@ -386,7 +386,8 @@ const DeliverySchedule = () => {
                     <i className="bi bi-funnel-fill" /> {activeTypeLabel}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                    <i className={`bi ${viewMode === 'card' ? 'bi-grid-fill' : 'bi-table'}`} /> {viewMode === 'card' ? 'Cards' : 'Tabela'}
+                    <i className={`bi ${viewMode === 'card' ? 'bi-grid-fill' : viewMode === 'table' ? 'bi-table' : 'bi-map-fill'}`} /> 
+                    {viewMode === 'card' ? 'Cards' : viewMode === 'table' ? 'Tabela' : 'Mapa'}
                 </span>
                 {!isStandalone && (
                     <button

@@ -7,6 +7,8 @@ import { isOrderIncomplete } from "../../../utils/validations";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
+import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder } from "@/pages/utils/orderHistoryService";
+import { toast } from "react-toastify";
 
 interface OrderHistoryRowProps {
     order: Order;
@@ -47,9 +49,21 @@ const OrderHistoryRow = ({
     const [showMenu, setShowMenu] = React.useState(false);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
     const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
+    const [showStockConfirm, setShowStockConfirm] = React.useState(false);
+    const [isStockLoading, setIsStockLoading] = React.useState(false);
     const { profile } = useAuth();
     const settings = getSettings();
     const isIncomplete = isOrderIncomplete(order);
+    
+    // DEBUG: Confirming file loaded
+    React.useEffect(() => {
+        if (showMenu) console.log("[OrderHistoryRow] Menu opened for order:", order.id, "StockProcessed:", order.stockProcessed);
+    }, [showMenu]);
+
+    // Reset stock confirm when menu closes
+    React.useEffect(() => {
+        if (!showMenu) setShowStockConfirm(false);
+    }, [showMenu]);
 
     // Auto-dismiss the "Sim/Não" confirmation after 5 seconds with no action
     React.useEffect(() => {
@@ -326,6 +340,13 @@ const OrderHistoryRow = ({
                                 <i className="bi bi-hammer text-red-600 dark:text-red-500 text-[10px] animate-pulse" title="Necessita de Montagem" />
                             )}
                             <i className={`bi ${sIcon} ${currentStatus.text} text-xs`} />
+                            
+                            {/* Stock Processed Indicator Badge - Only show if has products and was processed */}
+                            {order.stockProcessed && order.items?.some(i => i.productId && i.productId.trim() !== "") && (
+                                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm" title="Saída de Estoque Lançada">
+                                    <i className="bi bi-check text-[10px] font-black" />
+                                </div>
+                            )}
                         </button>
 
                         {showPicker && (
@@ -404,7 +425,71 @@ const OrderHistoryRow = ({
                                                 {/* Dropdown Menu - Continuous hover area */}
                                                 <div className={`absolute top-full right-0 pt-2 w-48 flex-col z-[100] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up">
-                                                        {/* Edit Button moved inside menu */}
+                                                        
+                                                        {/* Manual Stock Action - Moved to TOP for visibility */}
+                                                        {!showStockConfirm ? (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setShowStockConfirm(true); }}
+                                                                className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all bg-emerald-50/30 dark:bg-emerald-950/20 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 group/stock ${order.stockProcessed ? 'text-red-600' : 'text-emerald-600'} ${(!(order.items?.some(i => i.productId && i.productId.trim() !== "")) || order.status === 'draft' || order.status === 'cancelled') ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                                                                disabled={isStockLoading || order.status === 'cancelled' || order.status === 'draft' || (!(order.stockProcessed) && !(order.items?.some(i => i.productId && i.productId.trim() !== "")))}
+                                                                title={order.status === 'draft' ? 'Salve o pedido para habilitar o controle de estoque' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Este pedido não contém produtos do catálogo' : (order.stockProcessed ? 'Reverter movimentações de estoque' : 'Registrar saída de estoque manualmente'))}
+                                                            >
+                                                                <i className={`bi ${order.stockProcessed ? 'bi-arrow-left-right' : 'bi-box-arrow-right'} text-lg`} />
+                                                                <div className="flex flex-col text-left">
+                                                                    <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                                                        {order.stockProcessed ? 'Estornar Saída' : 'Lançar Saída'}
+                                                                    </span>
+                                                                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                                                        {order.status === 'draft' ? 'Pedido em Rascunho' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Sem produtos reais' : 'Controle de Estoque')}
+                                                                    </span>
+                                                                </div>
+                                                            </button>
+                                                        ) : (
+                                                            <div className="flex flex-col gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-200" onClick={(e) => e.stopPropagation()}>
+                                                                <span className="text-[10px] font-black uppercase tracking-tight text-center text-slate-600 dark:text-slate-400">Confirmar {order.stockProcessed ? 'estorno' : 'lançamento'}?</span>
+                                                                <div className="flex gap-1">
+                                                                    <button
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            setIsStockLoading(true);
+                                                                            try {
+                                                                                if (order.stockProcessed) {
+                                                                                    await manuallyReverseStock(order.id!);
+                                                                                    await updateOrder(order.id!, { stockProcessed: false }, order);
+                                                                                    toast.success("Saída estornada com sucesso!");
+                                                                                } else {
+                                                                                    const updated = await handleStockAndBusinessRules(order.id!, order, true);
+                                                                                    if (updated.stockProcessed) {
+                                                                                        await updateOrder(order.id!, { stockProcessed: true }, order);
+                                                                                        toast.success("Saída lançada com sucesso!");
+                                                                                    }
+                                                                                }
+                                                                            } catch (err: any) {
+                                                                                console.error("[ManualStockAction] Erro:", err);
+                                                                                toast.error(`Erro: ${err.message || "Erro desconhecido ao processar estoque"}`);
+                                                                            } finally {
+                                                                                setIsStockLoading(false);
+                                                                                setShowStockConfirm(false);
+                                                                                setShowMenu(false);
+                                                                            }
+                                                                        }}
+                                                                        className="flex-1 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-emerald-700 transition-colors"
+                                                                    >
+                                                                        Sim
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setShowStockConfirm(false); }}
+                                                                        className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                                                    >
+                                                                        Não
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
+
+                                                        {/* Edit Button moved below stock */}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
                                                             className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item text-blue-600"

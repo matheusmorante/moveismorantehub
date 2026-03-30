@@ -7,7 +7,9 @@ type CustomerData = {
     email?: string,
     cpfCnpj?: string,
     noPhone?: boolean,
-    fullAddress: FullAddress
+    fullAddress: FullAddress,
+    additionalContacts?: { name: string; phone: string }[],
+    observations?: string
 }
 
 export default CustomerData

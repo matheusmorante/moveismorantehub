@@ -24,8 +24,10 @@ const InventoryMovesHistory = () => {
     }, []);
 
     const filtered = moves.filter(m => {
-        const matchesSearch = m.productDescription.toLowerCase().includes(search.toLowerCase()) || 
-                             m.label?.toLowerCase().includes(search.toLowerCase());
+        const desc = m.productDescription || "";
+        const label = m.label || "";
+        const matchesSearch = desc.toLowerCase().includes(search.toLowerCase()) || 
+                             label.toLowerCase().includes(search.toLowerCase());
         const matchesType = typeFilter === 'all' || m.type === typeFilter;
         return matchesSearch && matchesType;
     });
@@ -107,7 +109,7 @@ const InventoryMovesHistory = () => {
                                     {formatDateTime(move.date)}
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5">
-                                    <span className="block font-bold text-slate-700 dark:text-slate-200">{move.productDescription}</span>
+                                    <span className="block font-bold text-slate-700 dark:text-slate-200">{move.productDescription || 'Produto Desconhecido'}</span>
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-center">
                                     <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -116,7 +118,7 @@ const InventoryMovesHistory = () => {
                                         move.type === 'withdrawal' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20' : 
                                         'bg-blue-100 text-blue-600 dark:bg-blue-900/20'
                                     }`}>
-                                        {move.status === 'cancelled' ? 'Cancelado' : move.type === 'entry' ? 'Entrada' : move.type === 'withdrawal' ? 'Retirada' : 'Balanço'}
+                                        {move.type === 'entry' ? 'Entrada' : move.type === 'withdrawal' ? 'Saída' : 'Balanço'}
                                     </span>
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-center font-black text-slate-700 dark:text-slate-200">

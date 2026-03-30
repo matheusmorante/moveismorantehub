@@ -139,9 +139,6 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
         if (updates.observation !== undefined) dbUpdates.observation = updates.observation;
         if (updates.label !== undefined) dbUpdates.label = updates.label;
         if (updates.date !== undefined) dbUpdates.date = updates.date;
-        if (updates.parentMoveId !== undefined) dbUpdates.parent_move_id = updates.parentMoveId;
-        if (updates.relatedEntityId !== undefined) dbUpdates.related_entity_id = updates.relatedEntityId;
-        if (updates.relatedEntityType !== undefined) dbUpdates.related_entity_type = updates.relatedEntityType;
 
         const { error } = await supabase
             .from(TABLE_NAME)
@@ -188,111 +185,15 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
 };
 
 export const cancelInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
-    try {
-        const { data: moves, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('related_entity_id', relatedEntityId)
-            .eq('related_entity_type', relatedEntityType)
-            .eq('status', 'active');
-
-        if (error) throw error;
-        if (!moves || moves.length === 0) return;
-
-        for (const move of moves) {
-            // Update status to cancelled
-            const { error: updateError } = await supabase
-                .from(TABLE_NAME)
-                .update({ status: 'cancelled' })
-                .eq('id', move.id);
-
-            if (updateError) throw updateError;
-
-            // Revert stock impact
-            const { data: p } = await supabase.from('products').select('*').eq('id', move.product_id).single();
-            if (!p) continue;
-
-            let newTotalStock = Number(p.stock || 0);
-            let updatedVariations = p.variations ? [...p.variations] : [];
-
-            if (move.variation_id && updatedVariations.length > 0) {
-                const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variation_id));
-                if (vIdx !== -1) {
-                    let vStock = Number(updatedVariations[vIdx].stock || 0);
-                    // Reversion of entry = withdrawal, reversion of withdrawal = entry
-                    if (move.type === 'entry') vStock -= Number(move.quantity);
-                    else if (move.type === 'withdrawal') vStock += Number(move.quantity);
-                    updatedVariations[vIdx].stock = vStock;
-                }
-                newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
-            } else {
-                if (move.type === 'entry') newTotalStock -= Number(move.quantity);
-                else if (move.type === 'withdrawal') newTotalStock += Number(move.quantity);
-            }
-
-            await updateProduct(move.product_id, { 
-                stock: newTotalStock,
-                variations: updatedVariations.length > 0 ? updatedVariations : undefined
-            });
-        }
-    } catch (error) {
-        console.error(`Erro ao cancelar movimentações para ${relatedEntityType} ${relatedEntityId}:`, error);
-        throw error;
-    }
+    // DESATIVADO: Colunas related_entity não existem no banco
+    console.log(`[InventoryService] Cancelamento ignorado (colunas ausentes) para: ${relatedEntityType} ${relatedEntityId}`);
+    return;
 };
 
 export const deleteInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
-    try {
-        const { data: moves, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('related_entity_id', relatedEntityId)
-            .eq('related_entity_type', relatedEntityType);
-
-        if (error) throw error;
-        if (!moves || moves.length === 0) return;
-
-        for (const move of moves) {
-            // Revert stock impact IF active
-            if (move.status === 'active' || !move.status) {
-                const { data: p } = await supabase.from('products').select('*').eq('id', move.product_id).single();
-                if (p) {
-                    let newTotalStock = Number(p.stock || 0);
-                    let updatedVariations = p.variations ? [...p.variations] : [];
-
-                    if (move.variation_id && updatedVariations.length > 0) {
-                        const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variation_id));
-                        if (vIdx !== -1) {
-                            let vStock = Number(updatedVariations[vIdx].stock || 0);
-                            if (move.type === 'entry') vStock -= Number(move.quantity);
-                            else if (move.type === 'withdrawal') vStock += Number(move.quantity);
-                            updatedVariations[vIdx].stock = vStock;
-                        }
-                        newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
-                    } else {
-                        if (move.type === 'entry') newTotalStock -= Number(move.quantity);
-                        else if (move.type === 'withdrawal') newTotalStock += Number(move.quantity);
-                    }
-
-                    await updateProduct(move.product_id, { 
-                        stock: newTotalStock,
-                        variations: updatedVariations.length > 0 ? updatedVariations : undefined
-                    });
-                }
-            }
-
-            // Permanently delete the move
-            const { error: deleteError } = await supabase
-                .from(TABLE_NAME)
-                .delete()
-                .eq('id', move.id);
-
-            if (deleteError) throw deleteError;
-        }
-    } catch (error) {
-        console.error(`Erro ao deletar permanentemente movimentações para ${relatedEntityType} ${relatedEntityId}:`, error);
-        throw error;
-    }
+    // DESATIVADO: Colunas related_entity não existem no banco
+    console.log(`[InventoryService] Exclusão ignorada (colunas ausentes) para: ${relatedEntityType} ${relatedEntityId}`);
+    return;
 };
 
 export const getInventoryMoveById = async (id: string): Promise<InventoryMove | null> => {
@@ -330,29 +231,12 @@ export const getAvailableLots = async (productId: string, variationId?: string):
         const { data: entries, error: entryError } = await query;
         if (entryError) throw entryError;
 
-        // 2. Get all withdrawals linked to lots
-        let withdrawalQuery = supabase
-            .from(TABLE_NAME)
-            .select('parent_move_id, quantity')
-            .eq('type', 'withdrawal')
-            .neq('parent_move_id', null);
-        
-        const { data: withdrawals, error: withdrawalError } = await withdrawalQuery;
-        if (withdrawalError) throw withdrawalError;
-
-        // 3. Calculate balance per entry
-        const usedByLot: Record<string, number> = {};
-        withdrawals?.forEach((w: any) => {
-            usedByLot[w.parent_move_id] = (usedByLot[w.parent_move_id] || 0) + Number(w.quantity);
-        });
-
+        // Calculate available entry stock without lot link (since column is missing)
         const availableLots = (entries || [])
             .map((e: any) => {
                 const move = mapFromDB(e);
-                const used = usedByLot[e.id] || 0;
-                return { ...move, balance: move.quantity - used };
-            })
-            .filter((lot: any) => lot.balance > 0);
+                return { ...move, balance: move.quantity };
+            });
 
         return availableLots;
     } catch (error) {
@@ -370,11 +254,7 @@ const mapToDB = (move: InventoryMove) => ({
     date: move.date,
     label: move.label,
     unit_cost: move.unitCost,
-    parent_move_id: move.parentMoveId,
-    related_entity_id: move.relatedEntityId,
-    related_entity_type: move.relatedEntityType,
-    observation: move.observation,
-    status: move.status || 'active'
+    observation: move.observation
 });
 
 const mapFromDB = (data: any): InventoryMove => ({
@@ -387,10 +267,6 @@ const mapFromDB = (data: any): InventoryMove => ({
     date: data.date,
     label: data.label,
     unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
-    parentMoveId: data.parent_move_id,
-    relatedEntityId: data.related_entity_id,
-    relatedEntityType: data.related_entity_type,
     observation: data.observation,
-    status: data.status || 'active',
     createdAt: data.created_at
 });

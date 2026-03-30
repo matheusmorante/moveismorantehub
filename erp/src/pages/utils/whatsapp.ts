@@ -8,6 +8,11 @@ import { getShippingRouteUrl } from "./maps";
 import { whatsappGraphService } from "./whatsappGraphService";
 import { toast } from "react-toastify";
 
+const stringifyAdditionalContacts = (contacts?: { name: string, phone: string }[]) => {
+    if (!contacts || contacts.length === 0) return "";
+    return contacts.map(c => `• ${c.name}: ${c.phone}`).join('\n');
+};
+
 const buildDeliveryMessage = (order: Order) => {
     const settings = getSettings();
     const date = formatDate(order.shipping.scheduling.date);
@@ -25,6 +30,8 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{deliveryDate}}/g, date)
         .replace(/{{deliveryTime}}/g, time)
         .replace(/{{phone}}/g, customer.phone || "Não informado")
+        .replace(/{{additionalContacts}}/g, stringifyAdditionalContacts(customer.additionalContacts))
+        .replace(/{{customerObservations}}/g, customer.observations || "")
         .replace(/{{address}}/g, stringifyFullAddressWithObservation(customer.fullAddress))
         .replace(/{{items}}/g, stringifyItemsWithValues(order.items || []))
         .replace(/{{payments}}/g, stringifyPayments(order.payments || []))
@@ -132,6 +139,9 @@ const buildAssistanceMessage = (order: Order) => {
         .replace(/{{customerName}}/g, customer.fullName || 'Cliente')
         .replace(/{{assistanceDate}}/g, formattedDate || 'A confirmar')
         .replace(/{{assistanceTime}}/g, scheduledTime || 'A confirmar')
+        .replace(/{{phone}}/g, customer.phone || "Não informado")
+        .replace(/{{additionalContacts}}/g, stringifyAdditionalContacts(customer.additionalContacts))
+        .replace(/{{customerObservations}}/g, customer.observations || "")
         .replace(/{{assistanceDescription}}/g, assistanceDescription)
         .replace(/{{companyPhone}}/g, settings.companyPhone || '')
         .replace(/{{seller}}/g, order.seller || "Não informado")

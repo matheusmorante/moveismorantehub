@@ -42,7 +42,9 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             observation: ""
         },
         marketingOrigin: "",
-        position: ""
+        position: "",
+        additionalContacts: [],
+        observations: ""
     });
 
     const isEmployee = collectionName === 'employees';
@@ -81,7 +83,9 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     housingType: (person.fullAddress as any)?.housingType || "",
                     complement: person.fullAddress?.complement || "",
                     observation: person.fullAddress?.observation || ""
-                }
+                },
+                additionalContacts: person.additionalContacts || [],
+                observations: person.observations || ""
             });
         } else {
             setFormData({
@@ -104,7 +108,9 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     observation: ""
                 },
                 marketingOrigin: "",
-                position: title === "Vendedor" ? "Vendedor" : ""
+                position: title === "Vendedor" ? "Vendedor" : "",
+                additionalContacts: [],
+                observations: ""
             });
         }
         isInitialMount.current = true;
@@ -179,6 +185,22 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 }
             } catch (error) { /* ignore */ }
         }
+    };
+
+    const addAdditionalContact = () => {
+        const current = formData.additionalContacts || [];
+        setFormData({ ...formData, additionalContacts: [...current, { name: "", phone: "" }] });
+    };
+
+    const removeAdditionalContact = (index: number) => {
+        const current = formData.additionalContacts || [];
+        setFormData({ ...formData, additionalContacts: current.filter((_, i) => i !== index) });
+    };
+
+    const updateAdditionalContact = (index: number, field: 'name' | 'phone', value: string) => {
+        const current = formData.additionalContacts || [];
+        const updated = current.map((c, i) => i === index ? { ...c, [field]: value } : c);
+        setFormData({ ...formData, additionalContacts: updated });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -487,6 +509,64 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 />
                             </div>
                         )}
+
+                        {/* Additional Contacts Section */}
+                        <div className="md:col-span-2 mt-4 space-y-4">
+                            <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 flex items-center gap-2">
+                                    <i className="bi bi-person-plus-fill text-blue-600"></i>
+                                    Contatos Adicionais (Referência / Fixos)
+                                </h4>
+                                <button
+                                    type="button"
+                                    onClick={addAdditionalContact}
+                                    className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-800 hover:bg-blue-600 hover:text-white transition-all active:scale-95"
+                                >
+                                    + Adicionar Novo
+                                </button>
+                            </div>
+
+                            {(formData.additionalContacts || []).length === 0 && (
+                                <p className="text-[10px] text-slate-400 font-bold italic py-4 text-center">
+                                    Nenhum contato secundário cadastrado.
+                                </p>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-4">
+                                {(formData.additionalContacts || []).map((contact, idx) => (
+                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-slide-up flex flex-col md:flex-row gap-4 items-end">
+                                        <div className="flex-1 flex flex-col gap-2 w-full">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome do Contato</label>
+                                            <input
+                                                type="text"
+                                                value={contact.name}
+                                                onChange={(e) => updateAdditionalContact(idx, 'name', e.target.value)}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                                placeholder="Ex: Mãe, Sócio, Marido..."
+                                            />
+                                        </div>
+                                        <div className="flex-1 flex flex-col gap-2 w-full">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Telefone / Celular</label>
+                                            <PatternFormat
+                                                format="(##) #####-####"
+                                                type="text"
+                                                value={contact.phone}
+                                                onChange={(e: any) => updateAdditionalContact(idx, 'phone', e.target.value)}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                                placeholder="(00) 00000-0000"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeAdditionalContact(idx)}
+                                            className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                                        >
+                                            <i className="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-6">
@@ -618,6 +698,19 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     neighborhood: formData.fullAddress?.neighborhood || "",
                                     city: formData.fullAddress?.city || ""
                                 }}
+                            />
+                        </div>
+                        <div className="md:col-span-3 mt-4 flex flex-col gap-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center gap-2">
+                                <i className="bi bi-journal-text text-blue-600"></i>
+                                Observações Importantes
+                            </h4>
+                            <textarea
+                                value={formData.observations || ""}
+                                onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                                rows={4}
+                                className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                placeholder="Descreva aqui informações extras sobre este cliente, detalhes sobre os contatos de referência ou outras especificações relevantes..."
                             />
                         </div>
                     </div>
