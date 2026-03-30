@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import StockList from "./components/StockList";
 import StockLaunchModal from "./components/StockLaunchModal";
@@ -117,8 +117,8 @@ const StockPage = () => {
             {/* Scanner Modal */}
             <QRScannerModal 
                 isOpen={isScannerOpen} 
-                onClose={useCallback(() => setIsScannerOpen(false), [])} 
-                onScan={useCallback(async (code: string) => {
+                onClose={() => setIsScannerOpen(false)} 
+                onScan={async (code) => {
                     const result = await getProductByCode(code);
                     if (result) {
                         toast.success(`Produto localizado: ${result.product.description}`);
@@ -127,8 +127,8 @@ const StockPage = () => {
                     } else {
                         toast.error(`Produto com código "${code}" não encontrado.`);
                     }
-                }, [handleLaunch])}
-                title="Escanear Produto"
+                }}
+                title="Escanear Inventário"
             />
         </div>
     );

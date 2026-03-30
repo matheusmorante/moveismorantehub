@@ -2,7 +2,6 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product, { Variation } from "../types/product.type";
 import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
-import { toast } from "react-toastify";
 
 const TABLE_NAME = "products";
 
@@ -218,7 +217,6 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, inc
             // Se falhar (400, coluna não encontrada ou schema cache), tenta sem o join de categorias
             if (error) {
                 console.warn("[ProductService] Fetch com categorias falhou, tentando sem join...", error.message);
-                toast.warning(`[Tentativa 2]: ${error.message}`);
                 const res = await supabase.from(TABLE_NAME)
                     .select(LIGHT_COLUMNS)
                     .eq('deleted', includeDeleted)
@@ -242,14 +240,11 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, inc
                 currentProducts = data.map(mapFromDB);
                 callback(currentProducts);
             } else {
-                const msg = error?.message || "Erro desconhecido";
                 console.error("[ProductService] Erro fatal nos 3 níveis de fallback:", error);
-                toast.error(`[ERRO BANCO]: ${msg}. Por favor, copie e me envie.`, { autoClose: false });
                 callback([]);
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error("[ProductService] Exceção crítica ao buscar produtos:", err);
-            toast.error(`[EXCEÇÃO]: ${err.message || String(err)}`, { autoClose: false });
             callback([]);
         }
     };
