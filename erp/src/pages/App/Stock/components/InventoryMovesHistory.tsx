@@ -10,6 +10,7 @@ const InventoryMovesHistory = () => {
     const [moves, setMoves] = useState<InventoryMove[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [typeFilter, setTypeFilter] = useState<'all' | 'entry' | 'withdrawal' | 'balance'>('all');
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const settings = getSettings();
     const { originLabels } = settings.inventoryAutomation;
@@ -22,10 +23,12 @@ const InventoryMovesHistory = () => {
         return () => unsubscribe();
     }, []);
 
-    const filtered = moves.filter(m => 
-        m.productDescription.toLowerCase().includes(search.toLowerCase()) || 
-        m.label?.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = moves.filter(m => {
+        const matchesSearch = m.productDescription.toLowerCase().includes(search.toLowerCase()) || 
+                             m.label?.toLowerCase().includes(search.toLowerCase());
+        const matchesType = typeFilter === 'all' || m.type === typeFilter;
+        return matchesSearch && matchesType;
+    });
 
     const handleDelete = async (id: string) => {
         if (!confirm("Tem certeza que deseja excluir este lançamento? Isso NÃO reverterá o estoque do produto.")) return;
@@ -66,6 +69,20 @@ const InventoryMovesHistory = () => {
                         <i className="bi bi-qr-code-scan"></i>
                     </button>
                 </div>
+
+                <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo:</label>
+                    <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value as any)}
+                        className="bg-slate-50 dark:bg-slate-950 border-none rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-slate-300 cursor-pointer"
+                    >
+                        <option value="all">Todos os Lançamentos</option>
+                        <option value="entry">Entradas (+)</option>
+                        <option value="withdrawal">Saídas (-)</option>
+                        <option value="balance">Balanço (=)</option>
+                    </select>
+                </div>
             </div>
 
             <div className="overflow-x-auto overflow-y-auto max-h-[60vh] custom-scrollbar">
@@ -83,7 +100,9 @@ const InventoryMovesHistory = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                         {filtered.map((move) => (
-                            <tr key={move.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                            <tr key={move.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all group ${
+                                move.status === 'cancelled' ? 'opacity-40 grayscale pointer-events-none' : ''
+                            }`}>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-xs font-medium text-slate-500 whitespace-nowrap">
                                     {formatDateTime(move.date)}
                                 </td>
@@ -92,11 +111,12 @@ const InventoryMovesHistory = () => {
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-center">
                                     <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                        move.status === 'cancelled' ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500' :
                                         move.type === 'entry' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20' : 
                                         move.type === 'withdrawal' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20' : 
                                         'bg-blue-100 text-blue-600 dark:bg-blue-900/20'
                                     }`}>
-                                        {move.type === 'entry' ? 'Entrada' : move.type === 'withdrawal' ? 'Retirada' : 'Balanço'}
+                                        {move.status === 'cancelled' ? 'Cancelado' : move.type === 'entry' ? 'Entrada' : move.type === 'withdrawal' ? 'Retirada' : 'Balanço'}
                                     </span>
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-center font-black text-slate-700 dark:text-slate-200">
@@ -124,13 +144,18 @@ const InventoryMovesHistory = () => {
                                     )}
                                 </td>
                                 <td className="px-4 md:px-8 py-3 md:py-5 text-right">
-                                    <button 
-                                        onClick={() => handleDelete(move.id!)}
-                                        className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                        title="Excluir Lançamento"
-                                    >
-                                        <i className="bi bi-trash"></i>
-                                    </button>
+                                    {(move.relatedEntityType !== 'sales_order' && move.status !== 'cancelled') && (
+                                        <button 
+                                            onClick={() => handleDelete(move.id!)}
+                                            className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                            title="Excluir Lançamento"
+                                        >
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    )}
+                                    {move.relatedEntityType === 'sales_order' && (
+                                        <span className="text-[9px] font-black text-slate-300 uppercase italic">Bloqueado</span>
+                                    )}
                                 </td>
                             </tr>
                         ))}

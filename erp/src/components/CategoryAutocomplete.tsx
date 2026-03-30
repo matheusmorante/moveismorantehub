@@ -15,6 +15,7 @@ interface CategoryAutocompleteProps {
     onSearch?: () => void;
     placeholder?: string;
     className?: string;
+    filter?: 'environments' | 'categories' | 'all';
 }
 
 const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
@@ -22,8 +23,9 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     onRemove,
     selectedIds,
     onSearch,
-    placeholder = "Digite para buscar categorias...",
-    className = ""
+    placeholder = "Digite para buscar...",
+    className = "",
+    filter = "all"
 }) => {
     const [query, setQuery] = useState("");
     const [suggestions, setSuggestions] = useState<Category[]>([]);
@@ -59,23 +61,38 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     }, []);
 
     useEffect(() => {
+        const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
+
+        const filteredList = allCategories.filter(c => {
+            if (filter === 'all') return true;
+            
+            const name = c.name?.trim().toUpperCase();
+            const isFixed = FIXED_ENVIRONMENTS.includes(name);
+            const hasChildren = allCategories.some(other => other.parents?.includes(c.id));
+            const isEnvironment = isFixed || (hasChildren && (!c.parents || c.parents.length === 0)) || (!c.parents || c.parents.length === 0);
+            
+            if (filter === 'environments') return isEnvironment;
+            if (filter === 'categories') return !isEnvironment;
+            return true;
+        });
+
         if (query.trim() === "") {
-            // Show root categories if no query
-            setSuggestions(allCategories.filter(c => !c.parents || c.parents.length === 0).slice(0, 10));
+            // Show subcategories if no query
+            setSuggestions(filteredList.slice(0, 30));
             return;
         }
 
-        const filtered = allCategories.filter(c => 
+        const filtered = filteredList.filter(c => 
             c.name.toLowerCase().includes(query.toLowerCase())
-        ).slice(0, 15);
+        ).slice(0, 50);
         
         setSuggestions(filtered);
-    }, [query, allCategories]);
+    }, [query, allCategories, filter]);
 
     const handleSelect = (category: Category) => {
         onSelect(category);
         setQuery("");
-        setShowSuggestions(false);
+        // Dropdown stays open for more selections
     };
 
     return (
@@ -148,7 +165,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                                         <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
                                         {cat.parents && cat.parents.length > 0 && (
                                             <span className="text-[9px] uppercase font-black text-slate-400">
-                                                {allCategories.find(c => c.id === cat.parents![0])?.name || 'Outro'} &gt; Subtipo
+                                                {allCategories.find(c => c.id === cat.parents![0])?.name || 'Outro'} &gt; Subcategoria
                                             </span>
                                         )}
                                     </div>
@@ -159,7 +176,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                     ) : (
                         <div className="p-8 text-center">
                             <i className="bi bi-search text-2xl text-slate-200 mb-2 block"></i>
-                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Nenhum tipo de móvel encontrado</p>
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Nenhuma categoria encontrada</p>
                         </div>
                     )}
                 </div>

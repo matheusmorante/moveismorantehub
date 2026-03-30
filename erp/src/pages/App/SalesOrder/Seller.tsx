@@ -1,4 +1,3 @@
-```typescript
 import React, { useState, useEffect } from "react";
 import SmartInput from "../../../components/SmartInput";
 import { ValidationErrors } from "../../utils/validations";

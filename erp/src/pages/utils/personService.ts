@@ -80,6 +80,9 @@ const mapFromDB = (data: any): Person => {
         type: data.person_type as any,
         leadTime: data.lead_time || 0,
         marketingOrigin: data.marketing_origin || '',
+        defaultIpiPercent: data.default_ipi_percent,
+        defaultFreightCost: data.default_freight_cost,
+        defaultFreightType: data.default_freight_type || 'none',
         createdAt: data.created_at,
         updatedAt: data.updated_at
     };

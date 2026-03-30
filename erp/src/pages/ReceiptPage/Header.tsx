@@ -13,34 +13,38 @@ const Header = ({ seller }: Props) => {
     const companyPhone = settings.companyPhone || "41997493547 | 41992244631";
 
     return (
-        <header className='flex justify-between text-slate-800 transition-colors duration-300'>
-            <div className="flex items-center justify-center">
-                <img src={logo} alt={`Logo ${companyName}`} className='w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-slate-100 shadow-xl object-cover' />
+        <header className='flex justify-between items-start pb-4 border-b-2 border-slate-100 text-slate-800 transition-colors duration-300 shrink-0'>
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-2xl p-1 shadow-sm border border-slate-50 overflow-hidden flex items-center justify-center">
+                        <img src={logo} alt={`Logo ${companyName}`} className='w-full h-full object-contain rounded-xl' />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">{companyName}</h1>
+                    </div>
+                </div>
             </div>
-            <div className='h-full flex flex-col items-end text-right'>
-                <p className="font-black text-xl mb-2">{companyName}</p>
-                <div className="space-y-1">
-                    <p className="text-xs">
-                        <strong className="text-blue-600">CNPJ: </strong>
-                        {companyCnpj}
+            
+            <div className='flex flex-col items-end text-right gap-1 max-w-[50%]'>
+                <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 mb-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Responsável</p>
+                    <p className="text-xs font-black text-blue-600 uppercase tracking-tight">{seller}</p>
+                </div>
+                
+                <div className="space-y-0.5 mt-1">
+                    <p className="text-[10px] text-slate-500 font-medium">
+                        <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">CNPJ:</span> {companyCnpj}
                     </p>
-                    <p className="text-xs shrink-0 w-80">
-                        <strong className="text-blue-600">Endereço: </strong>
-                        {companyAddress}
+                    <p className="text-[10px] text-slate-500 font-medium">
+                        <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">Endereço:</span> {companyAddress}
                     </p>
-                    <p className="text-xs">
-                        <strong className="text-blue-600">Contato: </strong>
-                        {companyPhone}
+                    <p className="text-[10px] text-slate-500 font-medium">
+                        <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">Contato:</span> {companyPhone}
                     </p>
-                    {settings.receiptConfig?.showSeller !== false && (
-                        <p className="text-xs uppercase font-black tracking-widest mt-4">
-                            <strong className="text-blue-600">Vendedor:</strong> {seller}
-                        </p>
-                    )}
                 </div>
             </div>
         </header>
     )
 }
 
-export default Header;
+export default Header;

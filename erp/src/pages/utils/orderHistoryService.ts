@@ -1,7 +1,7 @@
 import Order from "../types/order.type";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from "./formatters";
-import { saveInventoryMove, getAvailableLots } from '@/pages/utils/inventoryService';
+import { saveInventoryMove, getAvailableLots, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
 
@@ -171,10 +171,10 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                             type: 'withdrawal',
                             quantity: comboItem.quantity * item.quantity,
                             date: new Date().toISOString(),
-                            label: 'Venda (Combo)',
+                            label: `Pedido #${orderId}`,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Pedido #${orderId}`
+                            observation: `Parte do combo ${item.description}`
                         }, currentPartStock);
                     }
                 }
@@ -192,10 +192,10 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                         type: 'withdrawal',
                         quantity: item.quantity,
                         date: new Date().toISOString(),
-                        label: 'Venda (Sem Lote)',
+                        label: `Pedido #${orderId}`,
                         relatedEntityId: orderId,
                         relatedEntityType: 'sales_order',
-                        observation: `Pedido #${orderId} - FIFO Fallback`
+                        observation: `FIFO Fallback`
                     }, currentStock);
                 } else {
                     for (const lot of availableLots) {
@@ -209,10 +209,10 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                             type: 'withdrawal',
                             quantity: takeFromLot,
                             date: new Date().toISOString(),
-                            label: 'Venda (FIFO)',
+                            label: `Pedido #${orderId}`,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Pedido #${orderId} - Lote de ${new Date(lot.date).toLocaleDateString()}`,
+                            observation: `Lote de ${new Date(lot.date).toLocaleDateString()}`,
                             unitCost: lot.unitCost, // USE THE LOT COST!
                             parentMoveId: lot.id   // LINK TO LOT
                         }, currentStock);
@@ -229,10 +229,10 @@ async function handleStockAndBusinessRules(orderId: string, order: Order): Promi
                             type: 'withdrawal',
                             quantity: remainingToWithdraw,
                             date: new Date().toISOString(),
-                            label: 'Venda (Excedente)',
+                            label: `Pedido #${orderId}`,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Pedido #${orderId} - Quantidade acima dos lotes disponíveis`
+                            observation: `Quantidade acima dos lotes disponíveis`
                         }, currentStock);
                     }
                 }
@@ -330,28 +330,12 @@ export const updateOrder = async (
             }
 
             // Auto-reversal: order is being cancelled and stock was already processed
-            if (newStatus === 'cancelled' && merged.stockProcessed && inventoryAutomation?.autoReverseOnCancel) {
+            if (newStatus === 'cancelled' && merged.stockProcessed) {
                 try {
-                    const items = merged.items || [];
-                    for (const item of items) {
-                        if (item.productId) {
-                            const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
-                            const currentStock = p?.stock || 0;
-                            await saveInventoryMove({
-                                productId: item.productId,
-                                variationId: item.variationId,
-                                productDescription: item.description,
-                                type: 'entry', // reversal = re-entry
-                                quantity: item.quantity,
-                                date: new Date().toISOString(),
-                                label: 'Estorno',
-                                relatedEntityId: id,
-                                relatedEntityType: 'sales_order',
-                                observation: `Cancelamento do Pedido #${id}`
-                            }, currentStock);
-                        }
-                    }
-                    // Mark as unprocessed after reversal
+                    // New logic: just cancel the movements, it reverts stock automatically inside
+                    await cancelInventoryMovesByRelatedEntity(id, 'sales_order');
+                    
+                    // Mark as unprocessed after reversal/cancellation
                     await supabase
                         .from(TABLE_NAME)
                         .update({ 
@@ -360,7 +344,7 @@ export const updateOrder = async (
                         })
                         .eq('id', id);
                 } catch (reversalErr) {
-                    console.error("[OrderUpdate] Erro ao estornar estoque:", reversalErr);
+                    console.error("[OrderUpdate] Erro ao cancelar movimentações de estoque:", reversalErr);
                 }
             }
         } else if (!merged.stockProcessed) {
@@ -412,6 +396,9 @@ export const restoreOrder = async (id: string): Promise<void> => {
 
 export const permanentDeleteOrder = async (id: string): Promise<void> => {
     try {
+        // Permanently delete related inventory moves too
+        await deleteInventoryMovesByRelatedEntity(id, 'sales_order');
+
         const { error } = await supabase
             .from(TABLE_NAME)
             .delete()

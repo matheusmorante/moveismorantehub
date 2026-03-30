@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Person from "../../../types/person.type";
 import { savePerson, getPersonByIdentifiers } from '@/pages/utils/personService';
 import { toast } from "react-toastify";
@@ -290,9 +291,9 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+    const modalContent = (
+        <div className="fixed inset-0 z-[9900] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
                     <div>
@@ -651,6 +652,8 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default PersonFormModal;

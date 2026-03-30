@@ -71,14 +71,14 @@ export default function ProductCatalogConfigSection() {
         try {
             const { error } = await supabase.from('product_types').insert([{ name: value }]);
             if (error) {
-                 if (error.code === '23505') throw new Error("Atenção: Este tipo já existe!");
+                 if (error.code === '23505') throw new Error("Atenção: Esta categoria já existe!");
                  throw error;
             }
             setNewType('');
-            toast.success("Tipo de móvel adicionado!");
+            toast.success("Categoria adicionada!");
             fetchData();
         } catch (error: any) {
-            toast.error(error.message || "Erro ao adicionar tipo.");
+            toast.error(error.message || "Erro ao adicionar categoria.");
         } finally {
             setLoadingType(false);
         }
@@ -96,17 +96,17 @@ export default function ProductCatalogConfigSection() {
     };
 
     const handleDeleteType = async (item: BaseItem) => {
-        if (!confirm(`Remover tipo de móvel "${item.name}"?`)) return;
+        if (!confirm(`Remover categoria "${item.name}"?`)) return;
         try {
-            // Verificar se existem produtos usando este tipo
+            // Verificar se existem produtos usando esta categoria
             const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('product_type_id', item.id).is('deleted', false);
-            if (count && count > 0) return toast.error(`Não é possível remover: Este tipo está vinculado a ${count} produtos.`);
+            if (count && count > 0) return toast.error(`Não é possível remover: Esta categoria está vinculada a ${count} produtos.`);
             
             const { error } = await supabase.from('product_types').delete().eq('id', item.id);
             if (error) throw error;
-            toast.success("Tipo removido com sucesso!");
+            toast.success("Categoria removida com sucesso!");
             fetchData();
-        } catch (error) { toast.error("Erro ao remover tipo."); }
+        } catch (error) { toast.error("Erro ao remover categoria."); }
     };
 
     return (
@@ -152,16 +152,16 @@ export default function ProductCatalogConfigSection() {
                 </div>
             </div>
 
-            {/* Secção Tipos de Móveis */}
+            {/* Secção Categorias */}
             <div className="flex flex-col gap-8 pt-12">
                 <div id="tipos-moveis" className="scroll-mt-40">
-                    <h4 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest flex items-center gap-3">
+                    <h4 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-widest flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">
                             <i className="bi bi-ui-checks-grid"></i>
                         </div>
-                        Tipos de Móveis (Base do Título)
+                        Categorias (Base do Título)
                     </h4>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 leading-relaxed">Gerencie os tipos básicos usados para compor a primeira parte do título automático dos produtos.</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 leading-relaxed">Gerencie as categorias básicas usadas para compor a primeira parte do título automático dos produtos.</p>
                 </div>
 
                 <form onSubmit={handleAddType} className="flex gap-3 max-w-xl">
@@ -179,7 +179,7 @@ export default function ProductCatalogConfigSection() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {productTypes.length === 0 && !fetching && (
                         <div className="col-span-full py-10 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest italic border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem]">
-                            Nenhum tipo cadastrado.
+                            Nenhuma categoria cadastrada.
                         </div>
                     )}
                     {productTypes.map(type => (

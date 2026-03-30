@@ -80,8 +80,8 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
                 <div className="px-8 py-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-                            <i className="bi bi-grid-3x3-gap-fill text-blue-600"></i>
-                            Gerador de Grade (Cartesiano)
+                            <i className="bi bi-stack text-blue-600"></i>
+                            Gerar variação
                         </h3>
                         <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-1">
                             Crie múltiplas variações automaticamente
@@ -101,6 +101,12 @@ const CartesianVariationModal = ({ isOpen, onClose, onGenerate, isGenerating }: 
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                    <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex items-center gap-4">
+                        <i className="bi bi-info-circle-fill text-blue-600 text-lg"></i>
+                        <p className="text-[10px] font-bold text-blue-700/70 dark:text-blue-400 uppercase leading-relaxed">
+                            <b className="text-blue-600">Dica:</b> Ao adicionar 2 ou mais atributos, o sistema criará todas as combinações possíveis entre eles (Grade Cartesiana).
+                        </p>
+                    </div>
                     <DragDropContext onDragEnd={onDragEnd}>
                         <Droppable droppableId="attributes-list">
                             {(provided) => (

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import StockList from "./components/StockList";
 import StockLaunchModal from "./components/StockLaunchModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
@@ -10,11 +10,26 @@ import { toast } from "react-toastify";
 import { getProductByCode } from "@/pages/utils/productService";
 
 const StockPage = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
-    const [activeTab, setActiveTab] = useState<'balance' | 'history' | 'audit'>('balance');
+    const [activeTab, setActiveTab] = useState<'balance' | 'history' | 'audit'>(
+        (searchParams.get('tab') as any) || 'balance'
+    );
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && ['balance', 'history', 'audit'].includes(tab)) {
+            setActiveTab(tab as any);
+        }
+    }, [searchParams]);
+
+    const handleTabChange = (tab: 'balance' | 'history' | 'audit') => {
+        setActiveTab(tab);
+        setSearchParams({ tab });
+    };
 
     const handleLaunch = (product?: Product, variation?: Variation) => {
         setSelectedProduct(product || null);
@@ -37,19 +52,19 @@ const StockPage = () => {
                             </h1>
                             <div className="flex items-center gap-4 mt-2">
                                 <button
-                                    onClick={() => setActiveTab('balance')}
+                                    onClick={() => handleTabChange('balance')}
                                     className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'balance' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                                 >
                                     Saldo Atual
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('history')}
+                                    onClick={() => handleTabChange('history')}
                                     className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'history' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                                 >
                                     Movimentações
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('audit')}
+                                    onClick={() => handleTabChange('audit')}
                                     className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'audit' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                                 >
                                     Inventário

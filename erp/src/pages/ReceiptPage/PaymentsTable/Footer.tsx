@@ -5,22 +5,24 @@ interface Props {
     summary: PaymentsSummary,
 }
 
-const TFoot = ({ summary }: Props) => {
+const Footer = ({ summary }: Props) => {
     return (
-        <tfoot>
+        <tfoot className="bg-slate-900 text-white">
             <tr>
-                <th>Valor Total de Taxa</th>
-                <th>V. T. do Pedido</th>
-            </tr>
-            <tr>
-                <td>
-                    <CurrencyDisplay value={summary.totalPaymentsFee} />
+                <td className="px-4 py-3">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total em Taxas</span>
+                    <div className="text-xs font-bold text-slate-300">
+                        <CurrencyDisplay value={summary.totalPaymentsFee} />
+                    </div>
                 </td>
-                <td>
-                    <CurrencyDisplay value={summary.totalOrderValue} />
+                <td className="px-4 py-3 text-right">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total do Pedido</span>
+                    <div className="text-lg font-black text-amber-400">
+                        <CurrencyDisplay value={summary.totalOrderValue} />
+                    </div>
                 </td>
             </tr>
         </tfoot>
     )
 }
-export default TFoot;
+export default Footer;

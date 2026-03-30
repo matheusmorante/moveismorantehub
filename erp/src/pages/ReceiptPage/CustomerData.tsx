@@ -8,50 +8,58 @@ interface Props {
 const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
     const addr = customerData.fullAddress || {};
     const hasAnyAddress = !!(addr.street || addr.neighborhood || addr.city);
-
-    // If it's a pickup or COMPLETELY missing address fields, hide the address section.
     const showAddress = !isPickup && hasAnyAddress;
 
     return (
-        <div className="flex flex-wrap my-6 gap-x-8 gap-y-3 font-sans">
-            <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nome Completo:</span>
-                <span className="text-sm font-bold text-slate-800">{customerData.fullName}</span>
-            </div>
-            
-            {customerData.phone && (
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Celular:</span>
-                    <span className="text-sm font-bold text-slate-800">{customerData.phone}</span>
+        <section className="my-4">
+            <h2 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-2 flex items-center gap-3 after:h-[1px] after:bg-slate-100 after:flex-1">Informações do Cliente</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-10">
+                <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cliente</span>
+                    <span className="text-sm font-black text-slate-800 uppercase tracking-tight">{customerData.fullName}</span>
                 </div>
-            )}
+                
+                {customerData.phone && (
+                    <div className="flex flex-col">
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Contato</span>
+                        <span className="text-sm font-black text-slate-800">{customerData.phone}</span>
+                    </div>
+                )}
+
+                {customerData.cpfCnpj && (
+                    <div className="flex flex-col">
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Documento</span>
+                        <span className="text-sm font-black text-slate-800">{customerData.cpfCnpj}</span>
+                    </div>
+                )}
+            </div>
 
             {showAddress && (
-                <div className="flex flex-wrap gap-x-8 gap-y-3 w-full animate-fade-in pt-2 border-t border-slate-50 dark:border-slate-800/50">
+                <div className="mt-6 pt-4 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
                     {addr.street && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Endereço:</span>
+                        <div className="flex flex-col lg:col-span-2">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Endereço</span>
                             <span className="text-sm font-bold text-slate-800">{addr.street}{addr.number ? `, ${addr.number}` : ''}</span>
                         </div>
                     )}
                     
                     {addr.neighborhood && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bairro:</span>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Bairro</span>
                             <span className="text-sm font-bold text-slate-800">{addr.neighborhood}</span>
                         </div>
                     )}
 
                     {addr.city && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cidade:</span>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cidade</span>
                             <span className="text-sm font-bold text-slate-800">{addr.city}</span>
                         </div>
                     )}
 
                     {addr.complement && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Compl.:</span>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Complemento</span>
                             <span className="text-sm font-bold text-slate-800">{addr.complement}</span>
                         </div>
                     )}
@@ -59,7 +67,7 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
             )}
 
             <style dangerouslySetInnerHTML={{ __html: `.animate-fade-in { animation: fadeIn 0.4s ease-out forwards; } @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }` }} />
-        </div>
+        </section>
     )
 }
 export default CustomerDataInputs

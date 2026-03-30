@@ -240,25 +240,93 @@ const ProductTable = ({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {products.map((product) => (
+                            {(() => {
+                                // 1. Expand all items (Real Products + Virtual Variations from JSON)
+                                const allItems: Product[] = [];
+                                const addedIds = new Set<string>();
+
+                                products.forEach(p => {
+                                    if (!addedIds.has(p.id || '')) {
+                                        allItems.push(p);
+                                        addedIds.add(p.id || '');
+                                    }
+
+                                    // Expand virtual variations from JSON field
+                                    if (p.variations && p.variations.length > 0) {
+                                        p.variations.forEach(v => {
+                                            const virtualId = `${p.id || 'new'}_v_${v.id || v.sku || Math.random()}`;
+                                            if (!addedIds.has(virtualId)) {
+                                                allItems.push({
+                                                    ...p,
+                                                    id: virtualId,
+                                                    parentId: p.id || '',
+                                                    isVariation: true,
+                                                    isParent: false,
+                                                    description: v.name || p.description,
+                                                    unitPrice: v.unitPrice || p.unitPrice,
+                                                    costPrice: v.costPrice || p.costPrice,
+                                                    stock: v.stock || 0,
+                                                    code: v.sku || p.code,
+                                                    variations: [],
+                                                    isVirtual: true
+                                                } as any);
+                                                addedIds.add(virtualId);
+                                            }
+                                        });
+                                    }
+                                });
+
+                                // 2. Robust Hierarchical Grouping
+                                const finalProducts: Product[] = [];
+                                const processedFinalIds = new Set<string>();
+
+                                // Identify Roots (Real parents or items without parents)
+                                const roots = allItems.filter(p => !p.parentId || p.isParent);
+                                const children = allItems.filter(p => p.parentId && !p.isParent);
+
+                                roots.forEach(root => {
+                                    if (processedFinalIds.has(root.id)) return;
+                                    finalProducts.push(root);
+                                    processedFinalIds.add(root.id);
+
+                                    // Find children (either DB children or Virtual children)
+                                    const related = children.filter(c => String(c.parentId) === String(root.id));
+                                    related.forEach(child => {
+                                        if (!processedFinalIds.has(child.id)) {
+                                            finalProducts.push(child);
+                                            processedFinalIds.add(child.id);
+                                        }
+                                    });
+                                });
+
+                                // 3. Add any remaining items (Orphans or items that didn't fit roots)
+                                allItems.forEach(item => {
+                                    if (!processedFinalIds.has(item.id)) {
+                                        finalProducts.push(item);
+                                        processedFinalIds.add(item.id);
+                                    }
+                                });
+
+                                return finalProducts;
+                            })().map((product) => (
                                 <ProductRow
                                     key={product.id}
                                     product={product}
                                     onEdit={onEdit}
                                     onShowHistory={onShowHistory}
                                     onLaunchStock={onLaunchStock}
-                                    onDelete={onDelete}
-                                    onRestore={onRestore}
-                                    onPermanentDelete={onPermanentDelete}
-                                    onToggleActive={onToggleActive}
+                                    onDelete={() => onDelete(product.id || '')}
+                                    onRestore={() => onRestore(product.id || '')}
+                                    onPermanentDelete={() => onPermanentDelete(product.id || '')}
+                                    onToggleActive={(id, status) => onToggleActive(product.id || '', product.active)}
                                     visibilitySettings={visibilitySettings}
                                     showTrash={showTrash}
                                     orderedColumnKeys={orderedColumns.map(c => c.key as string)}
-                                    isSelected={selectedProducts.includes(product.id!)}
-                                    onToggleSelection={() => onToggleSelection(product.id!)}
+                                    isSelected={selectedProducts.includes(product.id || '')}
+                                    onToggleSelection={() => onToggleSelection(product.id || '')}
                                     categoryTree={categoryTree}
                                     onRefresh={onRefresh}
-                                    onDuplicate={onDuplicate}
+                                    onDuplicate={() => onDuplicate && onDuplicate(product)}
                                 />
                             ))}
                         </tbody>

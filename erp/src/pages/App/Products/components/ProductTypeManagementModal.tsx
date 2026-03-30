@@ -98,8 +98,8 @@ const ProductTypeManagementModal = ({ isOpen, onClose }: ProductTypeManagementMo
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Tipos de Produtos</h2>
-                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-1">Gerenciar categorias de títulos</p>
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Categorias de Títulos</h2>
+                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-1">Gerenciar nomes base para montagem automática</p>
                     </div>
                 </div>
 
@@ -128,7 +128,7 @@ const ProductTypeManagementModal = ({ isOpen, onClose }: ProductTypeManagementMo
                             </div>
                         ) : types.length === 0 ? (
                             <div className="py-10 text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">
-                                Nenhum tipo cadastrado.
+                                Nenhuma categoria cadastrada.
                             </div>
                         ) : (
                             types.map(t => (

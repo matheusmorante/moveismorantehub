@@ -29,6 +29,23 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     const [stats, setStats] = useState<{ giro: number, lt: number } | null>(null);
     const supplierInputRef = useRef<HTMLDivElement>(null);
 
+    const updateCost = (updates: Partial<Product>) => {
+        setFormData(prev => {
+            const next = { ...prev, ...updates };
+            const base = next.costPrice || 0;
+            const ipi = (base * (next.ipiPercent || 0)) / 100;
+            const frType = next.freightType || 'none';
+            let frCost = 0;
+            if (frType === 'percentage') {
+                frCost = (base * (next.freightCost || 0)) / 100;
+            } else if (frType === 'fixed') {
+                frCost = next.freightCost || 0;
+            }
+            next.finalPurchasePrice = base + ipi + frCost;
+            return next;
+        });
+    };
+
     // Initialize search and load stats
     useEffect(() => {
         if (formData.mainSupplierId && suppliers.length > 0) {
@@ -110,49 +127,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             }));
                         }}
                     />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <div className="p-6 bg-blue-600 rounded-[2rem] flex items-center justify-between shadow-xl shadow-blue-500/20">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white/10 rounded-2xl">
-                                    <i className="bi bi-magic text-2xl text-white"></i>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-100 opacity-70">Ações de Inteligência</p>
-                                    <p className="text-sm font-black text-white uppercase tracking-widest">Sugerir Preços</p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={handleSuggestPrices}
-                                disabled={isSuggestingPrices}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isSuggestingPrices ? 'bg-white/10 text-white/40 cursor-not-allowed' : 'bg-white text-blue-600 hover:bg-blue-50'}`}
-                            >
-                                {isSuggestingPrices ? (
-                                    <><i className="bi bi-hourglass-split animate-spin"></i> Analisando...</>
-                                ) : (
-                                    <><i className="bi bi-magic"></i> IA: Sugerir Preço Final</>
-                                )}
-                            </button>
-                        </div>
-
-                        <div className="p-6 bg-slate-900 dark:bg-slate-800 rounded-[2rem] flex items-center justify-between shadow-xl">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-emerald-500/20 rounded-2xl">
-                                    <i className="bi bi-graph-up-arrow text-2xl text-emerald-500"></i>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Margem Estimada (Média)</p>
-                                    <p className="text-2xl font-black text-white">
-                                        {formData.unitPrice && formData.costPrice && formData.costPrice > 0
-                                            ? `${Math.round(((formData.unitPrice / formData.costPrice) - 1) * 100)}%`
-                                            : '0%'
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             )}
 
@@ -178,13 +152,64 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                         />
                                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* {isEditing ? 'Ajuste via Movimentações Manuais' : 'Valor definido via "Lançamento de Entrada Inicial" acima'}</p>
                                     </div>
-                                    <div className={`flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl opacity-70`}>
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preço de Custo (Visualização)</label>
-                                        <div className="flex items-center gap-1 text-2xl font-black text-slate-600 dark:text-slate-400">
-                                            <span className="text-sm">R$</span>
-                                            <span>{(formData.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 relative mt-2">
+                                        <div className="col-span-full flex items-center justify-between border-b border-blue-100 dark:border-blue-900/30 pb-3 mb-2">
+                                            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Composição de Custo</h5>
                                         </div>
-                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-tight italic">* Definido automaticamente pelas entradas de estoque</p>
+                                        
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preço de Custo Base</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                                <input type="number" 
+                                                    value={formData.costPrice || ''} 
+                                                    onChange={e => updateCost({ costPrice: Number(e.target.value) })}
+                                                    className="w-full pl-8 pr-3 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Taxa de IPI</label>
+                                            <div className="relative">
+                                                <input type="number" 
+                                                    value={formData.ipiPercent || ''}
+                                                    onChange={e => updateCost({ ipiPercent: Number(e.target.value) })}
+                                                    className="w-full pl-3 pr-8 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">%</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Frete</label>
+                                            <div className="relative flex items-center">
+                                                <input type="number" 
+                                                    value={formData.freightCost || ''}
+                                                    onChange={e => updateCost({ freightCost: Number(e.target.value) })}
+                                                    className="w-full pl-3 pr-16 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" 
+                                                />
+                                                <div className="absolute right-1 top-1 bottom-1">
+                                                    <select 
+                                                        value={formData.freightType || 'fixed'}
+                                                        onChange={e => updateCost({ freightType: e.target.value as any })}
+                                                        className="h-full px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs font-black text-slate-600 dark:text-slate-300 rounded-lg outline-none cursor-pointer appearance-none text-center"
+                                                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                                                    >
+                                                        <option value="fixed">R$</option>
+                                                        <option value="percentage">%</option>
+                                                    </select>
+                                                    {/* Custom dropdown arrow for aesthetics */}
+                                                    <i className="bi bi-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 pointer-events-none"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-1 p-4 bg-blue-600 rounded-xl text-white shadow-xl shadow-blue-500/30 justify-center min-h-[72px]">
+                                            <label className="text-[8px] font-black uppercase tracking-widest text-blue-200">Preço de Custo Final (Entrada)</label>
+                                            <div className="flex items-center gap-1 text-2xl font-black truncate">
+                                                <span className="text-xs">R$</span>
+                                                {(formData.finalPurchasePrice || formData.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="flex flex-col gap-2 p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl relative">
                                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
@@ -286,9 +311,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                         key={s.id}
                                         type="button"
                                         onClick={() => {
-                                            setFormData({ 
-                                                ...formData, 
-                                                mainSupplierId: s.id
+                                            updateCost({ 
+                                                mainSupplierId: s.id,
+                                                ipiPercent: s.defaultIpiPercent !== undefined ? s.defaultIpiPercent : formData.ipiPercent,
+                                                freightCost: s.defaultFreightCost !== undefined ? s.defaultFreightCost : formData.freightCost,
+                                                freightType: s.defaultFreightType !== undefined ? s.defaultFreightType : formData.freightType,
                                             });
                                             setSupplierSearch(s.fullName || '');
                                             setIsSupplierDropdownOpen(false);

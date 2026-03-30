@@ -55,37 +55,76 @@ const ReceiptPage = () => {
     }
 
     return (
-        <div className="flex flex-col gap-5 text-slate-900 bg-white p-4 min-h-screen
-         [&_th]:bg-slate-100 [&_td]:bg-white
-         [&_input]:px-2 [&_input]:bg-white">
+        <div className="flex flex-col gap-1 text-slate-900 bg-white p-4 min-h-screen">
             <Header seller={order.seller} />
             <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
+            
             <ItemsTable items={order.items} summary={order.itemsSummary} />
 
-            <div className="flex flex-row w-full justify-between gap-6">
-                <div className="flex flex-col gap-4 w-[45%]">
+            <div className="flex flex-row w-full justify-between gap-8 mt-2">
+                <div className="flex flex-col gap-2 w-1/2">
                     <ShippingData shipping={order.shipping} />
+                    
+                    <div className="mt-16 pt-4">
+                        <div className="max-w-[280px] text-center">
+                            <div className="h-[1px] bg-slate-400 mb-2"></div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                Assinatura do Vendedor
+                            </div>
+                            {order?.seller?.fullName && (
+                                <div className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">
+                                    {order.seller.fullName}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <PaymentsTable
-                    payments={order?.payments || []}
-                    summary={order?.paymentsSummary}
-                />
+
+                <div className="w-1/2">
+                    <PaymentsTable
+                        payments={order?.payments || []}
+                        summary={order?.paymentsSummary}
+                    />
+                </div>
             </div>
 
-            <div className="flex text-center gap-10 justify-center mt-10">
-                <div className="assinatura">
-                    <div className="text-slate-300">________________________________________________</div>
-                    <div className="text-xs font-bold uppercase tracking-widest mt-2">Assinatura do Vendedor</div>
+            {/* Seu Lizandro Interaction Area */}
+            <div className="mt-2 pt-2">
+                <div className="flex items-center gap-6 p-5 bg-slate-50/80 rounded-[2rem] border border-slate-100 relative overflow-hidden">
+                    <div className="flex-shrink-0">
+                        <div className="w-28 h-28 bg-white rounded-3xl p-1 shadow-sm border border-slate-100 overflow-hidden">
+                            <img 
+                                src={settings.aiPrompts?.aiMascotVariants?.receipt || settings.aiPrompts?.aiMascot || "/lizandro.png"} 
+                                alt="Seu Lizandro" 
+                                className="w-full h-full object-cover rounded-2xl"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1">
+                        <div className="relative">
+                            <p className="text-blue-900 font-black italic text-lg leading-tight tracking-tighter mb-1">
+                                "Ah, que alegria! Ficamos muito felizes em fazer parte do seu lar."
+                            </p>
+                            <p className="text-[10px] text-blue-400 font-black uppercase tracking-[0.2em]">
+                               Muito obrigado pela preferência!
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Decorative Elements */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                    <div className="absolute bottom-0 left-1/4 w-24 h-24 bg-blue-600/5 rounded-full blur-2xl"></div>
                 </div>
             </div>
-
-            {settings.receiptConfig?.footerText && (
-                <div className="mt-12 pt-6 border-t border-slate-100 text-center">
-                    <p className="text-[10px] text-slate-400 font-medium italic max-w-lg mx-auto leading-relaxed">
-                        {settings.receiptConfig.footerText}
-                    </p>
-                </div>
-            )}
+            
+            <style dangerouslySetInnerHTML={{ __html: `
+                @media print {
+                    body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .no-print { display: none !important; }
+                    @page { margin: 10mm; }
+                }
+            ` }} />
         </div>
     )
 };

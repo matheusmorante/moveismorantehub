@@ -214,6 +214,8 @@ export type ProductNotificationConfig = {
 };
 
 export type ProductVisibilitySettings = {
+    id: boolean;
+    sku: boolean;
     code: boolean;
     description: boolean;
     category: boolean;

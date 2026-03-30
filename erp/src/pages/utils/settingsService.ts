@@ -93,6 +93,12 @@ export interface AppSettings {
         taskDetection: string;
         aiName: string;
         aiAvatar: string;
+        aiMascot: string; // [NEW] Global Mascot URL
+        aiMascotVariants?: {
+            receipt?: string;
+            dashboard?: string;
+            shippingLabel?: string;
+        };
     };
     whatsappConfig?: {
         accessToken: string;
@@ -447,7 +453,12 @@ RESPOSTA NO FORMATO JSON:
 }
 `,
         aiName: 'Lisandro',
-        aiAvatar: ''
+        aiAvatar: '',
+        aiMascot: '/lizandro.png',
+        aiMascotVariants: {
+            receipt: '/lizandro.png',
+            dashboard: '/lizandro.png'
+        }
     },
     whatsappConfig: {
         accessToken: '',
@@ -488,7 +499,7 @@ RESPOSTA NO FORMATO JSON:
         assistanceConfirmation: '*Olá {{customerName}}!* 🔧\n\nSeu atendimento de assistência técnica foi confirmado! \n\n*Técnico/Responsável:* {{seller}}\n\n🗓️ *Data:* {{assistanceDate}}\n🕒 *Horário:* {{assistanceTime}}\n\n📋 *Descrição do serviço:*\n{{assistanceDescription}}\n\n📞 *Nosso contato:* {{companyPhone}}\n\nEm caso de dúvidas, entre em contato!'
     },
     receiptConfig: {
-        footerText: 'Obrigado pela preferência! Guarde este recibo para sua garantia.',
+        footerText: '',
         showSeller: true,
         compactMode: false
     },

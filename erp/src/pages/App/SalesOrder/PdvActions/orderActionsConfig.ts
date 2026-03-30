@@ -17,6 +17,12 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
             toast.error("Vendedor obrigatório para imprimir o pedido.");
             return;
         }
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const itemsHtml = order.items.map(item => {
+            const unitPrice = item.unitPrice || 0;
             const quantity = item.quantity || 0;
             const discount = item.unitDiscount || 0;
             const total = (unitPrice - discount) * quantity;
@@ -44,11 +50,19 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                     </style>
                 </head>
                 <body>
-                    <div class="header">
-                        <h1>Pedido de Venda</h1>
-                        <p>ID: ${order.id}</p>
-                        <p>Data: ${order.date}</p>
-                        <p>Cliente: ${order.customerData?.fullName || 'Não informado'}</p>
+                    <div class="header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px;">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <img src="/lizandro.png" alt="Seu Lizandro" style="width: 80px; height: 80px; border-radius: 15px; object-fit: cover; border: 1px solid #eee;" />
+                            <div>
+                                <h1 style="margin: 0; font-size: 24px;">Pedido de Venda</h1>
+                                <p style="margin: 2px 0; font-size: 14px; font-weight: bold; color: #666;">ID: ${order.id}</p>
+                                <p style="margin: 2px 0; font-size: 14px;">Data: ${order.date}</p>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                             <p style="margin: 0; font-weight: bold; font-size: 16px;">Móveis Morante</p>
+                             <p style="margin: 5px 0; font-size: 12px; color: #444;">Cliente: ${order.customerData?.fullName || 'Não informado'}</p>
+                        </div>
                     </div>
                     <table>
                         <thead>

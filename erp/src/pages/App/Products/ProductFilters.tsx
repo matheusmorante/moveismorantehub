@@ -60,18 +60,18 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
             <div className="p-4 md:p-8 flex flex-col gap-6">
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Móvel / Categoria</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categorias</label>
                         <select
                             name="category"
                             value={filters.category}
                             onChange={handleChange}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
                         >
-                            <option value="" className="dark:bg-slate-900">Todos os Tipos</option>
+                            <option value="" className="dark:bg-slate-900">Todas as Categorias</option>
                             <option value="Serviços" className="dark:bg-slate-900">Somente Serviços</option>
                             <option value="Produtos" className="dark:bg-slate-900">Somente Produtos</option>
                             {availableCategories.length > 0 && (
-                                <optgroup label="Filtrar por Categoria" className="dark:text-slate-500 font-bold mt-2">
+                                <optgroup label="Categorias" className="dark:text-slate-500 font-bold mt-2">
                                     {availableCategories.map(cat => (
                                         <option key={cat.id} value={cat.id} className="dark:bg-slate-900 font-normal">
                                             {cat.name}

@@ -1,0 +1,1311 @@
+ID,Código,Descrição,Unidade,NCM,Preço de compra final,Situação,Estoque,Preço de custo,Fornecedor,Estoque minimo,Largura do Produto,Altura do Produto,Profundidade do produto,Código Pai,Grupo de produtos,Marca,CEST,Volumes,Descrição Curta,Cross-Docking,URL Imagens Externas,Link Externo,Meses Garantia no Fornecedor,Clonar dados do pai,Frete Grátis,Número FCI,Unidade de medida
+16524722700,489,"026674 - SOFÁ IBIZA 3LUG 2,90 ASS 0,80",UN,,"3.599,00",Ativo,0,"1.780,77",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524724549,491,COR:TERRA COTA,UN,,"3.599,00",Ativo,0,"1.780,77",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,489,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16524724545,490,COR:VELUDO TABACO,UN,,"3.599,00",Ativo,1,"1.780,77",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,489,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527050629,501,"026860 - SOFÁ MODENA  2LG 2,60M",UN,,"2.599,00",Ativo,0,"1.304,65",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16527052518,502,COR:VELUDO CHUMBO,UN,,"2.599,00",Ativo,1,"1.304,65",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,501,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527052519,503,COR:VELUDO VERDE,UN,,"2.599,00",Ativo,1,"1.304,65",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,501,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16525457245,494,027399 - SOFÁ KANIS 2 LUG + 2B 2M,UN,,"2.099,00",Ativo,0,"1.054,23",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16525534356,495,COR:TITANIO,UN,,"2.099,00",Ativo,1,"1.054,23",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,494,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16525534358,496,COR:VELUDO CHUMBO,UN,,"2.099,00",Ativo,1,"1.054,23",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,494,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527077771,509,"24423 - SOFÁ HANOVER 2LIG 2B 2,60M",UN,,"2.899,00",Ativo,0,"1.457,86",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16527080954,510,COR:TITANIO,UN,,"2.899,00",Ativo,1,"1.457,86",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,509,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527061947,507,"25791 - SOFÁ HANOVER 2LIG 2B 2,10M",UN,,"2.699,00",Ativo,0,"1.338,89",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16527066942,508,COR:VELUDO CASTOR,UN,,"2.699,00",Ativo,0,"1.338,89",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,507,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527054984,504,"27400 - SOFÁ FENIX MOD 2LUG 2,60M",UN,,"3.449,00",Ativo,0,"1.711,62",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16527056077,505,COR:BORDO,UN,,"3.449,00",Ativo,1,"1.711,62",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,504,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527056078,506,COR:VELUDO CASTOR,UN,,"3.449,00",Ativo,0,"1.711,62",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,504,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527082515,511,"27401 - SOFÁ ARTHUR  MOD 2 LUG 2,30M",UN,,"3.249,00",Ativo,0,"1.567,00",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16527083342,512,COR:VELUDO AZUL,UN,,"3.249,00",Ativo,0,"1.567,00",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,511,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527083346,513,COR:VELUDO TABACO,UN,,"3.249,00",Ativo,0,"1.567,00",RELIANCE (AJ DOS SANTOS INDUSTRIA),0,0.00,0.00,0.00,511,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16491380811,228,"AEREO 0,80 1º LINHA JK",UN,,279,Ativo,0,152,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16491381694,229,COR:PRETO,UN,,279,Ativo,0,152,JK,1,0.00,0.00,0.00,228,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494783605,291,AÉREO 1 PORTA BASC 80 CM FLORENÇA,UN,9403.40.00,199,Ativo,0,"111,28",MÓVEIS SUL,2,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494784858,293,COR:ANGELIN,UN,9403.40.00,199,Ativo,4,"111,28",MÓVEIS SUL,3,0.00,0.00,0.00,291,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494784857,292,COR:CANARY,UN,9403.40.00,199,Ativo,4,"111,28",MÓVEIS SUL,2,0.00,0.00,0.00,291,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16575930257,644,"AEREO 1,20 VOLLARE BRANCO",UN,,399,Ativo,0,"205,28",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490720175,200,"AEREO 1,60 M 1º LINHA JK",UN,,449,Ativo,0,238,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490722234,201,COR:BRANCO,UN,,449,Ativo,4,238,JK,2,0.00,0.00,0.00,200,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16572135149,633,COR:PRETO,UN,,449,Ativo,2,238,JK,0,0.00,0.00,0.00,200,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16494772546,282,AÉREO 3 PORTAS 120CM FLORENÇA,UN,9403.40.00,399,Ativo,0,"206,76",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494775258,284,COR:ANGELIN,UN,9403.40.00,399,Ativo,4,"206,76",MÓVEIS SUL,2,0.00,0.00,0.00,282,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494775256,283,COR:CANARY,UN,9403.40.00,399,Ativo,4,"206,76",MÓVEIS SUL,2,0.00,0.00,0.00,282,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507064723,405,AÉREO 80CM GELADEIRA POP,UN,,149,Ativo,0,"75,2",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507072599,407,COR:FREIJO/BAUNILHA,UN,,149,Ativo,3,"75,2",DACHERI,2,0.00,0.00,0.00,405,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507072597,406,COR:FREIJO/CHUMBO,UN,,149,Ativo,3,"75,2",DACHERI,3,0.00,0.00,0.00,405,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16559352145,608,AÉREO 80CM PARA GEL. VOLLARE,un,,499,Ativo,0,"76,51",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16559352146,609,COR:BRANCO,un,,499,Ativo,-1,"76,51",FIORELLO,0,0.00,0.00,0.00,608,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16559352147,610,COR:PRETO,un,,499,Ativo,0,"76,51",FIORELLO,0,0.00,0.00,0.00,608,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16534165220,545,AÉREO INDEKES FIRENZI SALVADOS,un,,399,Ativo,0,"226,12",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466854225,	,AÉREO POP/VENEZA,UN,,299,Ativo,0,160,DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466856743,	,AÉREO POP/VENEZA COR:BRANCO,UN,,299,Ativo,0,160,DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466856729,	,AÉREO POP/VENEZA COR:FREIJO/BAUNILHA,UN,,299,Ativo,2,160,DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466856756,	,AÉREO POP/VENEZA COR:FREIJO/CHUMBO,UN,,299,Ativo,7,160,DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466856767,	,AÉREO POP/VENEZA COR:PRETO,UN,,299,Ativo,0,160,DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509410802,415,AMERICA MODULO CRIADO MUDO,UN,,449,Ativo,0,"234,4",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509411736,416,COR:FREIJO/GRAFITE,UN,,449,Ativo,-1,"234,4",MOPAR,0,0.00,0.00,0.00,415,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16509411739,417,COR:FREIJO/OFF WHITE,UN,,449,Ativo,-1,"234,4",MOPAR,0,0.00,0.00,0.00,415,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16509441714,419,AMERICA PONTE 1950MM 4 PTS,UN,,699,Ativo,0,"350,4",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509443085,420,COR:FREIJO/GRAFITE,UN,,699,Ativo,-1,"350,4",MOPAR,0,0.00,0.00,0.00,419,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486608513,182,APARADOR BUFFET FUTURE,UN,,779,Ativo,0,"431,39",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486610818,183,COR:BRANCO/CINAMOMO,UN,,779,Ativo,2,"431,39",BECHARA,0,0.00,0.00,0.00,182,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493377815,256,COR:OFF WHITE/CINAMOMO,UN,,779,Ativo,2,"431,39",BECHARA,0,0.00,0.00,0.00,182,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486586640,179,APARADOR BUFFET OPALA,UN,,849,Ativo,0,"467,91",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486590678,181,COR:CINAMOMO/BRANCO,UN,,849,Ativo,2,"467,91",BECHARA,0,0.00,0.00,0.00,179,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16577775945,648,COR:NATURALLE/OFF WHITE,UN,,849,Ativo,1,"467,91",BECHARA,0,0.00,0.00,0.00,179,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16489214403,189,APARADOR BUFFET QUARTZO,UN,,649,Ativo,0,"363,92",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489216721,190,COR:CINAMOMO/OFF WHITE,UN,,649,Ativo,0,"363,92",BECHARA,0,0.00,0.00,0.00,189,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467324976,	,APARADOR CAIRO,UN,,289,Ativo,0,"139,62",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467326873,	,APARADOR CAIRO COR:BRANCO,UN,,289,Ativo,3,"139,62",FIORELLO,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467326863,	,APARADOR CAIRO COR:FREIJO/BRANCO,UN,,289,Ativo,0,"139,62",FIORELLO,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467326867,	,APARADOR CAIRO COR:PRETO,UN,,289,Ativo,6,"139,62",FIORELLO,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16487003228,184,APARADOR VIEIRO C/  PÉS SALVADOS,UN,,449,Ativo,-2,"212,87",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467395577,	,"ARMÁRIO AÉREO 3PTS 1,20 JK",UN,,299,Ativo,0,182,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467396664,	,"ARMÁRIO AÉREO 3PTS 1,20 JK COR:BRANCO",UN,,299,Ativo,3,182,JK,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467396690,	,"ARMÁRIO AÉREO 3PTS 1,20 JK COR:LYON",UN,,299,Ativo,1,182,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467396737,	,"ARMÁRIO AÉREO 3PTS 1,20 JK COR:OLMO",UN,,299,Ativo,3,182,JK,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467396635,	,"ARMÁRIO AÉREO 3PTS 1,20 JK COR:PRETO",UN,,299,Ativo,2,182,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489410515,191,Armario Aereo Mgm Diva 1pt 80cm Gel SALVADOS,UN,,99,Ativo,0,103,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467010095,	,"ARMARIO AÉREO MILA 1,20",UN,,299,Ativo,0,"151,93",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467016153,	,"ARMARIO AÉREO MILA 1,20 COR:BRANCO BRILHO",UN,,299,Ativo,1,"151,93",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467016197,	,"ARMARIO AÉREO MILA 1,20 COR:FREIJO/OFFWHITE",UN,,299,Ativo,2,"151,93",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467016177,	,"ARMARIO AÉREO MILA 1,20 COR:PRETO",UN,,299,Ativo,1,"151,93",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16590836137,678,Armário Multiuso 4 Portas com Pés NT 4040 SALVADOS,UN,,399,Ativo,-1,399,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16472403590,90,Armario Multiuso Aramoveis New 2pt,UN,,199,Ativo,-16,"61,48",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16534158737,543,Armario Multiuso Atualle Seul 3pt  2gv,un,,549,Ativo,-4,"157,52",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16568789752,624,ARMARIO MULTIUSO FAIMEC CHILE 2PT salvados,un,,199,Ativo,-1,"43,36",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16545257046,559,ARMARIO MULTIUSO LAVANDEIRA JADE 995440,un,,399,Ativo,0,"242,33",MOVAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16545260109,560,COR:BRANCO AB,un,,399,Ativo,1,"242,33",MOVAL,0,0.00,0.00,0.00,559,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463891006,	,ARMÁRIO MULTIUSO LONDRES C/ CHAVES,UN,,349,Ativo,0,215,FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,"<p>???????? Entrega rápida (1 a 2 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>???? Fazemos no CREDIÁRIO em até 36x c/ juros em compras acima de R$ 400, sob análise de crédito pela financeira em poucos minutos sem sair de casa!</p>
+<p> </p>
+<p>???? Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p> ????⚠️ Aceitamos Senff com 10% de juros.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem taxa de frete para endereços próximos.</p>
+<p> </p>
+<p>✅ Montagem Incluída para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>???? VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://wa.me/c/554197493547</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>Rua Astorga 489, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<h1>ESPECIFICAÇÕES:</h1>
+<p>Armário multiuso 2 portas para guardar sapatos, roupas, produtos de limpeza etc, possui 3 opções de cores, material MDP, montagem grátis para a entrega ou retirada, portas, 4 prateleiras bem distribuídas, puxadores em ABS, novo. </p>
+<p> </p>
+<p>Dimensões: </p>
+<p> Altura: 186 cm</p>
+<p> Largura: 61 cm</p>
+<p> Profundidade: 37.3 cm</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16463891882,	,ARMÁRIO MULTIUSO LONDRES C/ CHAVES COR:BRANCO,UN,,349,Ativo,5,215,FIORELLO,3,0.00,0.00,0.00,	,,,,0,"<p>???????? Entrega rápida (1 a 2 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>???? Fazemos no CREDIÁRIO em até 36x c/ juros em compras acima de R$ 400, sob análise de crédito pela financeira em poucos minutos sem sair de casa!</p>
+<p> </p>
+<p>???? Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p> ????⚠️ Aceitamos Senff com 10% de juros.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem taxa de frete para endereços próximos.</p>
+<p> </p>
+<p>✅ Montagem Incluída para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>???? VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://wa.me/c/554197493547</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>Rua Astorga 489, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<h1>ESPECIFICAÇÕES:</h1>
+<p>Armário multiuso 2 portas para guardar sapatos, roupas, produtos de limpeza etc, possui 3 opções de cores, material MDP, montagem grátis para a entrega ou retirada, portas, 4 prateleiras bem distribuídas, puxadores em ABS, novo. </p>
+<p> </p>
+<p>Dimensões: </p>
+<p> Altura: 186 cm</p>
+<p> Largura: 61 cm</p>
+<p> Profundidade: 37.3 cm</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16463891891,	,ARMÁRIO MULTIUSO LONDRES C/ CHAVES COR:FREIJÓ,UN,,349,Ativo,-1,215,FIORELLO,1,0.00,0.00,0.00,	,,FIORELLO,,0,"<p>???????? Entrega rápida (1 a 2 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>???? Fazemos no CREDIÁRIO em até 36x c/ juros em compras acima de R$ 400, sob análise de crédito pela financeira em poucos minutos sem sair de casa!</p>
+<p> </p>
+<p>???? Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p> ????⚠️ Aceitamos Senff com 10% de juros.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem taxa de frete para endereços próximos.</p>
+<p> </p>
+<p>✅ Montagem Incluída para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>???? VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://wa.me/c/554197493547</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>Rua Astorga 489, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<h1>ESPECIFICAÇÕES:</h1>
+<p>Armário multiuso 2 portas para guardar sapatos, roupas, produtos de limpeza etc, possui 3 opções de cores, material MDP, montagem grátis para a entrega ou retirada, portas, 4 prateleiras bem distribuídas, puxadores em ABS, novo. </p>
+<p> </p>
+<p>Dimensões: </p>
+<p> Altura: 186 cm</p>
+<p> Largura: 61 cm</p>
+<p> Profundidade: 37.3 cm</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16463891878,	,ARMÁRIO MULTIUSO LONDRES C/ CHAVES COR:PRETO,UN,,349,Ativo,3,215,FIORELLO,1,0.00,0.00,0.00,	,,FIORELLO,,0,"<p>???????? Entrega rápida (1 a 2 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>???? Fazemos no CREDIÁRIO em até 36x c/ juros em compras acima de R$ 400, sob análise de crédito pela financeira em poucos minutos sem sair de casa!</p>
+<p> </p>
+<p>???? Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p> ????⚠️ Aceitamos Senff com 10% de juros.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem taxa de frete para endereços próximos.</p>
+<p> </p>
+<p>✅ Montagem Incluída para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>???? VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://wa.me/c/554197493547</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>Rua Astorga 489, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<h1>ESPECIFICAÇÕES:</h1>
+<p>Armário multiuso 2 portas para guardar sapatos, roupas, produtos de limpeza etc, possui 3 opções de cores, material MDP, montagem grátis para a entrega ou retirada, portas, 4 prateleiras bem distribuídas, puxadores em ABS, novo. </p>
+<p> </p>
+<p>Dimensões: </p>
+<p> Altura: 186 cm</p>
+<p> Largura: 61 cm</p>
+<p> Profundidade: 37.3 cm</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16584318827,658,ARMARIO MULTIUSO NOTAVEL NT 4015 2PT NT4015.448459 Branco New,un,,349,Ativo,"74,23","75,23",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16568771509,623,ARMARIO MULTIUSO NOTAVEL NT4020 2PT C/CHAVE NT4020.490362 SALVADOS,UN,,299,Ativo,-1,"66,04",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16553673576,598,armario torre 2 fornos raissa moveis sul,un,,499,Ativo,0,"249,75",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16553675122,599,cor:nogal manchester preto,un,,499,Ativo,-1,"249,75",MÓVEIS SUL,0,0.00,0.00,0.00,598,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467332009,	,"BALCÃO 1,19 P/ PIA",UN,,299,Ativo,0,190,FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467333321,	,"BALCÃO 1,19 P/ PIA COR:FREIJO/GRAFITE",UN,,299,Ativo,-1,190,FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467333316,	,"BALCÃO 1,19 P/ PIA COR:FREIJO/OFF WHITE",UN,,299,Ativo,-1,190,FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467334336,	,"BALCÃO 1,19 P/ PIA COR:PRETO",UN,,299,Ativo,0,190,FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16507004599,402,"BALCÃO 1,19 PARA PIA POP (CONJUNTO POP)",UN,,399,Ativo,0,"225,52",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507004601,404,COR:FREIJO/BAUNILHA,UN,,349,Ativo,3,"225,52",DACHERI,3,0.00,0.00,0.00,402,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507004600,403,COR:FREIJO/CHUMBO,UN,,349,Ativo,6,"225,52",DACHERI,3,0.00,0.00,0.00,402,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494780380,288,BALCÃO 2 PORTAS 80 CM FLORENÇA,UN,9403.40.00,399,Ativo,0,"223,66",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16574087078,636,COR:ANGELIN,UN,9403.40.00,399,Ativo,2,"223,66",MÓVEIS SUL,0,0.00,0.00,0.00,288,,,28.061.00,0,,0,	,,0,SIM,NÃO,,Centímetro
+16494782654,290,COR:ANGELIN/CINZA,UN,9403.40.00,399,Ativo,8,"223,66",MÓVEIS SUL,3,0.00,0.00,0.00,288,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494782653,289,COR:CANARY/OFF WHITE,UN,9403.40.00,399,Ativo,1,"223,66",MÓVEIS SUL,2,0.00,0.00,0.00,288,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16513279649,450,Balcao Aramoveis Vitoria 3pt 1gv 120cm S/Tampo Salvados,UN,,199,Ativo,0,"79,51",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467355363,	,"BALCÃO C/ TAMPO 1,20 0,40",UN,,349,Ativo,0,202,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467355397,	,"BALCÃO C/ TAMPO 1,20 0,40 COR:BRANCO",UN,,349,Ativo,6,202,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467355412,	,"BALCÃO C/ TAMPO 1,20 0,40 COR:LYON",UN,,349,Ativo,0,202,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467355387,	,"BALCÃO C/ TAMPO 1,20 0,40 COR:OLMO",UN,,349,Ativo,2,202,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467355376,	,"BALCÃO C/ TAMPO 1,20 0,40 COR:PRETO",UN,,349,Ativo,4,202,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509755185,431,"BALCÃO C/ TAMPO 1,20 0,50",UN,,399,Ativo,0,220,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509755188,434,COR:BRANCO,UN,,399,Ativo,0,220,JK,3,0.00,0.00,0.00,431,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509755189,435,COR:LYON,UN,,399,Ativo,1,220,JK,2,0.00,0.00,0.00,431,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509755187,433,COR:OLMO,UN,,399,Ativo,0,220,JK,3,0.00,0.00,0.00,431,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509755186,432,COR:PRETO,UN,,399,Ativo,0,220,JK,2,0.00,0.00,0.00,431,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467350157,	,"BALCÃO C/ TAMPO 1,60 0,50",UN,,499,Ativo,0,287,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467351265,	,"BALCÃO C/ TAMPO 1,60 0,50 COR:BRANCO",UN,,499,Ativo,0,287,JK,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467351272,	,"BALCÃO C/ TAMPO 1,60 0,50 COR:LYON",UN,,499,Ativo,0,287,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467351263,	,"BALCÃO C/ TAMPO 1,60 0,50 COR:OLMO",UN,,499,Ativo,2,287,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467351259,	,"BALCÃO C/ TAMPO 1,60 0,50 COR:PRETO",UN,,499,Ativo,0,287,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16552775596,595,Balcao Canto Indekes Star 1pt C/Tampo,UN,,349,Ativo,0,"92,9",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16581142389,652,BALCAO COOKTOP NOTAVEL NT 3110 1GV P/4BOCAS,un,,299,Ativo,-1,53,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16584271165,655,BALCAO DE PIA LUCIANE ISIS 3PT 2GV 120CM S/TP ISI 0253/291 Avela Pf/Mocca UV,UN,,449,Ativo,0,449,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16623034068,771,BALCÃO DENVER,UN,,199,Ativo,0,"123,79",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16623035761,772,COR:BRANCO,UN,,199,Ativo,10,"123,79",FIORELLO,0,0.00,0.00,0.00,771,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16511763420,444,BALCÃO DUNA,UN,,249,Ativo,0,"128,33",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16511764982,445,COR:BRANCO,UN,,249,Ativo,0,"128,33",FIORELLO,0,0.00,0.00,0.00,444,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467616787,	,Balcao Evidencia Cz601 3 Gv 2 Pt Salvados,UN,,249,Ativo,-2,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16598371190,713,Balcao Evidencia Cz601 3 Gv 2 Pt Salvados,UN,,399,Ativo,1,"85,05",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16534162707,544,BALCÃO INDEKES FIRENZI SALVADOS,un,,599,Ativo,0,"226,12",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16533437954,542,Balcao Mgm Diva 2pt 80cm Cooktop salvados,un,,349,Ativo,0,"107,14",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16568988326,625,BALCÃO P/ PIA DEMOBILE FIRENZE SALVADOS,un,,399,Ativo,-1,399,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467390290,	,BALCÃO PARA COOKTOP 1º LINHA JK,UN,,299,Ativo,0,177,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467391847,	,BALCÃO PARA COOKTOP 1º LINHA JK COR:BRANCO,UN,,299,Ativo,1,185,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467391830,	,BALCÃO PARA COOKTOP 1º LINHA JK COR:LYON,UN,,299,Ativo,0,185,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467391810,	,BALCÃO PARA COOKTOP 1º LINHA JK COR:OLMO,UN,,299,Ativo,3,177,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467391791,	,BALCÃO PARA COOKTOP 1º LINHA JK COR:PRETO,UN,,299,Ativo,2,185,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477343009,106,BALCÃO PARA COOKTOP 80CM MDP POP C/ TAMPO,UN,9403.40.00,349,Ativo,0,"167,7",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477346926,107,COR:FREIJO/BAUNILHA,UN,,299,Ativo,3,168,DACHERI,3,0.00,0.00,0.00,106,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477346927,108,COR:FREIJO/CHUMBO,UN,,299,Ativo,3,168,DACHERI,3,0.00,0.00,0.00,106,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465719394,	,BALCAO PARA COOKTOP CATAR,UN,,299,Ativo,0,"180,66",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465721416,	,BALCAO PARA COOKTOP CATAR COR:BRANCO BRILHO,UN,,299,Ativo,0,"180,66",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465721433,	,BALCAO PARA COOKTOP CATAR COR:PALERMO/BRANCO,UN,,299,Ativo,0,"180,66",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466874966,	,BALCÃO PARA COOKTOP FLÓRIDA,UN,,299,Ativo,0,"154,78",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466876640,	,BALCÃO PARA COOKTOP FLÓRIDA COR:BRANCO,UN,,299,Ativo,2,"154,78",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466876622,	,BALCÃO PARA COOKTOP FLÓRIDA COR:PRETO,UN,,299,Ativo,5,"154,78",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493159463,241,BALCÃO PARA PIA  JK 1º LINHA 3G,UN,,399,Ativo,0,236,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493161822,242,BRANCO,UN,,399,Ativo,3,236,JK,2,0.00,0.00,0.00,241,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16609626314,738,BRANCO 3G LYON,UN,,399,Ativo,1,236,JK,0,0.00,0.00,0.00,241,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493161823,243,LYON,UN,,399,Ativo,0,236,JK,2,0.00,0.00,0.00,241,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493161827,245,OLMO,UN,,399,Ativo,4,236,JK,2,0.00,0.00,0.00,241,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493161824,244,PRETO,UN,,399,Ativo,4,236,JK,2,0.00,0.00,0.00,241,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467346429,	,"BALCÃO PARA PIA 1,60 PERF. REG. PÉS",UN,,499,Ativo,0,289,JK,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467347926,	,"BALCÃO PARA PIA 1,60 PERF. REG. PÉS COR:BRANCO",UN,,499,Ativo,1,289,JK,4,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16572134734,632,"BALCÃO PARA PIA 1,60 PERF. REG. PÉS COR:PRETO",UN,,499,Ativo,3,289,JK,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16494768800,279,BALCÃO PARA PIA 120CM FLORENÇA,UN,9403.40.00,599,Ativo,0,"320,61",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16574087557,637,COR:ANGELIN,UN,9403.40.00,599,Ativo,3,"320,61",MÓVEIS SUL,0,0.00,0.00,0.00,279,,,28.061.00,0,,0,	,,0,SIM,NÃO,,Centímetro
+16494770993,281,COR:ANGELIN/CINZA,UN,9403.40.00,599,Ativo,6,"320,61",MÓVEIS SUL,3,0.00,0.00,0.00,279,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494770992,280,COR:CANARY/OFF WHITE,UN,9403.40.00,599,Ativo,4,"320,61",MÓVEIS SUL,3,0.00,0.00,0.00,279,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16545526366,561,BALCÃO PARA PIA 3 PORTAS 2 GVTS VOLLARE,un,,499,Ativo,0,"241,57",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16545527483,562,COR:BRANCO,un,,499,Ativo,0,"241,57",FIORELLO,0,0.00,0.00,0.00,561,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16545527486,563,COR:PRETO,un,,499,Ativo,0,"241,57",FIORELLO,0,0.00,0.00,0.00,561,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16618769016,755,"BALCÃO PARA PIA 3G 1,00M 1 LINHA",UN,,349,Ativo,0,239,JK,0,98.00,81.00,50.00,	,,1° Linha JK,,0,"<p>?? Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>? Fazemos no CREDIÁRIO em até 36x c/ juros, sob análise de crédito pela financeira em poucos minutos sem sair de casa!</p>
+<p> </p>
+<p>? Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p> ?⚠️ Aceitamos Senff, com juros.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem custo de frete para endereços com menos de 5km de distância</p>
+<p> </p>
+<p>✅ Montagem por nossa conta - para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>? VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://matheusmorante002.wixsite.com/moveismorante</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>? Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>??Rua Cascavel, 306, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<p>?‍? ESPECIFICAÇÕES:</p>
+<p> </p>
+<p>Balcão para Pia de Cozinha 1.00m 1ª Linha JK – Branco</p>
+<p>Procurando por qualidade e o melhor custo-benefício para sua cozinha? O Balcão para Pia 1ª Linha JK é a escolha ideal para quem não abre mão de organização e durabilidade. Com um design moderno e clean na cor branca, ele se adapta facilmente a qualquer estilo de decoração, deixando seu ambiente mais iluminado e funcional.</p>
+<p>Fabricado com materiais de alta qualidade, este balcão foi pensado para facilitar o seu dia a dia, oferecendo espaço de sobra para guardar panelas, utensílios e mantimentos.</p>
+<p>Destaques do Produto:</p>
+<p> * Estrutura de Qualidade: Produzido em MDP, garantindo maior resistência e estabilidade ao móvel.</p>
+<p> * Acabamento Moderno: Possui puxadores perfilados em plástico de alta resistência, que proporcionam um visual minimalista e são super fáceis de limpar.</p>
+<p> * Pés com Regulagem: Acompanha pés de plástico com nivelamento de altura, ideal para corrigir imperfeições no piso e facilitar a limpeza embaixo do móvel.</p>
+<p> * Organização Inteligente: Divisão perfeita com portas e gavetas para manter tudo no seu devido lugar.</p>
+<p>Especificações Técnicas:</p>
+<p> * Largura: 98 cm</p>
+<p> * Profundidade: 51,5 cm</p>
+<p> * Altura: 80 cm</p>
+<p> * Material: MDP</p>
+<p> * Tipo de Puxador: Perfilado (Plástico)</p>
+<p> * Pés: Plástico com regulagem de altura</p>
+<p> * Cor: Branco</p>
+<p>&gt; Atenção: Este produto não acompanha o tampo de pia (cuba). Imagem meramente ilustrativa.</p>
+<p>&gt; </p>
+<p>Por que escolher a Linha JK?</p>
+<p>Os móveis da Linha JK são conhecidos pela praticidade na montagem e pela durabilidade. É o móvel ""coringa"" que faltava para completar sua cozinha com elegância e economia!</p>
+<p>Garanta já o seu e transforme sua cozinha agora mesmo!</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16618769017,756,COR:BRANCO,UN,,349,Ativo,-1,239,JK,0,98.00,81.00,50.00,755,,1° Linha JK,,0,"<p>?? Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>? Fazemos no CREDIÁRIO em até 36x c/ juros, sob análise de crédito pela financeira em poucos minutos sem sair de casa!</p>
+<p> </p>
+<p>? Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p> ?⚠️ Aceitamos Senff, com juros.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem custo de frete para endereços com menos de 5km de distância</p>
+<p> </p>
+<p>✅ Montagem por nossa conta - para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>? VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://matheusmorante002.wixsite.com/moveismorante</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>? Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>??Rua Cascavel, 306, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<p>?‍? ESPECIFICAÇÕES:</p>
+<p> </p>
+<p>Balcão para Pia de Cozinha 1.00m 1ª Linha JK – Branco</p>
+<p>Procurando por qualidade e o melhor custo-benefício para sua cozinha? O Balcão para Pia 1ª Linha JK é a escolha ideal para quem não abre mão de organização e durabilidade. Com um design moderno e clean na cor branca, ele se adapta facilmente a qualquer estilo de decoração, deixando seu ambiente mais iluminado e funcional.</p>
+<p>Fabricado com materiais de alta qualidade, este balcão foi pensado para facilitar o seu dia a dia, oferecendo espaço de sobra para guardar panelas, utensílios e mantimentos.</p>
+<p>Destaques do Produto:</p>
+<p> * Estrutura de Qualidade: Produzido em MDP, garantindo maior resistência e estabilidade ao móvel.</p>
+<p> * Acabamento Moderno: Possui puxadores perfilados em plástico de alta resistência, que proporcionam um visual minimalista e são super fáceis de limpar.</p>
+<p> * Pés com Regulagem: Acompanha pés de plástico com nivelamento de altura, ideal para corrigir imperfeições no piso e facilitar a limpeza embaixo do móvel.</p>
+<p> * Organização Inteligente: Divisão perfeita com portas e gavetas para manter tudo no seu devido lugar.</p>
+<p>Especificações Técnicas:</p>
+<p> * Largura: 98 cm</p>
+<p> * Profundidade: 51,5 cm</p>
+<p> * Altura: 80 cm</p>
+<p> * Material: MDP</p>
+<p> * Tipo de Puxador: Perfilado (Plástico)</p>
+<p> * Pés: Plástico com regulagem de altura</p>
+<p> * Cor: Branco</p>
+<p>&gt; Atenção: Este produto não acompanha o tampo de pia (cuba). Imagem meramente ilustrativa.</p>
+<p>&gt; </p>
+<p>Por que escolher a Linha JK?</p>
+<p>Os móveis da Linha JK são conhecidos pela praticidade na montagem e pela durabilidade. É o móvel ""coringa"" que faltava para completar sua cozinha com elegância e economia!</p>
+<p>Garanta já o seu e transforme sua cozinha agora mesmo!</p>",0,	,,0,SIM,NÃO,,Centímetro
+16467361406,	,"BALCÃO PARA PIA 3G 1,00M INT. CRU CORR, METAL",UN,,299,Ativo,0,179,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467362775,	,"BALCÃO PARA PIA 3G 1,00M INT. CRU CORR, METAL COR:BRANCO",UN,,299,Ativo,-2,179,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463871181,	,BALCÃO PARA PIA COPA,UN,,299,Ativo,0,"179,91",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463878482,	,BALCÃO PARA PIA COPA COR:BRANCO,UN,,299,Ativo,6,"179,91",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493405507,269,BALCÃO PARA PIA COPA COR:FREIJO/BAUNILHA,UN,,299,Ativo,8,"179,91",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463878514,	,BALCÃO PARA PIA COPA COR:FREIJO/CHUMBO,UN,,299,Ativo,0,"179,91",DACHERI,4,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16562420100,614,BALCÃO PARA PIA COPA COR:FREIJO/MOKA,UN,,299,Ativo,1,"179,91",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463878527,	,BALCÃO PARA PIA COPA COR:FREIJO/OFF WHITE,UN,,299,Ativo,0,"179,91",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463878492,	,BALCÃO PARA PIA COPA COR:MONTANA/AVELÃ,UN,,249,Ativo,0,172,DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463878504,	,BALCÃO PARA PIA COPA COR:NOGAL/BAUNILHA,UN,,299,Ativo,0,"179,91",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463878486,	,BALCÃO PARA PIA COPA COR:PRETO,UN,,299,Ativo,11,"179,91",DACHERI,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16614318869,746,Balcão para Pia de Cozinha 1.00m 1ª Linha JK,UN,,349,Ativo,0,218,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16614318877,747,COR:BRANCO,UN,,349,Ativo,4,218,JK,2,0.00,0.00,0.00,746,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466956549,	,BALCÃO PARA PIA GRECIA,UN,9403.40.00,379,Ativo,0,"198,24",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466959415,	,BALCÃO PARA PIA GRECIA COR:BRANCO,UN,9403.40.00,379,Ativo,3,"198,24",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16586818779,670,BALCÃO PARA PIA GRECIA COR:FREIJO/BAUNILHA,UN,9403.40.00,379,Ativo,1,"198,24",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466959427,	,BALCÃO PARA PIA GRECIA COR:FREIJO/CHUMBO,UN,9403.40.00,379,Ativo,3,"198,24",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16586818372,669,BALCÃO PARA PIA GRECIA COR:FREIJO/MOKA,UN,9403.40.00,379,Ativo,3,"198,24",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466959436,	,BALCÃO PARA PIA GRECIA COR:MONTANA/AVELA,UN,9403.40.00,379,Ativo,0,"198,24",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466959445,	,BALCÃO PARA PIA GRECIA COR:NOGAL/BAUNILHA,UN,9403.40.00,379,Ativo,2,"198,24",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16621803991,768,BALCÃO PARA PIA GRECIA COR:NOGAL/MOKA,UN,9403.40.00,379,Ativo,-1,"198,24",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16623036492,773,BALCÃO VIENA FIORELLO,UN,,199,Ativo,0,"123,79",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16623037127,774,COR:FREIJO C/ BRANCO,UN,,199,Ativo,5,"123,79",FIORELLO,0,0.00,0.00,0.00,773,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466156661,	,BANCADA AUSTIN,UN,,349,Ativo,0,"211,15",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466161370,	,BANCADA AUSTIN COR:CINAMOMO MEL/PEROLA METALIZADO,UN,,349,Ativo,-1,"211,15",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466161364,	,BANCADA AUSTIN COR:GRIGIO FOSCO / CINAMOMO MEL,UN,,349,Ativo,0,"211,15",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466161358,	,BANCADA AUSTIN COR:PEROLA METALIZADO/CINAMOMO MEL,UN,,349,Ativo,1,"211,15",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466058875,	,BANCADA CHARLOTTE,UN,,599,Ativo,0,"275,7",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466062689,	,BANCADA CHARLOTTE COR:CINAMOMO MEL,UN,,599,Ativo,1,"275,7",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466062683,	,BANCADA CHARLOTTE COR:PEROLA METALIZADO//CINAMOMO MEL,UN,,599,Ativo,1,"275,7",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16477630832,109,"Bancada Mobler Aurora 1pt Ripado Ptv 75""",UN,,499,Ativo,0,"143,15",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16464974545,	,BANCADA NT 1180,UN,,449,Ativo,0,259,MOVELIPE,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16464977581,	,BANCADA NT 1180 COR:FREIJÓ/OFF WHITE,UN,,449,Ativo,0,259,MOVELIPE,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16464977633,	,BANCADA NT 1180 COR:FREIJÓ/PRETO TX,UN,,449,Ativo,0,259,MOVELIPE,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465690679,	,BANCADA NT 1285,UN,,499,Ativo,0,285,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465691381,	,BANCADA NT 1285 COR:FREIJO/OFF WHITE,UN,,499,Ativo,0,285,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465691379,	,BANCADA NT 1285 COR:FREIJO/PRETO TX,UN,,499,Ativo,0,285,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465679003,	,BANCADA NT 1315,UN,,499,Ativo,0,285,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Metros
+16465681089,	,BANCADA NT 1315 COR:FREIJO/OFF WHITE,UN,,499,Ativo,0,285,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Metros
+16465681087,	,BANCADA NT 1315 COR:FREIJO/PRETO TX,UN,,499,Ativo,-1,285,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Metros
+16466140403,	,BANCADA TOLEDO,UN,,399,Ativo,0,"217,47",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466142690,	,BANCADA TOLEDO COR:GRIGIO FOSCO/CINAMOMO MEL,UN,,399,Ativo,1,"217,47",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466142703,	,BANCADA TOLEDO COR:PÉROLA METALIZADO/CARVALHO,UN,,399,Ativo,1,"217,47",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500157469,332,BANQUETA JADE,,,199,Ativo,0,"128,79",KAPPESBERG,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500198339,333,COR:CROMADA COR 110 DE METAL,,,199,Ativo,7,"128,79",KAPPESBERG,0,0.00,0.00,0.00,332,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500198342,334,COR:PRETO FOSCO COR 110 DE METAL,,,199,Ativo,2,"128,79",KAPPESBERG,0,0.00,0.00,0.00,332,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500205571,335,BANQUETA PETRA,,,199,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16500205573,336,COR:CROMADA COR 110 DE METAL,,,199,Ativo,12,"122,83",KAPPESBERG,0,0.00,0.00,0.00,335,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500205574,337,COR:PRETO FOSCO COR 110 DE METAL,,,199,Ativo,6,"83,48",KAPPESBERG,0,0.00,0.00,0.00,335,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506159325,381,Base Bau Jsw 088x188cm,UN,,499,Ativo,-4,"179,52",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505342250,363,Base Bau Jsw Multi 138x188cm Salvados,UN,,599,Ativo,-8,"201,42",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492800501,233,BASE BOX 138 SUED MUNDIAL FLEX,UN,,349,Ativo,0,198,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492804614,234,COR:MARROM,UN,,349,Ativo,3,198,MUNDIAL FLEX,0,0.00,0.00,0.00,233,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16492804615,235,COR:PRETO,UN,,349,Ativo,2,198,MUNDIAL FLEX,0,0.00,0.00,0.00,233,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16592556534,681,BASE BOX ADF 138X188X27,un,,399,Ativo,0,179,ADF BOX COMERCIO LTDA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16592559942,683,COR/TECIDO:VELUDO MARROM,un,,399,Ativo,3,179,ADF BOX COMERCIO LTDA,0,0.00,0.00,0.00,681,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16592559940,682,COR/TECIDO:VELUDO PRETO,un,,399,Ativo,1,179,ADF BOX COMERCIO LTDA,0,0.00,0.00,0.00,681,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16592562938,684,BASE BOX ADF 88X188X27,un,,299,Ativo,0,152,ADF BOX COMERCIO LTDA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16592562947,686,COR/TECIDO:VELUDO MARROM,un,,299,Ativo,2,159,ADF BOX COMERCIO LTDA,0,0.00,0.00,0.00,684,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16592562945,685,COR/TECIDO:VELUDO PRETO,un,,299,Ativo,-1,159,ADF BOX COMERCIO LTDA,0,0.00,0.00,0.00,684,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16482774716,132,BASE BOX BEGE/ LATERAIS REVESTIDAS,UN,,449,Ativo,0,200,EVALDO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16520531435,478,BASE BOX CONJUGADA LUCAS,UN,,199,Ativo,0,199,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468850292,48,BASE BOX IDEALSONO,UN,,0,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468857285,54,MEDIDA:138;COR:AZUL,UN,,0,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468857319,55,MEDIDA:138;COR:CINZA CLARO,UN,,0,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468857327,56,MEDIDA:138;COR:CINZA ESCURO,UN,,0,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468857357,58,MEDIDA:138;COR:MARROM ESCURO,UN,,0,Ativo,-1,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468857344,57,MEDIDA:138;COR:PRETO,UN,,0,Ativo,-2,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468857214,49,MEDIDA:88;COR:AZUL,UN,,299,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468857222,50,MEDIDA:88;COR:CINZA CLARO,UN,,299,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468857238,51,MEDIDA:88;COR:CINZA ESCURO,UN,,0,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468857265,53,MEDIDA:88;COR:MARROM ESCURO,UN,,299,Ativo,1,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468857250,52,MEDIDA:88;COR:PRETO,UN,,0,Ativo,0,165,IDEALSONO,0,0.00,0.00,0.00,48,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16505361814,364,BASE BOX MAJESTIC 188X138,UN,,449,Ativo,2,"251,52",SONOBEL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16586547634,668,base box majestic 188x88,un,,349,Ativo,0,"199,97",SONOBEL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480918543,122,BASE BOX POLIESTER MARROM QUADRICULADO,UN,9403.50.00,0,Ativo,0,0,CRISTALFLEX COLCHÕES,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480921431,124,TAMANHO:24X188X138,UN,,399,Ativo,-3,189,CRISTALFLEX COLCHÕES,3,0.00,0.00,0.00,122,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480920140,123,TAMANHO:24X188X88,UN,,299,Ativo,-1,159,CRISTALFLEX COLCHÕES,3,0.00,0.00,0.00,122,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480923468,125,TAMANHO:24X198X79,UN,,249,Ativo,-4,145,CRISTALFLEX COLCHÕES,3,0.00,0.00,0.00,122,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530856105,524,BASE BOX POLIESTER PRETO QUADRICULADO CRISTALFLEX,UN,9403.50.00,0,Ativo,0,0,CRISTALFLEX COLCHÕES,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530856109,526,TAMANHO:24X198X79,UN,,299,Ativo,4,"149,75",CRISTALFLEX COLCHÕES,4,0.00,0.00,0.00,524,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530856108,525,TAMANHO:24X203X96,UN,,349,Ativo,2,"180,68",CRISTALFLEX COLCHÕES,2,0.00,0.00,0.00,524,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492811437,236,"BASE BOX QUEEN 0,79 MUNDIAL FLEX",UN,,299,Ativo,0,165,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500962523,354,BASE BOX REVESTIDAS LATERAIS EVALDO,UN,,449,Ativo,0,200,EVALDO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500965654,356,COR:BEGE,UN,,449,Ativo,0,200,EVALDO,0,0.00,0.00,0.00,354,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500965651,355,COR:MARROM,UN,,449,Ativo,-2,200,EVALDO,0,0.00,0.00,0.00,354,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500965658,357,COR:PRETO,UN,,449,Ativo,0,200,EVALDO,0,0.00,0.00,0.00,354,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16596641839,692,BASE MAJESTIC 188X88,UN,,349,Ativo,0,212,MOLDESPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16548477776,570,Beliche Arauna Robusto,un,,599,Ativo,-2,"227,28",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466683946,	,BELICHE MILÃO TORNEADO,UN,,399,Ativo,0,252,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685875,	,BELICHE MILÃO TORNEADO COR:BRANCO;LARGURA:80,UN,,549,Ativo,0,298,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685879,	,BELICHE MILÃO TORNEADO COR:BRANCO;LARGURA:90,UN,,599,Ativo,0,330,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685865,	,BELICHE MILÃO TORNEADO COR:MARROM ESCURO;LARGURA:80,UN,,549,Ativo,5,298,JM,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685870,	,BELICHE MILÃO TORNEADO COR:MARROM ESCURO;LARGURA:90,UN,,599,Ativo,0,330,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685882,	,BELICHE MILÃO TORNEADO COR:MEL;LARGURA:80,UN,,549,Ativo,4,298,JM,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685889,	,BELICHE MILÃO TORNEADO COR:MEL;LARGURA:90,UN,,599,Ativo,0,330,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685853,	,BELICHE MILÃO TORNEADO COR:TABACO;LARGURA:80,UN,,549,Ativo,5,298,JM,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466685862,	,BELICHE MILÃO TORNEADO COR:TABACO;LARGURA:90,UN,,599,Ativo,0,330,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16499359261,308,Beliche Rubin Especial C/Grade Salvados,UN,,449,Ativo,-3,"152,19",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16536851860,549,Berco Henn Bala De Menta Multifuncional + Trocador Peroba,un,,449,Ativo,0,"186,35",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16498675440,302,Berço Mini Cama Permobili Liza /Biscoito Mdf Salvados,UN,,699,Ativo,0,"217,34",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16562765090,615,Berço Mini Cama Peroba Elo Salvados,UN,,499,Ativo,-1,"218,63",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530837689,520,"BOX DUBAI 24CM X 1,88M X 88CM CRISTALFLEX",un,,299,Ativo,1,"154,87",CRISTALFLEX COLCHÕES,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530843187,522,"BOX DUBAI 24CM X 1,98M X 79CM CRISTALFLEX",un,,299,Ativo,4,"149,71",CRISTALFLEX COLCHÕES,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16575430673,643,Cab Jsw Milena 88cm Estofado,UN,,299,Ativo,0,"77,85",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468802522,27,CABECEIRA ADEMIR,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16468805606,29,COR:ROSA;TAMANHO:138,UN,,279,Ativo,1,150,ADEMIR,0,0.00,0.00,0.00,27,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468805601,28,COR:ROSA;TAMANHO:88,UN,,229,Ativo,0,130,ADEMIR,0,0.00,0.00,0.00,27,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16616758653,749,CABECEIRA BEGE ADEMIR 088,,,199,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16468843427,47,CABECEIRA DE CASAL MARROM ESCURO EVALDO,UN,,449,Ativo,3,200,EVALDO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597074033,702,CABECEIRA DUDA AZUL,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16597074037,704,LARG.:138,UN,,299,Ativo,1,150,CONFORTO TOTAL,0,0.00,0.00,0.00,702,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597074036,703,LARG.:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,702,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597070501,698,CABECEIRA DUDA BEGE,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16597070510,700,LARG.:138,UN,,299,Ativo,1,150,CONFORTO TOTAL,0,0.00,0.00,0.00,698,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597070506,699,LARG.:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,698,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468790763,18,CABECEIRA DUDA MARROM,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16468799343,20,LARG.:138,UN,,299,Ativo,1,150,CONFORTO TOTAL,0,0.00,0.00,0.00,18,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468799329,19,LARG.:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,18,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492819626,237,CABECEIRA ESTRELA QUEEN MUNDIAL FLEX,UN,,349,Ativo,0,179,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492821485,238,COR:VELUDO CHOCOLATE,UN,,349,Ativo,2,179,MUNDIAL FLEX,0,0.00,0.00,0.00,237,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16492824708,239,CABECEIRA GABI 158 MUNDIAL FLEX,UN,,349,Ativo,0,157,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492825878,240,COR:BEGE,UN,,349,Ativo,0,157,MUNDIAL FLEX,0,0.00,0.00,0.00,239,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16597068496,695,CABECEIRA JADE BEGE,UN,,0,Ativo,0,0,CONFORTO TOTAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597068500,697,LARG.:138,UN,,299,Ativo,1,150,CONFORTO TOTAL,0,0.00,0.00,0.00,695,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597068497,696,LARG.:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,695,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468799892,21,CABECEIRA JADE CINZA,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16468799909,23,LARG.:138,UN,,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,21,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468799901,22,LARG.:88,UN,,199,Ativo,2,100,CONFORTO TOTAL,0,0.00,0.00,0.00,21,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549106693,571,CABECEIRA JADE MARROM,UN,,0,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549124184,572,TAMANHO:188X138,UN,,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,571,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524569937,486,CABECEIRA JADE PRETA,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16524569940,488,LARG.:138,UN,,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,486,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524569938,487,LARG.:88,UN,,199,Ativo,2,100,CONFORTO TOTAL,0,0.00,0.00,0.00,486,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16508259929,413,Cabeceira Jsw Amanda 158cm,UN,,229,Ativo,0,"59,51",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492786279,231,CABECEIRA LETICIA CACAU 158,UN,,349,Ativo,0,199,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492790688,232,COR:CACAU,UN,,349,Ativo,0,199,MUNDIAL FLEX,0,0.00,0.00,0.00,231,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16509738466,425,CABECEIRA PEROLA AZUL,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16509738468,427,LARG.:138,UN,,299,Ativo,1,150,CONFORTO TOTAL,0,0.00,0.00,0.00,425,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509738467,426,LARG.:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,425,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509737694,422,CABECEIRA PEROLA BEGE,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16509737696,424,LARG.:138,UN,,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,422,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597072336,701,LARG.:158,UN,,349,Ativo,1,170,CONFORTO TOTAL,0,0.00,0.00,0.00,422,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509737695,423,LARG.:88,UN,,199,Ativo,-1,100,CONFORTO TOTAL,0,0.00,0.00,0.00,422,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509740120,428,CABECEIRA PEROLA CINZA,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16509740122,430,LARG.:138,UN,9403.50.00,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,428,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524565886,484,LARG.:158,UN,,349,Ativo,2,170,CONFORTO TOTAL,0,0.00,0.00,0.00,428,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524565887,485,LARG.:197,UN,,399,Ativo,0,190,CONFORTO TOTAL,0,0.00,0.00,0.00,428,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509740121,429,LARG.:88,UN,,199,Ativo,3,100,CONFORTO TOTAL,0,0.00,0.00,0.00,428,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16547681922,568,CABECEIRA PEROLA MARROM,UN,,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16547682908,569,TAMANHO:138,UN,,299,Ativo,0,150,CONFORTO TOTAL,0,0.00,0.00,0.00,568,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16556051007,604,CABECEIRA PEROLA ROSE,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16556051667,605,TAMANHO:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,604,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468800104,24,CABECEIRA PEROLA VINHO,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16468800167,26,LARG.:138,UN,,299,Ativo,2,150,CONFORTO TOTAL,0,0.00,0.00,0.00,24,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468800115,25,LARG.:88,UN,,199,Ativo,0,100,CONFORTO TOTAL,0,0.00,0.00,0.00,24,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16583109030,654,CABECEIRA ROSA CASAL ADEMIR,UN,,299,Ativo,0,150,ADEMIR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16520370057,477,CABECEIRA SALVADOS,UN,,199,Ativo,0,199,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469342914,68,CADEIRA ALTA TALISMA,UN,,159,Ativo,0,"83,74",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16553178825,597,COR/MATERIAL:ANIMALE BEGE/TABACO,UN,,159,Ativo,0,"83,74",TALISMA,0,0.00,0.00,0.00,68,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469342918,69,COR/MATERIAL:CAMURÇA BEGE/TABACO,UN,,159,Ativo,0,"83,74",TALISMA,0,0.00,0.00,0.00,68,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16553178822,596,COR/MATERIAL:EGITO CHOCOLATE,UN,,159,Ativo,0,"83,74",TALISMA,0,0.00,0.00,0.00,68,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16506149035,379,COR/MATERIAL:SUED CINZA,UN,,159,Ativo,0,"83,74",TALISMA,0,0.00,0.00,0.00,68,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469342929,71,COR/MATERIAL:SUED/TABACO,UN,,159,Ativo,2,"83,74",TALISMA,0,0.00,0.00,0.00,68,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469342923,70,COR/MATERIAL:VELUDO CHOCOLATE/TABACO,UN,,159,Ativo,0,"83,74",TALISMA,0,0.00,0.00,0.00,68,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467676488,	,CADEIRA DE ESCRITÓRIO C80 BEST,UN,,99,Ativo,0,106,BEST,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467694425,	,CADEIRA DE ESCRITÓRIO C80 BEST COR:BRANCO,UN,,99,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16585334603,665,cadeira de escritorio salvados,UN,,199,Ativo,-1,180,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516166360,452,CADEIRA DIAMANTE CANDIAN,UN,,199,Ativo,0,"144,56",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516170176,453,COR ESTOFADO:LINHO 29011,UN,,199,Ativo,12,"144,56",JCM,0,0.00,0.00,0.00,452,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516170177,454,COR ESTOFADO:LINHO 29033,UN,,199,Ativo,6,"144,56",JCM,0,0.00,0.00,0.00,452,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16520573203,479,CADEIRA DIRETOR BEST-C220,UN,,279,Ativo,-1,"174,5",BEST,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466681259,	,CADEIRA DIRETOR C200 BEST,UN,,399,Ativo,0,278,BEST,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16499432622,310,CADEIRA EAMES C50,UN,,279,Ativo,0,"184,8",BEST,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16499433446,311,COR:BRANCO,UN,,279,Ativo,0,"184,8",BEST,0,0.00,0.00,0.00,310,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516337181,464,CADEIRA HORIZONTE CANDIAN,UN,,199,Ativo,0,"144,56",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516337183,465,ESTOFADO COR:JOLIE 2911-11 MARROM,UN,,199,Ativo,0,"144,56",JCM,0,0.00,0.00,0.00,464,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516337184,466,ESTOFADO COR:LINHO 29033,UN,,199,Ativo,8,"144,56",JCM,0,0.00,0.00,0.00,464,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16567066585,618,CADEIRA ITÁLIA ASSENTO PEQUENO TABACO,un,,199,Ativo,0,113,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469327907,60,CADEIRA MADRI TALISMA,UN,9403.60.00,199,Ativo,0,"111,3",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469331353,62,COR/MATERIAL:CAMURÇA BEGE/TABACO,UN,9403.60.00,199,Ativo,0,"111,3",TALISMA,0,0.00,0.00,0.00,60,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469331362,63,COR/MATERIAL:TECIDO CINZA/TABACO,UN,9403.60.00,199,Ativo,0,"111,3",TALISMA,0,0.00,0.00,0.00,60,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469331347,61,COR/MATERIAL:VELUDO CHOCOLATE/TABACO,UN,9403.60.00,199,Ativo,-6,"111,3",TALISMA,0,0.00,0.00,0.00,60,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16547555971,566,CADEIRA POP TALISMA,UN,,159,Ativo,0,"74,2",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16547555978,567,COR/MATERIAL:ANIMALE BEGE/TABACO,UN,,159,Ativo,0,"74,2",TALISMA,0,0.00,0.00,0.00,566,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16561228147,613,COR/MATERIAL:EGITO BEGE/TABACO,UN,,159,Ativo,0,"74,2",TALISMA,0,0.00,0.00,0.00,566,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516329043,457,CADEIRA RUBIN CANDIAN,UN,,199,Ativo,0,"144,56",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516330555,459,ESTOFADO COR:LINHO 29011,UN,,199,Ativo,8,"144,56",JCM,0,0.00,0.00,0.00,457,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516330554,458,ESTOFADO COR:LINHO 2904,UN,,199,Ativo,0,"144,56",JCM,0,0.00,0.00,0.00,457,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469333906,64,CADEIRA VENEZA TALISMA,UN,,159,Ativo,0,"74,2",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469336332,65,COR/MATERIAL:CAMURÇA BEGE/TABACO,UN,,159,Ativo,-2,"74,2",TALISMA,0,0.00,0.00,0.00,64,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16527150273,514,COR/MATERIAL:SUED/CINZA,UN,,159,Ativo,0,"74,2",TALISMA,0,0.00,0.00,0.00,64,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469336341,67,COR/MATERIAL:SUED/TABACO,UN,,159,Ativo,-4,"74,2",TALISMA,0,0.00,0.00,0.00,64,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469336335,66,COR/MATERIAL:VELUDO CHOCOLATE/TABACO,UN,,159,Ativo,11,"74,2",TALISMA,0,0.00,0.00,0.00,64,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467701638,	,Cama Arauna Robusta,UN,,279,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16467633712,	,"Cama Bibox Cimol Elza 97,5x207cm salvados",UN,,549,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16544108433,556,Cama Carioca Paula,un,,299,Ativo,0,"91,13",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507582521,409,"CAMA DE CASAL BARCELONA MOVELIPE 1,38",UN,,799,Ativo,0,437,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507583761,411,COR:AMENDOA,UN,,799,Ativo,0,437,MOVELIPE,0,0.00,0.00,0.00,409,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16507583760,410,COR:BRANCA,UN,,799,Ativo,0,437,MOVELIPE,0,0.00,0.00,0.00,409,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16556052847,606,CAMA JUVENIL CARROS MOVELIPE,UN,,549,Ativo,0,309,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16567069102,619,CAMA SOLTEIRO ATENAS (COLCHAO 88 CM) IMBUIA,un,,349,Ativo,1,190,JM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16521583164,480,Cj Armario Banheiro Sander Monaco 3pt 1gv Esp+Pia,UN,,349,Ativo,-2,"92,54",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16584272380,656,Cj Armario Banheiro Sander Monaco 3pt 1gv Esp+Pia,UN,,299,Ativo,1,"100,95",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16552292796,592,Cj De Mesa Ciplafe Expert 4 Banq Dobrável 72x72 Salvados,un,,449,Ativo,0,"110,98",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16550027862,581,"Cj Mesa Indekes Lisboa 0,90 4 Cad Linho SALVADOS",UN,,599,Ativo,-1,"180,52",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16601162502,724,CJ MESA INDEKES TALITA 4CAD 10089.1797 Freijo/Off/Linho,UN,,499,Ativo,0,"125,03",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16498361399,301,Cj Sala De Jantar Belmov Alice 160cm 6cad Siena SALVADOS,UN,,"1.699,00",Ativo,0,"571,56",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16618767270,754,CJ SALA JANTAR MADETAL MOSCOU 136CM 4CAD GRECIA,UN,,"1.199,00",Ativo,0,"237,12",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16589221087,676,CJ SALA JANTAR MADETAL MOSCOU 136CM 4CAD GRECIA 4-172 Cinza SALVADOS,UN,,999,Ativo,-1,"215,4",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16621788976,767,CJ SALA JANTAR MADETAL MOSCOU 154CM 6CAD,un,,"1.399,00",Ativo,-1,"352,32",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16620385721,765,CJ SL JANT RUFATO LONDRINA 180 MDFVD 6CD NEVADA 34611.235.569.19 Graf/Nat/Linho Grafite,UN,,"1.400,00",Ativo,-1,"445,38",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16613417433,741,CJ SL JANTAR RUFATO BERLIM 120 MDFVD 4CD LONDRINA  GRAFITE Grafite SALVADOS,UN,,"1.399,00",Ativo,-1,"559,56",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16596744274,693,CJ SL JANTAR RUFATO BERLIM 120 MDFVD 4CD LONDRINA 34607.235.569.19 Graf/Nat/Linho Grafite,UN,,"1.199,00",Ativo,0,"279,63",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16498817258,305,Colc Castor Black White Double Face 27 158x198cm,UN,,"1.599,00",Ativo,0,"564,44",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16604874345,733,COLC CASTOR BLACK WHITE DOUBLE FACE 27 158X198CM SALVADOS,,,"1.899,00",Ativo,-1,"508,76",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468190884,6,COLCHÃO  (BOX) CONJUGADO 188X88X41 D-28,UN,,499,Ativo,0,"310,46",FORMSPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16503873575,358,"COLCHÃO 0,78 FOR SPUMA USADO DO LUCAS",UN ,,100,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16518434059,473,"COLCHÃO 1,38 CASAL ALT 30 EVALDO MOLA ENSACADA",UN,,699,Ativo,0,699,EVALDO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468175282,5,"COLCHAO 188X138X20 STRATUS AG 65 BORD. 1,38X20 D65",UN,,649,Ativo,1,"384,82",FORMSPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16614113906,745,COLCHÃO CASAL SOBRAL REZENDE DALLAS 188X138,un,,899,Ativo,-1,899,SOBRAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16464822299,	,COLCHÃO DE SOLTEIRO NUVOLE,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16552007576,591,Colchao Diference New Nobel 138x188x30 SALVADOS,un,9404.29.00,"1.299,00",Ativo,-1,"461,27",salvados,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468203329,8,COLCHÃO DREAM GAZIN,UN,,0,Ativo,0,0,GAZIN,0,0.00,0.00,0.00,	,,,,0,<p>seila</p>,0,	,,0,NÃO,NÃO,,Centímetro
+16468229130,14,TAMANHO:130X60,UN,,119,Ativo,2,"77,84",GAZIN,0,0.00,0.00,0.00,8,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468229121,13,TAMANHO:130X70,UN,,159,Ativo,-5,"86,06",GAZIN,0,0.00,0.00,0.00,8,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468229113,12,TAMANHO:150X70,UN,,179,Ativo,4,"91,26",GAZIN,0,0.00,0.00,0.00,8,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468214994,9,TAMANHO:188X138,UN,,399,Ativo,0,"237,02",GAZIN,3,0.00,0.00,0.00,8,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468215016,11,TAMANHO:188X78,UN,,199,Ativo,10,129,GAZIN,3,0.00,0.00,0.00,8,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468215000,10,TAMANHO:188X88,UN,,249,Ativo,-1,144,GAZIN,3,0.00,0.00,0.00,8,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599028611,715,COLCHÃO GAZIN ESPUMA COMPOSTO CONFORT SOFT LISO MARROM,UN,,0,Ativo,0,0,GAZIN,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599028614,716,TAMANHO:14 X 188 X 138,UN,,599,Ativo,5,"380,36",GAZIN,1,0.00,0.00,0.00,715,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599031351,717,TAMANHO:14 X 188 X 78,UN,,369,Ativo,5,"240,38",GAZIN,0,0.00,0.00,0.00,715,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599034342,718,TAMANHO:14 X 188 X 88,UN,,399,Ativo,5,"253,14",GAZIN,0,0.00,0.00,0.00,715,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16574464211,638,COLCHAO GAZIN ESPUMA SUPREME D20,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16574464217,641,TAMANHO:14 X 188 X 138,UN,,399,Ativo,15,"237,02",GAZIN,1,0.00,0.00,0.00,638,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16574464213,639,TAMANHO:14 X 188 X 78,UN,,199,Ativo,1,"139,08",GAZIN,2,0.00,0.00,0.00,638,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16574464215,640,TAMANHO:14 X 188 X 88,UN,,249,Ativo,7,"150,78",GAZIN,2,0.00,0.00,0.00,638,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477289956,102,COLCHAO GAZIN ESPUMA SUPREME D28,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16477298937,105,TAMANHO:14 X 188 X 138,UN,,599,Ativo,4,"335,56",GAZIN,1,0.00,0.00,0.00,102,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477298934,103,TAMANHO:14 X 188 X 78,UN,,369,Ativo,4,"205,46",GAZIN,2,0.00,0.00,0.00,102,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477298935,104,TAMANHO:14 X 188 X 88,UN,,399,Ativo,0,"215,79",GAZIN,2,0.00,0.00,0.00,102,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599063523,719,COLCHAO GAZIN MOLA NEW YORK HF MOLEJO MOLAS ENSACADAS,UN,,"1.099,00",Ativo,0,0,GAZIN,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599065580,720,MEDIDA:26 X 188 X 138,UN,,"1.099,00",Ativo,6,0,GAZIN,0,0.00,0.00,0.00,719,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16495718901,297,"colchão gazin solteiro salvados 0,88",un,,149,Ativo,-1,149,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16529488329,515,COLCHÃO HENTARES 78 PRETO,un,,199,Ativo,0,"149,5",SOBRAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597059557,694,COLCHÃO HENTARES 88 PRETO,un,,199,Ativo,2,169,SOBRAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505363081,365,COLCHÃO MAJESTIC 188X138,UN,,999,Ativo,1,"561,17",MOLDESPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16596640917,691,COLCHÃO MAJESTIC 188X88,UN,,599,Ativo,2,361,MOLDESPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480928741,126,COLCHÃO MOLA ENSACADA INDIVIDUALMENTE EXCEL CRISTALFLEX,UN,,0,Ativo,0,0,CRISTALFLEX COLCHÕES,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480928743,128,TAMANHO:22X188X138,UN,,949,Ativo,2,510,CRISTALFLEX COLCHÕES,1,0.00,0.00,0.00,126,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480928742,127,TAMANHO:22X198X156,UN,,"1.049,00",Ativo,0,579,CRISTALFLEX COLCHÕES,1,0.00,0.00,0.00,126,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530852336,523,TAMANHO:25X203X193,UN,,"1.299,00",Ativo,0,"724,84",CRISTALFLEX COLCHÕES,1,0.00,0.00,0.00,126,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480915107,119,COLCHÃO MOLA ENSACADA INDIVIDUALMENTE FLASH,UN,,0,Ativo,0,0,CRISTALFLEX COLCHÕES,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480918077,121,TAMANHO:22X188X138,UN,,749,Ativo,0,410,CRISTALFLEX COLCHÕES,2,0.00,0.00,0.00,119,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480918075,120,TAMANHO:22X188X88,UN,,579,Ativo,5,"314,21",CRISTALFLEX COLCHÕES,2,0.00,0.00,0.00,119,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530841534,521,TAMANHO:22X198X158,UN,,949,Ativo,2,"521,41",CRISTALFLEX COLCHÕES,1,0.00,0.00,0.00,119,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469235702,59,COLCHÃO MOLA POCKET 1P VENNTI 188X138X25CM,UN,,899,Ativo,3,"487,35",FORMSPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468198160,7,COLCHÃO MOLA POCKET 1P VENNTI 188X88X25CM,UN,,499,Ativo,2,"285,91",FORMSPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468128307,1,COLCHÃO NUVOLE,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Metros
+16468143806,2,TAMANHO:188X138,UN,,369,Ativo,6,"199,27",FORMSPUMA,2,0.00,0.00,0.00,1,,,,0,,0,	,,0,NÃO,NÃO,,Metros
+16468143822,3,TAMANHO:188X78,UN,,179,Ativo,6,"130,68",FORMSPUMA,3,0.00,0.00,0.00,1,,,,0,,0,	,,0,NÃO,NÃO,,Metros
+16468143838,4,TAMANHO:188X88,UN,,199,Ativo,6,"137,9",FORMSPUMA,3,0.00,0.00,0.00,1,,,,0,,0,	,,0,NÃO,NÃO,,Metros
+16576626832,646,colchão queen mola ensacada usado(seu luiz),un,,700,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16478748705,111,"COLCHAO STRATUS AG 65 BORD. 0,88X20 D65",UN,,459,Ativo,4,"252,61",FORMSPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500096038,315,COMODA 4 GVTS 2 PTS ALBA,UN,,749,Ativo,0,"418,13",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500099380,317,COR:ANGELIN/ANGELIN/BOUCLE,UN,,749,Ativo,1,"418,13",CASTRO,2,0.00,0.00,0.00,315,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500099378,316,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,,749,Ativo,1,"418,13",CASTRO,3,0.00,0.00,0.00,315,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500115619,321,COMODA 8 GVTS LARA,UN,,679,Ativo,0,"372,24",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500120656,324,COR:ANGELIN/ANGELIN/BOUCLE,UN,,679,Ativo,1,"372,24",CASTRO,2,0.00,0.00,0.00,321,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500120652,322,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,,679,Ativo,4,"372,24",CASTRO,2,0.00,0.00,0.00,321,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506755193,392,COR:CEDRO/CEDRO/BOUCLE,UN,,679,Ativo,6,"372,24",CASTRO,2,0.00,0.00,0.00,321,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500120654,323,COR:MACADÂMIA/MACADÂMIA/BOUCLE,UN,,679,Ativo,1,"372,24",CASTRO,2,0.00,0.00,0.00,321,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16484179106,148,Comoda Bebe Permobili Encanto 4gv Salvados,un,,649,Ativo,0,"179,52",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530291333,519,COMODA CAMARIM  IDEAL BRANCO,UN,9403.50.00,479,Ativo,0,0,Moval,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530282685,518,COMODA CAMARIM BELLA  BRANCO,UN,,699,Ativo,3,"394,81",Moval,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16570937007,627,COMODA CAMARIM SONHOS  BRANCO,UN,,799,Ativo,2,"454,54",Moval,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516367261,471,Comoda Evidencia Austin 10 Gv salvados,un,,349,Ativo,-1,"128,28",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16598373337,714,COMODA EVIDENCIA CP25 2PT 5GV cp251 Branco,,,399,Ativo,0,"87,85",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840936,223,COMODA FRANCA SAPATEIRA 3 PTS 2 PTS,UN,,999,Ativo,0,"487,2",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16608075893,737,COR:BRANCO,UN,,999,Ativo,0,"487,2",MOPAR,0,0.00,0.00,0.00,223,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490841044,224,COR:FREIJO/FREIJO,UN,,999,Ativo,2,"487,2",MOPAR,1,0.00,0.00,0.00,223,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509409627,414,COR:FREIJO/GRAFITE,UN,,999,Ativo,0,"487,2",MOPAR,1,0.00,0.00,0.00,223,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549525143,579,COR:FREIJO/OFF WHITE,UN,,999,Ativo,-1,"487,2",MOPAR,1,0.00,0.00,0.00,223,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840056,216,COMODA GEORGIA MOVAL,UN,,849,Ativo,0,"514,03",MOVAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16525424217,493,COR:CAR/FENDI,UN,,849,Ativo,1,"480,26",Moval,1,0.00,0.00,0.00,216,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840057,217,COR:FREIJO/CINZA,UN,,849,Ativo,3,"480,26",Moval,2,0.00,0.00,0.00,216,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494377912,278,COR:FREIJO/OFF WHITE,UN,,849,Ativo,1,"480,26",Moval,2,0.00,0.00,0.00,216,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465589092,	,COMODA GRECIA MOPAR,UN,,549,Ativo,0,"296,8",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16587685659,671,COMODA GRECIA MOPAR COR:BRANCO,UN,,549,Ativo,4,"296,8",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16604118834,730,COMODA GRECIA MOPAR COR:FREIJO/FREIJO,UN,,549,Ativo,1,"296,8",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465668355,	,COMODA GRECIA MOPAR COR:FREIJO/GRAFITE,UN,,549,Ativo,1,"296,8",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465668360,	,COMODA GRECIA MOPAR COR:FREIJO/OFF WHITE,UN,,549,Ativo,3,"296,8",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549429316,573,comoda lara salvados,un,,599,Ativo,0,"180,29",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16518620705,474,Comoda Londres Salvados,UN,,399,Ativo,-2,"127,21",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465402821,	,COMODA MALTA,UN,,449,Ativo,0,"239,2",MOPAR,0,0.00,0.00,0.00,	,,W,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465403467,	,COMODA MALTA COR:BRANCO,UN,,449,Ativo,0,"239,2",MOPAR,1,0.00,0.00,0.00,	,,W,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465403462,	,COMODA MALTA COR:FREIJO/GRAFITE,UN,,449,Ativo,0,"239,2",MOPAR,1,0.00,0.00,0.00,	,,W,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465403457,	,COMODA MALTA COR:FREIJO/OFF WHITE,UN,,449,Ativo,1,"239,2",MOPAR,1,0.00,0.00,0.00,	,,W,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16594964903,690,Comoda Moval Texas 4gv 2pt SALVADOS,UN,,699,Ativo,-1,"195,82",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493401762,268,COMODA MS913 MOVELIPE 4G,UN,9403.50.00,299,Ativo,0,176,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493406622,273,COR:BRANCO - 913440,UN,9403.50.00,299,Ativo,0,176,MOVELIPE,0,0.00,0.00,0.00,268,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493406618,270,COR:CASTANHO - 913331,UN,9403.50.00,299,Ativo,0,176,MOVELIPE,0,0.00,0.00,0.00,268,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493406619,271,COR:FREIJO/CINZA - 913031,UN,9403.50.00,299,Ativo,0,176,MOVELIPE,0,0.00,0.00,0.00,268,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493406620,272,COR:FREIJO/OFFWHITE - 913032,UN,9403.50.00,299,Ativo,0,176,MOVELIPE,0,0.00,0.00,0.00,268,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16597176377,705,COMODA SAP VENUS 707032,UN,,499,Ativo,0,"287,68",MOVAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597177939,707,COR:BRANC/ROS/AZU/LIL,UN,,499,Ativo,3,"287,68",MOVAL,0,0.00,0.00,0.00,705,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16597177936,706,COR:FREIJO/OFF WHITE,UN,,499,Ativo,3,"287,68",MOVAL,0,0.00,0.00,0.00,705,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500110875,318,COMODA SAPATEIRA 1 PT 3 GAVTS 1 SP LILLE,UN,,449,Ativo,0,"283,3",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500113182,319,COR:ANGELIN/ANGELIN/BOUCLE,UN,,449,Ativo,0,"283,3",CASTRO,2,0.00,0.00,0.00,318,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500113183,320,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,,449,Ativo,5,"283,3",CASTRO,3,0.00,0.00,0.00,318,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16474552914,100,Comoda Sapateira Evidencia 5 Gv 1pt,UN,,299,Ativo,0,94,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465587432,	,COMODA TEXAS MOPAR,UN,,699,Ativo,0,"387,2",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465588165,	,COMODA TEXAS MOPAR COR:BRANCO,UN,,699,Ativo,0,"387,2",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465588172,	,COMODA TEXAS MOPAR COR:FREIJO/GRAFITE,UN,,699,Ativo,2,"387,2",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465588170,	,COMODA TEXAS MOPAR COR:FREIJO/OFF WHITE,UN,,699,Ativo,1,"387,2",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490839466,213,COMODA TEXAS MOVAL,UN,,799,Ativo,0,"482,24",MOVAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494377389,277,COR:BRANCO,UN,,799,Ativo,1,"450,58",MOVAL,2,0.00,0.00,0.00,213,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16529803604,517,COR:CAR/FENDI,UN,,799,Ativo,1,"450,58",MOVAL,1,0.00,0.00,0.00,213,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490839754,215,COR:FREIJO,UN,,799,Ativo,1,"450,58",MOVAL,2,0.00,0.00,0.00,213,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16529803601,516,COR:FREIJO/CINZA,UN,,799,Ativo,0,"450,58",MOVAL,2,0.00,0.00,0.00,213,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490839753,214,COR:FREIJO/OFF WHITE,UN,,799,Ativo,3,"450,58",MOVAL,2,0.00,0.00,0.00,213,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465401628,	,COMODA TOKYO,UN,,349,Ativo,0,"193,6",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465402184,	,COMODA TOKYO COR:BRANCO,UN,,349,Ativo,0,"193,6",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465402167,	,COMODA TOKYO COR:FREIJO/GRAFITE,UN,,349,Ativo,1,"193,6",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465402201,	,COMODA TOKYO COR:FREIJO/OFF WHITE,UN,,349,Ativo,0,"193,6",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16494814212,294,CONJUNTO MAJESTIC 188X88,UN,,999,Ativo,0,573,MOLDESPUMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16579467696,649,CONJUNTO MESA SL JT SONETTO ISA 120CM VD C/4CAD ELEGANCE (SALVADOS SALA DE JANTAR),UN,,"1.199,00",Ativo,-1,"301,85",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599227257,723,CONJUNTO SALA DE JANTAR 6/ CD 180X90 BASE ESTILO X SALVADOS,,,"1.999,00",Ativo,-1,559,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16622806726,770,Coz Modulada Indekes Firenze 5pc,UN,,"1.999,00",Ativo,0,"697,82",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490472668,197,COZINHA 4 PECAS/PPIA VOLLARE,UN,,"1.599,00",Ativo,0,"821,14",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490476616,199,COR:BRANCA,UN,,"1.599,00",Ativo,2,"821,14",FIORELLO,0,0.00,0.00,0.00,197,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490476615,198,COR:PRETA,UN,,"1.599,00",Ativo,0,"821,14",FIORELLO,0,0.00,0.00,0.00,197,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490836684,204,COZINHA COMPACTA EVELYN,UN,,699,Ativo,0,"385,62",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490836835,205,COR:ANGELIN/DAMASCO,UN,,699,Ativo,1,"385,62",MÓVEIS SUL,2,0.00,0.00,0.00,204,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490836836,206,COR:CARVALHO/OFF WHITE,UN,,699,Ativo,0,"385,62",MÓVEIS SUL,2,0.00,0.00,0.00,204,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466952262,	,COZINHA COMPACTA GEÓRGIA CHUMBO/CHUMBO,UN,,"1.249,00",Ativo,0,"616,4",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466946360,	,COZINHA COMPACTA JULLY,UN,,999,Ativo,0,631,DACHERI,0,0.00,0.00,4.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493387620,264,COZINHA COMPACTA JULLY COR:FREIJO/BAUNILHA,UN,,"1.099,00",Ativo,1,631,DACHERI,1,0.00,0.00,4.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466946365,	,COZINHA COMPACTA JULLY COR:FREIJO/CHUMBO,UN,,999,Ativo,1,631,DACHERI,2,0.00,0.00,4.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466948048,	,COZINHA COMPACTA JULLY COR:FREIJO/MOKA,UN,,"1.099,00",Ativo,2,631,DACHERI,2,0.00,0.00,4.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466946381,	,COZINHA COMPACTA JULLY COR:MONTANA/AVELA,UN,,999,Ativo,0,631,DACHERI,0,0.00,0.00,4.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466946374,	,COZINHA COMPACTA JULLY COR:NOGAL/BAUNILHA,UN,,"1.099,00",Ativo,2,631,DACHERI,1,0.00,0.00,4.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490837405,207,COZINHA COMPACTA SOPHIA,UN,,599,Ativo,0,"340,81",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490837406,208,COR:ANGELIN/GRAFITE,UN,,599,Ativo,5,"340,81",MÓVEIS SUL,2,0.00,0.00,0.00,207,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466933508,	,COZINHA COMPACTA TOKYO,UN,,"1.199,00",Ativo,0,"587,49",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466935282,	,COZINHA COMPACTA TOKYO COR:FREIJO/CHUMBO,UN,,"1.199,00",Ativo,0,"587,49",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466935317,	,COZINHA COMPACTA TOKYO COR:MONTANA/AVELA,UN,,"1.199,00",Ativo,0,"587,49",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466935301,	,COZINHA COMPACTA TOKYO COR:NOGAL/BAUNILHA,UN,,"1.199,00",Ativo,0,"587,49",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490836334,202,COZINHA COMPACTA YARA,UN,,549,Ativo,0,"311,43",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490836522,203,COR:AMENDOA/NUDE,UN,,549,Ativo,3,"311,43",MÓVEIS SUL,2,0.00,0.00,0.00,202,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16496497450,300,COZINHA DÁLIA NEW FREIJO/FUME SALVADOS,UN,,649,Ativo,-3,"159,8",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493396874,265,COZINHA GEORGIA MDP,UN,,"1.249,00",Ativo,0,"653,88",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493398546,266,COR:FREIJO/BAUNILHA,UN,,"1.249,00",Ativo,1,"653,88",DACHERI,1,0.00,0.00,0.00,265,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493398547,267,COR:FREIJO/MOKA,UN,,"1.249,00",Ativo,2,"653,88",DACHERI,1,0.00,0.00,0.00,265,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465709340,	,CRIADO MUDO APOLO MOVELIPE,UN,,199,Ativo,0,117,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465712992,	,CRIADO MUDO APOLO MOVELIPE COR:CASTANHO/AVELÃ/OFF FLEX,UN,,199,Ativo,-1,117,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465712969,	,CRIADO MUDO APOLO MOVELIPE COR:FREIJO,UN,,199,Ativo,1,117,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16464081530,	,CRIADO MUDO AROMA 1G,UN,,199,Ativo,0,"111,3",FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16464081581,	,CRIADO MUDO AROMA 1G COR:BRANCO,UN,,199,Ativo,10,"111,3",FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16464081552,	,CRIADO MUDO AROMA 1G COR:PRETO,UN,,199,Ativo,5,"111,3",FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463945161,	,CRIADO MUDO AROMA 2G,UN,,199,Ativo,0,"122,67",FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463947784,	,CRIADO MUDO AROMA 2G COR:BRANCO,UN,,199,Ativo,10,"122,67",FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463947767,	,CRIADO MUDO AROMA 2G COR:PRETO,UN,,199,Ativo,7,"122,67",FIORELLO,0,0.00,0.00,0.00,	,,FIORELLO,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16572956248,634,CRIADO MUDO MILÃO MOPAR,UN,,249,Ativo,0,"95,28",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16572956808,635,COR:FREIJO/OFF WHITE,UN,,249,Ativo,-1,"95,28",MOPAR,0,0.00,0.00,0.00,634,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16475319543,101,Cristaleira Hb Moveis Aura 2pt 1gv C/Led,UN,,800,Ativo,-2,0,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16532653283,539,Dormitorio Casal Santos Andira Lugano 7pt 2gv Esp,un,,"1.599,00",Ativo,0,"664,29",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16604862727,732,ESCRIVANINHA DEMOBILE VITORIA 1PT 1g SALVADOS,UN,,249,Ativo,-1,"49,21",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466259665,	,ESCRIVANINHA PENTE PLAY,UN,,349,Ativo,0,"197,24",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466259924,	,ESCRIVANINHA PENTE PLAY COR:BRANCO,UN,,349,Ativo,0,"197,24",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16511749141,440,ESCRIVANINHA PENTEADEIRA MONALISA NEW,UN,,549,Ativo,0,294,FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16511751967,441,COR:BRANCO BRILHO,UN,,549,Ativo,5,294,FIORELLO,0,0.00,0.00,0.00,440,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16470946481,86,ESPELHEIRA EUFORIA,UN,,179,Ativo,0,"88,9",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16470947665,87,COR:FREIJO/BRANCO,UN,,179,Ativo,0,"88,9",FIORELLO,0,0.00,0.00,0.00,86,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16551353025,583,Estaçao De Trabalho Zanzini Max 1gv,un,,199,Ativo,0,"110,11",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467743601,	,ESTANTE AGNE,UN,9403.50.00,199,Ativo,0,100,AGNE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467744697,	,ESTANTE AGNE COR:MARROM CRU,UN,9403.50.00,199,Ativo,-4,100,AGNE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16505971701,372,ESTANTE AGNE COR:VARIADA,UN,9403.50.00,199,Ativo,-6,100,AGNE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16531741439,534,Estante de Metal/MDP Usada,un,,349,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16544758481,557,ESTANTE SALA DE ESTAR USADA,un,,600,Ativo,0,200,USADOS,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599175383,721,ESTOF MACIEL CHILE 3LUG 200CM VELUDO 696.0.668 Veludo Grafite,UN,,"1.399,00",Ativo,0,"281,57",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16618763837,753,ESTOF MACIEL CHILE 3LUG 230CM VELUDO,UN,,"1.099,00",Ativo,0,"306,35",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16575133300,642,ESTOF RIU TEXAS 4LUG 290CM 2MOD VELUDO 869 Veludo Cinza,UN,,"2.499,00",Ativo,0,557,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16584467248,662,ESTOF RIU VENEZA 3LUG 230CM VELUDO 958.15 Veludo Cinza,UN,,"1.999,00",Ativo,0,"443,39",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16564162716,617,ESTOF VIERO ARTEMIS 3LUG 230CM VELUDO 31023 Veludo Marfim,un,9401.61.00,899,Ativo,0,"328,09",salvados,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597980178,712,ESTOF VIERO JAGUAR 3LUG 200CM VELUDO 33723 Bombom,UN,,899,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Metros
+16570167371,626,FIXAÇÃO DO PAINEL,UN,,30,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,,	,,,NÃO,NÃO,,Centímetro
+16511766593,446,FRUTEIRA REGIA,UN,,249,Ativo,0,"128,33",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16511767844,447,COR:BRANCO,UN,,249,Ativo,2,"128,33",FIORELLO,0,0.00,0.00,0.00,446,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16511767846,448,COR:FREIJO C/ BRANCO,UN,,249,Ativo,1,"128,33",FIORELLO,0,0.00,0.00,0.00,446,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16522653907,482,G  Roupa Evidencia Treviso 4 Pt 6gv,UN,,499,Ativo,0,"180,56",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507389264,408,G Roupa Aramoveis Coimbra 3pt 2gv Cpes,UN,,399,Ativo,0,"111,97",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16538041999,551,G Roupa Aramoveis Coimbra 3pt 2gv Cpes (salvados),un,,399,Ativo,0,"111,97",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16525883391,497,G Roupa Araplac B234818 8pt C/Pes Salvados,UN,,999,Ativo,0,"298,07",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16539910628,555,G Roupa Atualle Vitoria 5pt 4gv C/Espelho,un,,549,Ativo,-2,"197,89",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16582724414,653,G ROUPA BIANCHI ALVORADA 6PT 6GV 43574.1 Branco,UN,,"1.649,00",Ativo,0,"416,79",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16577319102,647,G ROUPA BIANCHI BIANCA 6PT 6GV,un,,"1.349,00",Ativo,-1,"336,24",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16495971408,299,G Roupa Casal Atualle Real 6pt 2gv Esp Pes,UN,,549,Ativo,-6,"159,48",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16536862460,550,G Roupa Casal Atualle Real 6pt 2gv Esp Pes,un,,699,Ativo,0,"175,43",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16593041636,687,G Roupa Casal Made Marcs Verona Plus 2pt 4gv C/Esp SALVADOS,un,,"1.499,00",Ativo,-1,"411,23",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16550163735,582,G Roupa Casal Tcil Veneza 6pt 4gv,un,,"1.599,00",Ativo,0,"431,53",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16601217569,726,G Roupa Demartez Laredo 4p 2p Esp Flex 4gv SALVADOS,UN,,"1.999,00",Ativo,-1,"778,4",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16568131276,622,G Roupa Demobile Cadis 4pt 6gv Esp Pes,UN,,999,Ativo,-2,"364,82",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16554162742,601,G Roupa Demobile Moema 3pt 2gv SALVADOS,UN,,"1.499,00",Ativo,0,"363,82",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16571467343,628,G ROUPA DORIPEL NEW XANGAI 6PT 2GV MDF 68600-130 Lunar Nogueira,UN,,699,Ativo,-1,"175,53",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524919820,492,G Roupa Doripel Panama 4pt 3gv C/ Espelho Salvados,UN,,549,Ativo,-2,"221,64",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16470930013,85,G Roupa Doripel Rosario 4pt 2gv,UN,,549,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16521586062,481,G Roupa Doripel Rosario 4pt 2gv,UN,,399,Ativo,0,"130,9",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16556954959,607,G Roupa Doripel Rosario 4pt 2gv Salvados,un,,399,Ativo,0,"130,9",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16563283372,616,G Roupa Doripel Santiago 6pt 2gv,UN,,749,Ativo,0,"227,96",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597939504,711,G Roupa Europa Potente 6pt 6gv,UN,,"1.999,00",Ativo,0,"599,03",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16554190506,602,G Roupa Evidencia Atalaia 4pt 2gv salvados,un,,499,Ativo,0,"155,54",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549908598,580,G Roupa Faimec Europa 3pt 3gv C/Espelho Salvados,un,,549,Ativo,-2,"176,72",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16534332866,546,G Roupa Faimec Fortaleza 6pt 2gv Rip,un,,999,Ativo,0,"272,13",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16473171369,93,G Roupa Faimec Laguna 5pt 1gv SALVADOS,UN,,449,Ativo,-10,"120,92",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16560045681,611,G Roupa Faimec Monaco 7pt 2gv C/Esp SALVADOS,UN,,"1.299,00",Ativo,0,"408,42",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16581048987,651,G Roupa Made Marcs Lugano 2pt 4gv Rip 1esp Salvados,UN,,"1.399,00",Ativo,-1,"456,6",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16618521641,750,G Roupa Maxel Cannes 6pt 6gv,UN,,"1.299,00",Ativo,2,"415,25",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505793929,371,G Roupa Maxel San Marino 3pt 2gv C/Esp Flex Salvados,UN,,799,Ativo,-4,"266,86",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468685757,16,G Roupa Maxel San Marino 3pt 2gv Flex Salvados,UN,,700,Ativo,-5,"266,86",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16599222676,722,G ROUPA MODULADO CARIOCA BELEM  salvados,un,,649,Ativo,-1,392,salvados,0,3.00,3.00,3.00,	,,3,,0,<p>343</p>,0,	,,0,NÃO,NÃO,,Centímetro
+16506135588,374,G Roupa Modulado Luciane Master 3pt 2gv,UN,,799,Ativo,0,"261,76",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16495962767,298,G Roupa Moval Araguaia 6pt 4gv Rip Cesp,UN,,"1.999,00",Ativo,0,850,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16611457030,740,G Roupa Moval Araguaia 6pt 4gv Rip Cesp SALVADOS,,,"1.899,00",Ativo,-1,"640,5",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16594828113,689,G Roupa Moval Colorado 2pt 3gv branco avariado SALVADOS,UN,,"1.099,00",Ativo,1,"338,24",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16585260012,664,G Roupa Moval Colorado 2pt 3gv SALVADOS,UN,,"1.499,00",Ativo,-2,"486,49",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16552547780,593,G Roupa Moval Panama 6pt 2gv,un,,599,Ativo,0,"200,78",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16585353660,667,G ROUPA NOTAVEL NT5015 4PT 3GV NT5015.454534 Freijo Trend/Off White,UN,,599,Ativo,-2,"163,14",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16588672880,674,G ROUPA NOTAVEL NT6010 4PT 2GV NT6010.753292 Freijo Trend/Off White TX,UN,,399,Ativo,0,"94,63",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16472966722,91,G Roupa Rufato Grecia 6pt 2gv SALVADOS,UN ,,"1.029,00",Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16520064844,475,G Roupa Rufato Verona 6pt 2gv,UN,,"1.099,00",Ativo,0,"283,39",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16571534516,631,G Roupa Thb Absolut Plus 7 Pt 8 Gv,UN,,"1.599,00",Ativo,0,"588,32",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467583689,	,G Roupa Thb Splendore Glass 4 Pt 2 Gv C/Espelho Salvados,UN,,0,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16610217451,739,G ROUPA THB SPLENDORE GLASS 4 PT 2 GV C/ESPELHO SALVADOS,,,"1.349,00",Ativo,0,"275,94",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466980152,	,GABINETE DE BANHEIRO VENEZA FREIJO/BRANCO,UN,,449,Ativo,1,"303,86",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466992168,	,GABINETE DE BANHEIRO VERONA FREIJO/BRANCO,UN,,399,Ativo,0,"265,6",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506135604,375,GAVETEIRO OFFICE PRESENCE 4G SALVADOS,UN,,249,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16506135831,376,COR:CINZA,UN,,249,Ativo,-1,0,,0,0.00,0.00,0.00,375,,,,0,,0,	,,,SIM,NÃO,,Centímetro
+16506135832,377,COR:MARROM,UN,,249,Ativo,0,0,,0,0.00,0.00,0.00,375,,,,0,,0,	,,,SIM,NÃO,,Centímetro
+16490839145,211,GUARA ROUPA COLORADO C/ ESP,UN,,"1.999,00",Ativo,0,"1.080,23",Moval,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490839146,212,COR:FREIJO/OFF WHITE,UN,,"1.999,00",Ativo,1,"1.080,23",Moval,0,0.00,0.00,0.00,211,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16506690015,388,GUARDA ROUPA 6 PTS 2 GVTS VERONA,UN,,"1.249,00",Ativo,0,"680,81",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506706952,390,COR:ANGELIN/BRANCO LINE/ANGELIN/BOUCLE,UN,,"1.249,00",Ativo,4,"680,81",CASTRO,2,0.00,0.00,0.00,388,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506706950,389,COR:ANGELIN/DUNA LINE/ANGELIN/BOUCLE,UN,,"1.249,00",Ativo,2,"680,81",CASTRO,2,0.00,0.00,0.00,388,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500138566,327,GUARDA ROUPA 6 PTS SONATA NEW SEM ESP,UN,9403.50.00,"1.449,00",Ativo,0,"782,33",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500146698,328,COR:ANGELIN/DUNA LINE/BOUCLE,UN,9403.50.00,"1.449,00",Ativo,2,"782,33",CASTRO,2,0.00,0.00,0.00,327,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506080113,373,COR:ANGELIN/TITÂNIO/BOUCLE,UN,9403.50.00,"1.449,00",Ativo,-2,"782,33",CASTRO,2,0.00,0.00,0.00,327,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500146699,329,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,9403.50.00,"1.449,00",Ativo,1,"782,33",CASTRO,2,0.00,0.00,0.00,327,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467579089,	,GUARDA ROUPA 9G 3PTS SALVADOS,UN,,599,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16584913190,663,Guarda Roupa Belém 2 Portas de Correr com Espelho Salvados,UN,,799,Ativo,0,"225,21",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489196804,186,GUARDA ROUPA BERGAMO 9 GAVETAS 6 PORTAS SALVADO,UN,,599,Ativo,0,"202,4",salvados,0,40.00,180.00,150.00,	,,EVIDENCIA,,0,"<p>&lt;h2&gt;Características do Produto&lt;/h2&gt;</p>
+<p>&lt;div style=""padding: 10px; border: 2px solid red; background-color: #ffe6e6; margin-bottom: 15px;""&gt;&lt;strong&gt;Atenção:&lt;/strong&gt; Esta é uma peça única dos ""Salvados"". Pode apresentar pequenas imperfeições, conforme mostrado nas últimas fotos. Por esse motivo, o preço está reduzido.&lt;/div&gt;</p>
+<p>&lt;p&gt;O Guarda Roupa Casal 6 Portas 9 Gavetas Bergamo Evidência combina funcionalidade e design para seu quarto. Com amplo espaço interno, suas prateleiras e gavetas permitem organizar roupas e acessórios de forma prática, mantendo tudo sempre à mão. Ideal para quem busca organização sem abrir mão da estética.&lt;/p&gt;</p>
+<p>&lt;h3&gt;Características:&lt;/h3&gt;</p>
+<p>&lt;ul&gt;</p>
+<p>&lt;li&gt;Estrutura em MDP&lt;/li&gt;</p>
+<p>&lt;li&gt;6 Portas&lt;/li&gt;</p>
+<p>&lt;li&gt;9 Gavetas&lt;/li&gt;</p>
+<p>&lt;li&gt;Corrediças plásticas&lt;/li&gt;</p>
+<p>&lt;/ul&gt;</p>
+<p>&lt;h3&gt;Dimensões:&lt;/h3&gt;</p>
+<p>&lt;ul&gt;</p>
+<p>&lt;li&gt;Altura: 180 cm&lt;/li&gt;</p>
+<p>&lt;li&gt;Largura: 150 cm&lt;/li&gt;</p>
+<p>&lt;li&gt;Profundidade: 40 cm&lt;/li&gt;</p>
+<p>&lt;li&gt;Peso: 86,00 kg&lt;/li&gt;</p>
+<p>&lt;/ul&gt;</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16597179784,708,GUARDA ROUPA CALIFORNIA FREIJO/OFF WHITE,UN,,"2.199,00",Ativo,2,"1.180,42",MOVAL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505397555,366,GUARDA ROUPA CANCUN 6 PTS 4 GVTS,UN,,"1.949,00",Ativo,0,"1.067,20",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505398585,367,COR:BRANCO,UN,,"1.949,00",Ativo,0,"1.067,20",MOPAR,0,0.00,0.00,0.00,366,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465385667,	,GUARDA ROUPA CHILE 3 PORTAS E 2 GAVETAS,UN,9403.50.00,549,Ativo,0,"323,2",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465387521,	,GUARDA ROUPA CHILE 3 PORTAS E 2 GAVETAS COR:BRANCO,UN,9403.50.00,549,Ativo,-1,"323,2",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465387529,	,GUARDA ROUPA CHILE 3 PORTAS E 2 GAVETAS COR:FREIJO/GRAFITE,UN,9403.50.00,549,Ativo,1,"323,2",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465387539,	,GUARDA ROUPA CHILE 3 PORTAS E 2 GAVETAS COR:FREIJO/OFFWHITE,UN,9403.50.00,549,Ativo,2,"323,2",MOPAR,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16597467769,710,Guarda Roupa de Bebê com Cantoneira SALVADOS,un,,449,Ativo,-1,449,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16533147382,540,GUARDA ROUPA ESTRELA 6 PORTAS 2 GAVETAS,un,,"1.199,00",Ativo,0,"752,8",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16533152061,541,COR:FREIJO/FREIJO,un,,"1.199,00",Ativo,-2,"752,8",MOPAR,0,0.00,0.00,0.00,540,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16602680858,728,COR:FREIJO/GRAFITE,un,,"1.199,00",Ativo,0,"752,8",MOPAR,0,0.00,0.00,0.00,540,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16602680857,727,COR:FREIJO/OFF WHITE,un,,"1.199,00",Ativo,1,"752,8",MOPAR,0,0.00,0.00,0.00,540,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490840388,218,GUARDA ROUPA FLORIDA 6 PORTAS 2 GAVETAS,UN,,"1.449,00",Ativo,0,"801,6",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840531,219,COR:FREIJO/GRAFITE,UN,,"1.449,00",Ativo,1,"857,6",MOPAR,2,0.00,0.00,0.00,218,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840532,220,COR:FREIJO/OFF WHITE,UN,,"1.449,00",Ativo,1,"801,6",MOPAR,2,0.00,0.00,0.00,218,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16587969954,672,guarda roupa isabela 9g 3 pts evidencia,UN,,699,Ativo,0,"173,66",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840683,221,GUARDA ROUPA LUGANO 6PTS 4 GAV,UN,,"2.249,00",Ativo,0,"1.239,20",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16490840773,222,COR:FREIJO/FREIJO,UN,,"2.249,00",Ativo,0,"1.239,20",MOPAR,0,0.00,0.00,0.00,221,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16621854039,769,COR:FREIJO/OFF WHITE,UN,,"2.249,00",Ativo,-1,"1.239,20",MOPAR,0,0.00,0.00,0.00,221,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16504816413,360,Guarda Roupa Lyon c/ Esp,UN,,749,Ativo,0,"391,75",DORIPEL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16504817299,361,COR:CASTANHO,UN,,749,Ativo,0,"391,75",DORIPEL,0,0.00,0.00,0.00,360,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16506677378,383,GUARDA ROUPA LYON PLUS 3PTS CORRER,UN,,"1.249,00",Ativo,0,"692,55",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506682483,384,COR:ANGELIN/DUNA LINE/BOUCLE,UN,,"1.249,00",Ativo,0,"692,55",CASTRO,2,0.00,0.00,0.00,383,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506682484,385,COR:ANGELIN/TITÂNIO/BOUCLE,UN,,"1.249,00",Ativo,4,"692,55",CASTRO,2,0.00,0.00,0.00,383,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465032028,	,GUARDA ROUPA MALI NEW,UN,,949,Ativo,0,"517,91",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530893544,532,GUARDA ROUPA MALI NEW COR:CEDRO/BLANC/BOUCLE,UN,,949,Ativo,1,"517,91",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506726238,391,GUARDA ROUPA MALI NEW COR:CEDRO/DUNA LINE/BOUCLE,UN,,949,Ativo,2,"517,91",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16584466065,659,GUARDA ROUPA MODULADO PARIS MOPAR,UN,,"2.049,00",Ativo,0,"1.138,40",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16584466568,660,COR:FREIJO/GRAFITE,UN,,"2.049,00",Ativo,0,"1.138,40",MOPAR,0,0.00,0.00,0.00,659,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16584466570,661,COR:FREIJO/OFF WHITE,UN,,"2.049,00",Ativo,0,"1.138,40",MOPAR,0,0.00,0.00,0.00,659,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16505399715,368,GUARDA ROUPA MONACO 8 PORTAS 2 GAVETAS,UN,,"1.599,00",Ativo,0,892,MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505401396,369,COR:FREIJO/GRAFITE,UN,,"1.599,00",Ativo,0,892,MOPAR,0,0.00,0.00,0.00,368,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16576613818,645,Guarda Roupa Montreal 6 Portas 2 Gavetas  salvados,un,,599,Ativo,-1,"217,9",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480014626,112,GUARDA ROUPA MONZA 4 PORTAS E 2 GAVETAS,UN,9403.50.00,749,Ativo,0,"452,6",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480014629,113,COR:BRANCO,UN,9403.50.00,749,Ativo,1,"452,6",MOPAR,1,0.00,0.00,0.00,112,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480014630,114,COR:FREIJO/GRAFITE,UN,9403.50.00,749,Ativo,1,"452,6",MOPAR,2,0.00,0.00,0.00,112,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480014632,115,COR:FREIJO/OFFWHITE,UN,9403.50.00,749,Ativo,1,"452,6",MOPAR,1,0.00,0.00,0.00,112,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500132709,325,GUARDA ROUPA MOSCOU 3 PTS 2 GVTS SOLUTION,UN,,549,Ativo,0,"290,15",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500135546,326,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,,549,Ativo,6,"290,15",CASTRO,2,0.00,0.00,0.00,325,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500149346,330,COR:MACADÂMIA/BLANC/BOUCLE,UN,,549,Ativo,2,"290,15",CASTRO,2,0.00,0.00,0.00,325,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516533666,472,COR:MACADÂMIA/MACADÂMIA/BOUCLE,UN,,549,Ativo,0,"290,15",CASTRO,2,0.00,0.00,0.00,325,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465397790,	,GUARDA ROUPA NEW YORK 21706 MDF 6 PTS CASTANHO NUDE,UN,,"1.249,00",Ativo,0,"576,44",DORIPEL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483280060,147,Guarda Roupa Paris Salvados,UN,,"1.099,00",Ativo,-13,"268,68",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530879098,528,GUARDA ROUPA PEQUIM 6 PTS 2 GVTS SOLUTION,UN,9403.50.00,849,Ativo,0,"477,75",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530879102,529,COR:BRANCO LINE/ BRANCO LINE/ BOUCLE,UN,9403.50.00,849,Ativo,0,"477,75",CASTRO,2,0.00,0.00,0.00,528,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530879106,530,COR:MACADAMIA/BLANC/BOUCLE,UN,9403.50.00,849,Ativo,-3,"477,75",CASTRO,2,0.00,0.00,0.00,528,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530879110,531,COR:MACADAMIA/MACADAMIA/BOUCLE,UN,9403.50.00,849,Ativo,3,"477,75",CASTRO,2,0.00,0.00,0.00,528,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506685205,386,GUARDA ROUPA RUDÁ 2 PTS 2 GVTS,UN,9403.50.00,"1.099,00",Ativo,0,"609,89",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506687616,387,COR:BRANCO LINE/BRANCO LINE-DUNA LINE/BOUCLE,UN,,"1.099,00",Ativo,1,"625,2",CASTRO,2,0.00,0.00,0.00,386,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16511807760,449,COR:CEDRO/BRANCO LINE-DUNA LINE/BOUCLE,UN,9403.50.00,"1.099,00",Ativo,1,"609,89",CASTRO,2,0.00,0.00,0.00,386,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16499365417,309,GUARDA ROUPA SIDNEY 6 PTS 2 GV OFF WHITE SALVADOS,UN,,549,Ativo,1,"145,24",salvados,0,137.00,175.00,38.00,	,,Doripel,,0,"<p>Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete</p>
+<p> </p>
+<p>Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito</p>
+<p>⚠️ Aceitamos Senff, com juros, em até 10x.</p>
+<p> </p>
+<p>✅ À vista tem desconto no pix, débito ou dinheiro!</p>
+<p> </p>
+<p>✅ Sem custo de frete para endereços com menos de 5km de distância</p>
+<p> </p>
+<p>✅ Montagem por nossa conta - para a retirada ou entrega.</p>
+<p> </p>
+<p>✅ Atendimento Via WhatsApp</p>
+<p>https://wa.me/5541997493547</p>
+<p> </p>
+<p>VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:</p>
+<p>https://matheusmorante002.wixsite.com/moveismorante</p>
+<p> </p>
+<p>___________________________________</p>
+<p> </p>
+<p>Móveis Morante </p>
+<p>▶ CNPJ: 44.512 248/0001-07</p>
+<p>Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )</p>
+<p>Rua Cascavel, 306, Guaraituba, Colombo - PR</p>
+<p>____________________________________</p>
+<p> </p>
+<p>ESPECIFICAÇÕES:</p>
+<p>‼️Móvel do lote dos salvados, peça única, por isso contém avarias, como mostrado nas últimas fotos. Preço reduzido de 649 para 499. Aproveite‼️</p>
+<p> </p>
+<p>O Guarda Roupa Solteiro 6 Portas 2 Gavetas Sidney Doripel é um produto compacto porém funcional para atender as necessidades diarias, oferece espaço para armazenar as roupa e acessórios com maior organização. O móvel é fabricado em MDP o que garante uma maior durabilidade ao produto.</p>
+<p> </p>
+<p> </p>
+<p>Características:</p>
+<p>6 Portas</p>
+<p>2 Gavetas</p>
+<p>Corrediças plásticas</p>
+<p>Estrutura em MDP 12mm</p>
+<p>Medidas prateleiras 44x33cm com 12mm de espessura</p>
+<p>Puxadores PVC</p>
+<p>Prateleira suporta 3kg cada</p>
+<p> </p>
+<p> </p>
+<p>Dimensões:</p>
+<p>Altura: 175 cm</p>
+<p>Largura: 137 cm</p>
+<p>Profundidade: 38 cm</p>
+<p>Peso: 62,00 kg</p>",0,	,,0,NÃO,NÃO,,Centímetro
+16619541196,758,"GUARDA ROUPA THB PRESENCE 2,10 6 PORTAS",UN,,"1.399,00",Ativo,1,"329,07",salvados,0,47.00,219.00,210.00,	,,THB,,0,"<div style=""font-family: Arial, sans-serif; line-height: 1.6; color: #333;"">
+<h2>Guarda-Roupa Casal 6 Portas Presence THB</h2>
+<p style=""color: #b30000; font-weight: bold;"">⚠️ ATENÇÃO: Peça única de mostruário e do lote dos salvados.<br />O produto contém imperfeições/avarias, conforme mostrado nas fotos.</p>
+<p>O <strong>Guarda-Roupa Presence THB</strong> combina design moderno com excelente funcionalidade, sendo ideal para quem busca organização e aproveitamento inteligente de espaço. Seu interior foi projetado para atender às necessidades do dia a dia, com amplo espaço para roupas, calçados e acessórios.</p>
+<p>Com ótima divisão interna, conta com cabideiros resistentes, prateleiras versáteis e gavetas espaçosas, garantindo praticidade e eficiência. Um produto completo com excelente custo-benefício.</p>
+<h3>✅ Características</h3>
+<ul>
+<li>6 Portas</li>
+<li>2 Gavetas internas</li>
+<li>Corrediças metálicas</li>
+<li>3 Prateleiras removíveis</li>
+<li>5 Tampos fixos</li>
+<li>6 Puxadores</li>
+<li>8 Sapatas deslizantes em PVC</li>
+<li>2 Cabideiros em alumínio/metálico</li>
+<li>2 Maleiros embutidos</li>
+<li>Estrutura em MDP e MDF</li>
+</ul>
+<h3> Dimensões</h3>
+<ul>
+<li>Altura: 219 cm</li>
+<li>Largura: 210 cm</li>
+<li>Profundidade: 47 cm</li>
+<li>Peso: 119 kg</li>
+</ul>
+<h3> Destaques</h3>
+<ul>
+<li>Amplo espaço interno para melhor organização</li>
+<li>Ideal para roupas longas e volumosas</li>
+<li>Design moderno que combina com diversos ambientes</li>
+<li>Estrutura resistente e durável</li>
+</ul>
+</div>",0,	,,0,NÃO,NÃO,,Centímetro
+16465230945,	,GUARDA ROUPA TOQUIO 4 PTS 2 GVTS SOLUTION,UN,,649,Ativo,0,"357,52",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465384728,	,GUARDA ROUPA TOQUIO 4 PTS 2 GVTS SOLUTION COR:BRANCO BOUCLE,UN,,649,Ativo,3,"357,52",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465384743,	,GUARDA ROUPA TOQUIO 4 PTS 2 GVTS SOLUTION COR:MACADAMIA/BLANC/BOUCLE,UN,,649,Ativo,2,"357,52",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16530873258,527,GUARDA ROUPA TOQUIO 4 PTS 2 GVTS SOLUTION COR:MACADAMIA/MACADAMIA/BOUCLE,UN,,649,Ativo,2,"357,52",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16532307743,536,GUARDA ROUPA TURIM MDF MOPAR,un,,"1.399,00",Ativo,0,"778,4",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16532308889,537,COR:BRANCO,un,,"1.399,00",Ativo,-1,"778,4",MOPAR,0,0.00,0.00,0.00,536,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490841157,225,GUARDA ROUPA VIENA 4PTS 2GAV,UN,,"1.599,00",Ativo,0,924,MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509735159,421,COR:FREIJO/FREIJO,UN,,"1.599,00",Ativo,0,924,MOPAR,0,0.00,0.00,0.00,225,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16490841280,226,COR:FREIJO/OFF WHITE,UN,,"1.599,00",Ativo,1,924,MOPAR,0,0.00,0.00,0.00,225,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486543239,152,HOME CORUMBAU,UN,,799,Ativo,0,"446,86",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486546662,153,COR:FENDI/CARVALHO,UN,,799,Ativo,1,"446,86",BECHARA,0,0.00,0.00,0.00,152,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486546663,154,COR:NATURELLE FRESADO/OFF WHITE,UN,,799,Ativo,1,"446,86",BECHARA,0,0.00,0.00,0.00,152,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16489201735,187,HOME MARAGOGI,UN,,"1.099,00",Ativo,0,"592,93",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489204554,188,COR:FENDI/CARVALHO,UN,,"1.099,00",Ativo,0,"592,93",BECHARA,0,0.00,0.00,0.00,187,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467641766,	,INSTALAÇÃO DE AÉREO,,,30,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,,	,,,NÃO,NÃO,,Centímetro
+16468727395,17,INSTALAÇÃO DO BALCÃO,UN,,30,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,,	,,,NÃO,NÃO,,Centímetro
+16484978317,149,JUROS SENFF,UN,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,,	,,,NÃO,NÃO,,Centímetro
+16503937632,359,KIT 1 FORNO KITS PARANA SALVADOS,UN,,299,Ativo,0,"206,65",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466802708,	,KIT 1 FORNOS 70 MDP VENEZA,UN,,449,Ativo,0,"245,73",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466848845,	,KIT 1 FORNOS 70 MDP VENEZA COR:BRANCO,UN,,449,Ativo,0,"245,73",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466802741,	,KIT 1 FORNOS 70 MDP VENEZA COR:FREIJO/BAUNILHA,UN,,449,Ativo,0,"245,73",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466802726,	,KIT 1 FORNOS 70 MDP VENEZA COR:FREIJO/CHUMBO,UN,,449,Ativo,0,"245,73",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16471219557,89,Kit Cozinha Aramoveis Catarina 9pt 1gv (SALVADOS),UN,,949,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16494776328,285,KIT FORNO/MICRO 70 CM FLORENÇA,UN,9403.40.00,799,Ativo,0,"438,5",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494778508,287,COR:ANGELIN/CINZA,UN,9403.40.00,799,Ativo,6,"438,5",MÓVEIS SUL,2,0.00,0.00,0.00,285,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494778506,286,COR:CANARY/OFF WHITE,UN,9403.40.00,799,Ativo,4,"438,5",MÓVEIS SUL,2,0.00,0.00,0.00,285,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466912908,	,KIT SANTIAGO 90 MDP,UN,9403.40.00,499,Ativo,0,"280,84",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466915300,	,KIT SANTIAGO 90 MDP COR:FREIJO/BAUNILHA,UN,9403.40.00,499,Ativo,1,"280,84",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466915311,	,KIT SANTIAGO 90 MDP COR:FREIJO/CHUMBO,UN,9403.40.00,499,Ativo,0,"280,84",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466916690,	,KIT SANTIAGO 90 MDP COR:MONTANA/AVELÃ,UN,,399,Ativo,0,"280,84",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467035523,	,KIT TORRE QUENTE BALLI,UN,,449,Ativo,0,"213,83",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467038341,	,KIT TORRE QUENTE BALLI COR:BRANCO,UN,,449,Ativo,0,"213,83",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467038358,	,KIT TORRE QUENTE BALLI COR:FREIJO/GRAFITE,UN,,449,Ativo,0,"213,83",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467038332,	,KIT TORRE QUENTE BALLI COR:FREIJO/OFF WHITE,UN,,449,Ativo,0,"213,83",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465179917,	,"KIT VALPARAISO 1,20 MDP",UN,,649,Ativo,0,"389,27",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466974938,	,"KIT VALPARAISO 1,20 MDP COR:FREIJO/BAUNILHA",UN,,649,Ativo,6,"380,38",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465186472,	,"KIT VALPARAISO 1,20 MDP COR:FREIJO/CHUMBO",UN,,649,Ativo,6,"380,38",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16524340759,483,"KIT VALPARAISO 1,20 MDP COR:FREIJO/MOKA",UN,,649,Ativo,1,"380,38",DACHERI,1,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16551730589,587,LIVREIRO 4 PRATELEIRAS MONTREAL,un,,299,Ativo,0,"182,52",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16551733949,588,COR:ANGELIN,un,,299,Ativo,1,"182,52",MÓVEIS SUL,0,0.00,0.00,0.00,587,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16551733953,589,COR:BRANCO,un,,299,Ativo,3,"182,52",MÓVEIS SUL,0,0.00,0.00,0.00,587,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16551734828,590,COR:PRETO,un,,299,Ativo,0,"182,52",MÓVEIS SUL,0,0.00,0.00,0.00,587,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16554152064,600,mesa 1m x 1m onix c/vidro serigrado ffendi base tempranillo TALISMA,un,9403.60.00,499,Ativo,-2,276,TALISMA,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16560109256,612,mesa 1m x 1m onix c/vidro serigrado preto base tempranillo TALISMA,un,9403.60.00,499,Ativo,0,276,TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16614609593,748,MESA CENTRO ARTELY CLEAR Off White SALVADOS,UN,,349,Ativo,-1,"91,19",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16531824159,535,Mesa Centro Artely Saara Salvados,un,,149,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16500323728,344,MESA COM 2 BANCOS,UN,,699,Ativo,0,"344,64",KAPPESBERG,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500323730,345,COR:CANELA/BRANCO,UN,,699,Ativo,2,"344,64",KAPPESBERG,0,0.00,0.00,0.00,344,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500323732,346,COR:FREIJO/PRETO FOSCO,UN,,699,Ativo,1,"344,64",KAPPESBERG,0,0.00,0.00,0.00,344,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16555251657,603,Mesa De Cabeceira Atualle 0238r 2gv,UN,,120,Ativo,0,"32,09",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16534507440,547,mesa de centro bechara presente,un,,249,Ativo,1,0,BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493378727,257,MESA DE CENTRO LIMA,UN,,329,Ativo,0,"179,48",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493381054,258,COR:NATURALLE/OFF WHITE,UN,,329,Ativo,1,"179,48",BECHARA,0,0.00,0.00,0.00,257,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16513988677,451,MESA NÁPOLI 70X70 CRAQ C/ 4 CAD FLORAL PRETO,UN,,699,Ativo,0,379,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16621270010,766,MESA NOTAVEL OFFICE NT 2010 2GV FLEX COLOR NT2010,un,,349,Ativo,-1,"75,84",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500092026,312,MESA OFFICE 1 GAVETA INFINITY,UN,,249,Ativo,0,"131,33",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506673622,382,COR:ANGELIN/BOUCLE,UN,,249,Ativo,2,"131,33",CASTRO,0,0.00,0.00,0.00,312,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500094807,314,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,,249,Ativo,-1,"131,33",CASTRO,0,0.00,0.00,0.00,312,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500094806,313,COR:CEDRO/BOUCLE,UN,,249,Ativo,-1,"131,33",CASTRO,0,0.00,0.00,0.00,312,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16480256360,117,MESA OFFICE 2050,UN,,449,Ativo,0,305,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16480261232,118,COR:PRETO,UN,,449,Ativo,0,305,MOVELIPE,0,0.00,0.00,0.00,117,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16547283596,564,MESA PARA 6 CAD TALISMA COR:CARVALHO/CASTELLI,UN,9403.40.00,399,Ativo,0,"190,8",TALISMA,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16464820388,	,MESA PARA ESCRITÓRIO TURIM,UN,,299,Ativo,0,"158,56",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16464821388,	,MESA PARA ESCRITÓRIO TURIM COR:AMENDOA,UN,,299,Ativo,-1,"158,56",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16464821386,	,MESA PARA ESCRITÓRIO TURIM COR:BRANCO,UN,,299,Ativo,0,"158,56",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16464821385,	,MESA PARA ESCRITÓRIO TURIM COR:PRETO,UN,,299,Ativo,0,"158,56",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469350539,75,MESA POP CABERNET 120X90 TALISMA,UN,,349,Ativo,0,"171,72",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469350545,77,COR:CABERNET/BRANCO;cor:CARVALHO/CASTELLI,UN,,349,Ativo,-2,"171,72",TALISMA,0,0.00,0.00,0.00,75,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469350543,76,COR:CABERNET/TABACO,UN,,349,Ativo,-2,"171,72",TALISMA,0,0.00,0.00,0.00,75,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469347007,72,MESA POP CABERNET 90X90 TALISMA,UN,,299,Ativo,0,"134,62",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469349061,74,COR:CABERNET/BRANCO,UN,,299,Ativo,0,"134,62",TALISMA,0,0.00,0.00,0.00,72,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16547548681,565,COR:CARVALHO/CASTELLI,UN,,299,Ativo,5,"134,62",TALISMA,0,0.00,0.00,0.00,72,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469349046,73,COR:CARVALHO/TABACO,UN,,299,Ativo,-4,"134,62",TALISMA,0,0.00,0.00,0.00,72,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16483178065,145,MESA PRAIANA 4 CAD,UN,,799,Ativo,0,419,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483178068,146,COR:FREIJÓ/BEGE,UN,,799,Ativo,0,419,MOVELIPE,0,0.00,0.00,0.00,145,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500351627,350,MESA REDONDA COM BANCOS PIZZA ESTOFADOS,UN,,749,Ativo,0,"420,96",KAPPESBERG,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500351631,351,COR:CANELA/BRANCO,UN,,749,Ativo,-1,"420,96",KAPPESBERG,0,0.00,0.00,0.00,350,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500351633,352,COR:FREIJO/PRETO FOSCO,UN,,749,Ativo,0,"420,96",KAPPESBERG,0,0.00,0.00,0.00,350,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516172799,455,"MESA ROBUSTA CANDIAN 1,60 X 0,80 C/VIDRO CANTO COPO",UN,,999,Ativo,0,"545,11",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516174185,456,COR:CINAMOMO/OFF WHITE,UN,,999,Ativo,2,"545,11",JCM,0,0.00,0.00,0.00,455,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516339115,467,"MESA ROBUSTA CANDIAN 1,60 X 0,80 TAMP. AMADEIRADO S/VIDRO",UN,9403.40.00,699,Ativo,0,"343,33",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516339117,468,COR:CINAMOMO,UN,9403.40.00,699,Ativo,1,"343,33",JCM,0,0.00,0.00,0.00,467,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16532492903,538,"MESA ROMA 1,20X75 CRAQ C/ 4CAD BAIXA FLORAL PRETO",un,9403.40.00,999,Ativo,1,539,MOVELIPE,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500208880,338,"MESA SECRETARIA 1,18MT",UN,,299,Ativo,0,"167,78",KAPPESBERG,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500272874,339,COR:CANELA/BRANCO,UN,,299,Ativo,4,"167,78",KAPPESBERG,0,0.00,0.00,0.00,338,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500272876,340,COR:FREIJO/PRETO FOSCO,UN,,299,Ativo,1,"167,78",KAPPESBERG,0,0.00,0.00,0.00,338,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500313438,341,"MESA SECRETARIA 1,36MT",UN,,349,Ativo,0,"180,31",KAPPESBERG,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16500313442,342,COR:CNBR,UN,,349,Ativo,5,"180,31",KAPPESBERG,0,0.00,0.00,0.00,341,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500313446,343,COR:FREIJO/PRETO FOSCO,UN,,349,Ativo,0,"180,31",KAPPESBERG,0,0.00,0.00,0.00,341,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516332126,460,"MESA SIMPATIA CANDIAN 0,90 X 0,90 CC C/VIDRO",UN,9403.40.00,"1.099,00",Ativo,0,"575,24",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516333811,461,COR:CINAMOMO/OFF WHITE,UN,9403.40.00,"1.099,00",Ativo,0,"575,24",JCM,0,0.00,0.00,0.00,460,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516341029,469,"MESA SIMPATIA CANDIAN 0,90 X 0,90 S/VIDRO TAMP. AMADEIRADO",UN,9403.40.00,899,Ativo,0,"451,76",JCM,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516341031,470,COR:CINAMOMO,UN,9403.40.00,899,Ativo,2,"451,76",JCM,0,0.00,0.00,0.00,469,,,28.061.00,0,,0,	,,0,SIM,NÃO,,Centímetro
+16516335277,462,"MESA SIMPATIA CANDIAN 1,20 X 0,80 CC C/VIDRO",UN,,"1.299,00",Ativo,0,"623,43",JCM,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16516335278,463,COR:CINAMOMO/OFF WHITE,UN,,"1.299,00",Ativo,3,"623,43",JCM,0,0.00,0.00,0.00,462,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16469352284,78,MESA SUPERFICIE DE VIDRO SAIA ALTA,UN,,649,Ativo,0,"348,72",TALISMA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469356725,82,COR:BRANCO MARMORIZADO/BRANCO;BASE:BARCELONA,UN,,649,Ativo,0,"348,74",TALISMA,0,0.00,0.00,0.00,78,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469356717,81,COR:BRANCO MARMORIZADO/BRANCO;BASE:COUNTRY,UN,,699,Ativo,0,"391,14",TALISMA,0,0.00,0.00,0.00,78,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469356714,80,COR:BRANCO MARMORIZADO/TABACO;BASE:BARCELONA,UN,,649,Ativo,0,"348,74",TALISMA,0,0.00,0.00,0.00,78,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469356706,79,COR:BRANCO MARMORIZADO/TABACO;BASE:COUNTRY,UN,,699,Ativo,0,"391,14",TALISMA,0,0.00,0.00,0.00,78,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469356737,84,COR:PRETO MARMORIZADO/TABACO;BASE:BARCELONA,UN,,649,Ativo,0,"348,74",TALISMA,0,0.00,0.00,0.00,78,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16469356731,83,COR:PRETO MARMORIZADO/TABACO;BASE:COUNTRY,UN,,699,Ativo,0,"391,14",TALISMA,0,0.00,0.00,0.00,78,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483167956,141,MESA ZAMARCHI 120 C/ 6CAD (15) 150X84,UN,,"1.199,00",Ativo,0,710,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483167957,142,COR:CANELA/SUEDE CACAU,UN,,"1.199,00",Ativo,-2,672,MOVELIPE,0,0.00,0.00,0.00,141,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16520366447,476,MESA ZAMARCHI 120 CANELA,UN,9403.40.00,399,Ativo,-1,207,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483173730,143,MESA ZAMARCHI 122 C/ 4CAD (15) 114X84,UN,,999,Ativo,0,539,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483173731,144,COR:CANELA/SUEDE CACAU,UN,,999,Ativo,0,539,MOVELIPE,0,0.00,0.00,0.00,143,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483150624,137,MESA ZAMARCHI 136 C/ 6CAD (27) 160X90,UN,,"2.999,00",Ativo,0,"1.599,00",MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483150625,138,COR:CANELA/JOLI PALHA/VD CREME,UN,,"2.999,00",Ativo,1,"1.599,00",MOVELIPE,0,0.00,0.00,0.00,137,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16483161442,139,MESA ZAMARCHI 150 C/ 4CAD (21) 120X90,UN,,"1.999,00",Ativo,0,"1.112,00",MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483161443,140,COR:CANELA/JOLI MARROM/VD CREME,UN,,"1.999,00",Ativo,0,"1.119,00",MOVELIPE,0,0.00,0.00,0.00,139,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483144711,135,MESA ZAMARCHI 170 C/ 6CAD (27) 160X90,UN,,"2.999,00",Ativo,0,"1.599,00",MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483148761,136,COR:CANELA/JOLI PALHA/VD CREME,UN,,"2.999,00",Ativo,1,"1.599,00",MOVELIPE,0,0.00,0.00,0.00,135,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16613906476,742,MODULADO PONTE AMERICA KING MOPAR,un,,699,Ativo,0,"378,4",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16613908801,743,COR:FREIJO/GRAFITE,un,,699,Ativo,0,"378,4",MOPAR,0,0.00,0.00,0.00,742,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16613908805,744,COR:FREIJO/OFF WHITE,un,,699,Ativo,-1,"378,4",MOPAR,0,0.00,0.00,0.00,742,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16620365318,759,MODULO AÉREO AMERICA 1380MM,UN,,419,Ativo,0,"232,8",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16620368847,760,COR:FREIJO/GRAFITE,UN,,419,Ativo,1,"232,8",MOPAR,0,0.00,0.00,0.00,759,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16620368851,761,COR:FREIJO/OFF WHITE,UN,,419,Ativo,-1,"232,8",MOPAR,0,0.00,0.00,0.00,759,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16620370712,762,MODULO AMERICA 01 PORTA,UN,,349,Ativo,0,"194,4",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16620372134,763,COR:FREIJO/GRAFITE,UN,,349,Ativo,0,"194,4",MOPAR,0,0.00,0.00,0.00,762,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16620372139,764,COR:FREIJO/OFF WHITE,UN,,349,Ativo,-1,"194,4",MOPAR,0,0.00,0.00,0.00,762,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465134660,	,MULTI USO 2311A 2PTS VERSATIL,UN,,279,Ativo,0,"177,59",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465134696,	,MULTI USO 2311A 2PTS VERSATIL COR:ANGELIN,UN,,279,Ativo,0,"177,59",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465134769,	,MULTI USO 2311A 2PTS VERSATIL COR:BRANCO,UN,,279,Ativo,0,"177,59",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465134732,	,MULTI USO 2311A 2PTS VERSATIL COR:MACADAMIA,UN,,279,Ativo,0,"177,59",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465104449,	,MULTI USO 2312A 2PTS VERSATIL,UN,,299,Ativo,0,"177,59",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465116972,	,MULTI USO 2312A 2PTS VERSATIL COR:ANGELIN,UN,,299,Ativo,2,"177,59",CASTRO,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465117017,	,MULTI USO 2312A 2PTS VERSATIL COR:BRANCO,UN,,299,Ativo,4,"177,59",CASTRO,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465116998,	,MULTI USO 2312A 2PTS VERSATIL COR:MACADAMIA,UN,,299,Ativo,2,"177,59",CASTRO,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16492636660,230,MULTIUSO 2PTS FREIJO SALVADOS,UN,,249,Ativo,0,249,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506759285,393,MULTIUSO BRIZ 2315A 2PTS,UN,9403.50.00,299,Ativo,0,"177,57",CASTRO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506762021,394,COR:ANGELIN/ANGELIN/BOUCLE,UN,9403.50.00,299,Ativo,9,"177,57",CASTRO,5,0.00,0.00,0.00,393,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16618964809,757,COR:ANGELIN/BLANC/BOUCLE,UN,9403.50.00,299,Ativo,-2,"177,57",CASTRO,0,0.00,0.00,0.00,393,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16506762022,395,COR:BRANCO LINE/BRANCO LINE/BOUCLE,UN,9403.50.00,299,Ativo,10,"170,45",CASTRO,7,0.00,0.00,0.00,393,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466903560,	,MULTIUSO CAIRO PARA FORNO,UN,,299,Ativo,0,"192,22",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466906794,	,MULTIUSO CAIRO PARA FORNO COR:BRANCO,UN,,299,Ativo,0,"192,22",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466906758,	,MULTIUSO CAIRO PARA FORNO COR:FREIJO/BAUNILHA,UN,,299,Ativo,2,"192,22",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466906806,	,MULTIUSO CAIRO PARA FORNO COR:FREIJO/CHUMBO,UN,,299,Ativo,0,"192,22",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466906783,	,MULTIUSO CAIRO PARA FORNO COR:MONTANA/MONTANA,UN,,299,Ativo,0,"192,22",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466906770,	,MULTIUSO CAIRO PARA FORNO COR:NOGAL/BAUNILHA,UN,,299,Ativo,-2,"192,22",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466892322,	,MULTIUSO DACAR,UN,,199,Ativo,0,"97,6",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466893918,	,MULTIUSO DACAR COR:BRANCO,UN,,199,Ativo,0,"97,6",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466893906,	,MULTIUSO DACAR COR:FREIJO/BAUNILHA,UN,,199,Ativo,0,"97,6",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467720628,	,MULTIUSO DALLAS,UN,,249,Ativo,0,"139,55",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467733630,	,MULTIUSO DALLAS COR:BRANCO,UN,,249,Ativo,0,"139,55",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16580340452,650,MULTIUSO DENVER AMARULA DORIPEL,UN,,399,Ativo,-1,"89,46",DORIPEL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16477634298,110,MULTIUSO DUETO AMARULA DORIPEL,UN,,399,Ativo,-1,"107,2",DORIPEL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16603101522,729,MULTIUSO DUETO branco DORIPEL,UN,,449,Ativo,-1,"77,24",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467628436,	,multiuso ibiza salvados,UN,,199,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16463802046,	,MULTIUSO OPEN,UN,,249,Ativo,0,159,MOVELIPE,0,56.00,173.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463803728,	,MULTIUSO OPEN COR:BRANCO,UN,,249,Ativo,4,159,MOVELIPE,0,56.00,173.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463803735,	,MULTIUSO OPEN COR:NATURE,UN,,249,Ativo,4,159,MOVELIPE,0,56.00,173.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500932104,353,MULTIUSO PARA AGUA 1PT SALVADOS,UN,,120,Ativo,0,120,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466879602,	,MULTIUSO SLIM,UN,9403.40.00,199,Ativo,0,"112,05",DACHERI,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466883384,	,MULTIUSO SLIM COR:BRANCO,UN,9403.40.00,199,Ativo,2,"112,05",DACHERI,1,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466883413,	,MULTIUSO SLIM COR:FREIJO/BAUNILHA,UN,9403.40.00,199,Ativo,1,"112,05",DACHERI,1,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466027365,	,MULTIUSO TOULON,UN,,159,Ativo,0,"89,72",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466028511,	,MULTIUSO TOULON COR:BRANCO,UN,,159,Ativo,0,"89,72",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466028510,	,MULTIUSO TOULON COR:NOGAL MANCHESTER/PRETO,UN,,159,Ativo,0,"89,72",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16510785940,439,Nicho Microondas Luciane Isis 60cm,UN,,79,Ativo,0,"20,51",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486582413,175,PAINEL AMBAR,UN,,699,Ativo,0,"390,69",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486584206,176,COR:OFF WHITE/NATURE/RIPADO,UN,,699,Ativo,0,"390,69",BECHARA,0,0.00,0.00,0.00,175,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486578739,173,PAINEL ATLAS,UN,,589,Ativo,0,"328,03",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486581353,174,COR:OFF WHITE/CINAMOMO/RIPADO,UN,,589,Ativo,0,"328,03",BECHARA,0,0.00,0.00,0.00,173,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16592555395,680,"Painel Bechara Denver Ptv Ate 55"" (SALVADOS)",UN,,399,Ativo,-2,"192,21",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466165906,	,PAINEL EXTENSIVO FRESNO MOBLER,UN,,199,Ativo,0,"141,49",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466169596,	,PAINEL EXTENSIVO FRESNO MOBLER COR:CINAMOMO MEL/PÉROLA METALIZADO,UN,,199,Ativo,0,"141,49",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466169609,	,PAINEL EXTENSIVO FRESNO MOBLER COR:PÉROLA METALIZADO/CINAMOMO MEL,UN,,199,Ativo,0,"141,49",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16597450770,709,PAINEL GELIUS 75 POL CINZA SALVADOS | 1 UN | R$ 900,UN,,999,Ativo,0,"513,47",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486571697,170,PAINEL JURERE,UN,,849,Ativo,0,"467,91",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486573316,171,COR:CINAMOMO/OFF WHITE,UN,,849,Ativo,1,"467,91",BECHARA,0,0.00,0.00,0.00,170,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486573317,172,"COR:NATURALLE,/OFF WHITE",UN,,849,Ativo,2,"467,91",BECHARA,0,0.00,0.00,0.00,170,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486584809,177,PAINEL LISBOA,UN,,749,Ativo,0,"408,49",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486585518,178,COR:OFF WHITE/CINAMOMO/RIPADO,UN,,749,Ativo,0,"408,49",BECHARA,0,0.00,0.00,0.00,177,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465701006,	,PAINEL NT 1185,UN,,299,Ativo,0,165,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465701011,	,PAINEL NT 1185 COR:FREIJO/OFF WHITE,UN,,299,Ativo,0,165,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465701016,	,PAINEL NT 1185 COR:FREIJO/PRETO TX,UN,,299,Ativo,0,165,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465696698,	,PAINEL NT 1190,UN,,349,Ativo,0,189,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16465698192,	,PAINEL NT 1190 COR:FREIJO/OFF WHITE,UN,,349,Ativo,0,189,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16465698198,	,PAINEL NT 1190 COR:FREIJO/PRETO TX,UN,,349,Ativo,1,189,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16489843614,196,PAINEL SALVADOS,UN,,149,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16466707990,	,PANELEIRO 45 MDP POP,UN,,399,Ativo,0,"201,85",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466718192,	,PANELEIRO 45 MDP POP COR:FREIJO/BAUNILHA,UN,,399,Ativo,5,"201,85",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466718171,	,PANELEIRO 45 MDP POP COR:FREIJO/CHUMBO,UN,,399,Ativo,6,"201,85",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467044784,	,PANELEIRO DUPLO MILA,UN,,399,Ativo,0,"235,21",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467046125,	,PANELEIRO DUPLO MILA COR:FREIJO/GRAFITE,UN,,399,Ativo,0,"235,21",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16467046103,	,PANELEIRO DUPLO MILA COR:FREIJO/OFF WHITE,UN,,399,Ativo,0,"235,21",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16509968507,436,PANELEIRO FLORENCA VIDRO 50 CM,UN,9403.40.00,899,Ativo,0,"499,83",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509973047,437,COR:angelin/cinza,UN,9403.40.00,899,Ativo,4,"499,83",MÓVEIS SUL,2,0.00,0.00,0.00,436,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16509973048,438,COR:CANARY/OFF WHITE,UN,9403.40.00,899,Ativo,4,"499,83",MÓVEIS SUL,2,0.00,0.00,0.00,436,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468028678,	,Paneleiro Torre Quente Delmarco Isabelle 3pt Salvados,UN,,799,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16509424907,418,PANELEIRO VIDRO 50CM,UN,,879,Ativo,0,"482,94",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466182182,	,PENTEADEIRA CAMARIM GALA,UN,,499,Ativo,0,"309,78",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466259402,	,PENTEADEIRA CAMARIM GALA COR:BRANCO,UN,,499,Ativo,0,"309,78",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466259403,	,PENTEADEIRA CAMARIM GALA COR:CINAMOMO MEL/GRIGIO FOSCO,UN,,499,Ativo,0,"309,78",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16511754737,442,PENTEADEIRA CONDESSA,UN,,749,Ativo,0,"396,38",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16511757866,443,COR:BRANCO BRILHO,UN,,749,Ativo,-1,"396,38",FIORELLO,0,0.00,0.00,0.00,442,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16506157722,380,PENTEADEIRA LUMIERE BRANCA,UN,,549,Ativo,0,"316,45",MOBLER,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549517548,577,PENTEADEIRA SALVADOS C/ESPELHO 1P,UN,,299,Ativo,-1,299,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16498746980,303,"PIA DE MARMORITE 1,00",UN,,179,Ativo,0,102,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16498746981,304,COR:PRETA,UN,,179,Ativo,-1,102,JOSE,5,0.00,0.00,0.00,303,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463793315,	,"PIA DE MARMORITE 1,20",UN,,229,Ativo,0,120,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16463798723,	,"PIA DE MARMORITE 1,20 COR:BEGE",UN,,229,Ativo,-12,120,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463798739,	,"PIA DE MARMORITE 1,20 COR:BRANCA",UN,,229,Ativo,-1,120,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16463798713,	,"PIA DE MARMORITE 1,20 COR:PRETA",UN,,229,Ativo,-58,120,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16499297096,306,"PIA DE MARMORITE 1,60",UN,,299,Ativo,0,188,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16499297097,307,COR:PRETA,UN,,299,Ativo,-6,188,JOSE,5,0.00,0.00,0.00,306,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16571530892,629,PIA FORMINOX LAMINADO INOX 120CM X 53CM PA.LDAP.0048 Preto Absoluto,UN,,199,Ativo,0,"79,4",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16495715976,296,"Pia forminox monobloco laminada 1,20 salvados",un,,199,Ativo,-2,"98,4",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16571532713,630,Pia Forminox Monobloco Laminado Inox 120cm,UN,,199,Ativo,0,"90,97",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483100208,133,"PIA GRANITO 1,20 PIABELLE VERDE UBATUBA",UN,,549,Ativo,2,325,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Metros
+16467566312,	,"PIA INOX 1,20X53 INFINITY COM FURO",UN,,349,Ativo,1,189,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16467569804,	,"PIA INOX 1,20X53 INFINITY SEM FURO",UN,7324.10.00,299,Ativo,2,162,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16483142141,134,"PIA INOX 1,60X53 STANDARD 055248",UN,,499,Ativo,1,272,MOVELIPE,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16491273122,227,"Pia Inox Forminox Monobloco 120x53x9,5cm",UN,,299,Ativo,-1,"64,14",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16505335694,362,"Pia Inox Forminox Monobloco Inox 160x53x9,5cm",UN,,299,Ativo,-2,"86,96",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16601189610,725,PIA ISOMARMORE LUXO 120CM SINTETICA 1209/A Preto,UN,,299,Ativo,0,"70,35",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493207836,246,POLTRONA CELENA MUNDIAL FLEX,UN,,399,Ativo,0,196,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493221593,247,COR:MARROM,UN,,399,Ativo,0,196,MUNDIAL FLEX,0,0.00,0.00,0.00,246,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16618759289,751,POLTRONA MADETAL GRECIA 367-2.061,UN,,249,Ativo,0,"125,88",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16618759806,752,COR:CINZA,UN,,249,Ativo,0,"125,88",salvados,0,0.00,0.00,0.00,751,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493223184,248,POLTRONA VENUS PÉS DE PALITO,UN,,349,Ativo,0,179,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493312112,249,COR:AZUL,UN,,349,Ativo,1,179,MUNDIAL FLEX,0,0.00,0.00,0.00,248,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16535971320,548,POLTRONA VIERO BARI LINHO 31003 Mel/Linho Bronze salvados,un,,299,Ativo,0,"106,65",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493313963,250,PUFF MODELO ROMULO PES JADE MUNDIAL FLEX,UN,,129,Ativo,0,72,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493383415,259,COR:ROSE,UN,,129,Ativo,-1,72,MUNDIAL FLEX,0,0.00,0.00,0.00,250,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493383416,260,COR:VERMELHO,UN,,129,Ativo,0,72,MUNDIAL FLEX,0,0.00,0.00,0.00,250,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493385390,261,PUFF PALITO REDONDO MUNDIAL FLEX,UN,,120,Ativo,0,61,MUNDIAL FLEX,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493387212,262,COR:AZUL,UN,,120,Ativo,1,61,MUNDIAL FLEX,0,0.00,0.00,0.00,261,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493387213,263,COR:VINHO,UN,,120,Ativo,0,61,MUNDIAL FLEX,0,0.00,0.00,0.00,261,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486548936,155,RACK FLORENÇA,UN,9403.60.00,749,Ativo,0,"407,86",BECHARA,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486549874,157,COR:OFF WHITE/CINAMOMO,UN,9403.60.00,749,Ativo,0,"407,86",BECHARA,0,0.00,0.00,0.00,155,,,28.061.00,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486549873,156,COR:PRETO FOSCO/NATURELLE,UN,9403.60.00,749,Ativo,0,"407,86",BECHARA,0,0.00,0.00,0.00,155,,,28.061.00,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486550583,158,RACK ILHABELA,UN,,679,Ativo,0,"371,35",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486552943,159,COR:OFF WHITE/CINAMOMO,UN,,679,Ativo,2,"371,35",BECHARA,0,0.00,0.00,0.00,158,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486552944,160,COR:OFF WHITE/NATURALLE,UN,,679,Ativo,0,"371,35",BECHARA,0,0.00,0.00,0.00,158,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486554649,161,RACK NORONHA,UN,,799,Ativo,0,"446,87",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486555406,162,COR:CINAMOMO/OFF WHITE,UN,,799,Ativo,1,"446,87",BECHARA,0,0.00,0.00,0.00,161,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486556374,163,COR:OFF WHITE/NATURALLE,UN,,799,Ativo,1,"446,87",BECHARA,0,0.00,0.00,0.00,161,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486568121,167,RACK PALADIO 1.4,UN,,479,Ativo,0,"256,24",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486570634,169,COR:OFF WHITE/NATURALLE,UN,,479,Ativo,0,"256,24",BECHARA,0,0.00,0.00,0.00,167,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486570632,168,COR:PRETO FOSCO,UN,,479,Ativo,1,"256,24",BECHARA,0,0.00,0.00,0.00,167,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486557599,164,RACK TURIM,UN,,589,Ativo,0,"328,03",BECHARA,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16486567416,165,COR:OFF WHITE/CINAMOMO MEL,UN,,589,Ativo,0,"328,03",BECHARA,0,0.00,0.00,0.00,164,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16486567417,166,COR:PRETO FOSCO/NATURALLE,UN,,589,Ativo,2,"328,03",BECHARA,0,0.00,0.00,0.00,164,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16472976253,92,RECORTE PARA COOKTOP,UN,,15,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,,	,,,NÃO,NÃO,,Centímetro
+16485732218,150,rererr,,,0,Ativo,0,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Metros
+16527039061,499,roupeiro 2p 2g jk,un,,449,Ativo,0,261,JK,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16527039787,500,cor:lyon,un,,449,Ativo,-1,261,JK,0,0.00,0.00,0.00,499,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16549474195,574,ROUPEIRO AMERICA 2 PTS 3 GVTS,un,,699,Ativo,0,"359,2",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16549474697,575,COR:FREIJO/GRAFITE,un,,699,Ativo,-1,"359,2",MOPAR,0,0.00,0.00,0.00,574,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16549474698,576,COR:FREIJO/OFF WHITE,un,,699,Ativo,0,"359,2",MOPAR,0,0.00,0.00,0.00,574,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16549522679,578,ROUPEIRO LISBOA S/ESPELHO MOPAR,UN,,"2.349,00",Ativo,0,"1.292,00",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16485884810,151,ROUPEIRO SIDNEY 6 P 2 G PRETO SALVADOS,UN,,549,Ativo,-17,"145,24",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489836815,192,ROUPEIRO VENEZA 4P 3G C/ESPELHO,UN,,"1.099,00",Ativo,0,"612,8",MOPAR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489839156,193,COR:BRANCO,UN,,"1.099,00",Ativo,1,"612,8",MOPAR,0,0.00,0.00,0.00,192,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16489839158,195,COR:FREIJO/ GRAFITE,UN,,"1.099,00",Ativo,0,"612,8",MOPAR,3,0.00,0.00,0.00,192,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16489839157,194,COR:FREIJO/OFF WHITE,UN,,"1.099,00",Ativo,0,"612,8",MOPAR,0,0.00,0.00,0.00,192,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16594598332,688,SALA JANTAR VALDEMOVEIS DORA 120CM 4CAD AURIRA 16930.1-230 Cinamomo/off/veludo bege,,,999,Ativo,-1,"311,09",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16588714829,675,SAPATEIRA DEMOBILE GRIFE 2PT C/ESPELHO 21510-134 Amendola Touch,UN,,849,Ativo,0,"146,85",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16506148136,378,Sapateira Gelius Gold 1pt C/Pes Esp,UN,,899,Ativo,0,"473,42",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16531306294,533,SAPATEIRA GISLAINE,un,,199,Ativo,-1,0,,0,0.00,0.00,0.00,	,,,,0,,0,	,,,NÃO,NÃO,,Centímetro
+16584276216,657,SAPATEIRA NOTAVEL ALASKA 2PT 56126.128769 Branco New,UN,,199,Ativo,0,"41,18",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16551725200,584,SAPATEIRA RAVENNA MDP,UN,,299,Ativo,0,"172,61",MÓVEIS SUL,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16551728776,586,COR:BRANCO,UN,,299,Ativo,4,"172,61",MÓVEIS SUL,2,0.00,0.00,0.00,584,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16551728773,585,COR:TAUARI,UN,,299,Ativo,4,"172,61",MÓVEIS SUL,2,0.00,0.00,0.00,584,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16589910448,677,SL JT SONETTO ISA 160CM VD C/6CAD ELEGANCE 105010003 Mel/Off White/Caramelo,UN,,"1.499,00",Ativo,0,"380,8",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16552699705,594,sofa cama azul,un,,999,Ativo,-1,700,salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16507831519,412,"SOFA LIVING LUXOR 1,80 COR CACAU",UN,,"1.199,00",Ativo,0,639,IVETE MARIA LOURENÇO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468806666,30,SOFA MELANINO,UN,,"1.399,00",Ativo,0,750,ADEMIR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468810253,32,COR:BEGE,UN,,"1.399,00",Ativo,1,700,ADEMIR,0,0.00,0.00,0.00,30,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16585352600,666,COR:CINZA,UN,,"1.399,00",Ativo,0,750,ADEMIR,0,0.00,0.00,0.00,30,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468820166,33,COR:CINZA CHUMBO,UN,,"1.399,00",Ativo,-3,750,ADEMIR,0,0.00,0.00,0.00,30,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468810245,31,COR:MARROM ESCURO,UN,,"1.399,00",Ativo,0,700,ADEMIR,0,0.00,0.00,0.00,30,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16526560223,498,COR:palha,UN,,"1.399,00",Ativo,0,750,ADEMIR,0,0.00,0.00,0.00,30,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16468821330,34,SOFÁ POP ADEMIR,UN,,0,Ativo,0,0,ADEMIR,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831867,36,TAMANHO:2 LUGARES;COR:BEGE,UN,,549,Ativo,0,330,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831859,35,TAMANHO:2 LUGARES;COR:CINZA,UN,,399,Ativo,-2,220,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831872,38,TAMANHO:2 LUGARES;COR:MARROM ESCURO,UN,,399,Ativo,0,220,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831870,37,TAMANHO:2 LUGARES;COR:VERMELHO,UN,,399,Ativo,0,180,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831880,40,TAMANHO:3 LUGARES;COR:BEGE,UN,,549,Ativo,0,330,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831876,39,TAMANHO:3 LUGARES;COR:CINZA,UN,,549,Ativo,-1,330,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831893,42,TAMANHO:3 LUGARES;COR:MARROM ESCURO,UN,,549,Ativo,-1,330,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831888,41,TAMANHO:3 LUGARES;COR:VERMELHO,UN,,549,Ativo,0,270,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831948,44,TAMANHO:5 LUGARES DE CANTO;COR:BEGE,UN,,799,Ativo,0,450,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831902,43,TAMANHO:5 LUGARES DE CANTO;COR:CINZA,UN,,799,Ativo,-2,450,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831969,46,TAMANHO:5 LUGARES DE CANTO;COR:MARROM ESCURO,UN,,799,Ativo,1,450,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468831961,45,TAMANHO:5 LUGARES DE CANTO;COR:VERMELHO,UN,,799,Ativo,0,450,ADEMIR,0,0.00,0.00,0.00,34,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16567144259,620,"Sofá Veneza Retratil 3 Lugares 2,90m Cinza",un,,"2.299,00",Ativo,0,"556,92",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466690928,	,TÁBUA DE PASSAR MIAMI,UN,,199,Ativo,0,"105,05",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466697874,	,TÁBUA DE PASSAR MIAMI COR:BRANCO,UN,,199,Ativo,0,"105,05",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466697885,	,TÁBUA DE PASSAR MIAMI COR:MONTANA/AVELÃ,UN,,199,Ativo,0,"105,05",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16605755662,734,"TAMPO 1,20 COOK FIORELLO",UN,,120,Ativo,0,"55,65",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16605759043,735,COR:BRANCO,UN,,120,Ativo,5,"55,65",FIORELLO,0,0.00,0.00,0.00,734,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16605759046,736,COR:PRETO,UN,,120,Ativo,6,"55,65",FIORELLO,0,0.00,0.00,0.00,734,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16482579070,129,TAMPO DE MARMORITE,UN,,199,Ativo,0,115,JOSE,5,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16482579072,131,COR:BRANCA,UN,,199,Ativo,-3,115,JOSE,5,0.00,0.00,0.00,129,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16482579071,130,COR:PRETA,UN,,199,Ativo,-8,115,JOSE,5,0.00,0.00,0.00,129,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16505789869,370,Tampo Indekes Star 120cm Salvados,UN,,120,Ativo,-1,"60,59",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466896562,	,TAMPO MDP DACHERI,UN,,120,Ativo,0,"49,04",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466899115,	,TAMPO MDP DACHERI COR:BRANCO BRILHO,UN,,120,Ativo,1,"49,04",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466899104,	,TAMPO MDP DACHERI COR:CHUMBO,UN,,120,Ativo,0,"49,04",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466899110,	,TAMPO MDP DACHERI COR:FREIJO,UN,,120,Ativo,6,"49,04",DACHERI,4,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466899121,	,TAMPO MDP DACHERI COR:PRETO,UN,,120,Ativo,2,"49,04",DACHERI,3,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16538397294,552,TORRE 2 FORNOS COZINHA VOLLARE,UN,,599,Ativo,0,"298,23",FIORELLO,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16538397494,554,COR:BRANCO BRILHO,UN,,599,Ativo,-1,"298,23",FIORELLO,0,0.00,0.00,0.00,552,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16538397493,553,COR:PRETO,UN,,599,Ativo,0,"298,23",FIORELLO,0,0.00,0.00,0.00,552,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16500347278,347,TORRE DE CANTO 5 PRATELEIRAS,UN,,349,Ativo,0,"189,61",KAPPESBERG,0,0.00,0.00,0.00,	,,Kappesberg,,0,<p>3232</p>,0,	,,0,NÃO,NÃO,,Centímetro
+16500347279,348,COR:CANELA/BRANCO,UN,,349,Ativo,2,"189,61",KAPPESBERG,0,0.00,0.00,0.00,347,,Kappesberg,,0,<p>3232</p>,0,	,,0,SIM,NÃO,,Centímetro
+16500347281,349,COR:FREIJO/PRETO FOSCO,UN,,349,Ativo,2,"189,61",KAPPESBERG,0,0.00,0.00,0.00,347,,Kappesberg,,0,<p>3232</p>,0,	,,0,SIM,NÃO,,Centímetro
+16494118859,274,TORRE KIT 1 FORNOS 70 MDP POP,UN,,649,Ativo,0,"367,37",DACHERI,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494118864,276,COR:FREIJO/BAUNILHA,UN,,649,Ativo,1,"367,37",DACHERI,0,0.00,0.00,0.00,274,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16494118862,275,COR:FREIJO/CHUMBO,UN,,649,Ativo,1,"367,37",DACHERI,0,0.00,0.00,0.00,274,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16466800015,	,TORRE KIT 2 FORNOS 70 MDP POP,UN,9403.40.00,549,Ativo,0,"318,66",DACHERI,0,0.00,0.00,0.00,	,,,28.061.00,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466800955,	,TORRE KIT 2 FORNOS 70 MDP POP COR:FREIJO/BAUNILHA,UN,,549,Ativo,1,"318,66",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16466800943,	,TORRE KIT 2 FORNOS 70 MDP POP COR:FREIJO/CHUMBO,UN,,549,Ativo,1,"318,66",DACHERI,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493317043,251,TORRE QUENTE 2 FORNOS JK,UN,,499,Ativo,0,277,JK,2,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493317886,255,COR:BRANCO,UN,,499,Ativo,3,277,JK,2,0.00,0.00,0.00,251,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16493317883,253,COR:LYON,UN,,499,Ativo,0,277,JK,2,0.00,0.00,0.00,251,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493317885,254,COR:OLMO,UN,,499,Ativo,0,277,JK,2,0.00,0.00,0.00,251,,,,0,,0,	,,0,SIM,NÃO,,Centímetro
+16493317881,252,COR:PRETO,UN,,499,Ativo,2,277,JK,2,0.00,0.00,0.00,251,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16588482069,673,Torre Quente Divina 70cm 2 fornos 4 Pts SALVADOS,UN,,599,Ativo,-1,"187,94",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16591928038,679,TORRE QUENTE INDEKES FIRENZE,un,,599,Ativo,-1,"246,87",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16468231331,15,TRAVESSEIRO GAZIN SOFT ILHA DO MEL,UN,,50,Ativo,29,"33,51",GAZIN,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16567882409,621,Treliche Mobikasa Jade C/Escada,UN,,"1.649,00",Ativo,0,"568,14",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro
+16545022128,558,Treliche Saraiva 204cm,un,,"1.899,00",Ativo,0,"671,41",salvados,0,0.00,0.00,0.00,	,,,,0,,0,	,,0,NÃO,NÃO,,Centímetro

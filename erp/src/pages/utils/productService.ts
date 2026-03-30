@@ -10,6 +10,9 @@ const mapToDB = (product: Partial<Product>) => {
         updated_at: new Date().toISOString()
     };
 
+    // [x] Novo: Suporte a ID Manual e SKU
+    if (product.id !== undefined && product.id !== '') data.id = product.id;
+    
     if (product.code !== undefined) data.code = product.code;
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
@@ -28,7 +31,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.active !== undefined) data.active = product.active;
     if (product.isDraft !== undefined) data.is_draft = product.isDraft;
     if (product.deleted !== undefined) data.deleted = product.deleted;
-    if (product.supplierId !== undefined) data.supplier_id = product.supplierId;
+    if (product.supplierId !== undefined) data.supplier_id = product.supplierId || null;
     if (product.images !== undefined) data.images = product.images;
     if (product.ecommerceDescription !== undefined) data.ecommerce_description = product.ecommerceDescription;
     if (product.whatsappDescription !== undefined) data.whatsapp_description = product.whatsappDescription;
@@ -61,10 +64,10 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.material !== undefined) data.material = product.material;
     if (product.colors !== undefined) data.colors = product.colors;
     if (product.notIncluded !== undefined) data.not_included = product.notIncluded;
-    if (product.mainSupplierId !== undefined) data.main_supplier_id = product.mainSupplierId;
+    if (product.mainSupplierId !== undefined) data.main_supplier_id = product.mainSupplierId || null;
     if (product.supplierRef !== undefined) data.supplier_ref = product.supplierRef;
     if (product.observations !== undefined) data.observations = product.observations;
-    if (product.parentId !== undefined) data.parent_id = product.parentId;
+    if (product.parentId !== undefined) data.parent_id = product.parentId || null;
     if (product.isVariation !== undefined) data.is_variation = product.isVariation;
     if (product.noWidth !== undefined) data.no_width = product.noWidth;
     if (product.noHeight !== undefined) data.no_height = product.noHeight;
@@ -98,6 +101,7 @@ const mapToDB = (product: Partial<Product>) => {
 const mapFromDB = (data: any): Product => {
     return {
         id: String(data.id),
+        sku: data.sku || '',
         code: data.code || '',
         description: data.description || '',
         brand: data.brand || '',
@@ -196,10 +200,10 @@ const mapFromDB = (data: any): Product => {
     };
 };
 
-const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at";
+const LIGHT_COLUMNS = "id, sku, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at";
 const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(category_id)";
 
-export const subscribeToProducts = (callback: (products: Product[]) => void) => {
+export const subscribeToProducts = (callback: (products: Product[]) => void, includeDeleted = false) => {
     let currentProducts: Product[] = [];
 
     const fetchInitial = async () => {
@@ -207,7 +211,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
             // Tenta primeiro com categorias relacionadas
             let { data, error } = await supabase.from(TABLE_NAME)
                 .select(LIGHT_COLUMNS_WITH_CATS)
-                .eq('deleted', false)
+                .eq('deleted', includeDeleted)
                 .order('description', { ascending: true });
 
             // Se falhar (400, coluna não encontrada ou schema cache), tenta sem o join de categorias
@@ -215,7 +219,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
                 console.warn("[ProductService] Fetch com categorias falhou, tentando sem join...", error.message);
                 const res = await supabase.from(TABLE_NAME)
                     .select(LIGHT_COLUMNS)
-                    .eq('deleted', false)
+                    .eq('deleted', includeDeleted)
                     .order('description', { ascending: true });
                 data = res.data;
                 error = res.error;
@@ -226,7 +230,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
                 console.warn("[ProductService] Fallback básico...", error.message);
                 const res = await supabase.from(TABLE_NAME)
                     .select('id, code, description, brand, category, unit_price, cost_price, stock, item_type, created_at, active, deleted, images, variations')
-                    .eq('deleted', false)
+                    .eq('deleted', includeDeleted)
                     .order('description', { ascending: true });
                 data = res.data;
                 error = res.error;
@@ -354,7 +358,7 @@ export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?
     return duplicates;
 };
 
-export const saveProduct = async (product: Product): Promise<string> => {
+export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
     // 1. Identificar todos os SKUs que precisam de validação
     const skusToValidate: string[] = [];
     if (product.code) skusToValidate.push(product.code);
@@ -373,9 +377,9 @@ export const saveProduct = async (product: Product): Promise<string> => {
         }
     }
 
-    if (product.id) {
+    if (product.id && !forceInsert) {
         await updateProduct(product.id, product);
-        return product.id;
+        return String(product.id);
     }
 
     try {

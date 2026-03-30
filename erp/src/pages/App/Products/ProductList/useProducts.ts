@@ -17,10 +17,10 @@ export const useProducts = (filters?: any) => {
         const unsubscribe = subscribeToProducts((data) => {
             setProducts(data);
             setLoading(false);
-        });
+        }, filters?.showTrash);
 
         return () => unsubscribe();
-    }, [refreshSignal]);
+    }, [refreshSignal, filters?.showTrash]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {

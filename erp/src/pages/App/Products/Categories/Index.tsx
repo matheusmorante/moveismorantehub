@@ -62,7 +62,7 @@ const Categories = () => {
         // Verifica se já existe uma categoria com este nome (exceto a que estamos editando)
         const duplicate = categories.find(c => c.name.trim().toUpperCase() === name && c.id !== id);
         if (duplicate) {
-            return toast.error(`Já existe um(a) ${isEnvironment ? 'Ambiente' : 'Tipo de Móvel'} chamado "${name}".`);
+            return toast.error(`Já existe um(a) ${isEnvironment ? 'Ambiente' : 'Categoria'} chamado(a) "${name}".`);
         }
         
         const parents = isEnvironment ? [] : selectedParents;
@@ -79,13 +79,13 @@ const Categories = () => {
                 if (isEnvironment) {
                     await updateCategoryChildren(id, selectedChildren);
                 }
-                toast.success(isEnvironment ? "Ambiente atualizado!" : "Tipo de Móvel atualizado!");
+                toast.success(isEnvironment ? "Ambiente atualizado!" : "Categoria atualizada!");
             } else {
                 const newCat = await createCategory(name, parents, seoFields);
                 if (isEnvironment && selectedChildren.length > 0) {
                     await updateCategoryChildren(newCat.id, selectedChildren);
                 }
-                toast.success(isEnvironment ? "Ambiente criado!" : "Tipo de Móvel criado!");
+                toast.success(isEnvironment ? "Ambiente criado!" : "Categoria criada!");
             }
             setEditingCategory(null);
             setCatName("");
@@ -113,10 +113,10 @@ const Categories = () => {
                     .limit(1);
                 
                 if (relations && relations.length > 0) {
-                    return toast.error("Este ambiente possui tipos de móveis vinculados e não pode ser excluído.");
+                    return toast.error("Este ambiente possui categorias vinculadas e não pode ser excluído.");
                 }
             } else {
-                // Verifica se o tipo de móvel possui produtos vinculados na tabela product_categories
+                // Verifica se a categoria possui produtos vinculados na tabela product_categories
                 const { data: links } = await supabase
                     .from('product_categories')
                     .select('product_id')
@@ -124,18 +124,18 @@ const Categories = () => {
                     .limit(1);
 
                 if (links && links.length > 0) {
-                    return toast.error("Este tipo de móvel possui produtos vinculados e não pode ser excluído.");
+                    return toast.error("Esta categoria possui produtos vinculados e não pode ser excluída.");
                 }
             }
 
             const msg = isEnv 
                 ? "Deseja excluir este ambiente permanentemente?" 
-                : "Deseja excluir este tipo de móvel permanentemente?";
+                : "Deseja excluir esta categoria permanentemente?";
             
             if (!window.confirm(msg)) return;
 
             await deleteCategory(id);
-            toast.success(isEnv ? "Ambiente excluído!" : "Tipo de Móvel excluído!");
+            toast.success(isEnv ? "Ambiente excluído!" : "Categoria excluída!");
             loadData(true);
         } catch (error) {
             console.error("Erro ao excluir:", error);
@@ -191,9 +191,9 @@ const Categories = () => {
     const environments = categories.filter(c => {
         const name = c.name.trim().toUpperCase();
         const isFixed = FIXED_ENVIRONMENTS.includes(name);
-        // É ambiente se: está na lista fixa OU (é raiz E possui filhos vinculados)
-        const hasChildren = categories.some(other => other.parents?.includes(c.id));
-        return isFixed || hasChildren;
+        // É ambiente se: está na lista fixa OU é raiz (não tem pais)
+        const isRoot = !c.parents || c.parents.length === 0;
+        return isFixed || isRoot;
     });
 
     const subCategories = categories.filter(c => !environments.some(e => e.id === c.id));
@@ -201,14 +201,15 @@ const Categories = () => {
 
     return (
         <div className="p-4 md:p-8 flex flex-col gap-8 max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* ... header code ... */}
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
                     <i className="bi bi-tag-fill text-blue-600"></i>
-                    Tipos de Móveis
+                    Categorias
                 </h1>
                 <div className="flex items-center gap-4">
                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                        ORGANIZE SEUS PRODUTOS EM HIERARQUIAS DE AMBIENTES E TIPOS DE MÓVEIS
+                        ORGANIZE SEUS PRODUTOS EM HIERARQUIAS DE AMBIENTES E CATEGORIAS
                     </p>
                     {refreshing && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full border border-emerald-500/20 animate-pulse">
@@ -234,7 +235,7 @@ const Categories = () => {
                     </button>
                     <button onClick={() => setActiveTab('tipos')} className={tabButtonClass('tipos')}>
                         <i className="bi bi-tag-fill mr-2 text-sm"></i>
-                        Tipos de Móveis
+                        Categorias
                         {activeTab === 'tipos' && <div className="absolute bottom-0 left-4 right-4 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in"></div>}
                     </button>
                     <button onClick={() => setActiveTab('tree')} className={tabButtonClass('tree')}>
@@ -315,7 +316,7 @@ const Categories = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-8 flex flex-col gap-8 shadow-premium-lg">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col gap-0.5">
-                                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Gestão de Tipos de Móveis</h2>
+                                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Gestão de Categorias</h2>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CADASTRE E ORGANIZE AS CATEGORIAS DOS SEUS PRODUTOS</p>
                             </div>
                             {!isAddingCategory && (
@@ -363,7 +364,7 @@ const Categories = () => {
                                 <div className="flex flex-col gap-3">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vincular Sub-itens (Opcional):</span>
                                     <div className="flex flex-wrap gap-2">
-                                        {categories.filter(c => !environments.some(e => e.id === c.id)).map(mob => (
+                                        {subCategories.map(mob => (
                                             <button 
                                                 key={mob.id} 
                                                 type="button" 
@@ -384,7 +385,7 @@ const Categories = () => {
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {categories.map(cat => {
+                            {subCategories.map(cat => {
                                 const isEditing = editingCategory?.id === cat.id;
                                 const isEnvironment = environments.some(e => e.id === cat.id);
                                 return (
@@ -457,7 +458,7 @@ const Categories = () => {
                                                                 onClick={() => handleDeleteCategory(cat.id, isEnvironment)}
                                                                 className="px-4 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-100 dark:border-rose-900/40 hover:bg-rose-600 hover:text-white transition-all"
                                                             >
-                                                                Excluir Tipo de Móvel
+                                                                Excluir Categoria
                                                             </button>
                                                         )}
                                                     </div>
@@ -626,7 +627,7 @@ const Categories = () => {
                             ) : linkedProducts.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
                                     <i className="bi bi-box-seam text-5xl text-slate-300"></i>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Nenhum produto vinculado a este tipo.</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Nenhum produto vinculado a esta categoria.</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 gap-3">

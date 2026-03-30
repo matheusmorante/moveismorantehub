@@ -18,6 +18,9 @@ export type Person = {
     active: boolean;
     isDraft?: boolean;
     leadTime?: number;
+    defaultIpiPercent?: number; // Padrão de IPI p/ produtos
+    defaultFreightType?: 'fixed' | 'percentage' | 'none'; // Taxa de frete padrão
+    defaultFreightCost?: number; // Preço/Rate padrão do frete
     position?: string; // Cargo do funcionário
     deleted?: boolean;
     deletedAt?: string;

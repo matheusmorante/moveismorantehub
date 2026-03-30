@@ -13,6 +13,7 @@ import StockLaunchModal from "../Stock/components/StockLaunchModal";
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { Variation } from "../../types/product.type";
 import { ProductListRef } from "./ProductList";
+import ProductImportModal from "./components/ProductImportModal";
 
 interface ProductFiltersData {
     search: string;
@@ -42,6 +43,7 @@ const Products = () => {
 
     // Variation Modal State
     const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingVariation, setEditingVariation] = useState<Variation | null>(null);
     const [variationParentProduct, setVariationParentProduct] = useState<Product | null>(null);
     const [initialFormData, setInitialFormData] = useState<any>(null);
@@ -114,8 +116,8 @@ const Products = () => {
     };
 
     const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: false }), [filters]);
-    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, isDraft: false }), [filters]);
-    const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true }), [filters]);
+    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, isDraft: false, activeOnly: undefined }), [filters]);
+    const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true, activeOnly: undefined }), [filters]);
 
     const handleDuplicate = (product: Product) => {
         // Deep clone to avoid mutating the original product
@@ -172,10 +174,10 @@ const Products = () => {
                     <div className="flex items-start xl:items-center gap-4 xl:gap-6">
                         <div>
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Catálogo do Site
+                                Produtos e Serviços
                             </h1>
                             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Gestão de Catálogo, Fotos e Preços para o Site
+                                Gestão de Produtos, Serviços e Preços
                             </p>
                         </div>
                     </div>
@@ -189,9 +191,17 @@ const Products = () => {
                             <i className="bi bi-gear-fill text-lg xl:text-xl" />
                         </Link>
                         <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex items-center justify-center gap-2 xl:gap-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-6 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
+                            title="Importar catálogo de produtos via CSV"
+                        >
+                            <i className="bi bi-file-earmark-arrow-up text-lg xl:text-xl" />
+                            Importar
+                        </button>
+                        <button
                             onClick={() => { setEditingProduct(null); setInitialFormData({ itemType: 'product' }); setIsFormModalOpen(true); }}
                             className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
-                            title="Adicionar Novo Produto ao Catálogo"
+                            title="Adicionar Novo Produto ou Serviço no Catálogo"
                         >
                             <i className="bi bi-plus-lg text-lg xl:text-xl" />
                             Novo Produto
@@ -433,6 +443,12 @@ const Products = () => {
                 onClose={() => { setIsStockModalOpen(false); setStockLaunchTarget(null); }}
                 targetProduct={stockLaunchTarget?.product || null}
                 targetVariation={stockLaunchTarget?.variation}
+            />
+
+            <ProductImportModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onSuccess={() => productListRef.current?.refresh()}
             />
         </div>
     );

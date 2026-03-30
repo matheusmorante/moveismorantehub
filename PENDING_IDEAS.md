@@ -14,6 +14,11 @@ Este arquivo documenta o progresso atual e os próximos passos para o refatorame
     -   Integração do modal no `ProductFormModal`.
 -   **Desempenho de Busca:**
     -   Limitação de resultados de busca para 30 itens nos componentes `SmartInput` e `ProductSearchModal`.
+-   **Padronização de Nomenclatura:**
+    -   Renomeado menu "Catálogo do Site" para "Produtos e Serviços" (erp/src/components/layout/DesktopNav.tsx, MobileNav.tsx, Index.tsx)
+    -   Renomeado "Tipo de Móveis" para "Categorias" em todo o sistema (Categorias/Index.tsx, ProductFilters.tsx, ProductGeneralTab.tsx, ProductMaterialsSection.tsx)
+    -   Refatoração de labels e mensagens de sucesso/erro para manter a consistência com "Categorias".
+    -   Correção de bug no campo SKU (variável indefinida no input manual)
 
 ## 📌 Pendente / Próximos Passos
 

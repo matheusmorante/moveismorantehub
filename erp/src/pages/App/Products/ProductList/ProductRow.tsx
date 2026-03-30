@@ -51,6 +51,22 @@ const ProductRow = ({
         if (!visibilitySettings[key as keyof ProductVisibilitySettings]) return null;
 
         switch (key) {
+            case 'id':
+                return (
+                    <td key="id" className="px-6 py-4 text-left w-[1%] whitespace-nowrap">
+                        <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                            {product.id || "-"}
+                        </span>
+                    </td>
+                );
+            case 'sku':
+                return (
+                    <td key="sku" className="px-6 py-4 text-left w-[1%] whitespace-nowrap">
+                        <span className="font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
+                            {product.sku || product.code || "-"}
+                        </span>
+                    </td>
+                );
             case 'code':
                 return (
                     <td key="code" className="px-6 py-4 text-left w-[1%] whitespace-nowrap">
@@ -61,65 +77,72 @@ const ProductRow = ({
                 );
             case 'description':
                 return (
-                    <td key="description" className="px-6 py-4 text-left">
+                    <td key="description" className={`px-6 py-4 text-left ${product.parentId ? 'relative' : ''}`}>
                         <div className="flex items-center gap-4">
-                            {/* Thumbnail with Variation Badge */}
-                            {(product.isVariation || !product.hasVariations) && (
-                                <div className="relative shrink-0">
-                                    {product.images?.[0] ? (
-                                        <img
-                                            src={product.images[0]}
-                                            alt=""
-                                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform"
-                                        />
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-300 border border-slate-100 dark:border-slate-800 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
-                                            <i className="bi bi-image text-lg"></i>
-                                        </div>
-                                    )}
-                                </div>
+                            {/* Connector line for Children */}
+                            {product.parentId && (
+                                <div className="absolute left-6 top-0 bottom-1/2 w-4 border-l-2 border-b-2 border-slate-200 dark:border-slate-800 rounded-bl-xl pointer-events-none" />
                             )}
 
-                            {product.isVariation && (
-                                <div className="flex items-center text-slate-300 dark:text-slate-700 ml-4 mr-1">
-                                    <i className="bi bi-arrow-return-right text-sm" />
-                                </div>
-                            )}
-                            <div className="flex flex-col">
-                                <span className={`text-sm ${product.isParent ? 'font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
-                                     {(product as any).displayName || product.description}
-                                 </span>
-                                <div className="flex items-center gap-2 mt-1">
-                                    {product.isDraft && (
-                                        <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-900/40 shadow-sm">
-                                            <i className="bi bi-file-earmark-text"></i> Rascunho
-                                        </span>
-                                    )}
-                                    {product.itemType === 'service' ? (
-                                        <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">
-                                            <i className="bi bi-tools"></i> Serviço
-                                        </span>
-                                    ) : (
-                                        <>
-                                            {product.isCombo && (
-                                                <span className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-purple-200 dark:border-purple-900/40 shadow-sm animate-pulse-slow">
-                                                    <i className="bi bi-layers-fill"></i> Combo/Jogo
-                                                </span>
-                                            )}
-                                            <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-900/30">
-                                                <i className="bi bi-box-seam"></i> Produto
+                            {/* Indentation for Children */}
+                            <div className={`flex items-center gap-4 transition-all duration-300 ${product.parentId ? 'ml-10' : ''}`}>
+                                {/* Thumbnail */}
+                                {(product.isVariation || !product.hasVariations) && (
+                                    <div className="relative shrink-0">
+                                        {product.images?.[0] ? (
+                                            <img
+                                                src={product.images[0]}
+                                                alt=""
+                                                className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-300 border border-slate-100 dark:border-slate-800 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+                                                <i className="bi bi-image text-lg"></i>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col">
+                                    <span className={`text-sm ${product.parentId ? 'font-medium text-slate-600 dark:text-slate-400' : product.isParent ? 'font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
+                                        {(product as any).displayName || product.description}
+                                    </span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        {product.parentId && (
+                                            <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-800">
+                                                <i className="bi bi-arrow-return-right"></i> Variação
                                             </span>
-                                            {product.condition && (
-                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${product.condition === 'novo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30' :
-                                                    product.condition === 'usado' ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-900/30' :
-                                                        'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
-                                                    }`}>
-                                                    {product.condition}
+                                        )}
+                                        {product.isDraft && (
+                                            <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-900/40 shadow-sm">
+                                                <i className="bi bi-file-earmark-text"></i> Rascunho
+                                            </span>
+                                        )}
+                                        {product.itemType === 'service' ? (
+                                            <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">
+                                                <i className="bi bi-tools"></i> Serviço
+                                            </span>
+                                        ) : (
+                                            <>
+                                                {product.isCombo && (
+                                                    <span className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-purple-200 dark:border-purple-900/40 shadow-sm animate-pulse-slow">
+                                                        <i className="bi bi-layers-fill"></i> Combo/Jogo
+                                                    </span>
+                                                )}
+                                                <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-900/30">
+                                                    <i className="bi bi-box-seam"></i> Produto
                                                 </span>
-                                            )}
-                                        </>
-                                    )}
-
+                                                {product.condition && (
+                                                    <span className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${product.condition === 'novo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30' :
+                                                        product.condition === 'usado' ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-900/30' :
+                                                            'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
+                                                        }`}>
+                                                        {product.condition}
+                                                    </span>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

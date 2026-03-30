@@ -56,7 +56,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                             onClick={onOpenCartesianModal}
                             className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-lg transition-all active:scale-95 flex items-center gap-2"
                         >
-                            <i className="bi bi-grid-3x3-gap"></i> Gerar Grade (Cartesiano)
+                            <i className="bi bi-grid-3x3-gap"></i> Gerar variação
                         </button>
                     </div>
                 </div>

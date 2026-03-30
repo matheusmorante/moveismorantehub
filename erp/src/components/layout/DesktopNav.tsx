@@ -29,7 +29,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 Dashboard
             </Link>
 
-            {/* Catálogo do Site */}
+            {/* Produtos e Serviços */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('products')}
@@ -37,7 +37,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             >
                 <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
                     <i className="bi bi-box-seam"></i>
-                    <span>Catálogo do Site</span>
+                    <span>Produtos e Serviços</span>
                     <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'products')}></i>
                 </button>
@@ -46,6 +46,24 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Todos os Produtos</Link>
                         <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Categorias</Link>
                         <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Atributos e Valores</Link>
+                    </div>
+                )}
+            </div>
+
+            {/* Estoque */}
+            <div
+                className="relative h-full flex items-center"
+                onMouseEnter={() => setActiveMenu('stock')}
+                onMouseLeave={() => setActiveMenu(null)}
+            >
+                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', false)}>
+                    <i className="bi bi-box-fill"></i>
+                    Estoque
+                    <i className={chevronClass(activeMenu === 'stock')}></i>
+                </button>
+                {activeMenu === 'stock' && (
+                    <div className={dropdownClass}>
+                        <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Movimentações</Link>
                     </div>
                 )}
             </div>

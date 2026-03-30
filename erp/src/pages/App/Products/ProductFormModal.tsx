@@ -22,16 +22,13 @@ import ProductGeneralTab from "./components/tabs/ProductGeneralTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
 import { generateProductCode } from '@/pages/utils/formatters';
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
+
+import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
+import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
 import ProductConversionModal from "./components/ProductConversionModal";
 import CartesianVariationModal from "./components/CartesianVariationModal";
-import ProductTypeManagementModal from "./components/ProductTypeManagementModal";
 
-// [x] Novo: Regras Dinâmicas de Título de Produto
-//     - [x] Atualizar `product.type.ts` e `productService.ts`
-//     - [x] Criar CRUD de Tipos de Móveis (`ProductTypeManagementModal.tsx`)
-//     - [x] Implementar interface de reordenação no `ProductFormModal.tsx`
-//     - [x] Atualizar geração de título automática nos modais
-//     - [x] Validar reordenação e composição final
+// [x] Novo: Cadastro de Produtos e Serviços Simplificado (Manual)
 interface ProductFormModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -181,25 +178,17 @@ const INITIAL_FORM_DATA: Partial<Product> = {
     brand: "",
     colors: "",
     material: "",
-    mainDifferential: "",
-    notIncluded: "",
     supplierRef: "",
     observations: "",
-    productTypeId: "",
-    productTypeName: "",
+    noColors: false,
     environment: "",
-    includeEnvironment: true,
-    includeLine: true,
-    includeBrand: true,
-    includeType: true,
-    includeComplement: true,
-    titleComplement: "",
-    titleOrder: ["type", "environment", "line", "brand", "complement"]
+    hasNoLine: false,
+    noBrand: false
 };
 
 const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: ProductFormModalProps) => {
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'variacoes' | 'ecommerce'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal'>('geral');
     const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>('vitrine');
     const [loading, setLoading] = useState(false);
     const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
@@ -219,8 +208,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [availableCategories, setAvailableCategories] = useState<any[]>([]);
     const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
-    const [isProductTypeModalOpen, setIsProductTypeModalOpen] = useState(false);
-    const [productTypes, setProductTypes] = useState<{ id: string, name: string }[]>([]);
 
     const [formData, setFormData] = useState<Partial<Product>>({
         ...INITIAL_FORM_DATA,
@@ -274,19 +261,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         return () => { isMounted = false; };
     }, [product, initialData, isOpen]);
 
-    // Removido sync automático de descrições de variações baseado no pai (Título manual agora)
 
-    // Geração de título removida (agora é manual)
-
-    // Fetch product types
-    useEffect(() => {
-        if (!isOpen) return;
-        const fetchProductTypes = async () => {
-            const { data } = await supabase.from('product_types').select('id, name').order('name');
-            if (data) setProductTypes(data);
-        };
-        fetchProductTypes();
-    }, [isOpen, isProductTypeModalOpen]);
 
 
 
@@ -383,6 +358,46 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     }, [formData.variations, formData.hasVariations]);
 
+    // Sincronizar ambientes baseados nos categoryIds selecionados (Global)
+    useEffect(() => {
+        if (formData.categoryIds?.length && availableCategories.length) {
+            const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
+            
+            const roots = new Set<string>();
+            const visited = new Set<string>();
+            const find = (catId: string) => {
+                if (visited.has(catId)) return;
+                visited.add(catId);
+                const c = availableCategories.find(item => item.id === catId);
+                if (!c) return;
+                if (!c.parents || c.parents.length === 0) {
+                    roots.add(c.name);
+                } else {
+                    c.parents.forEach((pid: string) => find(pid));
+                }
+            };
+            formData.categoryIds.forEach(find);
+            const allEnvs = Array.from(roots);
+            
+            setFormData(prev => {
+                const next = { ...prev };
+                let changed = false;
+                
+                if (allEnvs.length > 0 && JSON.stringify(prev.availableEnvironments) !== JSON.stringify(allEnvs)) {
+                    next.availableEnvironments = allEnvs;
+                    changed = true;
+                }
+                
+                if (!prev.environment && allEnvs.length > 0) {
+                    next.environment = allEnvs[0];
+                    changed = true;
+                }
+                
+                return changed ? next : prev;
+            });
+        }
+    }, [formData.categoryIds, availableCategories]);
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
         let files: FileList | File[] = [];
         if ('files' in e.target && e.target.files) {
@@ -470,9 +485,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 dimensions: `${formData.width}x${formData.height}x${formData.depth}`,
                 brand: formData.brand,
                 line: formData.line,
-                mainDifferential: formData.mainDifferential,
-                colors: formData.colors,
-                notIncluded: formData.notIncluded,
                 type
             });
             if (type === 'whatsapp') setFormData(prev => ({ ...prev, whatsappDescription: desc }));
@@ -491,8 +503,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         try {
             const { title } = await aiService.generateMarketplaceTitle({
                 description: formData.description,
-                material: formData.material,
-                differential: formData.mainDifferential
+                material: formData.material
             });
             setFormData(prev => ({ ...prev, marketplaceTitle: title }));
             toast.success("Título para marketplace gerado!");
@@ -530,8 +541,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             const suggestions = await aiService.suggestPrices({
                 description: formData.description,
                 costPrice: formData.finalPurchasePrice,
-                material: formData.material,
-                differential: formData.mainDifferential
+                material: formData.material
             });
 
             // Calculate margins locally if not provided by AI
@@ -557,16 +567,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const handleFieldChange = (field: keyof Product, value: any) => {
-        setFormData(prev => {
-            const next = { ...prev, [field]: value };
-            
-            // Auto-gerar SKU do produto se estiver vazio e o título for digitado
-            if (field === 'description' && !next.id && (!next.code || next.code.trim() === '')) {
-                next.code = generateProductCode(value);
-            }
-            
-            return next;
-        });
+        setFormData(prev => ({ ...prev, [field]: value }));
         hasChanged.current = true;
     };
 
@@ -747,10 +748,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         if (!data.whatsappDescription) missing.push("Descrição WhatsApp (Aba Marketplace)");
         
         // Characteristics
-        if (!data.brand && !data.noBrand) missing.push("Marca / Fabricante (ou marque 'Ocultar')");
-        if (!data.line && !data.hasNoLine) missing.push("Modelo / Linha (ou marque 'Sem Modelo')");
+        if (!data.brand && !data.noBrand) missing.push("Marca / Fabricante (ou marque 'Não Contém')");
+        if (!data.line && !data.hasNoLine) missing.push("Modelo / Linha (ou marque 'Não Contém')");
         if (!data.material) missing.push("Material");
-        if (!data.colors && !data.noColors) missing.push("Cores Disponíveis (ou marque 'Não Informar')");
         
         // SupplyChain / Financial
         if (!data.mainSupplierId) missing.push("Fornecedor Principal (Aba Estoque)");
@@ -761,9 +761,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         if (!data.images || data.images.length === 0) missing.push("Pelo menos uma Foto (Aba Marketplace)");
         
         // Logistics / Dimensions
-        if (!data.width || data.width <= 0) missing.push("Largura (Aba Geral)");
-        if (!data.height || data.height <= 0) missing.push("Altura (Aba Geral)");
-        if (!data.depth || data.depth <= 0) missing.push("Profundidade (Aba Geral)");
         if (!data.weight || data.weight <= 0) missing.push("Peso Bruto (Aba Marketplace)");
         
         return missing;
@@ -909,6 +906,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     <div className="flex gap-10">
                         {([
                             { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
+                            { id: 'ambientes', label: 'Ambientes', icon: 'bi-house' },
                             !isService && { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
                             !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
                             !isService && { id: 'ecommerce', label: 'Vitrine / E-commerce', icon: 'bi-cart-check' },
@@ -932,10 +930,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         <ProductGeneralTab
                             onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
                             suppliers={suppliers}
-                            isService={formData.itemType === 'service'}
-                            productTypes={productTypes}
-                            onOpenProductTypeModal={() => setIsProductTypeModalOpen(true)}
-                            generateAutoTitle={generateAutoTitle}
+                            isService={isService}
                             formData={formData}
                             setFormData={setFormData}
                             availableCategories={availableCategories}
@@ -944,7 +939,58 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         />
                     )}
 
-                    {/* Abas de estoque e fiscal removidas */}
+                    {activeTab === 'ambientes' && (
+                        <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="md:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center text-xl">
+                                        <i className="bi bi-house"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Ambientes</h3>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Onde este produto será utilizado?</p>
+                                    </div>
+                                </div>
+                                
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Selecione um ou mais ambientes <span className="text-red-500">*</span></label>
+                                <CategoryAutocomplete
+                                    filter="environments"
+                                    selectedIds={formData.categoryIds || []}
+                                    onSelect={(cat) => {
+                                        setFormData(prev => {
+                                            const ids = prev.categoryIds || [];
+                                            if (ids.includes(cat.id)) return prev;
+                                            return { ...prev, categoryIds: [...ids, cat.id] };
+                                        });
+                                    }}
+                                    onRemove={(id) => {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            categoryIds: prev.categoryIds?.filter(i => i !== id) || []
+                                        }));
+                                    }}
+                                    placeholder="Buscar ambiente... (Ex: Sala de Jantar, Cozinha)"
+                                />
+
+                                <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-950/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">
+                                        As categorias detalhadas (ex: mesas, cadeiras) ficam na aba <span className="text-blue-600">Cadastro Geral</span>.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'estoque' && (
+                        <ProductInventoryTab
+                            formData={formData}
+                            setFormData={setFormData}
+                            suppliers={suppliers}
+                            handleSuggestPrices={handleSuggestPrices}
+                            isSuggestingPrices={isSuggestingPrices}
+                            suggestPricesResults={suggestPricesResults}
+                        />
+                    )}
 
                     {activeTab === 'variacoes' && (
                         <ProductVariationsTab
@@ -978,10 +1024,18 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             isGeneratingDescription={isGeneratingDescription}
                             handleGenerateMarketplaceTitle={handleGenerateMarketplaceTitle}
                             isGeneratingTitle={isGeneratingTitle}
+                            handleToggleActive={handleToggleActive}
                         />
                     )}
 
-                    {/* Aba fiscal removida */}
+                    {activeTab === 'fiscal' && (
+                        <ProductFiscalTab
+                            formData={formData}
+                            setFormData={setFormData}
+                            handleGenerateNCM={handleGenerateNCM}
+                            isGeneratingNCM={isGeneratingNCM}
+                        />
+                    )}
                 </div>
 
                 {/* Footer Buttons */}
@@ -1059,7 +1113,16 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 <CategorySearchModal
                     isOpen={isCategorySearchOpen}
                     onClose={() => setIsCategorySearchOpen(false)}
-                    categories={availableCategories}
+                    categories={availableCategories.filter(c => {
+                        const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
+                        const isFixed = FIXED_ENVIRONMENTS.includes(c.name?.trim().toUpperCase());
+                        const hasChildren = availableCategories.some(other => other.parents?.includes(c.id));
+                        const isEnvironment = isFixed || (hasChildren && (!c.parents || c.parents.length === 0)) || (!c.parents || c.parents.length === 0);
+                        
+                        if (activeTab === 'ambientes') return isEnvironment;
+                        if (activeTab === 'geral') return !isEnvironment;
+                        return true;
+                    })}
                     selectedIds={formData.categoryIds || []}
                     onSelect={(cid) => {
                         const cat = availableCategories.find(c => c.id === cid);
@@ -1195,10 +1258,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     onGenerate={generateBulkVariations}
                 />
 
-                <ProductTypeManagementModal
-                    isOpen={isProductTypeModalOpen}
-                    onClose={() => setIsProductTypeModalOpen(false)}
-                />
             </div>
         </div>
     );

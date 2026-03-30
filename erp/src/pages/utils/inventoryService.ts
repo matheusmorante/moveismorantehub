@@ -187,6 +187,114 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
     }
 };
 
+export const cancelInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
+    try {
+        const { data: moves, error } = await supabase
+            .from(TABLE_NAME)
+            .select('*')
+            .eq('related_entity_id', relatedEntityId)
+            .eq('related_entity_type', relatedEntityType)
+            .eq('status', 'active');
+
+        if (error) throw error;
+        if (!moves || moves.length === 0) return;
+
+        for (const move of moves) {
+            // Update status to cancelled
+            const { error: updateError } = await supabase
+                .from(TABLE_NAME)
+                .update({ status: 'cancelled' })
+                .eq('id', move.id);
+
+            if (updateError) throw updateError;
+
+            // Revert stock impact
+            const { data: p } = await supabase.from('products').select('*').eq('id', move.product_id).single();
+            if (!p) continue;
+
+            let newTotalStock = Number(p.stock || 0);
+            let updatedVariations = p.variations ? [...p.variations] : [];
+
+            if (move.variation_id && updatedVariations.length > 0) {
+                const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variation_id));
+                if (vIdx !== -1) {
+                    let vStock = Number(updatedVariations[vIdx].stock || 0);
+                    // Reversion of entry = withdrawal, reversion of withdrawal = entry
+                    if (move.type === 'entry') vStock -= Number(move.quantity);
+                    else if (move.type === 'withdrawal') vStock += Number(move.quantity);
+                    updatedVariations[vIdx].stock = vStock;
+                }
+                newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
+            } else {
+                if (move.type === 'entry') newTotalStock -= Number(move.quantity);
+                else if (move.type === 'withdrawal') newTotalStock += Number(move.quantity);
+            }
+
+            await updateProduct(move.product_id, { 
+                stock: newTotalStock,
+                variations: updatedVariations.length > 0 ? updatedVariations : undefined
+            });
+        }
+    } catch (error) {
+        console.error(`Erro ao cancelar movimentações para ${relatedEntityType} ${relatedEntityId}:`, error);
+        throw error;
+    }
+};
+
+export const deleteInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
+    try {
+        const { data: moves, error } = await supabase
+            .from(TABLE_NAME)
+            .select('*')
+            .eq('related_entity_id', relatedEntityId)
+            .eq('related_entity_type', relatedEntityType);
+
+        if (error) throw error;
+        if (!moves || moves.length === 0) return;
+
+        for (const move of moves) {
+            // Revert stock impact IF active
+            if (move.status === 'active' || !move.status) {
+                const { data: p } = await supabase.from('products').select('*').eq('id', move.product_id).single();
+                if (p) {
+                    let newTotalStock = Number(p.stock || 0);
+                    let updatedVariations = p.variations ? [...p.variations] : [];
+
+                    if (move.variation_id && updatedVariations.length > 0) {
+                        const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variation_id));
+                        if (vIdx !== -1) {
+                            let vStock = Number(updatedVariations[vIdx].stock || 0);
+                            if (move.type === 'entry') vStock -= Number(move.quantity);
+                            else if (move.type === 'withdrawal') vStock += Number(move.quantity);
+                            updatedVariations[vIdx].stock = vStock;
+                        }
+                        newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
+                    } else {
+                        if (move.type === 'entry') newTotalStock -= Number(move.quantity);
+                        else if (move.type === 'withdrawal') newTotalStock += Number(move.quantity);
+                    }
+
+                    await updateProduct(move.product_id, { 
+                        stock: newTotalStock,
+                        variations: updatedVariations.length > 0 ? updatedVariations : undefined
+                    });
+                }
+            }
+
+            // Permanently delete the move
+            const { error: deleteError } = await supabase
+                .from(TABLE_NAME)
+                .delete()
+                .eq('id', move.id);
+
+            if (deleteError) throw deleteError;
+        }
+    } catch (error) {
+        console.error(`Erro ao deletar permanentemente movimentações para ${relatedEntityType} ${relatedEntityId}:`, error);
+        throw error;
+    }
+};
+
 export const getInventoryMoveById = async (id: string): Promise<InventoryMove | null> => {
     try {
         const { data, error } = await supabase
@@ -265,7 +373,8 @@ const mapToDB = (move: InventoryMove) => ({
     parent_move_id: move.parentMoveId,
     related_entity_id: move.relatedEntityId,
     related_entity_type: move.relatedEntityType,
-    observation: move.observation
+    observation: move.observation,
+    status: move.status || 'active'
 });
 
 const mapFromDB = (data: any): InventoryMove => ({
@@ -282,5 +391,6 @@ const mapFromDB = (data: any): InventoryMove => ({
     relatedEntityId: data.related_entity_id,
     relatedEntityType: data.related_entity_type,
     observation: data.observation,
+    status: data.status || 'active',
     createdAt: data.created_at
 });
