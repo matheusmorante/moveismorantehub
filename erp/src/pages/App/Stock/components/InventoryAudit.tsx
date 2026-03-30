@@ -155,6 +155,10 @@ const InventoryAudit = () => {
         }
     }, [flatItems]);
 
+    const handleCloseScanner = useCallback(() => {
+        setIsScannerOpen(false);
+    }, []);
+
     if (loading) {
         return (
             <div className="p-20 flex flex-col items-center justify-center">
@@ -211,7 +215,7 @@ const InventoryAudit = () => {
             <ErrorBoundary name="Scanner de Inventário">
                 <QRScannerModal 
                     isOpen={isScannerOpen} 
-                    onClose={() => setIsScannerOpen(false)} 
+                    onClose={handleCloseScanner} 
                     closeOnScan={false} // Allow multiple scans
                     onScan={handleScan}
                     title="Contagem por Escaneamento"

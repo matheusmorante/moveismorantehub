@@ -51,9 +51,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
         setError(null);
         
         try {
-            // VERIFICAÇÃO DE SEGURANÇA (HTTP vs HTTPS)
+            // VERIFICAÇÃO DE SEGURANÇA (HTTPS)
             if (!window.isSecureContext && window.location.hostname !== "localhost") {
-                throw new Error("⚠️ SEGURANÇA: O seu navegador bloqueou a câmera porque este site não é seguro (precisa ser HTTPS ou localhost). No celular, você só conseguirá usar via HTTPS.");
+                throw new Error("⚠️ SEGURANÇA: Site detectado como inseguro (HTTP). No celular, a câmera SÓ abre via HTTPS. Se estiver testando no Vercel, certifique-se de que o cadeado está ativo no topo.");
             }
 
             await stopScanner();
@@ -65,20 +65,24 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             const qrScanner = new Html5Qrcode(scannerId);
             scannerRef.current = qrScanner;
 
+            // CONFIGURAÇÃO MAIS FLEXÍVEL (Sem restrição de aspecto ou FPS exagerado)
             const config = {
-                fps: 20,
+                fps: 15,
                 qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
+                // Removido aspectRatio fixo para evitar rejeição do hardware de celulares antigos
             };
 
             const cameras = await Html5Qrcode.getCameras().catch(() => []);
             
             if (cameras && cameras.length > 0) {
+                // Seleção inteligente: Prioriza a traseira (back), senão pega qualquer uma
                 const backCamera = cameras.find(c => 
                     c.label.toLowerCase().includes('back') || 
-                    c.label.toLowerCase().includes('traseira')
+                    c.label.toLowerCase().includes('traseira') ||
+                    c.label.toLowerCase().includes('rear')
                 );
-                const selectedCameraId = backCamera ? backCamera.id : cameras[cameras.length - 1].id;
+                
+                const selectedCameraId = backCamera ? backCamera.id : cameras[0].id;
                 
                 await qrScanner.start(
                     selectedCameraId,
@@ -91,6 +95,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                     () => {}
                 );
             } else {
+                // Tenta pelo modo genérico do navegador se a lista estiver vazia
                 await qrScanner.start(
                     { facingMode: "environment" },
                     config,
@@ -103,15 +108,15 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             }
 
         } catch (err: any) {
-            console.error("Critical Device Error:", err);
+            console.error("Critical Scanner Failure:", err);
             let msg = err?.message || String(err);
             
-            if (msg.includes("Permission") || msg.includes("allowed")) {
-                msg = "Acesso negado. Por favor, libere a câmera no cadeado ao lado do endereço do site (barra de busca do navegador).";
-            } else if (msg.includes("NotFound") || msg.includes("device not found")) {
-                msg = "Nenhuma câmera encontrada ou ela está sendo usada por outro aplicativo (WhatsApp, Zoom, etc).";
-            } else if (msg.includes("getUserMedia")) {
-                msg = "Erro de conexão com o hardware da câmera. Tente reiniciar o navegador.";
+            if (msg.includes("Permission") || msg.includes("allowed") || msg.includes("denied")) {
+                msg = "🛑 PERMISSÃO BLOQUEADA: Vá nos ajustes do seu celular e libere o acesso à câmera para este site/navegador.";
+            } else if (msg.includes("NotFound") || msg.includes("Requested device not found")) {
+                msg = "📵 CÂMERA OCUPADA OU INEXISTENTE: Outro app (WhatsApp, Zoom, Instagram) pode estar usando a câmera agora. Feche tudo e tente novamente.";
+            } else if (msg.includes("Webcam Error")) {
+                msg = "⚠️ ERRO DE HARDWARE: O navegador não conseguiu conversar com o sensor. Dê F5 e tente novamente.";
             }
             
             setError(msg);
@@ -142,10 +147,10 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             
             <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                    <div>
+                    <div className="text-left">
                         <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{title}</h3>
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">
-                            {isInitializing ? 'Detectando Hardware...' : error ? 'Erro de Dispositivo' : 'Sensor Preparado'}
+                            LOGÍSTICA MÓVEIS MORANTE
                         </p>
                     </div>
                     <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-500 shadow-sm transition-all active:scale-95">
@@ -156,37 +161,35 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                 <div className="p-8">
                     <div className={`relative w-full rounded-[2.5rem] overflow-hidden bg-black border-2 border-slate-200 dark:border-slate-700 shadow-2xl ${showManualInput ? 'hidden' : 'block'}`} style={{ minHeight: '340px' }}>
                         
-                        <div id={scannerId} className="absolute inset-0 w-full h-full bg-slate-900" />
+                        <div id={scannerId} className="absolute inset-0 w-full h-full bg-slate-950" />
 
                         {isInitializing && (
                             <div className="absolute inset-0 z-20 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center text-white">
                                 <div className="w-16 h-16 border-[6px] border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-6" />
-                                <h4 className="text-xs font-black uppercase tracking-widest mb-2">Conectando ao Sensor</h4>
-                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight leading-relaxed">
-                                    Se solicitado, autorize o acesso à câmera no topo da tela.
+                                <h4 className="text-xs font-black uppercase tracking-widest mb-2">Sincronizando Sensor</h4>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.15em] leading-relaxed">
+                                    Aguarde a liberação do Hardware...
                                 </p>
                             </div>
                         )}
 
                         {error && (
                             <div className="absolute inset-0 z-30 bg-slate-900 flex flex-col items-center justify-center p-8 text-center overflow-y-auto">
-                                <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mb-6">
-                                    <i className="bi bi-camera-video-off text-4xl text-rose-500" />
-                                </div>
-                                <div className="p-5 bg-black/60 rounded-2xl border border-rose-500/20 mb-8 w-full">
-                                    <p className="text-[12px] font-bold text-rose-300 select-all leading-relaxed ltr break-words italic">
+                                <div className="p-6 bg-black/60 rounded-[2rem] border border-rose-500/30 mb-8 w-full">
+                                    <i className="bi bi-shield-lock-fill text-rose-500 text-3xl mb-4" />
+                                    <p className="text-[12px] font-bold text-rose-100 select-all leading-relaxed uppercase tracking-wide">
                                         {error}
                                     </p>
                                 </div>
                                 <div className="flex flex-col w-full gap-3">
-                                    <button onClick={() => startScanner()} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all">
+                                    <button onClick={() => startScanner()} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all">
                                         REPETIR TENTATIVA
                                     </button>
                                     <button 
                                         onClick={() => setShowManualInput(true)} 
-                                        className="w-full py-4 bg-slate-700 text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[9px] border border-slate-600 active:scale-95 transition-all"
+                                        className="w-full py-5 bg-slate-800 text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[9px] border border-slate-700 active:scale-95 transition-all"
                                     >
-                                        DIGITAR MANUALMENTE
+                                        ENTRADA POR CÓDIGO (MANUAL)
                                     </button>
                                 </div>
                             </div>
@@ -216,7 +219,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                                 }} 
                                 className="w-full py-6 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-3xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
                             >
-                                CONFIRMAR CÓDIGO
+                                CONFIRMAR
                             </button>
                         </div>
                     )}
@@ -227,7 +230,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                             className="w-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-500 transition-colors flex items-center justify-center gap-3"
                         >
                             <i className={`bi ${showManualInput ? 'bi-camera-fill' : 'bi-keyboard-fill'} text-lg`} />
-                            {showManualInput ? 'VOLTAR PARA CÂMERA' : 'DIFICULDADE? DIGITE MANUALMENTE'}
+                            {showManualInput ? 'SCANNER DE CÂMERA' : 'USAR ENTRADA MANUAL'}
                         </button>
                     </div>
                 </div>
