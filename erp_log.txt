@@ -1,0 +1,16 @@
+
+> erp-admin@0.1.0 dev
+> vite 
+
+[31mfailed to load config from c:\Users\mathe\OneDrive\Área de Trabalho\projetos\moveismorantehub\erp\vite.config.ts[39m
+[31merror when starting dev server:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@vitejs/plugin-basic-ssl' imported from c:\Users\mathe\OneDrive\Área de Trabalho\projetos\moveismorantehub\erp\vite.config.ts.timestamp-1774912599030-19bf45de5ef46.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:255:9)
+    at packageResolve (node:internal/modules/esm/resolve:767:81)
+    at moduleResolve (node:internal/modules/esm/resolve:853:18)
+    at defaultResolve (node:internal/modules/esm/resolve:983:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)[39m

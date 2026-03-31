@@ -153,7 +153,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
                                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none"
                             >
-                                {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size} por página</option>)}
+                                {[10, 25, 50, 100, 300, 500, 1000].map(size => <option key={size} value={size}>{size} por página</option>)}
                             </select>
                         </div>
                     </div>

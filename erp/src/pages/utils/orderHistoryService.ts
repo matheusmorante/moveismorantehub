@@ -448,3 +448,60 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
         return {};
     }
 };
+
+/**
+ * Busca todos os pedidos que contenham um determinado produto
+ */
+export const getOrdersByProductId = async (productId: string, productSku?: string, productDescription?: string): Promise<Order[]> => {
+    try {
+        const idStr = String(productId);
+        const queryPromises: any[] = [];
+        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('id', { ascending: false });
+
+        // 1. Busca por ID em itens e assistência
+        queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: idStr }] }));
+        queryPromises.push(baseQuery().contains('order_data', { items: [{ variationId: idStr }] }));
+        queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ id: idStr }] }));
+
+        const numId = parseInt(idStr);
+        if (!isNaN(numId)) {
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: numId }] }));
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ variationId: numId }] }));
+        }
+
+        // 2. Busca por SKU/Code se fornecido
+        if (productSku) {
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ code: productSku }] }));
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ sku: productSku }] }));
+            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ sku: productSku }] }));
+        }
+
+        // 3. Busca por Descrição se fornecida
+        if (productDescription) {
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ description: productDescription }] }));
+            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ description: productDescription }] }));
+        }
+
+        const results = await Promise.all(queryPromises);
+        const uniqueOrders = new Map<string, Order>();
+
+        results.forEach(res => {
+            if (res.data) {
+                res.data.forEach((row: any) => {
+                    const rawData = { ...(row.order_data || {}), id: String(row.id) } as Order;
+                    
+                    // Filtrar orçamentos e deletados
+                    const isBudget = rawData.orderType === 'budget';
+                    if (!rawData.deleted && !isBudget && !uniqueOrders.has(rawData.id!)) {
+                        uniqueOrders.set(rawData.id!, capitalizeOrder(rawData));
+                    }
+                });
+            }
+        });
+
+        return Array.from(uniqueOrders.values()).sort((a, b) => Number(b.id) - Number(a.id));
+    } catch (error) {
+        console.error("Erro ao buscar pedidos por produto:", error);
+        return [];
+    }
+};

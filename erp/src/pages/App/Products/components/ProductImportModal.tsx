@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import Product, { Variation } from '../../../types/product.type';
-import { saveProduct } from '@/pages/utils/productService';
+import { saveProduct, mapFromDB } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
 import Person from '../../../types/person.type';
@@ -51,7 +51,8 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
         height: null,
         depth: null,
         ncm: null,
-        id: null
+        id: null,
+        supplierRef: null
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +80,9 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                 width: null,
                 height: null,
                 depth: null,
-                ncm: null
+                ncm: null,
+                supplierRef: null,
+                supplierName: null
             });
 
             const unsubscribe = subscribeToPeople('suppliers', (people: Person[]) => {
@@ -192,7 +195,9 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                 width: ['LARGURA'],
                 height: ['ALTURA'],
                 depth: ['PROFUNDIDADE', 'COMPRIMENTO'],
-                ncm: ['NCM']
+                ncm: ['NCM'],
+                supplierRef: ['REF FORNECEDOR', 'COD FORNECEDOR'],
+                supplierName: ['FORNECEDOR', 'NOME FORNECEDOR', 'FORN']
             };
 
             Object.keys(fieldKeywords).forEach(field => {
@@ -237,7 +242,7 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
             const unitPrice = parseFloat(unitPriceVal?.replace('.', '').replace(',', '.') || '0');
             const costPrice = parseFloat(costPriceVal?.replace('.', '').replace(',', '.') || '0');
             
-            const code = getVal('code');
+            const code = getVal('code')?.toString().trim();
             let description = getVal('description') || '';
             
             // Clean up description if it's just HTML or empty tags
@@ -265,7 +270,9 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                     fiscal: { ncm: getVal('ncm') },
                     parentId: (getVal('parentId')?.trim() || undefined),
                     sku: code,
-                    id: getVal('id')
+                    id: getVal('id')?.toString().trim(),
+                    supplierRef: getVal('supplierRef')?.toString().trim(),
+                    observations: getVal('supplierName')?.toString().trim() // Usando observations como transporte temporário para o nome do fornecedor no preview
                 }
             };
         }).filter(r => {
@@ -457,110 +464,191 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
             return;
         }
 
-        const parents = toProcess.filter(x => !x.r.data.parentId);
-        const variations = toProcess.filter(x => x.r.data.parentId);
-        const parentMap = new Map<string, ImportRow[]>();
-        variations.forEach(x => {
-            const pid = x.r.data.parentId!;
-            if (!parentMap.has(pid)) parentMap.set(pid, []);
-            parentMap.get(pid)!.push(x.r);
+        // 1. Identificar Pais e Variações
+        const parentsFromCsv = toProcess.filter(x => !x.r.data.parentId);
+        const childrenFromCsv = toProcess.filter(x => x.r.data.parentId);
+        
+        // Mapeia SKUs dos pais para suas variações no CSV
+        const csvParentToChildren = new Map<string, ImportRow[]>();
+        childrenFromCsv.forEach(x => {
+            const pid = x.r.data.parentId!.trim().toUpperCase();
+            if (!csvParentToChildren.has(pid)) csvParentToChildren.set(pid, []);
+            csvParentToChildren.get(pid)!.push(x.r);
         });
 
-        let done = 0;
-        const totalUnits = parents.length || 1;
+        // 2. Pre-fetch Exaustivo (Pais e Variações por ID e SKU)
+        const allSkusFromCsv = toProcess.map(p => p.r.data.code?.trim().toUpperCase()).filter(c => !!c) as string[];
+        const allIdsFromCsv = toProcess.map(p => p.r.data.id?.trim()).filter(id => !!id) as string[];
+        const allParentIdsFromCsv = Array.from(csvParentToChildren.keys());
         
-        // 1. Pre-fetch existing products by SKU or ID to handle updates (Chunked to avoided large URLs)
-        const allSkus = parents.map(p => p.r.data.code!).filter(c => !!c);
-        const allIdsFromCsv = parents.map(p => p.r.data.id!).filter(id => !!id);
-        
-        let existingByCode: Record<string, string> = {};
-        let existingById: Record<string, string> = {};
+        const existingProductsMap = new Map<string, Product>(); // Key: ID ou SKU(Upper)
         
         async function prefetch(skus: string[], ids: string[]) {
-            if (skus.length === 0 && ids.length === 0) return;
             const orFilters: string[] = [];
             if (skus.length > 0) orFilters.push(`code.in.(${skus.map(s => `"${s}"`).join(',')})`);
             if (ids.length > 0) orFilters.push(`id.in.(${ids.join(',')})`);
             
             if (orFilters.length > 0) {
-                const { data: existing } = await supabase.from('products').select('id, code').eq('deleted', false).or(orFilters.join(','));
-                existing?.forEach((p: any) => { 
-                    if (p.code) existingByCode[p.code] = p.id;
-                    existingById[String(p.id)] = p.id;
+                const { data: existing } = await supabase.from('products')
+                    .select('*') // Buscamos tudo para ter as variações atuais
+                    .or(orFilters.join(','));
+
+                existing?.forEach((pDB: any) => { 
+                    const p = mapFromDB(pDB);
+                    existingProductsMap.set(String(p.id), p);
+                    if (p.code) existingProductsMap.set(String(p.code).trim().toUpperCase(), p);
                 });
             }
         }
 
-        const CHUNK_SIZE = 100;
-        for (let i = 0; i < Math.max(allSkus.length, allIdsFromCsv.length); i += CHUNK_SIZE) {
+        // Chunk prefetch para evitar limite de query string
+        const uniqueSkus = Array.from(new Set([...allSkusFromCsv, ...allParentIdsFromCsv]));
+        const uniqueIds = Array.from(new Set(allIdsFromCsv));
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < Math.max(uniqueSkus.length, uniqueIds.length); i += CHUNK_SIZE) {
             if (abortRef.current) break;
-            const skuChunk = allSkus.slice(i, i + CHUNK_SIZE);
-            const idChunk = allIdsFromCsv.slice(i, i + CHUNK_SIZE);
-            await prefetch(skuChunk, idChunk);
-            
-            if (abortRef.current) break;
-            // Optional: Give feedback during pre-fetch
-            const prefDone = Math.min(5, Math.round((i / Math.max(allSkus.length, allIdsFromCsv.length)) * 5));
-            setProgress(prefDone);
+            await prefetch(uniqueSkus.slice(i, i + CHUNK_SIZE), uniqueIds.slice(i, i + CHUNK_SIZE));
+            setProgress(Math.min(10, Math.round((i / Math.max(uniqueSkus.length, uniqueIds.length)) * 10)));
         }
 
-        if (!abortRef.current) {
-            // Give a small progress boost after pre-fetch
-            setProgress(Math.max(5, Math.round(100 / (totalUnits || 1))));
-        }
+        // 3. Processamento
+        // Criamos uma lista de todos os pais que precisam ser salvos:
+        // - Pais que estão no CSV
+        // - Pais que não estão no CSV mas cujas variações estão
+        const parentSkusToProcess = new Set([
+            ...parentsFromCsv.map(p => p.r.data.code?.trim().toUpperCase()).filter(Boolean),
+            ...allParentIdsFromCsv
+        ]);
 
-        for (const p of parents) {
+        let done = 0;
+        const totalToProcess = parentSkusToProcess.size;
+
+        for (const parentSku of parentSkusToProcess) {
             if (abortRef.current) break;
             
-            // Update progress at start of item to show we are working on it
-            const currentProgress = Math.round((done / totalUnits) * 100);
-            setProgress(Math.max(currentProgress, 5));
-
-            updated[p.i].status = 'processing';
-            setImportData([...updated]);
+            const pRow = parentsFromCsv.find(p => p.r.data.code?.trim().toUpperCase() === parentSku);
+            const childrenRows = csvParentToChildren.get(parentSku as string) || [];
+            
+            // Buscar se já existe no mapa (prefetch)
+            const existingParent = existingProductsMap.get(parentSku as string);
+            
+            if (pRow) {
+                updated[pRow.i].status = 'processing';
+                setImportData([...updated]);
+            }
 
             try {
-                const children = parentMap.get(p.r.data.code!) || [];
-                
-                // Determine the correct ID to use (Update if exists, Insert if not)
-                let targetId = p.r.data.id ? existingById[String(p.r.data.id)] : undefined;
-                if (!targetId && p.r.data.code) {
-                    targetId = existingByCode[p.r.data.code];
+                let productToSave: Product;
+
+                if (pRow) {
+                    // Caso 1: O pai está no CSV
+                    const baseData = pRow.r.data;
+                    const targetId = baseData.id ? (existingProductsMap.get(String(baseData.id))?.id) : existingParent?.id;
+
+                    // Busca fornecedor por nome
+                    let foundSupplierId = undefined;
+                    if (baseData.observations) {
+                        const sName = baseData.observations.trim().toUpperCase();
+                        const sMatch = suppliers.find(s => 
+                            (s.fullName || s.tradeName || s.companyName || '').trim().toUpperCase() === sName
+                        );
+                        if (sMatch) foundSupplierId = sMatch.id;
+                    }
+
+                    productToSave = {
+                        ...baseData,
+                        id: targetId,
+                        supplierId: foundSupplierId || baseData.supplierId,
+                        mainSupplierId: foundSupplierId || baseData.supplierId,
+                        observations: '', // Limpar transporte temporário
+                        deleted: false,
+                        hasVariations: childrenRows.length > 0 || (existingParent?.variations?.length || 0) > 0,
+                        variations: []
+                    } as Product;
+
+                    // Mesclar variações
+                    const mergedVariations: Variation[] = existingParent?.variations ? [...existingParent.variations] : [];
+                    
+                    for (const cRow of childrenRows) {
+                        const csvVar = cRow.data;
+                        const csvVarSku = (csvVar.code || csvVar.sku)?.trim().toUpperCase();
+                        
+                        // Tentar encontrar variação existente pelo SKU
+                        const existingIdx = mergedVariations.findIndex(v => v.sku?.trim().toUpperCase() === csvVarSku);
+                        
+                        const varData: Variation = {
+                            id: existingIdx !== -1 ? mergedVariations[existingIdx].id : Math.random().toString(36).substr(2, 9),
+                            sku: csvVar.code || csvVar.sku || '',
+                            name: csvVar.description || '',
+                            unitPrice: csvVar.unitPrice || 0,
+                            costPrice: csvVar.costPrice || 0,
+                            stock: csvVar.stock || 0,
+                            active: csvVar.active ?? true,
+                            attributes: [{ name: 'Variação', value: csvVar.description || 'Padrão' }],
+                            syncUnitPrice: true, syncCostPrice: true, syncDescription: true
+                        } as Variation;
+
+                        if (existingIdx !== -1) mergedVariations[existingIdx] = { ...mergedVariations[existingIdx], ...varData };
+                        else mergedVariations.push(varData);
+                    }
+                    productToSave.variations = mergedVariations;
+                    productToSave.hasVariations = mergedVariations.length > 0;
+                } else {
+                    // Caso 2: Órfão (O pai não está no CSV, mas existe no banco e queremos adicionar variações a ele)
+                    if (!existingParent) throw new Error(`Pai com SKU ${parentSku} não encontrado no sistema.`);
+                    
+                    productToSave = { ...existingParent };
+                    const mergedVariations = [...(productToSave.variations || [])];
+
+                    for (const cRow of childrenRows) {
+                        const csvVar = cRow.data;
+                        const csvVarSku = (csvVar.code || csvVar.sku)?.trim().toUpperCase();
+                        const existingIdx = mergedVariations.findIndex(v => v.sku?.trim().toUpperCase() === csvVarSku);
+
+                        const varData: Variation = {
+                            id: existingIdx !== -1 ? mergedVariations[existingIdx].id : Math.random().toString(36).substr(2, 9),
+                            sku: csvVar.code || csvVar.sku || '',
+                            name: csvVar.description || '',
+                            unitPrice: csvVar.unitPrice || 0,
+                            costPrice: csvVar.costPrice || 0,
+                            stock: csvVar.stock || 0,
+                            active: csvVar.active ?? true,
+                            attributes: [{ name: 'Variação', value: csvVar.description || 'Padrão' }],
+                            syncUnitPrice: true, syncCostPrice: true, syncDescription: true
+                        } as Variation;
+
+                        if (existingIdx !== -1) mergedVariations[existingIdx] = { ...mergedVariations[existingIdx], ...varData };
+                        else mergedVariations.push(varData);
+                    }
+                    productToSave.variations = mergedVariations;
+                    productToSave.hasVariations = mergedVariations.length > 0;
                 }
 
-                const product: Product = {
-                    ...p.r.data,
-                    id: targetId || p.r.data.id, // Use existing found ID or the new manual ID from CSV
-                    hasVariations: children.length > 0,
-                    variations: children.map(c => ({
-                        id: Math.random().toString(36).substr(2, 9),
-                        sku: c.data.code || '',
-                        name: c.data.description || '',
-                        unitPrice: c.data.unitPrice || 0,
-                        costPrice: c.data.costPrice || 0,
-                        stock: c.data.stock || 0,
-                        active: c.data.active ?? true,
-                        attributes: [{ name: 'Variação', value: c.data.description || 'Padrão' }],
-                        syncUnitPrice: true, syncCostPrice: true, syncDescription: true
-                    } as Variation))
-                } as Product;
-
-                const isNew = !targetId;
-                await saveProduct(product, isNew);
+                const isNew = !productToSave.id;
+                await saveProduct(productToSave, isNew);
                 
-                updated[p.i].status = 'success';
-                children.forEach(c => {
+                if (pRow) updated[pRow.i].status = 'success';
+                childrenRows.forEach(c => {
                     const idx = updated.indexOf(c);
                     if (idx !== -1) updated[idx].status = 'success';
                 });
             } catch (err: any) {
-                updated[p.i].status = 'error';
-                updated[p.i].error = err.message;
+                if (pRow) {
+                    updated[pRow.i].status = 'error';
+                    updated[pRow.i].error = err.message;
+                }
+                childrenRows.forEach(c => {
+                    const idx = updated.indexOf(c);
+                    if (idx !== -1) {
+                        updated[idx].status = 'error';
+                        updated[idx].error = `Pai (${parentSku}): ${err.message}`;
+                    }
+                });
             }
+
             done++;
-            
             if (!abortRef.current) {
-                setProgress(Math.round((done / totalUnits) * 100));
+                setProgress(Math.round((done / totalToProcess) * 100));
                 setImportData([...updated]);
             }
         }
@@ -736,6 +824,7 @@ const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, onClose
                                         { id: 'width', label: 'Largura' },
                                         { id: 'height', label: 'Altura' },
                                         { id: 'depth', label: 'Profundidade' },
+                                        { id: 'supplierRef', label: 'Ref. do Fornecedor / Cód. Original' },
                                     ]
                                 ).map((field) => (
                                     <div key={field.id} className="flex flex-col gap-2 group transition-all">

@@ -1,13 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
 import Product from "../../../types/product.type";
-import { subscribeToProducts, moveToTrash, restoreProduct, permanentDeleteProduct, updateProduct } from '@/pages/utils/productService';
+import { 
+    subscribeToProducts, 
+    moveToTrash, 
+    restoreProduct, 
+    permanentDeleteProduct, 
+    updateProduct,
+    bulkMoveToTrash,
+    bulkRestoreProducts,
+    bulkPermanentDeleteProducts
+} from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 
 export const useProducts = (filters?: any) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [itemsPerPage, setItemsPerPage] = useState(300);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 
@@ -212,33 +221,62 @@ export const useProducts = (filters?: any) => {
     }, [transformedProducts, currentPage, itemsPerPage]);
 
     const handleDelete = async (id: string) => {
-        await moveToTrash(id);
-        toast.info("Produto movido para a lixeira.");
+        const toastId = toast.loading("Movendo para a lixeira...");
+        try {
+            await moveToTrash(id);
+            toast.update(toastId, { render: "Produto movido para a lixeira.", type: "info", isLoading: false, autoClose: 3000 });
+        } catch (error: any) {
+            toast.update(toastId, { render: error.message || "Erro ao excluir produto.", type: "error", isLoading: false, autoClose: 3000 });
+        }
     };
 
     const handleRestore = async (id: string) => {
-        await restoreProduct(id);
-        toast.success("Produto restaurado com sucesso!");
+        try {
+            await restoreProduct(id);
+            toast.success("Produto restaurado com sucesso!");
+        } catch (error: any) {
+            toast.error("Erro ao restaurar produto.");
+        }
     };
 
     const handlePermanentDelete = async (id: string) => {
         if (window.confirm("Certeza que deseja excluir DEFINITIVAMENTE este produto?")) {
-            await permanentDeleteProduct(id);
-            toast.success("Produto excluído permanentemente.");
+            const toastId = toast.loading("Excluindo permanentemente...");
+            try {
+                await permanentDeleteProduct(id);
+                toast.update(toastId, { render: "Produto excluído permanentemente.", type: "success", isLoading: false, autoClose: 3000 });
+            } catch (error: any) {
+                toast.update(toastId, { render: error.message || "Erro na exclusão definitiva.", type: "error", isLoading: false, autoClose: 3000 });
+            }
         }
     };
 
     const handleBulkTrash = async () => {
         if (selectedProducts.length === 0) return;
+        const toastId = toast.loading("Movendo itens selecionados para a lixeira...");
         setLoading(true);
         try {
-            // Filter out variation IDs (which are synthetic in this implementation for UI)
             const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
-            await Promise.all(realIds.map(id => moveToTrash(id)));
-            toast.info(`${realIds.length} produto(s) movido(s) para a lixeira.`);
+            const result = await bulkMoveToTrash(realIds);
+            
+            if (result.successCount > 0) {
+                toast.update(toastId, { 
+                    render: `${result.successCount} produto(s) movido(s) para a lixeira.`, 
+                    type: "info", 
+                    isLoading: false, 
+                    autoClose: 3000 
+                });
+            } else {
+                toast.dismiss(toastId);
+            }
+            
+            if (result.errorCount > 0) {
+                result.errors.forEach(err => toast.warning(err));
+            }
             setSelectedProducts([]);
         } catch (error) {
-            toast.error("Erro ao mover alguns produtos para a lixeira.");
+            toast.update(toastId, { render: "Erro ao processar exclusão em massa.", type: "error", isLoading: false, autoClose: 3000 });
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -248,11 +286,12 @@ export const useProducts = (filters?: any) => {
         if (selectedProducts.length === 0) return;
         setLoading(true);
         try {
-            await Promise.all(selectedProducts.map(id => restoreProduct(id)));
-            toast.success(`${selectedProducts.length} produto(s) restaurado(s) com sucesso!`);
+            const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
+            await bulkRestoreProducts(realIds);
+            toast.success(`${realIds.length} produto(s) restaurado(s) com sucesso!`);
             setSelectedProducts([]);
         } catch (error) {
-            toast.error("Erro ao restaurar alguns produtos.");
+            toast.error("Erro ao restaurar produtos selecionados.");
         } finally {
             setLoading(false);
         }
@@ -261,13 +300,30 @@ export const useProducts = (filters?: any) => {
     const handleBulkPermanentDelete = async () => {
         if (selectedProducts.length === 0) return;
         if (window.confirm(`Excluir DEFINITIVAMENTE ${selectedProducts.length} produto(s)?`)) {
+            const toastId = toast.loading("Excluindo itens selecionados permanentemente...");
             setLoading(true);
             try {
-                await Promise.all(selectedProducts.map(id => permanentDeleteProduct(id)));
-                toast.success(`${selectedProducts.length} produto(s) excluído(s) permanentemente.`);
+                const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
+                const result = await bulkPermanentDeleteProducts(realIds);
+                
+                if (result.successCount > 0) {
+                    toast.update(toastId, { 
+                        render: `${result.successCount} produto(s) excluído(s) permanentemente.`, 
+                        type: "success", 
+                        isLoading: false, 
+                        autoClose: 3000 
+                    });
+                } else {
+                    toast.dismiss(toastId);
+                }
+                
+                if (result.errorCount > 0) {
+                    result.errors.forEach(err => toast.warning(err));
+                }
+                
                 setSelectedProducts([]);
             } catch (error) {
-                toast.error("Erro ao excluir alguns produtos.");
+                toast.update(toastId, { render: "Erro na exclusão definitiva em massa.", type: "error", isLoading: false, autoClose: 3000 });
             } finally {
                 setLoading(false);
             }
@@ -275,7 +331,7 @@ export const useProducts = (filters?: any) => {
     };
 
     const toggleSelection = (id: string) => {
-        const product = paginatedProducts.find(p => p.id === id);
+        const product = transformedProducts.find(p => p.id === id);
 
         setSelectedProducts(prev => {
             let next = [...prev];
@@ -283,7 +339,7 @@ export const useProducts = (filters?: any) => {
 
             if (product?.isParent) {
                 // Cascading selection for parent
-                const childIds = paginatedProducts.filter(p => p.parentId === id).map(p => p.id!);
+                const childIds = transformedProducts.filter(p => p.parentId === id).map(p => p.id!);
                 if (isSelected) {
                     next = next.filter(sid => sid !== id && !childIds.includes(sid));
                 } else {
@@ -298,7 +354,7 @@ export const useProducts = (filters?: any) => {
                 } else {
                     next.push(id);
                     // Select parent if ALL children are selected
-                    const siblingIds = paginatedProducts.filter(p => p.parentId === product.parentId).map(p => p.id!);
+                    const siblingIds = transformedProducts.filter(p => p.parentId === product.parentId).map(p => p.id!);
                     const allSiblingsSelected = siblingIds.every(sid => next.includes(sid));
                     if (allSiblingsSelected) {
                         next.push(product.parentId);

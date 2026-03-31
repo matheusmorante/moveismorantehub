@@ -98,7 +98,7 @@ const mapToDB = (product: Partial<Product>) => {
     return data;
 };
 
-const mapFromDB = (data: any): Product => {
+export const mapFromDB = (data: any): Product => {
     return {
         id: String(data.id),
         sku: data.sku || '',
@@ -530,6 +530,111 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     }
 };
 
+export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
+    try {
+        const idStr = String(id);
+        const allIdsToCheck = new Set<string>([idStr]);
+        const allCodesToCheck = new Set<string>();
+        const allNamesToCheck = new Set<string>();
+
+        // 1. Coletar IDs de variações e metadados (Pai e Filhos)
+        const { data: product } = await supabase
+            .from(TABLE_NAME)
+            .select('id, code, description, variations')
+            .eq('id', id)
+            .single();
+
+        if (product) {
+            if (product.code) allCodesToCheck.add(product.code);
+            if (product.description) allNamesToCheck.add(product.description);
+            
+            const vars = product.variations || [];
+            if (Array.isArray(vars)) {
+                vars.forEach((v: any) => {
+                    if (v.id) allIdsToCheck.add(String(v.id));
+                    if (v.sku) {
+                        allCodesToCheck.add(v.sku);
+                        allIdsToCheck.add(`${idStr}_${v.sku}`);
+                    }
+                    if (v.name) allNamesToCheck.add(`${product.description} - ${v.name}`);
+                });
+            }
+        }
+        
+        const { data: children } = await supabase
+            .from(TABLE_NAME)
+            .select('id, code, description')
+            .eq('parent_id', id);
+        
+        children?.forEach((c: any) => {
+            allIdsToCheck.add(String(c.id));
+            if (c.code) allCodesToCheck.add(c.code);
+            if (c.description) allNamesToCheck.add(c.description);
+        });
+
+        // 2. Realizar a busca em orders
+        const idsArray = Array.from(allIdsToCheck);
+        const codesArray = Array.from(allCodesToCheck);
+        const namesArray = Array.from(allNamesToCheck);
+        
+        const queryPromises: any[] = [];
+        
+        // CORREÇÃO CRITICAL: Removidos filtros neq() que usavam seta (->>)
+        // Filtros neq em PostgREST excluem registros onde o campo é NULL.
+        // Muitos pedidos não tem a flag deleted ou orderType explícita, sendo nulos por padrão.
+        // Vamos buscar todos e filtrar os orçamentos/deletados no JavaScript após o retorno.
+        const getBaseQuery = () => supabase.from('orders').select('id, order_data');
+
+        // Busca por IDs (.contains padrão)
+        for (const targetId of idsArray) {
+            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ productId: targetId }] }).limit(5));
+            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ variationId: targetId }] }).limit(5));
+            queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ id: targetId }] }).limit(5));
+            
+            const num = parseInt(targetId);
+            if (!isNaN(num)) {
+                queryPromises.push(getBaseQuery().contains('order_data', { items: [{ productId: num }] }).limit(5));
+                queryPromises.push(getBaseQuery().contains('order_data', { items: [{ variationId: num }] }).limit(5));
+                queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ id: num }] }).limit(5));
+            }
+        }
+
+        // Busca por Codes/SKUs
+        for (const targetCode of codesArray) {
+            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ code: targetCode }] }).limit(1));
+            queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ sku: targetCode }] }).limit(1));
+        }
+
+        // Busca por Nomes
+        for (const targetName of namesArray) {
+            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ description: targetName }] }).limit(1));
+            queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ description: targetName }] }).limit(1));
+        }
+
+        const results = await Promise.all(queryPromises);
+        for (const res of results) {
+            if (res.data && res.data.length > 0) {
+                // Filtrar manualmente orçamentos e deletados
+                const validOrder = res.data.find((o: any) => {
+                    const isBudget = o.order_data?.orderType === 'budget';
+                    const isDeleted = o.order_data?.deleted === true || o.order_data?.deleted === 'true';
+                    return !isBudget && !isDeleted;
+                });
+                
+                if (validOrder) {
+                    console.log(`[SecurityLock] Bloqueando ID ${idStr}: Vinculo encontrado no Pedido #${validOrder.id}`);
+                    return String(validOrder.id);
+                }
+            }
+        }
+
+        return null;
+    } catch (err) {
+        console.error("Erro ao verificar vínculos do produto:", err);
+        return null;
+    }
+};
+
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
     // 1. Identificar SKUs para validar (Somente se mudaram)
     const skusToValidate: string[] = [];
@@ -688,7 +793,8 @@ const syncCodesInOrders = async (productId: string, parentCode: string, variatio
         const { data: orders, error } = await supabase
             .from('orders')
             .select('id, order_data')
-            .contains('order_data', { items: [{ productId }] });
+            .filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\"}]}"`)
+            .neq('order_data->>deleted', 'true');
 
         if (error) throw error;
         if (!orders || orders.length === 0) return;
@@ -727,19 +833,135 @@ const syncCodesInOrders = async (productId: string, parentCode: string, variatio
     }
 };
 
-export const moveToTrash = async (id: string): Promise<void> => {
+export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[] }> => {
     try {
-        // Verificar se existem movimentações de estoque vinculadas (em qualquer variação ou no pai)
-        const hasMoves = await checkProductHasMoves(id);
+        // 1. Verificar em lote se existem pedidos vinculados (excluindo orçamentos e pedidos já na lixeira)
+        const idsWithOrders = new Set<string>();
+        const orderConflicts: string[] = [];
 
-        if (hasMoves) {
-            throw new Error("Este produto possui histórico de movimentações (entradas/saídas) e não pode ser desativado/excluído para preservar a integridade do estoque.");
+        await Promise.all(ids.map(async (id) => {
+            const linkedOrderId = await checkProductLinkedToSales(id);
+            if (linkedOrderId) {
+                idsWithOrders.add(id);
+                orderConflicts.push(`Produto ID ${id} possui pedido vinculado (Ex: #${linkedOrderId})`);
+            }
+        }));
+
+        const idsToUpdate = ids.filter(id => !idsWithOrders.has(id));
+        
+        let errors: string[] = [];
+        if (idsWithOrders.size > 0) {
+            errors.push(`${idsWithOrders.size} produto(s) possuem pedidos de venda/assistência vinculados e não puderam ser movidos para a lixeira.`);
+            orderConflicts.forEach(oc => errors.push(oc));
         }
 
-        await updateProduct(id, {
-            deleted: true,
-            active: false
-        });
+        if (idsToUpdate.length > 0) {
+            const { error: updateError } = await supabase
+                .from(TABLE_NAME)
+                .update({ deleted: true, active: false, updated_at: new Date().toISOString() })
+                .in('id', idsToUpdate);
+
+            if (updateError) throw updateError;
+        }
+
+        return {
+            successCount: idsToUpdate.length,
+            errorCount: idsWithOrders.size,
+            errors
+        };
+    } catch (error) {
+        console.error("Erro no bulkMoveToTrash:", error);
+        throw error;
+    }
+};
+
+export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
+    try {
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .update({ deleted: false, active: true, updated_at: new Date().toISOString() })
+            .in('id', ids);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error("Erro no bulkRestoreProducts:", error);
+        throw error;
+    }
+};
+
+export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[] }> => {
+    try {
+        // 1. Verificar vínculos com pedidos (Lógica simplificada p/ bulk)
+        // Buscamos pedidos que contenham QUALQUER um dos IDs no JSONB
+        // Usamos o operador ?| para verificar existência de chaves ou cs para objetos
+        // Como o Supabase/Postgrest é limitado em ORs complexos em JSON, 
+        // faremos uma busca por pedidos recentes que contenham o array de itens.
+        
+        // Estratégia: Verificar um por um em paralelo mas com controle de concorrência ou 
+        // simplesmente aceitar que a exclusão permanente é uma operação sensível e rara.
+        // Contudo, para evitar o erro do usuário, faremos uma verificação em lote das movimentações primeiro.
+        
+        const { data: moves } = await supabase
+            .from('inventory_moves')
+            .select('product_id')
+            .in('product_id', ids);
+            
+        const idsWithMoves = new Set(moves?.map((m: any) => String(m.product_id)));
+        
+        // 2. Para pedidos, fazemos uma busca por cada ID (limitada)
+        // Nota: ISSO AINDA pode causar gargalo se 'ids' for gigante (>100), 
+        // então processaremos em chunks de 10 se necessário.
+        const idsToProcess = ids.filter(id => !idsWithMoves.has(id));
+        const idsWithOrders = new Set<string>();
+        
+        // Processamento serial/chunked para não estourar conexões
+        for (const id of idsToProcess) {
+             const { data: linkedOrders } = await supabase
+                .from('orders')
+                .select('id')
+                .neq('order_data->>deleted', 'true')
+                .neq('order_data->>orderType', 'budget')
+                .or(`order_data.cs."{\\"items\\": [{\\"productId\\": \\"${id}\\"}]}",order_data.cs."{\\"items\\": [{\\"productId\\": ${id}}]}",order_data.cs."{\\"items\\": [{\\"variationId\\": \\"${id}\\"}]}",order_data.cs."{\\"items\\": [{\\"variationId\\": ${id}}]}"`)
+                .limit(1);
+             if (linkedOrders && linkedOrders.length > 0) idsWithOrders.add(id);
+        }
+
+        const idsToDelete = idsToProcess.filter(id => !idsWithOrders.has(id));
+        
+        let errors: string[] = [];
+        if (idsWithMoves.size > 0) errors.push(`${idsWithMoves.size} produto(s) possuem movimentações de estoque (entradas/saídas).`);
+        if (idsWithOrders.size > 0) errors.push(`${idsWithOrders.size} produto(s) possuem pedidos de venda ou assistência vinculados.`);
+
+        if (idsToDelete.length > 0) {
+            const { error: deleteError } = await supabase
+                .from(TABLE_NAME)
+                .delete()
+                .in('id', idsToDelete);
+
+            if (deleteError) throw deleteError;
+        }
+
+        return {
+            successCount: idsToDelete.length,
+            errorCount: ids.length - idsToDelete.length,
+            errors
+        };
+    } catch (error) {
+        console.error("Erro no bulkPermanentDeleteProducts:", error);
+        throw error;
+    }
+};
+
+export const moveToTrash = async (id: string): Promise<void> => {
+    try {
+        // Verificar se há pedidos vinculados que impedem a exclusão/desativação
+        const linkedOrderId = await checkProductLinkedToSales(id);
+
+        if (linkedOrderId) {
+            throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser removido para preservar o histórico.`);
+        }
+
+        await updateProduct(id, { deleted: true, active: false });
     } catch (error) {
         console.error("Erro ao mover produto para lixeira: ", error);
         throw error;
@@ -748,10 +970,7 @@ export const moveToTrash = async (id: string): Promise<void> => {
 
 export const restoreProduct = async (id: string): Promise<void> => {
     try {
-        await updateProduct(id, {
-            deleted: false,
-            active: true
-        });
+        await updateProduct(id, { deleted: false, active: true });
     } catch (error) {
         console.error("Erro ao restaurar o produto: ", error);
         throw error;
@@ -760,34 +979,19 @@ export const restoreProduct = async (id: string): Promise<void> => {
 
 export const permanentDeleteProduct = async (id: string): Promise<void> => {
     try {
-        // Check if there are any orders linked to this product
-        // We look inside the order_data JSON column for the productId
-        const { data: linkedOrders, error: checkError } = await supabase
-            .from('orders')
-            .select('id')
-            .contains('order_data', { items: [{ productId: id }] })
-            .limit(1);
+        // Verificar se há pedidos vinculados (ignora orçamentos e pedidos deletados)
+        const linkedOrderId = await checkProductLinkedToSales(id);
 
-        if (checkError) {
-            console.error("Erro ao verificar vínculos do produto:", checkError);
+        if (linkedOrderId) {
+            throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser excluído permanentemente.`);
         }
 
-        if (linkedOrders && linkedOrders.length > 0) {
-            throw new Error("Este produto possui vendas vinculadas e não pode ser excluído permanentemente. Por favor, utilize a desativação (Mover para Lixeira).");
-        }
-
-        // Verificar se existem movimentações de estoque vinculadas
         const hasMoves = await checkProductHasMoves(id);
-
         if (hasMoves) {
             throw new Error("Este produto possui histórico de movimentações e não pode ser excluído permanentemente.");
         }
 
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq('id', id);
-
+        const { error } = await supabase.from(TABLE_NAME).delete().eq('id', id);
         if (error) throw error;
     } catch (error: any) {
         console.error("Erro ao deletar permanentemente o produto: ", error);
@@ -1023,15 +1227,14 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
         let query = supabase
             .from('orders')
             .select('order_data')
-            .eq('deleted', false)
+            .neq('order_data->>deleted', 'true')
             .gte('created_at', ninetyDaysAgo.toISOString());
 
-        // We use contains to find orders with this product
-        // Using a simpler query if JSON contains fails or is slow
+        // We use MANUAL QUOTED contains to find orders with this product (avoid 400 error)
         if (variationId) {
-            query = query.filter('order_data->items', 'cs', `[{"productId": "${productId}", "variationId": "${variationId}"}]`);
+            query = query.filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\", \\"variationId\\": \\"${variationId}\\"}]}"`);
         } else {
-            query = query.filter('order_data->items', 'cs', `[{"productId": "${productId}"}]`);
+            query = query.filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\"}]}"`);
         }
 
         const { data, error } = await query;
@@ -1169,7 +1372,7 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
         const { data: salesData } = await supabase
             .from('orders')
             .select('order_data')
-            .eq('deleted', false)
+            .neq('order_data->>deleted', 'true')
             .order('id', { ascending: false })
             .limit(100);
 
