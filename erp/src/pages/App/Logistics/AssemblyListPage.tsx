@@ -16,6 +16,14 @@ const AssemblyListPage = () => {
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAssembly, setSelectedAssembly] = useState<ShowcaseAssembly | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         fetchAllAssemblies();
@@ -139,71 +147,126 @@ const AssemblyListPage = () => {
         item.id?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    return (
-        <div className="p-6 md:p-10 space-y-8 animate-fade-in">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Logística de Montagens</h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
-                        {isStandalone ? "Visualização em Tempo Real" : "Gestão de serviços técnicos e montagens em domicílio ou mostruário"}
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input
-                            type="text"
-                            placeholder="Buscar..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all w-full md:w-60 outline-none"
-                        />
-                    </div>
-                    {isStandalone && (
-                         <button 
-                            onClick={fetchAllAssemblies}
-                            className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm"
-                            title="Recarregar lista"
-                        >
-                            <i className="bi bi-arrow-clockwise text-lg"></i>
-                        </button>
-                    )}
-                    {!isStandalone && (
-                        <>
-                            <button 
-                                onClick={handleShareWhatsApp}
-                                className="flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#128C7E] active:scale-95 transition-all outline-none"
-                                title="Enviar acesso via WhatsApp"
-                            >
-                                <i className="bi bi-whatsapp"></i>
-                                WhatsApp
-                            </button>
-                            <button 
-                                onClick={() => window.open('/logistics/assembly-print', '_blank')}
-                                className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all outline-none"
-                                title="Imprimir lista consolidada"
-                            >
-                                <i className="bi bi-printer"></i>
-                                Imprimir
-                            </button>
-                            <button 
-                                onClick={handleAddShowcase}
-                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-700 active:scale-95 transition-all"
-                            >
-                                <i className="bi bi-plus-lg"></i>
-                                Novo Item
-                            </button>
-                        </>
-                    )}
-                </div>
+    const renderHeader = () => (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Logística de Montagens</h1>
+                <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
+                    {isStandalone ? "Visualização em Tempo Real" : "Gestão de serviços técnicos e montagens"}
+                </p>
             </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 md:flex-none">
+                    <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input
+                        type="text"
+                        placeholder="Buscar..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all w-full md:w-60 outline-none"
+                    />
+                </div>
+                {isStandalone && (
+                     <button 
+                        onClick={fetchAllAssemblies}
+                        className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm active:scale-95"
+                        title="Recarregar lista"
+                    >
+                        <i className="bi bi-arrow-clockwise text-lg"></i>
+                    </button>
+                )}
+                {!isStandalone && (
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <button 
+                            onClick={handleShareWhatsApp}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-[#25D366] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#128C7E] active:scale-95 transition-all outline-none"
+                        >
+                            <i className="bi bi-whatsapp"></i>
+                            WhatsApp
+                        </button>
+                        <button 
+                            onClick={() => window.open('/logistics/assembly-print', '_blank')}
+                            className="p-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all outline-none"
+                        >
+                            <i className="bi bi-printer text-lg"></i>
+                        </button>
+                        <button 
+                            onClick={handleAddShowcase}
+                            className="p-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-700 active:scale-95 transition-all"
+                        >
+                            <i className="bi bi-plus-lg text-lg"></i>
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
+    const renderMobileView = () => (
+        <div className="grid grid-cols-1 gap-4">
+            {loading ? (
+                Array(3).fill(0).map((_, i) => (
+                    <div key={i} className="h-40 bg-white dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-100 dark:border-slate-800" />
+                ))
+            ) : filteredAssemblies.length === 0 ? (
+                <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">Nenhuma montagem pendente</div>
+            ) : (
+                filteredAssemblies.map((item, idx) => (
+                    <div key={item.id + idx} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 p-6 shadow-sm space-y-4">
+                        <div className="flex justify-between items-start">
+                            <div className="flex flex-col gap-1">
+                                <span className={`w-fit text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
+                                    item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
+                                }`}>
+                                    {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
+                                </span>
+                                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 leading-tight">{item.title}</h3>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.subtitle}</span>
+                            </div>
 
-            {/* List */}
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                            <div className="flex flex-col items-end shrink-0">
+                                <span className="text-xs font-black text-slate-800 dark:text-slate-100">
+                                    {item.date ? formatToBRDate(item.date) : '---'}
+                                </span>
+                                {item.timeInfo && (
+                                    <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
+                                        {item.timeInfo.type === 'range' 
+                                            ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
+                                            : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'H. Livre'))}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-2">
+                            {item.items.map((it: any, iidx: number) => (
+                                <div key={iidx} className="flex items-center gap-2">
+                                    <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-[9px] font-black text-blue-700 dark:text-blue-300 rounded-lg">{it.quantity}x</span>
+                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{it.description}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {!isStandalone && item.origin === 'showcase' && (
+                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-50 dark:border-slate-800">
+                                <button onClick={() => handleEditShowcase(item.fullData)} className="px-4 py-2 text-blue-600 font-bold text-xs"><i className="bi bi-pencil-square mr-1"></i> Editar</button>
+                                <button onClick={() => handleDeleteShowcase(item.id)} className="px-4 py-2 text-rose-500 font-bold text-xs"><i className="bi bi-trash mr-1"></i> Excluir</button>
+                            </div>
+                        )}
+                    </div>
+                ))
+            )}
+        </div>
+    );
+
+    return (
+        <div className="p-4 md:p-10 space-y-8 animate-fade-in pb-20">
+            {renderHeader()}
+
+            {isMobile ? renderMobileView() : (
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -289,6 +352,7 @@ const AssemblyListPage = () => {
                     </table>
                 </div>
             </div>
+            )}
 
             <ShowcaseAssemblyModal 
                 isOpen={isModalOpen} 
