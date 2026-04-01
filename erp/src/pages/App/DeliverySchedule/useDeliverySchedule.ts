@@ -236,7 +236,8 @@ export const useDeliverySchedule = () => {
     }, [filter, typeFilter, scheduleType, startDate, endDate, allOrders, showroomAssemblies, loading]);
 
     const handleShare = () => {
-        const scheduleUrl = `${window.location.origin}/schedule`;
+        const PRODUCTION_URL = "https://moveismorantehub.vercel.app";
+        const scheduleUrl = `${PRODUCTION_URL}/schedule`;
         const shareText = encodeURIComponent(
             `📦 Cronograma Logístico (${viewMode === "card" ? "Lista" : "Grade"})\n` +
             `🔗 Acesse online agora: ${scheduleUrl}`
