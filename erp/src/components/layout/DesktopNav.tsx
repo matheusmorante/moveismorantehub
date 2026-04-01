@@ -107,9 +107,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/sales-order" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Pedidos</Link>
                         <Link to="/attendance-dashboard" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>BI de Atendimento</Link>
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
-                        <div className="px-3 py-1 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Fluxo de Orçamentos</div>
-                        <Link to="/sales-order?type=budget&new=true" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Novo Orçamento</Link>
-                        <Link to="/sales-order?type=budget" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Orçamentos</Link>
+                        <Link to="/sales-order?type=budget" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Orçamentos</Link>
                     </div>
                 )}
             </div>

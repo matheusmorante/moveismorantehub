@@ -8,7 +8,7 @@ import { getSettings } from "@/pages/utils/settingsService";
 import { supabase } from "@/pages/utils/supabaseConfig";
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
-export type OrderTypeFilter = 'all' | 'delivery' | 'pickup' | 'assistance';
+export type OrderTypeFilter = 'delivery' | 'pickup' | 'assistance' | 'assembly';
 export type ScheduleType = 'delivery' | 'assembly';
 
 /**
@@ -17,10 +17,11 @@ export type ScheduleType = 'delivery' | 'assembly';
 const processOrders = (
     orders: Order[], 
     filter: ScheduleFilter, 
-    typeFilter: OrderTypeFilter, 
+    typeFilter: OrderTypeFilter[], 
     scheduleType: ScheduleType,
     customRange?: { start: string, end: string }
 ) => {
+    const settings = getSettings();
     const now = new Date();
     const todayStr = getLocalISODate(now);
 
@@ -45,107 +46,122 @@ const processOrders = (
         return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     };
 
-    const scheduledOrders = orders.filter((o) => {
-        const settings = getSettings();
+    const tasks: any[] = [];
+    orders.forEach((o) => {
         const isAssistance = o.orderType === 'assistance';
+        const isShowroom = o.orderType === 'showroom';
+        const isBudget = o.orderType === 'budget';
+        if (isBudget) return;
 
-        if (!isAssistance) {
-            // Regular orders: need scheduled, fulfilled or draft status
-            if (o.status !== 'scheduled' && o.status !== 'fulfilled' && o.status !== 'draft') return false;
-        } else {
-            // Assistance orders: show any non-deleted status if they have a scheduled date
-            if (o.deleted) return false;
-        }
+        if (!isAssistance && !isShowroom) {
+            if (o.status !== 'scheduled' && o.status !== 'fulfilled' && o.status !== 'draft') return;
+        } else if (o.deleted) return;
 
-        // For assistance: check scheduledDate (top-level field) or shipping.scheduling.date
         const rawDateStr = isAssistance
             ? (o as any).scheduledDate || o.shipping?.scheduling?.date
             : o.shipping?.scheduling?.date;
 
-        if (!rawDateStr) return false;
+        if (!rawDateStr) return;
         const orderDateStr = toISO(rawDateStr);
 
-        // For assistance, time is optional; for regular orders require a time
-        if (!isAssistance) {
-            const hasTime = o.shipping?.scheduling?.time || o.shipping?.scheduling?.startTime;
-            if (!hasTime) return false;
-        }
+        // Apply period filter
+        if (filter === 'default' && orderDateStr < yesterdayStr) return;
+        if (filter === 'week' && (orderDateStr < getLocalISODate(startOfWeek) || orderDateStr > getLocalISODate(endOfWeek))) return;
+        if (filter === 'month' && !orderDateStr.startsWith(todayStr.substring(0, 7))) return;
+        if (filter === 'year' && !orderDateStr.startsWith(todayStr.substring(0, 4))) return;
+        if (filter === 'custom' && customRange && (orderDateStr < customRange.start || orderDateStr > customRange.end)) return;
 
-        // Apply order type filter
         const isPickup = o.shipping?.deliveryMethod === 'pickup';
-        const isDelivery = !isPickup && !isAssistance;
+        const isDelivery = !isPickup && !isAssistance && !isShowroom;
+        
+        const allHandlingOptions = [
+            ...(settings.deliveryHandlingOptions || []),
+            ...(settings.pickupHandlingOptions || [])
+        ];
+        
+        const checkItems = (itemsList: any[]) => itemsList?.some(item => {
+            const hLabel = (item.handlingType || "").trim().toLowerCase();
+            if (!hLabel) return false;
+            const foundOpt = allHandlingOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+            return foundOpt?.includeInAssemblySchedule === true;
+        });
 
-        if (typeFilter === 'pickup' && !isPickup) return false;
-        if (typeFilter === 'assistance' && !isAssistance) return false;
-        if (typeFilter === 'delivery' && !isDelivery) return false;
+        const hasAssembly = isShowroom || checkItems(o.items) || checkItems((o as any).assistanceItems || []);
 
-        // Apply schedule type filter (Assembly vs Delivery)
-        if (scheduleType === 'assembly') {
-            const allHandlingOptions = [
-                ...(settings.deliveryHandlingOptions || []),
-                ...(settings.pickupHandlingOptions || [])
-            ];
-            
-            const checkItems = (itemsList: any[]) => itemsList?.some(item => {
-                const hLabel = (item.handlingType || "").trim().toLowerCase();
-                if (!hLabel) return false;
-                // Use a different name for the option to avoid shadowing the order 'o'
-                const foundOpt = allHandlingOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
-                return foundOpt?.includeInAssemblySchedule === true;
-            });
+        // Create tasks based on typeFilter and hasAssembly
+        const hasDelivery = typeFilter.includes('delivery') && (o.shipping?.deliveryMethod === 'delivery' || !o.shipping?.deliveryMethod);
+        const hasPickup = typeFilter.includes('pickup') && o.shipping?.deliveryMethod === 'pickup';
+        const hasAssistance = typeFilter.includes('assistance') && o.orderType === 'assistance';
+        const hasAssemblyFilter = typeFilter.includes('assembly');
 
-            const hasAssembly = o.orderType === 'showroom' || checkItems(o.items) || checkItems((o as any).assistanceItems || []);
-            if (!hasAssembly) return false;
+        const shouldShowAssembly = hasAssemblyFilter && hasAssembly;
+        const shouldShowOriginal = (hasDelivery || hasPickup || hasAssistance) && !isAssistance && !isShowroom;
+        const shouldShowAssistanceFilter = hasAssistance && isAssistance;
+        const shouldShowShowroom = hasAssemblyFilter && isShowroom;
+
+        // Process Original Task (Delivery/Pickup/Assistance)
+        if (shouldShowOriginal || shouldShowAssistanceFilter) {
+            const deliveryTask = { 
+                ...o, 
+                taskType: isAssistance ? 'assistance' : (isPickup ? 'pickup' : (isDelivery ? 'delivery' : 'showroom')), 
+                _taskKey: `${o.id}_orig`, 
+                hasLinkedAssembly: hasAssembly || isShowroom
+            };
+
+            // Attach assembly items for the Hammer Button
+            if (hasAssembly || isShowroom) {
+                (deliveryTask as any).assemblyItems = [...(o.items || []), ...((o as any).assistanceItems || [])].filter(item => {
+                    if (isShowroom) return true;
+                    const hLabel = (item.handlingType || "").trim().toLowerCase();
+                    const foundOpt = allHandlingOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+                    return foundOpt?.includeInAssemblySchedule === true;
+                });
+            }
+
+            tasks.push(deliveryTask);
         }
-
-        if (filter === 'all') return true;
-
-        if (filter === 'default') {
-            return orderDateStr >= yesterdayStr;
+        
+        // Show Assembly as a separate task ONLY if the original task is NOT being shown
+        if (shouldShowAssembly || shouldShowShowroom) {
+            const isOriginalShown = shouldShowOriginal || shouldShowAssistanceFilter;
+            if (!isOriginalShown) {
+                tasks.push({ 
+                    ...o, 
+                    taskType: 'assembly', 
+                    _taskKey: `${o.id}_assembly`, 
+                    hasLinkedDelivery: isDelivery || isPickup || isAssistance
+                });
+            }
         }
-
-        if (filter === 'week') {
-            return orderDateStr >= getLocalISODate(startOfWeek) &&
-                orderDateStr <= getLocalISODate(endOfWeek);
-        }
-
-        if (filter === 'month') {
-            return orderDateStr.startsWith(todayStr.substring(0, 7)); // YYYY-MM
-        }
-
-        if (filter === 'year') {
-            return orderDateStr.startsWith(todayStr.substring(0, 4)); // YYYY
-        }
-
-        if (filter === 'custom' && customRange) {
-            return orderDateStr >= customRange.start && orderDateStr <= customRange.end;
-        }
-
-        return true;
     });
 
-    const grouped: Record<string, Order[]> = {};
-    scheduledOrders.forEach((o) => {
-        const isAssistance = o.orderType === 'assistance';
-        // Get the correct date field
+    const grouped: Record<string, any[]> = {};
+    tasks.forEach((t) => {
+        const isAssistance = t.orderType === 'assistance';
         const dateStr = isAssistance
-            ? (o as any).scheduledDate || o.shipping?.scheduling?.date
-            : o.shipping.scheduling.date;
+            ? (t as any).scheduledDate || t.shipping?.scheduling?.date
+            : t.shipping.scheduling.date;
         if (!dateStr) return;
         if (!grouped[dateStr]) grouped[dateStr] = [];
-        grouped[dateStr].push(o);
-
+        grouped[dateStr].push(t);
     });
 
     Object.keys(grouped).forEach((date) => {
         grouped[date].sort((a, b) => {
             const timeA = (a.orderType === 'assistance' ? (a as any).scheduledTime : null) || a.shipping?.scheduling?.startTime || a.shipping?.scheduling?.time || "23:59";
             const timeB = (b.orderType === 'assistance' ? (b as any).scheduledTime : null) || b.shipping?.scheduling?.startTime || b.shipping?.scheduling?.time || "23:59";
+            
+            if (timeA === timeB) {
+                // Assembly ALWAYS before other types for same order time
+                if (a.taskType === 'assembly' && b.taskType !== 'assembly') return -1;
+                if (a.taskType !== 'assembly' && b.taskType === 'assembly') return 1;
+            }
+            
             return timeA.localeCompare(timeB);
         });
     });
 
-    const sortedGroups: Record<string, Order[]> = {};
+    const sortedGroups: Record<string, any[]> = {};
     Object.keys(grouped)
         .sort()
         .forEach((date) => {
@@ -154,6 +170,7 @@ const processOrders = (
 
     return sortedGroups;
 };
+
 
 // Map showroom assemblies to order-like objects for display
 const mapShowroomToOrder = (as: any): Partial<Order> => ({
@@ -176,7 +193,7 @@ export const useDeliverySchedule = () => {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<"card" | "table">("table");
     const [filter, setFilter] = useState<ScheduleFilter>('default');
-    const [typeFilter, setTypeFilter] = useState<OrderTypeFilter>('all');
+    const [typeFilter, setTypeFilter] = useState<OrderTypeFilter[]>(['delivery', 'pickup', 'assistance']);
     const [startDate, setStartDate] = useState(getLocalISODate(new Date()));
     const [endDate, setEndDate] = useState(getLocalISODate(new Date()));
     const [scheduleType, setScheduleType] = useState<ScheduleType>('delivery');

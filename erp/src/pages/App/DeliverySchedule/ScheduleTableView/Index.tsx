@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import Order from "../../../types/order.type";
 import TableCell from "../ScheduleTableViewComponents/TableCell";
+import { OrderTypeFilter } from "../useDeliverySchedule";
 import { calculateLanes, getHour } from "../ScheduleTableViewComponents/laneUtils";
 import { getSettings } from '@/pages/utils/settingsService';
 import { ORDER_TYPE_COLOR_OPTIONS } from "../../../utils/orderTypeColorUtils";
@@ -54,9 +55,9 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
     }, [schedule]);
 
     return (
-        <div className={`bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-screen h-[calc(100vh-140px)] overflow-hidden' : 'p-3'} transition-colors duration-300`}>
+        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-screen h-[calc(100vh-140px)] overflow-hidden' : 'p-3 h-[calc(100vh-220px)]'} transition-colors duration-300`}>
             {isMobile && (
-                <div className="bg-slate-900 py-3 px-4 flex justify-between items-center border-b border-slate-800 shadow-xl z-20">
+                <div className="bg-slate-900 py-3 px-4 flex justify-between items-center border-b border-slate-800 shadow-xl z-20 shrink-0">
                     <span className="text-[12px] font-black text-white uppercase tracking-widest">
                         Painel Logístico Panorâmico
                     </span>
@@ -65,7 +66,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
             )}
 
             <div 
-                className={`${isMobile ? 'rounded-none border-0' : 'rounded-3xl border-2 border-slate-100 dark:border-slate-800'} shadow-2xl bg-white dark:bg-slate-950 overflow-hidden relative h-full`}
+                className={`${isMobile ? 'rounded-none border-0 overflow-hidden' : 'rounded-3xl border-2 border-slate-100 dark:border-slate-800 overflow-auto'} flex-1 shadow-2xl bg-white dark:bg-slate-950 relative custom-scrollbar`}
             >
                 <div 
                     ref={containerRef}
@@ -85,7 +86,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
                                 {HOURS.map((h) => (
                                     <th 
                                         key={h} 
-                                        className={`p-3 ${isMobile ? 'w-[350px]' : ''} text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
+                                        className={`p-3 ${isMobile ? 'w-[350px]' : 'min-w-[380px]'} text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
                                     >
                                         {String(h).padStart(2, '0')}:00
                                     </th>

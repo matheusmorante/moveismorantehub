@@ -54,6 +54,12 @@ const AssemblyListPage = () => {
                 title: order.customerData.fullName,
                 subtitle: `PEDIDO #${order.id?.slice(-8).toUpperCase()}`,
                 date: order.shipping?.scheduling?.date || "",
+                timeInfo: order.shipping?.scheduling ? {
+                    type: order.shipping.scheduling?.type,
+                    startTime: order.shipping.scheduling?.startTime,
+                    endTime: order.shipping.scheduling?.endTime,
+                    time: order.shipping.scheduling?.time
+                } : null,
                 items: order.items.filter(i => {
                     const isPickup = order.shipping?.deliveryMethod === 'pickup';
                     const modalityOptions = isPickup ? (settings.pickupHandlingOptions || []) : (settings.deliveryHandlingOptions || []);
@@ -202,7 +208,7 @@ const AssemblyListPage = () => {
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                             Origem / Responsável
                                         </th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Data</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Prazo</th>
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                             Itens para Montar
                                         </th>
@@ -239,9 +245,19 @@ const AssemblyListPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6 text-center">
-                                                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                                                        {item.date ? formatToBRDate(item.date) : '---'}
-                                                    </span>
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                                            {item.date ? formatToBRDate(item.date) : '---'}
+                                                        </span>
+                                                        {item.timeInfo && (
+                                                            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter mt-0.5">
+                                                                {item.timeInfo.type === 'range' 
+                                                                    ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
+                                                                    : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'Horário Livre'))
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex flex-col gap-1">

@@ -131,11 +131,13 @@ const SalesOrder = () => {
                             <i className="bi bi-gear-fill text-lg" />
                         </Link>
                         <button
-                            onClick={() => setOrderModalType('budget')}
-                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                            onClick={() => setFilters(prev => ({ ...prev, orderType: filters.orderType === 'budget' ? '' : 'budget' }))}
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg transition-all active:scale-95 ${filters.orderType === 'budget' 
+                                ? "bg-indigo-600 text-white shadow-indigo-200" 
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-600 shadow-slate-200"}`}
                         >
                             <i className="bi bi-calculator-fill text-sm" />
-                            Novo Orçamento
+                            Orçamentos
                         </button>
                         <NewOrderDropdown onSelect={(type) => setOrderModalType(type)} />
                     </div>

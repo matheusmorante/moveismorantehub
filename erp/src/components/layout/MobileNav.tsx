@@ -117,10 +117,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                                 <Link to="/sales-order" onClick={onClose} className={mobileSubLinkClass}>Lista de Pedidos</Link>
                                 <Link to="/attendance-dashboard" onClick={onClose} className={mobileSubLinkClass}>BI de Atendimento</Link>
                                 
-                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fluxo de Orçamentos</p>
-                                <Link to="/sales-order?type=budget&new=true" onClick={onClose} className={mobileSubLinkClass}>Novo Orçamento</Link>
-                                <Link to="/sales-order?type=budget" onClick={onClose} className={mobileSubLinkClass}>Lista de Orçamentos</Link>
+                                <Link to="/sales-order?type=budget" onClick={onClose} className={mobileSubLinkClass}>Orçamentos</Link>
                             </div>
                         )}
                     </div>

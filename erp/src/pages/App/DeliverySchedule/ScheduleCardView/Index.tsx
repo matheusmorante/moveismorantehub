@@ -7,6 +7,8 @@ import { calcItemTotalValue } from "../../../utils/calculations";
 import { updateOrder } from "../../../utils/orderHistoryService";
 import { toast } from "react-toastify";
 
+import { OrderTypeFilter } from "../useDeliverySchedule";
+
 interface Props {
     schedule: Record<string, Order[]>;
     onOrderClick: (order: Order) => void;
@@ -19,6 +21,8 @@ interface Props {
 const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: Order; index: number; onOrderClick: (order: Order) => void; isReadOnly?: boolean }) => {
     const settings = getSettings();
     const [showStatusPicker, setShowStatusPicker] = React.useState(false);
+    const [showAssemblyTooltip, setShowAssemblyTooltip] = React.useState(false);
+    const [showOrderTooltip, setShowOrderTooltip] = React.useState(false);
 
     const statuses = settings.orderStatuses?.map(s => ({
         ...s,
@@ -47,7 +51,11 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
 
     const isAssistance = order.orderType === 'assistance';
     const isShowroom = order.orderType === 'showroom' as any;
-    const isPickup = order.shipping?.deliveryMethod === 'pickup';
+    const isPickupTask = (order as any).taskType === 'pickup';
+    const isDeliveryTask = (order as any).taskType === 'delivery';
+    const isAssemblyTask = (order as any).taskType === 'assembly';
+
+    const typeLabel = isAssemblyTask ? 'MONTAGEM' : (isAssistance ? 'ASSISTÊNCIA' : (isPickupTask ? 'RETIRADA' : 'ENTREGA'));
 
     // Assistance orders store time at top level; regular orders use shipping.scheduling
     const scheduling = order.shipping?.scheduling;
@@ -63,11 +71,13 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
     }
     const isRange = scheduling?.type === "range" && !isAssistance;
 
-    const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
-    const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
-    const cls = getOrderTypeClasses(colorKey);
+    const isLinked = (order as any).hasLinkedAssembly;
+    const hasLinkedDelivery = (order as any).hasLinkedDelivery;
+    const assemblyItems = (order as any).assemblyItems || [];
 
-    const { hasAssembly, label: primaryHandlingLabel } = getPrimaryHandlingInfo(order, settings);
+    const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
+    const colorKey = isAssemblyTask ? 'rose' : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
+    const cls = getOrderTypeClasses(colorKey);
 
     const getHandlingColor = (label?: string) => {
         if (!label) return undefined;
@@ -78,19 +88,102 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
         return allOptions.find(o => o.label === label)?.color;
     };
 
-    const handlingColor = getHandlingColor(primaryHandlingLabel);
-
-    const typeLabel = isShowroom 
-        ? "Montagem Mostruário"
-        : (isAssistance
-            ? settings.orderTypeLabels.assistance
-            : (isPickup ? settings.orderTypeLabels.pickup : settings.orderTypeLabels.delivery));
-
     return (
         <div
             onClick={() => onOrderClick(order)}
             className={`group border rounded-[2rem] shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-1 hover:shadow-premium-lg ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
         >
+            {/* Card Header: Type & Link Indicator */}
+            <div className={`px-5 py-3 border-b dark:border-slate-800 flex justify-between items-center ${isAssemblyTask ? 'bg-rose-50/50 dark:bg-rose-900/10' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
+                <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600 shadow-md shadow-rose-200' : cls.dotBg + ' shadow-md'}`}>
+                        {typeLabel}
+                    </span>
+                </div>
+                {/* Hammer Button Overlay */}
+                {isLinked && (
+                    <div className="relative group/hammer">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAssemblyTooltip(!showAssemblyTooltip);
+                            }}
+                            className="bg-rose-600 text-white w-10 h-10 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-50"
+                        >
+                            <i className="bi bi-hammer text-lg" />
+                        </button>
+                        
+                        {showAssemblyTooltip && (
+                            <div className="absolute top-full right-0 mt-3 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-4 animate-slide-up-custom overflow-hidden">
+                                <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
+                                    <i className="bi bi-hammer text-rose-500" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos para Montagem</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {assemblyItems.map((item: any, i: number) => (
+                                        <div key={i} className="flex items-center gap-2 bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-800/50 px-2 py-1.5 rounded-xl">
+                                            <span className="text-[10px] font-black text-rose-700 dark:text-rose-400">
+                                                {item.quantity}x
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-none">
+                                                {item.description}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-rose-600/5 rotate-45 translate-x-8 -translate-y-8" />
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Order Button Overlay (on Assembly tasks) */}
+                {isAssemblyTask && hasLinkedDelivery && (() => {
+                    const isLinkedPickup = order.shipping?.deliveryMethod === 'pickup';
+                    const linkedIcon = isLinkedPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck';
+                    const linkedLabel = isLinkedPickup ? 'Detalhes da Retirada' : 'Detalhes da Entrega';
+                    const linkedIconColor = isLinkedPickup ? 'text-purple-500' : 'text-emerald-500';
+                    const linkedBtnBg = isLinkedPickup ? 'bg-purple-600' : 'bg-emerald-600';
+
+                    return (
+                        <div className="relative group/truck">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowOrderTooltip(!showOrderTooltip);
+                                }}
+                                className={`${linkedBtnBg} text-white w-10 h-10 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-50`}
+                                title={`Ver ${linkedLabel.toLowerCase()}`}
+                            >
+                                <i className={`bi ${linkedIcon} text-lg`} />
+                            </button>
+
+                            {showOrderTooltip && (
+                                <div className="absolute top-full right-0 mt-3 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-4 animate-slide-up-custom overflow-hidden">
+                                    <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
+                                        <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{linkedLabel}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col gap-1 text-left">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cliente</span>
+                                            <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase">{order.customerData?.fullName || "Consumidor"}</p>
+                                        </div>
+                                        <div className="flex flex-col gap-1 mt-1 text-left">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Endereço</span>
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
+                                                {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className={`absolute top-0 right-0 w-16 h-16 ${isLinkedPickup ? 'bg-purple-600/5' : 'bg-emerald-600/5'} rotate-45 translate-x-8 -translate-y-8`} />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+            </div>
+
             {/* Card Header: Time */}
             <div className={`px-5 py-4 border-b dark:border-slate-800 flex justify-between items-center transition-colors ${cls.headerBg}`}>
                 <div className="flex items-center gap-4">
@@ -101,11 +194,6 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                         </span>
                     </div>
                 </div>
-                {isRange && (
-                    <span className={`text-[8px] uppercase font-black px-3 py-1 rounded-full tracking-widest shadow-sm ${cls.dotBg}`}>
-                        Período
-                    </span>
-                )}
             </div>
 
             <div className="flex items-center justify-end px-5 pt-4">
@@ -117,12 +205,12 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                             ? 'bg-emerald-500 text-white border-emerald-400' 
                             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'}`}
                     >
-                        <i className={`bi ${getStatusIcon(order.status || 'draft')} ${order.status === 'fulfilled' ? 'text-white' : `text-${currentStatus.color}-500`} text-[10px]`} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                            {currentStatus.label}
-                        </span>
-                        <i className="bi bi-chevron-down text-[8px] opacity-50" />
-                    </button>
+                            <i className={`bi ${getStatusIcon(order.status || 'draft')} ${order.status === 'fulfilled' ? 'text-white' : `text-${currentStatus.color}-500`} text-[10px]`} />
+                            <span className="text-[9px] font-black uppercase tracking-widest">
+                                {currentStatus.label}
+                            </span>
+                            <i className="bi bi-chevron-down text-[8px] opacity-50" />
+                        </button>
 
                     {!isReadOnly && showStatusPicker && (
                         <>
@@ -163,16 +251,17 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                 </div>
             </div>
 
-            {/* Card Content: Customer & Details */}
             <div className="p-5 text-sm flex flex-col gap-4 text-left">
-                <div>
-                    <span className="text-[9px] uppercase font-black text-slate-300 dark:text-slate-600 tracking-[0.2em] block mb-1">
-                        Cliente
-                    </span>
-                    <div className="font-black text-slate-900 dark:text-slate-100 text-xl leading-tight uppercase tracking-tighter transition-colors">
-                        {order.customerData?.fullName || "Consumidor"}
+                {!isAssemblyTask && (
+                    <div>
+                        <span className="text-[9px] uppercase font-black text-slate-300 dark:text-slate-600 tracking-[0.2em] block mb-1">
+                            Cliente
+                        </span>
+                        <div className="font-black text-slate-900 dark:text-slate-100 text-xl leading-tight uppercase tracking-tighter transition-colors">
+                            {order.customerData?.fullName || "Consumidor"}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Assistance: show description */}
                 {isAssistance && (order as any).assistanceDescription && (
@@ -185,7 +274,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                 )}
 
                 <div className="flex flex-col gap-2">
-                    {!isPickup && (
+                    {!isPickupTask && !isAssemblyTask && (
                         <>
                             <div className="flex items-start gap-4 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group/addr hover:bg-white dark:hover:bg-slate-950 transition-all duration-300">
                                 <i className="bi bi-geo-alt-fill text-red-500 mt-0.5 group-hover/addr:scale-110 transition-transform" />
@@ -226,45 +315,19 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                 </div>
 
                 {((order.items && order.items.length > 0) || (order.assistanceItems && order.assistanceItems.length > 0)) && (
-                <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
-                        <i className="bi bi-box-seam text-[10px] text-slate-400 dark:text-slate-500" />
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-                            {isAssistance ? 'Peças / Materiais' : 'Lista de Itens'}
-                        </span>
-                        <span className="ml-auto text-[9px] font-black text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-2 py-0.5">
-                            {(order.items?.length ?? 0) + (order.assistanceItems?.length ?? 0)}
-                        </span>
-                    </div>
-                    {/* Item rows */}
-                    <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                <div className={`mt-1 bg-slate-50/80 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all overflow-hidden`}>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 opacity-60">
+                        {isAssemblyTask ? 'Necessita Montar:' : (isAssistance ? 'Peças / Materiais' : 'Itens do Pedido')}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
                         {[...(order.items || []), ...(order.assistanceItems || [])].map((item, i) => (
-                            <div key={i} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                                {/* Qty badge */}
-                                <span className={`flex-shrink-0 min-w-[2rem] text-center text-[10px] font-black px-1.5 py-0.5 rounded-md ${cls.dotBg}`}>
-                                    {item.quantity} Un
+                            <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-white/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/40 rounded-lg shadow-sm">
+                                <span className={`text-[10px] font-black ${isAssemblyTask ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                    {item.quantity}x
                                 </span>
-                                {/* Description */}
-                                <div className="flex-1 flex flex-col">
-                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-snug">
-                                        {item.description}
-                                        {(item as any).supplierName && ` - ${(item as any).supplierName}`}
-                                        {(item as any).originalOrderId && (
-                                            <span className="ml-2 text-[8px] opacity-60">
-                                                (Pedido #{ (item as any).originalOrderId.slice(-5) })
-                                            </span>
-                                        )}
-                                    </span>
-                                    {(item as any).handlingType && (
-                                        <span 
-                                            className="text-[9px] font-black uppercase tracking-widest mt-0.5"
-                                            style={{ color: getHandlingColor((item as any).handlingType) || undefined }}
-                                        >
-                                            {(item as any).handlingType}
-                                        </span>
-                                    )}
-                                </div>
+                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-none">
+                                    {item.description}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -287,6 +350,15 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                     </div>
                 )}
             </div>
+            
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes slide-up-custom {
+                    from { transform: translateY(10px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                .animate-slide-up-custom { animation: slide-up-custom 0.3s ease-out forwards; }
+            `}} />
         </div>
     );
 };

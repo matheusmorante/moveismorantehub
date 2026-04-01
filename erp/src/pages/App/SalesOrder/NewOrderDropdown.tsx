@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-type OrderTypeOption = 'sale' | 'pickup' | 'assistance';
+type OrderTypeOption = 'sale' | 'pickup' | 'assistance' | 'budget';
 
 interface NewOrderDropdownProps {
     onSelect: (type: OrderTypeOption) => void;
@@ -20,6 +20,13 @@ const ORDER_OPTIONS: { type: OrderTypeOption; label: string; icon: string; descr
         icon: 'bi-tools',
         description: 'Atendimento técnico local ou em loja',
         color: 'text-amber-500',
+    },
+    {
+        type: 'budget',
+        label: 'Novo Orçamento',
+        icon: 'bi-calculator-fill',
+        description: 'Criação de orçamento para clientes',
+        color: 'text-indigo-600',
     },
 ];
 

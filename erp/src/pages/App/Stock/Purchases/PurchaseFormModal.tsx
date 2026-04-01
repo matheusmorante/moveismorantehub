@@ -221,8 +221,8 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                                     value={currentDescription}
                                     onChange={setCurrentDescription}
                                     onSelect={(p, v) => {
-                                        setCurrentProductId(p.id!);
-                                        setCurrentVariationId(v?.id);
+                                        // setCurrentProductId(p.id!); // Comentado por solicitação do usuário, para agir apenas como autocomplete
+                                        // setCurrentVariationId(v?.id);
                                         setCurrentDescription(v ? `${p.description} (${v.name})` : p.description);
                                         if (v?.costPrice) setCurrentCost(v.costPrice);
                                         else if (p.costPrice) setCurrentCost(p.costPrice);
@@ -343,8 +343,9 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                     priceType="cost"
                     onClose={() => setIsProductSearchOpen(false)}
                     onSelect={(p, v) => {
-                        setCurrentProductId(p.id!);
-                        setCurrentVariationId(v?.id);
+                        // setCurrentProductId(p.id!); // Comentado por solicitação do usuário, para agir apenas como autocomplete
+                        // setCurrentVariationId(v?.id);
+                        setCurrentDescription(v ? `${p.description} (${v.name})` : p.description);
                         setCurrentCost((v ? v.costPrice : p.costPrice) || 0);
                     }}
                 />
