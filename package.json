@@ -16,6 +16,7 @@
     "dev": "npx concurrently -n \"ERP,ECOMM,API,AUTO\" -c \"blue,green,yellow,magenta\" \"npm run dev:erp\" \"npm run dev:ecommerce\" \"npm run dev:api\" \"npm run dev:automation\""
   },
   "devDependencies": {
+    "@types/bwip-js": "^3.2.3",
     "concurrently": "^9.1.2"
   }
 }

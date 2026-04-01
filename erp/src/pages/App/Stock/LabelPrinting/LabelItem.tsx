@@ -7,6 +7,7 @@ interface Props {
     config: LabelConfig;
     image: string | null;
     index: number;
+    scale?: number;
 }
 
 const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 15 }) => {
@@ -45,7 +46,8 @@ const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 1
     return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />;
 };
 
-const LabelItem: React.FC<Props> = ({ config, image }) => {
+const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
+    const activeScale = scale ?? config.imageScale ?? 1;
     const isRound = config.type === 'round';
     const isSquare = config.preset === 'qr_product' || config.preset === 'price_only';
     
@@ -70,20 +72,21 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
     };
 
     if (isRound) {
+        const size = config.labelWidth ? `${config.labelWidth}mm` : '42mm';
         containerStyle = {
             ...containerStyle,
-            width: '42mm',
-            height: '42mm',
+            width: size,
+            height: size,
             borderRadius: '50%',
             flexDirection: 'column',
-            padding: '5mm'
+            padding: config.labelWidth ? `${config.labelWidth * 0.12}mm` : '5mm'
         };
     } else {
-        // Retangular / Quadrado (Fluido com o grid)
+        // Retangular / Quadrado (Fluido com o grid por padrão, ou fixo se definido)
         containerStyle = {
             ...containerStyle,
-            width: '100%',
-            height: '100%',
+            width: config.labelWidth ? `${config.labelWidth}mm` : '100%',
+            height: config.labelHeight ? `${config.labelHeight}mm` : '100%',
             flexDirection: config.layout === 'horizontal' ? 'row' : 'column',
             padding: '1.5mm',
             gap: '1mm'
@@ -105,7 +108,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                             position: 'absolute',
                             inset: 0,
                             zIndex: 1,
-                            transform: `scale(${config.imageScale || 1})`,
+                            transform: `scale(${activeScale})`,
                             transition: 'transform 0.2s ease-out'
                         }} 
                     />
@@ -120,7 +123,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                                 width: '25mm', 
                                 borderRadius: '50%', 
                                 objectFit: 'cover',
-                                transform: `scale(${config.imageScale || 1})`,
+                                transform: `scale(${activeScale})`,
                                 transition: 'transform 0.2s ease-out'
                             }} 
                         />
@@ -165,7 +168,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                     )}
                     {config.showName && (
                         <div style={{
-                            fontSize: '10px',
+                            fontSize: `${config.nameFontSize}px`,
                             fontWeight: '950',
                             color: '#0f172a',
                             textTransform: 'uppercase',
@@ -204,6 +207,8 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
 
     // Special handling for Price Only Label (Etiqueta de Preço)
     if (config.preset === 'price_only') {
+        const hasPromo = config.promoPrice && config.promoPrice.trim() !== '';
+        
         return (
             <div style={{
                 ...containerStyle,
@@ -212,7 +217,6 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                 padding: '2mm',
                 gap: 0
             }}>
-                {/* Imagem de Fundo/Marca d'água */}
                 {image && (
                     <img 
                         src={image} 
@@ -225,7 +229,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                             objectFit: 'cover', 
                             opacity: 0.1, 
                             zIndex: 0,
-                            transform: `scale(${config.imageScale || 1})`,
+                            transform: `scale(${activeScale})`,
                             transition: 'transform 0.2s ease-out'
                         }} 
                     />
@@ -240,13 +244,13 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                     justifyContent: 'space-between', 
                     zIndex: 2,
                 }}>
-                    {/* Top: Título do Produto (Esquerda) */}
+                    {/* Top: Título do Produto */}
                     <div style={{ width: '100%', textAlign: 'left', minHeight: '6mm' }}>
                         {config.showName && (
                             <div style={{ 
-                                fontSize: '10px', 
+                                fontSize: `${config.nameFontSize}px`, 
                                 fontWeight: '900', 
-                                color: '#0f172a', 
+                                color: config.productNameColor || '#0f172a', 
                                 textTransform: 'uppercase', 
                                 lineHeight: '1.05', 
                                 letterSpacing: '-0.02em',
@@ -260,28 +264,44 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                         )}
                     </div>
                     
-                    {/* Middle: Preço Centralizado Gigante */}
+                    {/* Middle: Preço Centralizado */}
                     <div style={{ 
                         flex: 1, 
                         display: 'flex', 
+                        flexDirection: 'column',
                         alignItems: 'center', 
                         justifyContent: 'center',
                         width: '100%',
                         padding: '1mm 0'
                     }}>
                         {config.showPrice && (
-                            <div style={{ 
-                                fontSize: '28px',
-                                fontWeight: '950', 
-                                color: '#1d4ed8', 
-                                letterSpacing: '-0.05em',
-                                lineHeight: '1',
-                                textAlign: 'center',
-                                width: '100%',
-                                whiteSpace: 'nowrap'
-                            }}>
-                                {config.price}
-                            </div>
+                            <>
+                                {hasPromo && (
+                                    <div style={{ 
+                                        fontSize: `${config.nameFontSize}px`,
+                                        fontWeight: '800', 
+                                        color: config.oldPriceColor || '#94a3b8', 
+                                        textDecoration: 'line-through',
+                                        textDecorationColor: '#ef4444', 
+                                        marginBottom: '-1mm',
+                                        opacity: 0.8
+                                    }}>
+                                        De: {config.price}
+                                    </div>
+                                )}
+                                <div style={{ 
+                                    fontSize: hasPromo ? `${config.promoPriceFontSize}px` : `${config.priceFontSize}px`,
+                                    fontWeight: '950', 
+                                    color: hasPromo ? (config.promoPriceColor || '#1d4ed8') : (config.oldPriceColor || '#1d4ed8'), 
+                                    letterSpacing: '-0.05em',
+                                    lineHeight: '1',
+                                    textAlign: 'center',
+                                    width: '100%',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {hasPromo ? config.promoPrice : config.price}
+                                </div>
+                            </>
                         )}
                     </div>
 
@@ -291,6 +311,11 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                            <div style={{ width: '100%', maxWidth: '30mm', padding: '0.5mm', backgroundColor: 'white', borderRadius: '0.5mm', border: '0.5px solid #e2e8f0' }}>
                                <Barcode text={config.qrContent} height={8} />
                            </div>
+                        )}
+                        {!config.showBarcode && config.sku && (
+                            <div style={{ fontSize: '7px', fontWeight: 'bold', color: '#94a3b8', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                                {config.sku}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -314,7 +339,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                         objectFit: 'cover', 
                         opacity: 0.1, 
                         zIndex: 0,
-                        transform: `scale(${config.imageScale || 1})`,
+                        transform: `scale(${activeScale})`,
                         transition: 'transform 0.2s ease-out'
                     }} 
                 />
@@ -341,7 +366,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                                 borderRadius: '50%', 
                                 objectFit: 'cover', 
                                 border: '1px solid #f1f5f9',
-                                transform: `scale(${config.imageScale || 1})`,
+                                transform: `scale(${activeScale})`,
                                 transition: 'transform 0.2s ease-out'
                             }} 
                         />
@@ -369,7 +394,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5mm 0' }}>
                     {config.showName && (
                         <div style={{ 
-                            fontSize: config.text.length > 30 ? (isSquare ? '8px' : '9px') : (isSquare ? '9.5px' : '10.5px'), 
+                            fontSize: `${config.nameFontSize}px`, 
                             fontWeight: '900', 
                             color: '#0f172a', 
                             textTransform: 'uppercase', 
@@ -400,7 +425,7 @@ const LabelItem: React.FC<Props> = ({ config, image }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', flex: isOnlyBarcode ? 0 : 1 }}>
                         {!isOnlyBarcode && config.showPrice && (
                             <div style={{ 
-                                fontSize: isSquare ? '16px' : '20px', 
+                                fontSize: `${config.priceFontSize}px`, 
                                 fontWeight: '950', 
                                 color: '#1d4ed8', 
                                 letterSpacing: '-0.04em',

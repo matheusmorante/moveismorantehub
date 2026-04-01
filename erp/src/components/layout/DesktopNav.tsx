@@ -56,9 +56,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onMouseEnter={() => setActiveMenu('stock')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', false)}>
+                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
                     <i className="bi bi-box-fill"></i>
-                    Estoque
+                    <span>Estoque</span>
+                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'stock')}></i>
                 </button>
                 {activeMenu === 'stock' && (
@@ -139,48 +140,30 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
             </div>
 
-            {/* Marketing */}
+            {/* Comunicação Visual */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('marketing')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', false)}>
-                    <i className="bi bi- megaphone-fill"></i>
-                    Marketing
+                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', true)}>
+                    <i className="bi bi-brush-fill"></i>
+                    <span>Comunicação Visual</span>
+                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                     <i className={chevronClass(activeMenu === 'marketing')}></i>
                 </button>
                 {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/whatsapp-marketplace" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-whatsapp mr-2 text-emerald-500"></i> WhatsApp Marketplace
-                        </Link>
-                        <Link to="/marketing/channel-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-eye mr-2 text-blue-500"></i> Catálogo de Canais
-                        </Link>
-
-                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
-                        <div className="px-3 py-1 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Criação e Design</div>
-
-                        <Link to="/design/labels" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiquetas de Marca (MDF)
-                        </Link>
-
+                        <Link to="/stock/label-printing?category=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Logotipo e Rótulo</Link>
+                        <Link to="/stock/label-printing?category=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Preço</Link>
+                        <Link to="/stock/label-printing?category=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Identificação do Produto</Link>
+                        <Link to="/stock/label-printing?category=posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Posts para Redes Sociais</Link>
                     </div>
                 )}
             </div>
 
-            <Link to="/reports" className={navLinkClass}>
-                <i className="bi bi-bar-chart-fill"></i>
-                Relatórios
-            </Link>
 
-            {isAdmin && (
-                <Link to="/users" className={navLinkClass}>
-                    <i className="bi bi-shield-lock-fill"></i>
-                    Acessos
-                </Link>
-            )}
+
         </nav>
     );
 };

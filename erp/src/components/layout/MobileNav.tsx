@@ -86,10 +86,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                     </div>
 
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock')}>
+                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-box-fill text-lg"></i>
                                 <span>Estoque</span>
+                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
                         </button>
@@ -162,55 +163,46 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                     </div>
 
 
-                    {/* Marketing */}
+                    {/* Comunicação Visual */}
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing')}>
+                        <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', true)}>
                             <div className="flex items-center gap-3">
-                                <i className="bi bi-megaphone-fill text-lg"></i>
-                                Marketing
+                                <i className="bi bi-brush text-lg"></i>
+                                <span>Comunicação Visual</span>
+                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'marketing' ? 'rotate-180' : ''}`}></i>
                         </button>
                         {activeMenu === 'marketing' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/registrations/whatsapp-marketplace" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-whatsapp mr-2 text-emerald-500"></i> WhatsApp Marketplace
+                                <Link to="/stock/label-printing?category=logos" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiqueta de Logotipo e Rótulo
                                 </Link>
-                                <Link to="/marketing/channel-catalog" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-eye mr-2 text-blue-500"></i> Catálogo de Canais
+                                <Link to="/stock/label-printing?category=precos" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-tag-fill mr-2 text-amber-500"></i> Etiqueta de Preço
                                 </Link>
-                                
-                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Criação e Design</p>
-
-                                <Link to="/design/labels" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiquetas de Marca
+                                <Link to="/stock/label-printing?category=identificacao" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-qr-code-scan mr-2 text-blue-500"></i> Etiqueta de Identificação do Produto
                                 </Link>
-                                <Link to="/stock/label-printing" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-printer-fill mr-2 text-amber-500"></i> Rótulos de Produtos
+                                <Link to="/stock/label-printing?category=posts" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-instagram mr-2 text-pink-500"></i> Posts para Redes Sociais
                                 </Link>
                             </div>
                         )}
                     </div>
 
-                    <Link to="/reports" onClick={onClose} className={mobileLinkClass}>
-                        <i className="bi bi-bar-chart-fill text-lg"></i>
-                        Relatórios
-                    </Link>
 
-                    {isAdmin && (
-                        <Link to="/users" onClick={onClose} className={mobileLinkClass}>
-                            <i className="bi bi-shield-lock-fill text-lg"></i>
-                            Gestão de Acessos
-                        </Link>
-                    )}
+
                 </nav>
 
                 {/* Footer */}
                 {isAdmin && (
-                    <div className="mt-auto border-t border-slate-100 dark:border-slate-800 pt-4 flex items-center justify-between px-4">
-                        <Link to="/settings" onClick={onClose} className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all font-bold text-sm">
-                            <i className="bi bi-gear-fill"></i> Configurações
+                    <div className="mt-auto border-t border-slate-100 dark:border-slate-800 pt-4 flex flex-col gap-2 px-4 pb-4">
+                        <Link to="/users" onClick={onClose} className="flex items-center gap-3 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-sm">
+                            <i className="bi bi-shield-lock-fill text-lg"></i> Gestão de Acessos
+                        </Link>
+                        <Link to="/settings" onClick={onClose} className="flex items-center gap-3 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all font-bold text-sm">
+                            <i className="bi bi-gear-fill text-lg"></i> Configurações
                         </Link>
                     </div>
                 )}
