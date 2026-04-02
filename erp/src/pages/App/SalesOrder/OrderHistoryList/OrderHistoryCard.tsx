@@ -190,9 +190,37 @@ const OrderHistoryCard = ({
                 </h3>
                 
                 {order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                    <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm">
-                        <i className="bi bi-check-circle-fill text-[10px]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Lançado no Bling</span>
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                        {!showBlingConfirm ? (
+                            <button 
+                                onClick={() => setShowBlingConfirm(true)}
+                                className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm hover:scale-105 transition-all"
+                            >
+                                <i className="bi bi-check-circle-fill text-[10px]" />
+                                <span className="text-[9px] font-black uppercase tracking-widest">Lançado no Bling</span>
+                            </button>
+                        ) : (
+                            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
+                                <span className="text-[9px] font-black uppercase text-slate-500 ml-1">Desfazer?</span>
+                                <div className="flex gap-1">
+                                    <button 
+                                        onClick={() => {
+                                            onBlingUpdate?.(order.id!, false);
+                                            setShowBlingConfirm(false);
+                                        }}
+                                        className="px-2.5 py-1 bg-red-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-red-700 transition-colors"
+                                    >
+                                        Sim
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowBlingConfirm(false)}
+                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                    >
+                                        Não
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

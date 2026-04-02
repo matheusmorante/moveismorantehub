@@ -12,13 +12,49 @@ interface Props {
     isReadOnly?: boolean;
 }
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 to 20:00
+// Intervalo base de exibição (9h às 18h)
+const BASE_START_HOUR = 9;
+const BASE_END_HOUR = 18;
 
 const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
     const settings = getSettings();
     const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
+    const [userZoom, setUserZoom] = useState(1);
     const [isMobile, setIsMobile] = useState(false);
+    const [isPinched, setIsPinched] = useState(false); // Track if zooming is active
+    const [tableHeight, setTableHeight] = useState(1000); // Guardar a altura fixa 
+
+    useEffect(() => {
+        if (containerRef.current) {
+            setTableHeight(containerRef.current.offsetHeight || 1000);
+        }
+    }, [schedule, isMobile]);
+
+    // Cálculo dinâmico das horas necessárias
+    const HOURS = React.useMemo(() => {
+        const allOrders = Object.values(schedule).flat();
+        let min = BASE_START_HOUR;
+        let max = BASE_END_HOUR;
+
+        allOrders.forEach(o => {
+            const startStr = o.shipping?.scheduling?.startTime || o.shipping?.scheduling?.time;
+            const endStr = o.shipping?.scheduling?.endTime;
+            
+            if (startStr) {
+                const h = getHour(startStr);
+                if (h < min) min = h;
+                if (h >= max) max = h + 1;
+            }
+            if (endStr) {
+                const h = getHour(endStr);
+                if (h > max) max = h;
+            }
+        });
+
+        // Garantir que o range seja válido
+        return Array.from({ length: Math.max(1, max - min) }, (_, i) => i + min);
+    }, [schedule]);
 
     useEffect(() => {
         const handleLayout = () => {
@@ -54,97 +90,190 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
         };
     }, [schedule]);
 
-    return (
-        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-screen h-[calc(100vh-140px)] overflow-hidden' : 'p-3 h-[calc(100vh-220px)]'} transition-colors duration-300`}>
-            {isMobile && (
-                <div className="bg-slate-900 py-3 px-4 flex justify-between items-center border-b border-slate-800 shadow-xl z-20 shrink-0">
-                    <span className="text-[12px] font-black text-white uppercase tracking-widest">
-                        Painel Logístico Panorâmico
-                    </span>
-                    <span className="text-[10px] text-blue-400 font-bold">100% NA TELA</span>
-                </div>
-            )}
+    // Lógica de Zoom por Gesto (Pinch-to-zoom)
+    useEffect(() => {
+        if (!isMobile) return;
+        const element = containerRef.current?.parentElement;
+        if (!element) return;
 
+        let initialDist = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                initialDist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                setIsPinched(true);
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (e.touches.length === 2 && containerRef.current?.parentElement) {
+                e.preventDefault();
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                
+                const delta = dist / initialDist;
+                if (Math.abs(delta - 1) > 0.005) {
+                    const scrollParent = containerRef.current.parentElement;
+                    const rect = scrollParent.getBoundingClientRect();
+                    
+                    // Midpoint relative to the scrolling container
+                    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    
+                    // Position in the "world" (unscaled coord)
+                    const touchPointX = (midX - rect.left + scrollParent.scrollLeft) / (scale * userZoom);
+                    const touchPointY = (midY - rect.top + scrollParent.scrollTop) / (scale * userZoom);
+                    
+                    setUserZoom(prev => {
+                        const next = Math.min(20, Math.max(0.7, prev * delta));
+                        const newScaleValue = scale * next;
+                        
+                        // Compensation for scroll to keep midpoint centered
+                        if (scrollParent) {
+                            const newScrollX = touchPointX * newScaleValue - (midX - rect.left);
+                            const newScrollY = touchPointY * newScaleValue - (midY - rect.top);
+                            
+                            scrollParent.scrollLeft = newScrollX;
+                            scrollParent.scrollTop = newScrollY;
+                        }
+                        
+                        return next;
+                    });
+                    initialDist = dist;
+                }
+            }
+        };
+
+        const handleTouchEnd = () => {
+            setIsPinched(false);
+        };
+
+        const handleWheel = (e: WheelEvent) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                setUserZoom(prev => {
+                    const next = e.deltaY < 0 ? prev * 1.05 : prev / 1.05;
+                    return Math.min(20, Math.max(0.7, next));
+                });
+            }
+        };
+
+        element.addEventListener('touchstart', handleTouchStart as any, { passive: false });
+        element.addEventListener('touchmove', handleTouchMove as any, { passive: false });
+        element.addEventListener('touchend', handleTouchEnd as any);
+        element.addEventListener('touchcancel', handleTouchEnd as any);
+        element.addEventListener('wheel', handleWheel as any, { passive: false });
+        
+        return () => {
+            element.removeEventListener('touchstart', handleTouchStart as any);
+            element.removeEventListener('touchmove', handleTouchMove as any);
+            element.removeEventListener('touchend', handleTouchEnd as any);
+            element.removeEventListener('touchcancel', handleTouchEnd as any);
+            element.removeEventListener('wheel', handleWheel as any);
+        };
+    }, [isMobile]);
+
+    return (
+        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-3 h-[calc(100vh-220px)]'} transition-colors duration-300`}>
+            {/* Conteúdo isolado para evitar impacto no cabeçalho pai */}
             <div 
-                className={`${isMobile ? 'rounded-none border-0 overflow-hidden' : 'rounded-3xl border-2 border-slate-100 dark:border-slate-800 overflow-auto'} flex-1 shadow-2xl bg-white dark:bg-slate-950 relative custom-scrollbar`}
+                className={`${isMobile ? 'rounded-none border-0 overflow-auto overscroll-contain' : 'rounded-3xl border-2 border-slate-100 dark:border-slate-800 overflow-auto'} flex-1 shadow-2xl bg-white dark:bg-slate-950 relative custom-scrollbar`}
+                style={{ WebkitOverflowScrolling: 'touch' }}
             >
                 <div 
-                    ref={containerRef}
-                    className={`${isMobile ? 'origin-top-left absolute top-0 left-0' : 'w-full'}`}
                     style={{ 
-                        width: isMobile ? '5000px' : '100%',
-                        transform: isMobile ? `scale(${scale})` : 'none',
-                        transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                        width: isMobile ? `${5000 * scale * userZoom}px` : '100%',
+                        maxWidth: '100%',
+                        height: isMobile ? `${tableHeight * scale * userZoom}px` : 'auto',
+                        position: 'relative'
                     }}
                 >
-                    <table className="w-full border-collapse" style={{ tableLayout: isMobile ? 'fixed' : 'auto' }}>
-                        <thead>
-                            <tr className="bg-slate-900 dark:bg-slate-950 text-white">
-                                <th className="p-4 w-[250px] text-sm font-black uppercase tracking-widest border-r border-slate-800 dark:border-slate-900 sticky left-0 z-20 bg-slate-900 text-center">
-                                    Dia / Calendário
-                                </th>
-                                {HOURS.map((h) => (
-                                    <th 
-                                        key={h} 
-                                        className={`p-3 ${isMobile ? 'w-[350px]' : 'min-w-[380px]'} text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
-                                    >
-                                        {String(h).padStart(2, '0')}:00
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="">
-                            {Object.entries(schedule).map(([date, orders]) => {
-                                const lanes = calculateLanes(orders);
-
-                                return lanes.map((lane: Order[], laneIdx: number) => {
-                                    const coveredUntil = { value: -1 };
-                                    const isLastLaneOfDay = laneIdx === lanes.length - 1;
-                                    
-                                    return (
-                                        <tr 
-                                            key={`${date}-${laneIdx}`} 
-                                            className={`h-52 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors border-b-2 border-slate-100 dark:border-slate-800 ${isLastLaneOfDay ? '!border-b-8 border-slate-900 dark:border-slate-100 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)]' : ''}`}
-                                        >
-                                            {laneIdx === 0 && (
-                                                <td
-                                                    rowSpan={lanes.length}
-                                                    className="p-6 font-black text-center bg-slate-50 dark:bg-slate-900 border-r-2 border-slate-100 dark:border-slate-800 align-middle sticky left-0 z-10"
-                                                >
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-4xl text-slate-900 dark:text-slate-100 tracking-tighter">
-                                                            {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: '2-digit' })}
-                                                        </span>
-                                                        <span className="text-[14px] uppercase text-blue-600 dark:text-blue-400 font-black mb-1">
-                                                            {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { month: 'short' })}
-                                                        </span>
-                                                        <span className="text-[12px] text-slate-400 dark:text-slate-500 uppercase font-black">
-                                                            {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { weekday: 'short' })}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                            )}
-
-                                            {HOURS.map((hour) => {
-                                                if (hour < coveredUntil.value) return null;
-                                                const order = lane.find((o: Order) => getHour(o.shipping.scheduling.startTime || o.shipping.scheduling.time) === hour);
-                                                if (order) {
-                                                    const startHour = getHour(order.shipping.scheduling.startTime || order.shipping.scheduling.time);
-                                                    const endHour = order.shipping.scheduling.type === 'range'
-                                                        ? getHour(order.shipping.scheduling.endTime)
-                                                        : startHour + 1;
-                                                    const duration = Math.max(1, endHour - startHour);
-                                                    coveredUntil.value = startHour + duration;
-                                                    return <TableCell key={hour} order={order} duration={duration} onOrderClick={onOrderClick} />;
-                                                }
-                                                return <td key={hour} className="border-r border-slate-50 dark:border-slate-900 last:border-0" />;
-                                            })}
-                                        </tr>
-                                    );
-                                });
-                            })}
-                        </tbody>
-                    </table>
+                    <div 
+                        ref={containerRef}
+                        className={`${isMobile ? 'absolute top-0 left-0' : 'w-full'}`}
+                        style={{ 
+                            width: isMobile ? '5000px' : '100%',
+                            transform: isMobile ? `scale(${scale * userZoom}) translateZ(0)` : 'none',
+                            transformOrigin: '0 0',
+                            transition: isMobile && isPinched ? 'none' : 'transform 0.2s ease-out',
+                            willChange: isMobile ? 'transform' : 'auto',
+                        }}
+                    >
+                         <table className="w-full border-collapse" style={{ tableLayout: isMobile ? 'fixed' : 'auto' }}>
+                             {/* ... resto da tabela ... */}
+                             <thead>
+                                 <tr className="bg-slate-900 dark:bg-slate-950 text-white">
+                                     <th className="p-4 w-[120px] text-[10px] font-black uppercase tracking-widest border-r border-slate-800 dark:border-slate-900 sticky left-0 z-20 bg-slate-900 text-center">
+                                         Data
+                                     </th>
+                                     {HOURS.map((h) => (
+                                         <th 
+                                             key={h} 
+                                             className={`p-3 ${isMobile ? 'w-[350px]' : 'min-w-[380px]'} text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
+                                         >
+                                             {String(h).padStart(2, '0')}:00
+                                         </th>
+                                     ))}
+                                 </tr>
+                             </thead>
+                             <tbody className="">
+                                 {Object.entries(schedule).map(([date, orders]) => {
+                                     const lanes = calculateLanes(orders);
+     
+                                     return lanes.map((lane: Order[], laneIdx: number) => {
+                                         const coveredUntil = { value: -1 };
+                                         const isLastLaneOfDay = laneIdx === lanes.length - 1;
+                                         
+                                         return (
+                                             <tr 
+                                                 key={`${date}-${laneIdx}`} 
+                                                 className={`h-52 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors border-b-2 border-slate-100 dark:border-slate-800 ${isLastLaneOfDay ? '!border-b-8 border-slate-900 dark:border-slate-100 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)]' : ''}`}
+                                             >
+                                                 {laneIdx === 0 && (
+                                                     <td
+                                                         rowSpan={lanes.length}
+                                                         className="p-2 font-black text-center bg-slate-50 dark:bg-slate-900 border-r-2 border-slate-100 dark:border-slate-800 align-middle sticky left-0 z-10 w-[120px]"
+                                                     >
+                                                         <div className="flex flex-col items-center">
+                                                             <span className="text-2xl text-slate-900 dark:text-slate-100 tracking-tighter">
+                                                                 {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: '2-digit' })}
+                                                             </span>
+                                                             <span className="text-[14px] uppercase text-blue-600 dark:text-blue-400 font-black mb-1">
+                                                                 {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { month: 'short' })}
+                                                             </span>
+                                                             <span className="text-[12px] text-slate-400 dark:text-slate-500 uppercase font-black">
+                                                                 {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { weekday: 'short' })}
+                                                             </span>
+                                                         </div>
+                                                     </td>
+                                                 )}
+     
+                                                 {HOURS.map((hour) => {
+                                                     if (hour < coveredUntil.value) return null;
+                                                     const order = lane.find((o: Order) => getHour(o.shipping.scheduling.startTime || o.shipping.scheduling.time) === hour);
+                                                     if (order) {
+                                                         const startHour = getHour(order.shipping.scheduling.startTime || order.shipping.scheduling.time);
+                                                         const endHour = order.shipping.scheduling.type === 'range'
+                                                             ? getHour(order.shipping.scheduling.endTime)
+                                                             : startHour + 1;
+                                                         const duration = Math.max(1, endHour - startHour);
+                                                         coveredUntil.value = startHour + duration;
+                                                         return <TableCell key={hour} order={order} duration={duration} onOrderClick={onOrderClick} />;
+                                                     }
+                                                     return <td key={hour} className="border-r border-slate-50 dark:border-slate-900 last:border-0" />;
+                                                 })}
+                                             </tr>
+                                         );
+                                     });
+                                 })}
+                             </tbody>
+                         </table>
+                    </div>
                 </div>
             </div>
 

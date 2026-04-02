@@ -173,30 +173,27 @@ const DeliverySchedule = () => {
                         </div>
                     </div>
 
-                    {/* View mode */}
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
                             <i className="bi bi-layout-text-sidebar" /> Visualização
                         </p>
-                        <div className="flex gap-2">
-                            {[
-                                { id: 'card', label: 'Grade', icon: 'bi-grid-fill' },
-                                { id: 'table', label: 'Tabela', icon: 'bi-table' },
-                                { id: 'map', label: 'Mapa', icon: 'bi-map-fill' },
-                            ].map(v => (
-                                <button
-                                    key={v.id}
-                                    onClick={() => { setViewMode(v.id as any); setSidebarOpen(false); }}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${viewMode === v.id
-                                            ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 shadow-lg'
-                                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                                        }`}
-                                >
-                                    <i className={`bi ${v.icon} text-base`} />
-                                    {v.label}
-                                </button>
-                            ))}
-                        </div>
+                        <button
+                            onClick={() => {
+                                if (viewMode === 'table') setViewMode('card');
+                                else if (viewMode === 'card') setViewMode('map');
+                                else setViewMode('table');
+                            }}
+                            className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+                        >
+                            <div className="flex items-center gap-3">
+                                <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-map-fill'} text-blue-600 dark:text-blue-400 text-lg`} />
+                                <span>{viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Mapa'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-400">
+                                <span className="text-[9px] uppercase tracking-widest font-bold">Alternar</span>
+                                <i className="bi bi-arrow-repeat text-base" />
+                            </div>
+                        </button>
                     </div>
                 </div>
 
@@ -236,6 +233,18 @@ const DeliverySchedule = () => {
                 {/* Mobile: Filter button */}
                 <div className="flex items-center gap-2 lg:hidden">
                     <button
+                        onClick={() => {
+                            if (viewMode === 'table') setViewMode('card');
+                            else if (viewMode === 'card') setViewMode('map');
+                            else setViewMode('table');
+                        }}
+                        className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-blue-600 dark:text-blue-400 shadow-sm active:scale-95 transition-all"
+                        title="Alternar Visualização"
+                    >
+                        <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-map-fill'} text-lg`} />
+                    </button>
+
+                    <button
                         onClick={() => setSidebarOpen(true)}
                         className="relative flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-black text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95"
                     >
@@ -247,13 +256,6 @@ const DeliverySchedule = () => {
                             </span>
                         )}
                     </button>
-                    <Link
-                        to="/settings"
-                        className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm"
-                        title="Configurações do Cronograma"
-                    >
-                        <i className="bi bi-gear-fill" />
-                    </Link>
                 </div>
 
 
@@ -294,35 +296,18 @@ const DeliverySchedule = () => {
 
                 <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 hidden xl:block" />
 
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl gap-1 transition-colors duration-300">
-                    <button
-                        onClick={() => setViewMode("card")}
-                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "card"
-                            ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-lg dark:shadow-blue-900/20"
-                            : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-                            }`}
-                    >
-                        <i className="bi bi-grid-fill mr-2" />Grade
-                    </button>
-                    <button
-                        onClick={() => setViewMode("table")}
-                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "table"
-                            ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-lg dark:shadow-blue-900/20"
-                            : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-                            }`}
-                    >
-                        <i className="bi bi-table mr-2" />Tabela
-                    </button>
-                    <button
-                        onClick={() => setViewMode("map")}
-                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "map"
-                            ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-lg dark:shadow-blue-900/20"
-                            : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-                            }`}
-                    >
-                        <i className="bi bi-map-fill mr-2" />Mapa
-                    </button>
-                </div>
+                <button
+                    onClick={() => {
+                        if (viewMode === 'table') setViewMode('card');
+                        else if (viewMode === 'card') setViewMode('map');
+                        else setViewMode('table');
+                    }}
+                    className="flex items-center gap-3 px-6 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:shadow-premium-sm transition-all group"
+                >
+                    <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-map-fill'} text-blue-600 dark:text-blue-400 text-base group-hover:rotate-12 transition-transform`} />
+                    Vista: {viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Mapa'}
+                    <i className="bi bi-chevron-right text-slate-400 ml-1" />
+                </button>
 
                 {!isStandalone && (
                     <div className="flex items-center gap-3">
@@ -331,7 +316,7 @@ const DeliverySchedule = () => {
                             className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-widest py-4 px-8 rounded-2xl flex items-center justify-center transition-all active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-800/40"
                         >
                             <i className="bi bi-list-check mr-2 text-lg" />
-                            Lista de Montagem
+                            Lista de Montagens
                         </Link>
                         <button
                             onClick={handleShare}
@@ -369,7 +354,7 @@ const DeliverySchedule = () => {
                             to="/logistics/assembly-list"
                             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-black text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800"
                         >
-                            <i className="bi bi-list-check" /> Lista
+                            <i className="bi bi-list-check" /> Lista de Montagens
                         </Link>
                         <button
                             onClick={handleShare}

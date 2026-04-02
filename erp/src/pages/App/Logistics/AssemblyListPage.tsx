@@ -3,7 +3,8 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatToBRDate } from '@/pages/utils/formatters';
 import Order from '@/pages/types/order.type';
 import { toast } from 'react-toastify';
-import { getSettings } from '@/pages/utils/settingsService';
+import { getSettings, subscribeToSettings, AppSettings } from '@/pages/utils/settingsService';
+import { subscribeToOrders } from '@/pages/utils/orderHistoryService';
 import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
 import { ShowcaseAssembly, getShowcaseAssemblies, deleteShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 
@@ -17,6 +18,8 @@ const AssemblyListPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAssembly, setSelectedAssembly] = useState<ShowcaseAssembly | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const [settings, setSettings] = useState<AppSettings>(getSettings());
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -26,27 +29,23 @@ const AssemblyListPage = () => {
     }, []);
 
     useEffect(() => {
-        fetchAllAssemblies();
+        const unsubscribe = subscribeToSettings((newSettings) => {
+            setSettings(newSettings);
+            setSettingsLoaded(true);
+        });
+        return () => unsubscribe();
     }, []);
 
-    const fetchAllAssemblies = async () => {
-        setLoading(true);
-        try {
-            const settings = getSettings();
-            
-            // 1. Fetch Orders
-            const { data: dbOrders, error: ordersError } = await supabase
-                .from('orders')
-                .select('id, order_data')
-                .order('id', { ascending: false });
+    useEffect(() => {
+        if (settingsLoaded) {
+            fetchAllAssemblies();
+        }
+    }, [settingsLoaded]);
 
-            if (ordersError) throw ordersError;
+    useEffect(() => {
+        if (!settingsLoaded) return;
 
-            const allOrders = (dbOrders as any[] || []).map(row => ({
-                ...(row.order_data || {}),
-                id: String(row.id)
-            })) as Order[];
-
+        const unsubscribe = subscribeToOrders((allOrders) => {
             const orderTasks = allOrders.filter(order => {
                 if (order.deleted || order.status === 'cancelled') return false;
                 const isPickup = order.shipping?.deliveryMethod === 'pickup';
@@ -78,7 +77,24 @@ const AssemblyListPage = () => {
                 fullData: order
             }));
 
-            // 2. Fetch Showcase
+            // Unified with existing showcase data (refetched below or held in state)
+            updateUnifiedList(orderTasks);
+        });
+
+        return () => unsubscribe();
+    }, [settingsLoaded, settings]);
+
+    const [orderTasks, setOrderTasks] = useState<any[]>([]);
+
+    const updateUnifiedList = (newOrderTasks: any[]) => {
+        setOrderTasks(newOrderTasks);
+        fetchAllAssemblies(newOrderTasks);
+    };
+
+    const fetchAllAssemblies = async (currentOrderTasks?: any[]) => {
+        setLoading(true);
+        try {
+            // 1. Fetch Showcase
             const showcaseData = await getShowcaseAssemblies();
             const showcaseTasks = showcaseData.map(as => ({
                 id: as.id || "",
@@ -97,7 +113,7 @@ const AssemblyListPage = () => {
             yesterday.setHours(0, 0, 0, 0);
             const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-            const unified = [...orderTasks, ...showcaseTasks]
+            const unified = [...(currentOrderTasks || orderTasks), ...showcaseTasks]
                 .filter(item => !item.date || item.date >= yesterdayStr)
                 .sort((a, b) => {
                     if (a.date !== b.date) return b.date.localeCompare(a.date);
@@ -107,7 +123,7 @@ const AssemblyListPage = () => {
             setAssemblies(unified);
         } catch (error) {
             console.error('Erro ao buscar montagens:', error);
-            toast.error("Erro ao carregar lista de montagens.");
+            toast.error("Erro ao carregar mostruários.");
         } finally {
             setLoading(false);
         }
@@ -135,7 +151,7 @@ const AssemblyListPage = () => {
     };
 
     const handleShareWhatsApp = () => {
-        const PRODUCTION_URL = "https://moveismorantehub.vercel.app";
+        const PRODUCTION_URL = window.location.origin;
         const url = `${PRODUCTION_URL}/assembly-schedule`;
         const message = `🛠️ *Móveis Morante - Cronograma de Montagens*\n\nOlá! Segue o link para *visualização em tempo real* da lista de montagens atualizada:\n\n🔗 ${url}\n\n_Favor conferir os itens e horários no link antes de iniciar os serviços._`;
         const encoded = encodeURIComponent(message);
@@ -168,7 +184,7 @@ const AssemblyListPage = () => {
                 </div>
                 {isStandalone && (
                      <button 
-                        onClick={fetchAllAssemblies}
+                        onClick={() => fetchAllAssemblies()}
                         className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm active:scale-95"
                         title="Recarregar lista"
                     >

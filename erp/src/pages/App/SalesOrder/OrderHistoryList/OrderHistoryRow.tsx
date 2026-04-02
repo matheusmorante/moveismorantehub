@@ -261,9 +261,37 @@ const OrderHistoryRow = ({
                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{order.customerData?.fullName || "Não informado"}</span>
                             
                              {order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                                <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm mt-1">
-                                    <i className="bi bi-check-circle-fill text-[8px]" />
-                                    <span className="text-[8px] font-black uppercase tracking-tight">Lançado Bling</span>
+                                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                                    {!showBlingConfirm ? (
+                                        <button 
+                                            onClick={() => setShowBlingConfirm(true)}
+                                            className="flex items-center gap-1.5 px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm hover:scale-105 transition-all"
+                                        >
+                                            <i className="bi bi-check-circle-fill text-[8px]" />
+                                            <span className="text-[8px] font-black uppercase tracking-tight">Lançado Bling</span>
+                                        </button>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
+                                            <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Desfazer?</span>
+                                            <div className="flex gap-1">
+                                                <button 
+                                                    onClick={() => {
+                                                        onBlingUpdate?.(order.id!, false);
+                                                        setShowBlingConfirm(false);
+                                                    }}
+                                                    className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-red-700 transition-colors"
+                                                >
+                                                    Sim
+                                                </button>
+                                                <button 
+                                                    onClick={() => setShowBlingConfirm(false)}
+                                                    className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                >
+                                                    Não
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
