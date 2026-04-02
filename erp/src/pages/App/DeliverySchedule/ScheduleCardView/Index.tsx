@@ -13,12 +13,13 @@ interface Props {
     schedule: Record<string, Order[]>;
     onOrderClick: (order: Order) => void;
     isReadOnly?: boolean;
+    hasInitialScrolled?: React.MutableRefObject<boolean>;
 }
 
 /**
  * Renders an individual delivery order as a card
  */
-const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: Order; index: number; onOrderClick: (order: Order) => void; isReadOnly?: boolean }) => {
+const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialScrolled }: { order: Order; index: number; onOrderClick: (order: Order) => void; isReadOnly?: boolean; hasInitialScrolled?: React.MutableRefObject<boolean> }) => {
     const settings = getSettings();
     const [showStatusPicker, setShowStatusPicker] = React.useState(false);
     const [showAssemblyTooltip, setShowAssemblyTooltip] = React.useState(false);
@@ -108,9 +109,9 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
                                 e.stopPropagation();
                                 setShowAssemblyTooltip(!showAssemblyTooltip);
                             }}
-                            className="bg-rose-600 text-white w-10 h-10 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-50"
+                            className="bg-rose-600 text-white w-16 h-16 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-50"
                         >
-                            <i className="bi bi-hammer text-lg" />
+                            <i className="bi bi-hammer text-2xl" />
                         </button>
                         
                         {showAssemblyTooltip && (
@@ -366,10 +367,12 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly }: { order: 
 /**
  * Main component for the Card Visualization of the Delivery Schedule
  */
-const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
+const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled }: Props) => {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
+        if (hasInitialScrolled?.current) return;
+
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -381,6 +384,7 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly }: Props) => {
             const element = document.getElementById(`date-${todayStr}`);
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (hasInitialScrolled) hasInitialScrolled.current = true;
             }
         }, 100);
     }, [schedule]);

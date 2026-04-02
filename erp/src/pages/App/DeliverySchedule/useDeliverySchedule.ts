@@ -4,7 +4,7 @@ import { subscribeToOrders, updateOrder } from "../../utils/orderHistoryService"
 import { DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-toastify";
 import { getLocalISODate } from "../../utils/formatters";
-import { getSettings } from "@/pages/utils/settingsService";
+import { getSettings, subscribeToSettings } from "@/pages/utils/settingsService";
 import { supabase } from "@/pages/utils/supabaseConfig";
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
@@ -19,9 +19,9 @@ const processOrders = (
     filter: ScheduleFilter, 
     typeFilter: OrderTypeFilter[], 
     scheduleType: ScheduleType,
+    settings: any,
     customRange?: { start: string, end: string }
 ) => {
-    const settings = getSettings();
     const now = new Date();
     const todayStr = getLocalISODate(now);
 
@@ -198,18 +198,27 @@ export const useDeliverySchedule = () => {
     const [endDate, setEndDate] = useState(getLocalISODate(new Date()));
     const [scheduleType, setScheduleType] = useState<ScheduleType>('delivery');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [settings, setSettings] = useState(getSettings());
+
+    // Subscribe to settings for real-time reactivity (important for public/anon users)
+    useEffect(() => {
+        const unsubscribe = subscribeToSettings((newSettings) => {
+            setSettings(newSettings);
+        });
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         const unsubscribe = subscribeToOrders((orders) => {
             setAllOrders(orders);
             const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
-            const processed = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, { start: startDate, end: endDate });
+            const processed = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate });
             setSchedule(processed);
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [filter, typeFilter, scheduleType, showroomAssemblies, startDate, endDate]);
+    }, [filter, typeFilter, scheduleType, showroomAssemblies, startDate, endDate, settings]);
 
     // Fetch Showroom Assemblies
     useEffect(() => {
@@ -231,9 +240,9 @@ export const useDeliverySchedule = () => {
     useEffect(() => {
         if (!loading) {
             const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
-            setSchedule(processOrders([...allOrders, ...showroomOrders], filter, typeFilter, scheduleType, { start: startDate, end: endDate }));
+            setSchedule(processOrders([...allOrders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate }));
         }
-    }, [filter, typeFilter, scheduleType, startDate, endDate, allOrders, showroomAssemblies, loading]);
+    }, [filter, typeFilter, scheduleType, startDate, endDate, allOrders, showroomAssemblies, loading, settings]);
 
     const handleShare = () => {
         const PRODUCTION_URL = "https://moveismorantehub.vercel.app";

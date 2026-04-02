@@ -5,8 +5,7 @@ import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import DesktopNav from "./components/layout/DesktopNav";
 import MobileNav from "./components/layout/MobileNav";
-import AIChatAssistant from "./components/shared/AIChatAssistant";
-import AttendanceVoiceInput from "./components/shared/AttendanceVoiceInput";
+import FloatingActionsHub from "./components/shared/FloatingActionsHub";
 import GlobalAutoScroll from "./components/shared/GlobalAutoScroll";
 import NotificationBell from "./components/shared/NotificationBell";
 import AssistanceOrderModal from "./pages/App/SalesOrder/AssistanceOrderModal";
@@ -167,6 +166,15 @@ export default function AppLayout() {
                         <i className="bi bi-bank2 text-lg"></i>
                         Financeiro e Rede
                       </Link>
+                      
+                      {/* Boto de Download do App Mobile */}
+                      <a 
+                        href="/mobile-app" 
+                        className="flex items-center gap-4 p-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest border border-blue-100 dark:border-blue-800 mt-2"
+                      >
+                        <i className="bi bi-phone-vibrate text-lg"></i>
+                        Baixar App Mobile
+                      </a>
                     </>
                   )}
                 </div>
@@ -199,8 +207,7 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      <AIChatAssistant />
-      <AttendanceVoiceInput />
+      <FloatingActionsHub />
 
       {isAssistanceModalOpen && (
         <AssistanceOrderModal 

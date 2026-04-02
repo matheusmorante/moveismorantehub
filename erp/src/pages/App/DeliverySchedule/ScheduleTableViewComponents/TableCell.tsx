@@ -31,6 +31,9 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     const isAssembly = (order as any).taskType === 'assembly';
     const typeLabel = isAssembly ? 'MONTAGEM' : (isAssistance ? 'ASSISTÊNCIA' : (isPickup ? 'RETIRADA' : 'ENTREGA'));
 
+    const timeDisplay = order.shipping?.scheduling?.startTime || order.shipping?.scheduling?.time || (order as any).period || (order as any).startTime || "Horário Livre";
+    const endTimeDisplay = order.shipping?.scheduling?.endTime || (order as any).endTime;
+
     return (
         <td
             colSpan={duration}
@@ -38,7 +41,7 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
         >
             <div
                 onClick={() => onOrderClick(order)}
-                className={`w-[380px] min-h-[190px] h-auto mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-visible flex flex-col gap-2 cursor-pointer relative ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''} ${order.status === 'draft' ? 'border-dashed opacity-80' : ''}`}
+                className={`w-full min-h-[190px] h-auto mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-visible flex flex-col gap-2 cursor-pointer relative ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''} ${order.status === 'draft' ? 'border-dashed opacity-80' : ''}`}
             >
                 {/* Hammer Button Overlay */}
                 {hasLinkedAssembly && (
@@ -48,10 +51,10 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                                 e.stopPropagation();
                                 setShowAssemblyTooltip(!showAssemblyTooltip);
                             }}
-                            className="bg-rose-600 text-white w-12 h-12 rounded-full border-4 border-white dark:border-slate-950 shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+                            className="bg-rose-600 text-white w-16 h-16 rounded-full border-4 border-white dark:border-slate-950 shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
                             title="Ver itens de montagem"
                         >
-                            <i className="bi bi-hammer text-xl" />
+                            <i className="bi bi-hammer text-2xl" />
                         </button>
 
                         {showAssemblyTooltip && (
@@ -137,8 +140,8 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
                 <div className="flex justify-between items-start mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">
                     <span className={`font-black text-[12px] uppercase tracking-widest whitespace-nowrap ${cls.timeText}`}>
-                        {order.shipping.scheduling.startTime || order.shipping.scheduling.time}
-                        {order.shipping.scheduling.type === 'range' && ` → ${order.shipping.scheduling.endTime}`}
+                        {timeDisplay}
+                        {((order.shipping?.scheduling?.type === 'range' || (order as any).type === 'range') && endTimeDisplay) && ` → ${endTimeDisplay}`}
                     </span>
                     {order.status === 'draft' && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase tracking-widest border border-slate-300">

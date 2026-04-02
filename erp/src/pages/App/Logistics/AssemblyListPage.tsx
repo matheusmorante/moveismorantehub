@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatDate } from '@/pages/utils/formatters';
 import Order from '@/pages/types/order.type';
 import { toast } from 'react-toastify';
 import { getSettings, subscribeToSettings, AppSettings } from '@/pages/utils/settingsService';
@@ -151,8 +151,8 @@ const AssemblyListPage = () => {
     };
 
     const handleShareWhatsApp = () => {
-        const PRODUCTION_URL = window.location.origin;
-        const url = `${PRODUCTION_URL}/assembly-schedule`;
+        const REAL_URL = "https://moveismorantehub.vercel.app";
+        const url = `${REAL_URL}/assembly-schedule`;
         const message = `🛠️ *Móveis Morante - Cronograma de Montagens*\n\nOlá! Segue o link para *visualização em tempo real* da lista de montagens atualizada:\n\n🔗 ${url}\n\n_Favor conferir os itens e horários no link antes de iniciar os serviços._`;
         const encoded = encodeURIComponent(message);
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
@@ -166,7 +166,7 @@ const AssemblyListPage = () => {
     const renderHeader = () => (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-                <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Logística de Montagens</h1>
+                <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Lista de Montagem</h1>
                 <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
                     {isStandalone ? "Visualização em Tempo Real" : "Gestão de serviços técnicos e montagens"}
                 </p>
@@ -218,66 +218,114 @@ const AssemblyListPage = () => {
         </div>
     );
 
-    const renderMobileView = () => (
-        <div className="grid grid-cols-1 gap-4">
-            {loading ? (
-                Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="h-40 bg-white dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-100 dark:border-slate-800" />
-                ))
-            ) : filteredAssemblies.length === 0 ? (
-                <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">Nenhuma montagem pendente</div>
-            ) : (
-                filteredAssemblies.map((item, idx) => (
-                    <div key={item.id + idx} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 p-6 shadow-sm space-y-4">
-                        <div className="flex justify-between items-start">
-                            <div className="flex flex-col gap-1">
-                                <span className={`w-fit text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
-                                    item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
-                                }`}>
-                                    {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
-                                </span>
-                                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 leading-tight">{item.title}</h3>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.subtitle}</span>
-                            </div>
+    const renderMobileView = () => {
+        const grouped = filteredAssemblies.reduce((acc, item) => {
+            const key = item.date || 'sem-data';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(item);
+            return acc;
+        }, {} as Record<string, any[]>);
 
-                            <div className="flex flex-col items-end shrink-0">
-                                <span className="text-xs font-black text-slate-800 dark:text-slate-100">
-                                    {item.date ? formatToBRDate(item.date) : '---'}
-                                </span>
-                                {item.timeInfo && (
-                                    <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
-                                        {item.timeInfo.type === 'range' 
-                                            ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
-                                            : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'H. Livre'))}
-                                    </span>
-                                )}
-                            </div>
+        const sortedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+        if (loading) {
+            return (
+                <div className="grid grid-cols-1 gap-4">
+                    {Array(3).fill(0).map((_, i) => (
+                        <div key={i} className="h-40 bg-white dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-100 dark:border-slate-800" />
+                    ))}
+                </div>
+            );
+        }
+
+        if (filteredAssemblies.length === 0) {
+            return <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">Nenhuma montagem pendente</div>;
+        }
+
+        return (
+            <div className="space-y-12">
+                {sortedKeys.map(dateKey => (
+                    <div key={dateKey} className="space-y-4">
+                        {/* Data Header */}
+                        <div className="flex items-center gap-4 px-2">
+                             <div className="w-1.5 h-6 bg-blue-600 rounded-full shadow-sm shadow-blue-200"></div>
+                             <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                                {dateKey === 'sem-data' ? 'Data não definida' : new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR", {
+                                    weekday: 'long',
+                                    day: '2-digit',
+                                    month: 'long'
+                                })}
+                             </h2>
                         </div>
 
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-2">
-                            {item.items.map((it: any, iidx: number) => (
-                                <div key={iidx} className="flex items-center gap-2">
-                                    <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-[9px] font-black text-blue-700 dark:text-blue-300 rounded-lg">{it.quantity}x</span>
-                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{it.description}</span>
+                        <div className="grid grid-cols-1 gap-4">
+                            {grouped[dateKey].map((item: any, idx: number) => (
+                                <div key={item.id + idx} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 p-6 shadow-sm space-y-4">
+                                    <div className="flex justify-between items-start border-b border-slate-50 dark:border-slate-800 pb-4">
+                                        <div className="flex flex-col gap-1.5 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
+                                                    item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
+                                                }`}>
+                                                    {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
+                                                </span>
+                                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Serviço Técnico</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                {item.timeInfo && (
+                                                    <span className="text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-wide mt-1">
+                                                        <i className="bi bi-clock-fill mr-2 opacity-70"></i>
+                                                        {item.timeInfo.type === 'range' 
+                                                            ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
+                                                            : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'Horário Livre'))}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">O que montar:</span>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {item.items.map((it: any, iidx: number) => (
+                                                <div key={iidx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                                                    <span className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white text-xs font-black rounded-xl shadow-sm">{it.quantity}x</span>
+                                                    <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase leading-tight line-clamp-2">{it.description}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2 pt-4 border-t border-slate-50 dark:border-slate-800">
+                                         <div className="flex flex-col">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Informações do Cliente</span>
+                                            <h3 className="text-sm font-black text-slate-600 dark:text-slate-400 uppercase truncate">{item.title}</h3>
+                                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{item.subtitle}</span>
+                                        </div>
+                                    </div>
+
+                                    {!isStandalone && item.origin === 'showcase' && (
+                                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-50 dark:border-slate-800">
+                                            <button onClick={() => handleEditShowcase(item.fullData)} className="px-4 py-2 text-blue-600 font-bold text-xs"><i className="bi bi-pencil-square mr-1"></i> Editar</button>
+                                            <button onClick={() => handleDeleteShowcase(item.id)} className="px-4 py-2 text-rose-500 font-bold text-xs"><i className="bi bi-trash mr-1"></i> Excluir</button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
-
-                        {!isStandalone && item.origin === 'showcase' && (
-                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-50 dark:border-slate-800">
-                                <button onClick={() => handleEditShowcase(item.fullData)} className="px-4 py-2 text-blue-600 font-bold text-xs"><i className="bi bi-pencil-square mr-1"></i> Editar</button>
-                                <button onClick={() => handleDeleteShowcase(item.id)} className="px-4 py-2 text-rose-500 font-bold text-xs"><i className="bi bi-trash mr-1"></i> Excluir</button>
-                            </div>
-                        )}
                     </div>
-                ))
-            )}
-        </div>
-    );
+                ))}
+            </div>
+        );
+    };
 
     return (
         <div className="p-4 md:p-10 space-y-8 animate-fade-in pb-20">
             {renderHeader()}
+
+            <style dangerouslySetInnerHTML={{ __html: `
+                .capitalize::first-letter { text-transform: uppercase; }
+            `}} />
 
             {isMobile ? renderMobileView() : (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -285,12 +333,12 @@ const AssemblyListPage = () => {
                         <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                            Origem / Responsável
-                                        </th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Prazo</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 w-[15%]">Período</th>
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                             Itens para Montar
+                                        </th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            Origem / Responsável
                                         </th>
                                         {!isStandalone && <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>}
                                     </tr>
@@ -308,66 +356,92 @@ const AssemblyListPage = () => {
                                                 Nenhuma montagem pendente
                                             </td>
                                         </tr>
-                                    ) : (
-                                        filteredAssemblies.map((item, idx) => (
-                                            <tr key={item.id + idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all text-sans">
-                                                <td className="px-8 py-6">
-                                                    <div className="flex flex-col">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border ${
-                                                                item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
-                                                            }`}>
-                                                                {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
+                                    ) : (() => {
+                                        const grouped = filteredAssemblies.reduce((acc, item) => {
+                                            const key = item.date || 'sem-data';
+                                            if (!acc[key]) acc[key] = [];
+                                            acc[key].push(item);
+                                            return acc;
+                                        }, {} as Record<string, any[]>);
+
+                                        const sortedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+                                        return sortedKeys.map(dateKey => (
+                                            <React.Fragment key={dateKey}>
+                                                {/* Date Header Row */}
+                                                <tr className="bg-slate-50/30 dark:bg-slate-800/10">
+                                                    <td colSpan={isStandalone ? 3 : 4} className="px-8 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-1.5 h-6 bg-blue-600 rounded-full shadow-sm shadow-blue-200"></div>
+                                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                                                                {dateKey === 'sem-data' ? 'Data não definida' : new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR", {
+                                                                    weekday: 'long',
+                                                                    day: '2-digit',
+                                                                    month: 'long'
+                                                                })}
                                                             </span>
-                                                            <span className="text-sm font-black text-slate-800 dark:text-slate-100">{item.title}</span>
-                                                        </div>
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.subtitle}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                                            {item.date ? formatToBRDate(item.date) : '---'}
-                                                        </span>
-                                                        {item.timeInfo && (
-                                                            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter mt-0.5">
-                                                                {item.timeInfo.type === 'range' 
-                                                                    ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
-                                                                    : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'Horário Livre'))
-                                                                }
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6">
-                                                    <div className="flex flex-col gap-1">
-                                                        {item.items.map((it: any, iidx: number) => (
-                                                            <div key={iidx} className="flex items-center gap-2">
-                                                                <span className="px-1.5 py-0.5 min-w-[1.25rem] flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-[9px] font-black text-blue-700 dark:text-blue-300 rounded-lg whitespace-nowrap">{it.quantity} un</span>
-                                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{it.description}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                                {!isStandalone && (
-                                                    <td className="px-8 py-6 text-right">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            {item.origin === 'showcase' && (
-                                                                <>
-                                                                    <button onClick={() => handleEditShowcase(item.fullData)} className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><i className="bi bi-pencil-square text-lg"></i></button>
-                                                                    <button onClick={() => handleDeleteShowcase(item.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="bi bi-trash text-lg"></i></button>
-                                                                </>
-                                                            )}
                                                         </div>
                                                     </td>
-                                                )}
-                                            </tr>
-                                        ))
-                                    )}
+                                                </tr>
+                                                {grouped[dateKey].map((item: any, idx: number) => (
+                                                    <tr key={item.id + idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all text-sans">
+                                                        <td className="px-8 py-6">
+                                                            <div className="flex flex-col">
+                                                                {item.timeInfo && (
+                                                                    <span className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                                                                        <i className="bi bi-clock-fill mr-2 opacity-70"></i>
+                                                                        {item.timeInfo.type === 'range' 
+                                                                            ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
+                                                                            : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'Horário Livre'))
+                                                                        }
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-8 py-6">
+                                                            <div className="flex flex-col gap-1.5">
+                                                                {item.items.map((it: any, iidx: number) => (
+                                                                    <div key={iidx} className="flex items-center gap-2">
+                                                                        <span className="px-2 py-0.5 min-w-[2.5rem] flex items-center justify-center bg-blue-600 text-[10px] font-black text-white rounded-lg shadow-sm">{it.quantity} un</span>
+                                                                        <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase">{it.description}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-8 py-6">
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border ${
+                                                                        item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
+                                                                    }`}>
+                                                                        {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
+                                                                    </span>
+                                                                    <span className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">{item.title}</span>
+                                                                </div>
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.subtitle}</span>
+                                                            </div>
+                                                        </td>
+                                                        {!isStandalone && (
+                                                            <td className="px-8 py-6 text-right">
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    {item.origin === 'showcase' && (
+                                                                        <>
+                                                                            <button onClick={() => handleEditShowcase(item.fullData)} className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><i className="bi bi-pencil-square text-lg"></i></button>
+                                                                            <button onClick={() => handleDeleteShowcase(item.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="bi bi-trash text-lg"></i></button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        ));
+                                    })()}
                                 </tbody>
-                    </table>
+                        </table>
+                    </div>
                 </div>
-            </div>
             )}
 
             <ShowcaseAssemblyModal 

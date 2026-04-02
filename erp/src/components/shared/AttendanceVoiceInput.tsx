@@ -4,7 +4,11 @@ import { useAttendanceVoice } from "../../hooks/useAttendanceVoice";
 
 const PatternFormat = PatternFormatBase as any;
 
-const AttendanceVoiceInput = () => {
+interface AttendanceVoiceInputProps {
+    isFloating?: boolean;
+}
+
+const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [customerPhone, setCustomerPhone] = useState("");
     
@@ -176,13 +180,15 @@ const AttendanceVoiceInput = () => {
                 </div>
             )}
 
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-emerald-600 shadow-emerald-200 dark:shadow-none'}`}
-                title="Novo Log de Atendimento (BI)"
-            >
-                <i className={`bi ${isOpen ? 'bi-x' : 'bi-headset'} text-xl`}></i>
-            </button>
+            {isFloating && (
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-emerald-600 shadow-emerald-200 dark:shadow-none'}`}
+                    title="Novo Log de Atendimento (BI)"
+                >
+                    <i className={`bi ${isOpen ? 'bi-x' : 'bi-headset'} text-xl`}></i>
+                </button>
+            )}
         </div>
     );
 };

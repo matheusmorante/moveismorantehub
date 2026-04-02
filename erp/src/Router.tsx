@@ -39,6 +39,7 @@ import SystemDocs from './pages/App/SystemDocs/Index';
 import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
 import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
 import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
+import MobileAppLanding from './pages/App/MobileAppLanding';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
@@ -132,7 +133,7 @@ function Router() {
             <Route path='/finance/transactions' element={<AdminRoute><Transactions /></AdminRoute>} />
             <Route path='/finance/settings' element={<AdminRoute><FinanceSettings /></AdminRoute>} />
             <Route path='/logistics/assembly-list' element={<AssemblyListPage />} />
-            <Route path='/system-docs' element={<AdminRoute><SystemDocs /></AdminRoute>} />
+            <Route path='/mobile-app' element={<MobileAppLanding />} />
             <Route path='/system-docs' element={<AdminRoute><SystemDocs /></AdminRoute>} />
           </Route>
         </Routes>

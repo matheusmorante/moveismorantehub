@@ -57,7 +57,12 @@ const formatValue = (key: string, value: any) => {
     return value;
 };
 
-const AIChatAssistant = () => {
+interface AIChatAssistantProps {
+    isFloating?: boolean;
+    forceOpen?: boolean;
+}
+
+const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [settings, setSettings] = useState<AppSettings>(getSettings());
 
@@ -664,24 +669,26 @@ const AIChatAssistant = () => {
                 </div>
             )}
 
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-16 h-16 rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 overflow-hidden ${isOpen ? 'bg-slate-800 dark:bg-slate-700 rotate-90' : 'bg-indigo-600 shadow-indigo-300 dark:shadow-none'
-                    }`}
-            >
-                {isOpen ? (
-                    <i className="bi bi-x-lg text-2xl"></i>
-                ) : (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                        {aiAvatar ? (
-                            <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
-                        ) : (
-                            <i className="bi bi-robot text-3xl"></i>
-                        )}
-                        <span className="absolute top-3 right-3 w-3 h-3 bg-emerald-400 border-2 border-indigo-600 rounded-full z-10"></span>
-                    </div>
-                )}
-            </button>
+            {isFloating && (
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`w-16 h-16 rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 overflow-hidden ${isOpen ? 'bg-slate-800 dark:bg-slate-700 rotate-90' : 'bg-indigo-600 shadow-indigo-300 dark:shadow-none'
+                        }`}
+                >
+                    {isOpen ? (
+                        <i className="bi bi-x-lg text-2xl"></i>
+                    ) : (
+                        <div className="relative w-full h-full flex items-center justify-center">
+                            {aiAvatar ? (
+                                <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
+                            ) : (
+                                <i className="bi bi-robot text-3xl"></i>
+                            )}
+                            <span className="absolute top-3 right-3 w-3 h-3 bg-emerald-400 border-2 border-indigo-600 rounded-full z-10"></span>
+                        </div>
+                    )}
+                </button>
+            )}
 
             {/* Floating Preview Modal */}
             {(() => {

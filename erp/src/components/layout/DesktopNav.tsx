@@ -136,6 +136,11 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/delivery-schedule" state={{ view: 'map' }} onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Mapa de Entregas</Link>
                         <Link to="/logistics/assembly-list" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Montagem</Link>
                         <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
+                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
+                        <a href="/mobile-app" className={`${dropdownItemClass} text-blue-600 dark:text-blue-400`}>
+                             <i className="bi bi-phone-vibrate"></i>
+                             Baixar App Mobile
+                        </a>
                     </div>
                 )}
             </div>

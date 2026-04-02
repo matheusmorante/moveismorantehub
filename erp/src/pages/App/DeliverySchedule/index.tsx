@@ -33,6 +33,7 @@ const DeliverySchedule = () => {
     const [viewMode, setViewMode] = useState<"card" | "table" | "map">("table");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<any>(null);
+    const hasInitialScrolled = React.useRef(false);
     const { state } = useLocation();
 
     useEffect(() => {
@@ -58,11 +59,10 @@ const DeliverySchedule = () => {
         { id: 'delivery', label: 'Entregas', icon: 'bi-truck', color: 'emerald' },
         { id: 'pickup', label: 'Retiradas', icon: 'bi-hand-index-thumb-fill', color: 'purple' },
         { id: 'assistance', label: 'Assistência', icon: 'bi-tools', color: 'orange' },
-        { id: 'assembly', label: 'Montagens', icon: 'bi-hammer', color: 'blue' },
     ];
 
     const activeFilterLabel = filters.find(f => f.id === filter)?.label ?? '';
-    const hasActiveFilters = filter !== 'default' || typeFilter.length !== 3; // Default is 3 types
+    const hasActiveFilters = filter !== 'default' || typeFilter.length !== 3; // Now 3 types: delivery, pickup, assistance
 
     /** Sidebar drawer – shown on mobile */
     const FilterSidebar = () => (
@@ -410,12 +410,14 @@ const DeliverySchedule = () => {
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
+                        hasInitialScrolled={hasInitialScrolled}
                     />
                 ) : viewMode === "table" ? (
                     <ScheduleTableView
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
+                        hasInitialScrolled={hasInitialScrolled}
                     />
                 ) : (
                     <DeliveryMap 
