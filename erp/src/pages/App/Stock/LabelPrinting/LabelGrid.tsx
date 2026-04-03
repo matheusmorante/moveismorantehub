@@ -25,31 +25,45 @@ interface Props {
     labelItems?: LabelItemConfig[];
     logoItems?: LogoItemConfig[];
     currentPage?: number;
+    previewMode?: boolean;
 }
 
-const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClick, labelItems, logoItems, currentPage = 0 }) => {
+const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClick, labelItems, logoItems, currentPage = 0, previewMode = false }) => {
     const totalCells = config.columns * config.rows;
+    
+    const isLogos = config.category === 'logos';
+    const sourceItems = isLogos ? (logoItems || []) : (labelItems || []);
     
     // Flatten the items into a single array of items to render
     let itemsToRender: any[] = [];
     
-    if (labelItems && labelItems.length > 0) {
-        labelItems.forEach((item, itemIdx) => {
-            const qty = item.quantity || 0;
+    if (sourceItems.length > 0) {
+        sourceItems.forEach((item, itemIdx) => {
+            const qty = Number(item.quantity || 0);
             for (let i = 0; i < qty; i++) {
-                itemsToRender.push({ type: 'product', ...item, originalIdx: itemIdx });
+                itemsToRender.push({ 
+                    type: isLogos ? 'logo' : 'product', 
+                    ...item, 
+                    originalIdx: itemIdx 
+                });
             }
         });
-    } else if (logoItems && logoItems.length > 0) {
-        logoItems.forEach((item, itemIdx) => {
-            const qty = item.quantity || 0;
-            for (let i = 0; i < qty; i++) {
-                itemsToRender.push({ type: 'logo', ...item, originalIdx: itemIdx });
-            }
-        });
-    } else {
-        // Default behavior: render a full grid with the global config
-        itemsToRender = Array.from({ length: totalCells }).map((_, i) => ({ type: 'default', index: i }));
+    }
+
+    // Fallback para exibir exemplo se a fila da categoria estiver vazia (para edição de layout)
+    if (itemsToRender.length === 0) {
+        const dummyProductHeader = config.category === 'precos' ? 'POLTRONA MODERNA LUXO' : 'CAMISETTE ALGODÃO PREMIUM';
+        const dummyPrice = config.category === 'precos' ? 'R$ 1.250,00' : 'R$ 89,90';
+        
+        itemsToRender = Array.from({ length: totalCells }).map((_, i) => ({ 
+            type: isLogos ? 'logo' : 'product', 
+            name: dummyProductHeader,
+            price: dummyPrice,
+            promoPrice: 'R$ 990,00',
+            sku: 'MOR-1234',
+            quantity: 1,
+            index: i 
+        }));
     }
 
     // Slice items for the current page
@@ -88,7 +102,27 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
     };
 
     return (
-        <div style={sheetStyle} className="label-sheet">
+        <div 
+            className="label-sheet-container"
+            style={{ 
+                width: '100%', 
+                overflow: 'auto', 
+                display: 'flex', 
+                justifyContent: 'center',
+                padding: previewMode ? '10px' : 0,
+                backgroundColor: previewMode ? '#f8fafc' : 'transparent'
+            }}
+        >
+            <div 
+                style={{
+                    ...sheetStyle,
+                    transform: previewMode ? 'scale(0.85)' : 'none', // Ajuste leve para preview
+                    transformOrigin: 'top center',
+                    boxShadow: previewMode ? '0 20px 50px -12px rgb(0 0 0 / 0.15)' : 'none',
+                    margin: previewMode ? '0 auto 40px' : '0 auto'
+                }} 
+                className="label-sheet"
+            >
             {finalItems.map((item, i) => (
                 <div 
                     key={`${i}-${currentPage}`} 
@@ -103,14 +137,15 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                             price: item.type === 'product' ? item.price : config.price,
                             promoPrice: item.type === 'product' ? item.promoPrice : config.promoPrice,
                             sku: item.type === 'product' ? item.sku : config.sku,
-                            // Forçar preto para identificação
-                            productNameColor: config.category === 'identificacao' ? '#000000' : config.productNameColor,
+                            // Forçar preto para identificação para máxima legibilidade
+                            nameColor: config.category === 'identificacao' ? '#000000' : config.nameColor,
+                            priceColor: config.category === 'identificacao' ? '#000000' : config.priceColor,
                             promoPriceColor: config.category === 'identificacao' ? '#000000' : config.promoPriceColor,
                             oldPriceColor: config.category === 'identificacao' ? '#000000' : config.oldPriceColor,
                         }} 
                         image={item.type === 'logo' ? item.image : (cellImages[i] || image)} 
                         index={i} 
-                        scale={item.scale}
+                        scale={config.imageScale}
                     />
                     {config.preset === 'custom' && !cellImages[i] && !image && item.type === 'default' && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -119,11 +154,7 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                     )}
                 </div>
             ))}
-            
-            {/* Mantém células vazias para completar o grid se necessário (estético no preview) */}
-            {finalItems.length < totalCells && Array.from({ length: totalCells - finalItems.length }).map((_, i) => (
-                <div key={`empty-${i}`} className="border border-slate-50 dark:border-slate-800" />
-            ))}
+            </div>
             
             <style dangerouslySetInnerHTML={{ __html: `
                 @media print {

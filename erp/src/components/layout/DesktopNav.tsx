@@ -159,10 +159,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
-                        <Link to="/stock/label-printing?category=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Logotipo e Rótulo</Link>
-                        <Link to="/stock/label-printing?category=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Preço</Link>
-                        <Link to="/stock/label-printing?category=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Identificação do Produto</Link>
-                        <Link to="/stock/label-printing?category=posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Posts para Redes Sociais</Link>
+                        <Link to="/stock/label-printing?cat=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Logotipo e Rótulo</Link>
+                        <Link to="/stock/label-printing?cat=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Preço</Link>
+                        <Link to="/stock/label-printing?cat=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Identificação do Produto</Link>
+                        <Link to="/stock/label-printing?cat=posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Posts para Redes Sociais</Link>
                     </div>
                 )}
             </div>

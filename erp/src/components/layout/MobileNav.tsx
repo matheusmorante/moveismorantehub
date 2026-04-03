@@ -175,16 +175,16 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         </button>
                         {activeMenu === 'marketing' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/stock/label-printing?category=logos" onClick={onClose} className={mobileSubLinkClass}>
+                                <Link to="/stock/label-printing?cat=logos" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiqueta de Logotipo e Rótulo
                                 </Link>
-                                <Link to="/stock/label-printing?category=precos" onClick={onClose} className={mobileSubLinkClass}>
+                                <Link to="/stock/label-printing?cat=precos" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-tag-fill mr-2 text-amber-500"></i> Etiqueta de Preço
                                 </Link>
-                                <Link to="/stock/label-printing?category=identificacao" onClick={onClose} className={mobileSubLinkClass}>
+                                <Link to="/stock/label-printing?cat=identificacao" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-qr-code-scan mr-2 text-blue-500"></i> Etiqueta de Identificação do Produto
                                 </Link>
-                                <Link to="/stock/label-printing?category=posts" onClick={onClose} className={mobileSubLinkClass}>
+                                <Link to="/stock/label-printing?cat=posts" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-instagram mr-2 text-pink-500"></i> Posts para Redes Sociais
                                 </Link>
                             </div>
