@@ -607,7 +607,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                 ref={setPreviewRef} 
                                 className="relative bg-white rounded-[2rem] shadow-2xl border-4 border-white transition-all duration-500 cursor-default group overflow-visible" 
                                 style={{ width: '90%', maxWidth: '700px', height: '500px', backgroundColor: bgColor }} 
-                                onClick={() => setSelectedElement(null)}
+                                onClick={(e) => {
+                                    if (e.target === e.currentTarget) setSelectedElement(null);
+                                }}
                             >
                                 <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                                 {showGuides.h && <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-500/50 z-50 pointer-events-none" />}
