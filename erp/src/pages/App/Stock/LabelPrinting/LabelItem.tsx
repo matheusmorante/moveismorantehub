@@ -142,13 +142,13 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
                             left: `${config.namePosX ?? 50}%`,
                             top: `${config.namePosY ?? 25}%`,
                             width: `${config.nameWidth ?? 80}%`,
-                            minHeight: '40px',
+                            height: `${config.nameHeight ?? 20}%`,
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
                             alignItems: getVAlignment(config.nameVAlign),
                             justifyContent: getAlignment(config.nameAlign),
                             backgroundColor: config.nameBgColor || 'transparent',
-                            padding: config.nameBgColor && config.nameBgColor !== 'transparent' ? '1mm' : '0'
+                            padding: config.nameBgColor && config.nameBgColor !== 'transparent' ? '4px' : '0'
                         }}>
                             <div style={{
                                 fontSize: `${config.nameFontSize || 9}px`,
@@ -172,13 +172,13 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
                             left: `${config.pricePosX ?? 50}%`,
                             top: `${config.pricePosY ?? 60}%`,
                             width: `${config.priceWidth ?? 80}%`,
-                            minHeight: '20px',
+                            height: `${config.priceHeight ?? 30}%`,
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
                             alignItems: getVAlignment(hasPromo ? config.oldPriceVAlign : config.priceVAlign),
                             justifyContent: getAlignment(hasPromo ? config.oldPriceAlign : config.priceAlign),
                             backgroundColor: config.priceBgColor || 'transparent',
-                            padding: config.priceBgColor && config.priceBgColor !== 'transparent' ? '1mm' : '0'
+                            padding: config.priceBgColor && config.priceBgColor !== 'transparent' ? '4px' : '0'
                         }}>
                             <div style={{ 
                                 position: 'relative',
@@ -212,13 +212,13 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
                             left: `${config.promoPosX ?? 50}%`,
                             top: `${config.promoPosY ?? 75}%`,
                             width: `${config.promoWidth ?? 80}%`,
-                            minHeight: '20px',
+                            height: `${config.promoHeight ?? 40}%`,
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
                             alignItems: getVAlignment(config.promoPriceVAlign),
                             justifyContent: getAlignment(config.promoPriceAlign),
                             backgroundColor: config.promoBgColor || 'transparent',
-                            padding: config.promoBgColor && config.promoBgColor !== 'transparent' ? '1mm' : '0'
+                            padding: config.promoBgColor && config.promoBgColor !== 'transparent' ? '4px' : '0'
                         }}>
                             <div style={{ 
                                 fontSize: `${dynamicFontSize}px`, 

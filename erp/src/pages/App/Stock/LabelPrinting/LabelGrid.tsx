@@ -138,10 +138,10 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                             promoPrice: item.type === 'product' ? item.promoPrice : config.promoPrice,
                             sku: item.type === 'product' ? item.sku : config.sku,
                             // Forçar preto para identificação para máxima legibilidade
-                            nameColor: config.category === 'identificacao' ? '#000000' : config.nameColor,
-                            priceColor: config.category === 'identificacao' ? '#000000' : config.priceColor,
-                            promoPriceColor: config.category === 'identificacao' ? '#000000' : config.promoPriceColor,
-                            oldPriceColor: config.category === 'identificacao' ? '#000000' : config.oldPriceColor,
+                            nameColor: config.nameColor,
+                            priceColor: config.priceColor,
+                            promoPriceColor: config.promoPriceColor,
+                            oldPriceColor: config.oldPriceColor,
                         }} 
                         image={item.type === 'logo' ? item.image : (cellImages[i] || image)} 
                         index={i} 
