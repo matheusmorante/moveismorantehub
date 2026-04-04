@@ -77,6 +77,8 @@ export interface LabelConfig {
     // Fontes por faixa
     priceFontSizeHundreds?: number;
     priceFontSizeThousands?: number;
+    priceFontSizeTens?: number;
+    priceFontSizeTenThousands?: number;
     // Dimensões e Áreas
     labelWidth?: number;
     labelHeight?: number;
@@ -94,10 +96,36 @@ export interface LabelConfig {
     oldPriceFontSize?: number;
     oldPriceAlign?: 'left' | 'center' | 'right';
     oldPriceVAlign?: 'top' | 'middle' | 'bottom';
+    priceFormat?: 'standard' | 'split';
+    priceSymbolFontSize?: number;
+    priceDecimalsFontSize?: number;
+    priceSymbolPosX?: number;
+    priceSymbolPosY?: number;
+    priceDecimalsPosX?: number;
+    priceDecimalsPosY?: number;
+    priceSymbolColor?: string;
+    priceDecimalsColor?: string;
+    priceSymbolBold?: boolean;
+    priceDecimalsBold?: boolean;
+    // Promo variations
+    oldPricePosX?: number; oldPricePosY?: number; oldPriceWidth?: number; oldPriceHeight?: number;
+    promoNamePosX?: number; promoNamePosY?: number; promoNameFontSize?: number;
+    promoNameAlign?: 'left' | 'center' | 'right'; promoNameVAlign?: 'top' | 'middle' | 'bottom';
+    promoNameColor?: string; promoNameBold?: boolean; promoNameWidth?: number; promoNameHeight?: number;
+    promoNameBgColor?: string;
+    promoBarcodePosX?: number; promoBarcodePosY?: number;
+    // Split Price Promoção
+    promoPriceSymbolPosX?: number; promoPriceSymbolPosY?: number;
+    promoPriceSymbolFontSize?: number; promoPriceSymbolBold?: boolean; promoPriceSymbolColor?: string;
+    promoPriceDecimalsPosX?: number; promoPriceDecimalsPosY?: number;
+    promoPriceDecimalsFontSize?: number; promoPriceDecimalsBold?: boolean; promoPriceDecimalsColor?: string;
     bg_color?: string;
     nameBgColor?: string;
     priceBgColor?: string;
     promoBgColor?: string;
+    // Campos Extras
+    extraFields?: any[];
+    extraFieldsPromo?: any[];
 }
 
 const DEFAULT_LAYOUT_MODELS: GridModel[] = [
@@ -113,7 +141,7 @@ const DEFAULT_LAYOUT_MODELS: GridModel[] = [
     { id: 'preco_3x7', name: '21 Etiquetas (3x7)', columns: 3, rows: 7, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 2, gapV: 2, icon: 'bi-grid-3x3-gap', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 7, nameColor: '#1e293b', priceFontSize: 14, priceColor: '#1e293b', promoPriceFontSize: 11, promoPriceColor: '#16a34a', bg_color: '#ffffff' },
     { id: 'preco_3x9_a4', name: '27 Etiquetas (3x9)', columns: 3, rows: 9, marginT: 10, marginB: 10, marginL: 5, marginR: 5, gapH: 4, gapV: 0, icon: 'bi-grid-3x3-gap-fill', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 7, nameColor: '#1e293b', priceFontSize: 12, priceColor: '#1e293b', promoFontSize: 10, promoColor: '#16a34a' },
     { id: 'preco_4x10_a4', name: '40 Etiquetas (4x10)', columns: 4, rows: 10, marginT: 10, marginB: 10, marginL: 5, marginR: 5, gapH: 4, gapV: 0, icon: 'bi-grid-3x2-gap-fill', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 6, nameColor: '#1e293b', priceFontSize: 10, priceColor: '#1e293b', promoFontSize: 8, promoColor: '#16a34a' },
-    { id: 'preco_2x5_a4', name: '10 Etiquetas (2x5)', columns: 2, rows: 5, marginT: 9.5, marginB: 9.5, marginL: 4, marginR: 4, gapH: 2.5, gapV: 0, icon: 'bi-grid-1x2-fill', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 11, nameColor: '#1e293b', priceFontSize: 28, priceColor: '#1e293b', promoFontSize: 22, promoColor: '#16a34a' },
+    { id: 'preco_2x5_a4', name: '10 Etiquetas (2x5)', columns: 2, rows: 5, marginT: 8.5, marginB: 8.5, marginL: 4, marginR: 4, gapH: 2.5, gapV: 0, icon: 'bi-grid-1x2-fill', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 11, nameColor: '#1e293b', priceFontSize: 28, priceColor: '#1e293b', promoFontSize: 22, promoColor: '#16a34a' },
 
     // Logos e Rótulos (Redondos ou Retangulares)
     { id: 'logo_round_3x3', name: '9 Etiquetas (Redonda) (3x3)', columns: 3, rows: 3, marginT: 15, marginB: 15, marginL: 15, marginR: 15, gapH: 10, gapV: 10, icon: 'bi-circle', paperSize: 'A4', category: 'logos', type: 'round' },
@@ -171,6 +199,10 @@ const LabelPrinting: React.FC = () => {
     const [hiddenDefaultIds, setHiddenDefaultIds] = useState<string[]>(() => {
         try { return JSON.parse(localStorage.getItem('hidden_default_layout_ids') || '[]'); } catch { return []; }
     });
+
+    const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+    const [modelToCopy, setModelToCopy] = useState<GridModel | null>(null);
+    const [copyAnchor, setCopyAnchor] = useState<DOMRect | null>(null);
 
     const [defaultLayoutIds, setDefaultLayoutIds] = useState<Record<string, string>>(() => {
         try { return JSON.parse(localStorage.getItem('default_label_layout_ids') || '{}'); } catch { return {}; }
@@ -416,10 +448,38 @@ const LabelPrinting: React.FC = () => {
             priceBgColor: model.priceBgColor || 'transparent',
             promoBgColor: model.promoBgColor || 'transparent',
             category: model.category || config.category, 
-            showName: true, // Sempre mostrar nome ao escolher layout
-            showPrice: model.category === 'precos', // Mostrar preço por padrão se for categoria precos
-            showBarcode: model.category !== 'precos', // Forçar desligamento de barcode em preços
-            showStoreLogo: model.category !== 'precos', // Forçar desligamento de logo em preços
+            showName: true,
+            showPrice: model.category === 'precos',
+            showBarcode: model.category !== 'precos',
+            showStoreLogo: model.category !== 'precos',
+            // Novos campos de Split Price e Promoção
+            priceFormat: model.priceFormat || 'standard',
+            priceSymbolFontSize: model.priceSymbolFontSize,
+            priceDecimalsFontSize: model.priceDecimalsFontSize,
+            priceSymbolPosX: model.priceSymbolPosX,
+            priceSymbolPosY: model.priceSymbolPosY,
+            priceDecimalsPosX: model.priceDecimalsPosX,
+            priceDecimalsPosY: model.priceDecimalsPosY,
+            priceSymbolColor: model.priceSymbolColor,
+            priceDecimalsColor: model.priceDecimalsColor,
+            priceSymbolBold: model.priceSymbolBold,
+            priceDecimalsBold: model.priceDecimalsBold,
+            oldPricePosX: model.oldPricePosX,
+            oldPricePosY: model.oldPricePosY,
+            oldPriceWidth: model.oldPriceWidth,
+            oldPriceHeight: model.oldPriceHeight,
+            promoNamePosX: model.promoNamePosX,
+            promoNamePosY: model.promoNamePosY,
+            promoNameFontSize: model.promoNameFontSize,
+            promoNameAlign: model.promoNameAlign,
+            promoNameVAlign: model.promoNameVAlign,
+            promoNameColor: model.promoNameColor,
+            promoNameBold: model.promoNameBold,
+            promoNameWidth: model.promoNameWidth,
+            promoNameHeight: model.promoNameHeight,
+            promoNameBgColor: model.promoNameBgColor,
+            promoBarcodePosX: model.promoBarcodePosX,
+            promoBarcodePosY: model.promoBarcodePosY
         });
     };
 
@@ -479,7 +539,7 @@ const LabelPrinting: React.FC = () => {
         }
     };
 
-    const handleCopyToCategory = (model: GridModel, targetCat: 'identificacao' | 'precos' | 'logos') => {
+    const handleCopyToCategory = (model: GridModel, targetCat: 'identificacao' | 'precos' | 'logos' | 'posts') => {
         const newModel = { 
             ...model, 
             id: `custom_${Date.now()}`, 
@@ -489,7 +549,10 @@ const LabelPrinting: React.FC = () => {
         const updated = [...customLayouts, newModel];
         setCustomLayouts(updated);
         localStorage.setItem('custom_label_layouts', JSON.stringify(updated));
-        toast.success(`Copiado para ${targetCat === 'identificacao' ? 'Identificação' : targetCat === 'precos' ? 'Preços' : 'Logos'}`);
+        const catName = targetCat === 'identificacao' ? 'Identificação' : 
+                        targetCat === 'precos' ? 'Preços' : 
+                        targetCat === 'logos' ? 'Logos' : 'Posts';
+        toast.success(`Copiado para ${catName}`);
     };
 
     const [config, setConfig] = useState<LabelConfig>({
@@ -872,29 +935,20 @@ const LabelPrinting: React.FC = () => {
                                                  >
                                                      <i className="bi bi-files text-[10px]" />
                                                  </button>
-                                                 
-                                                 {/* Move/Copy to other category */}
-                                                 <div className="relative group/copy">
-                                                     <button 
-                                                         className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-400 hover:text-indigo-500 transition-all shadow-sm"
-                                                         title="Enviar para outra categoria"
-                                                     >
-                                                         <i className="bi bi-arrow-right-short text-[14px]" />
-                                                     </button>
-                                                     <div className="absolute top-[80%] right-0 pt-2 hidden group-hover/copy:block z-[100] min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-200">
-                                                         <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-2xl py-1 overflow-hidden">
-                                                             {(['identificacao', 'precos', 'logos'] as const).filter(c => c !== selectedCategory).map(cat => (
-                                                                 <button 
-                                                                     key={cat}
-                                                                     onClick={(e) => { e.stopPropagation(); handleCopyToCategory(model, cat); }}
-                                                                     className="w-full px-4 py-2.5 text-[9px] font-black uppercase text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                                                                 >
-                                                                     Copiar para {cat === 'identificacao' ? 'ID' : cat === 'precos' ? 'Preço' : 'Logos'}
-                                                                 </button>
-                                                             ))}
-                                                         </div>
-                                                     </div>
-                                                 </div>
+                                                  {/* Move/Copy to other category */}
+                                                  <div className="relative">
+                                                      <button 
+                                                          onClick={(e) => { 
+                                                              e.stopPropagation(); 
+                                                              setModelToCopy(model);
+                                                              setIsCopyModalOpen(true);
+                                                          }}
+                                                          className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-400 hover:text-indigo-500 transition-all shadow-sm"
+                                                          title="Enviar para outra categoria"
+                                                      >
+                                                          <i className="bi bi-arrow-right-short text-[14px]" />
+                                                      </button>
+                                                  </div>
 
                                                  {/* Edit */}
                                                  <button 
@@ -1281,43 +1335,56 @@ const LabelPrinting: React.FC = () => {
                 editingModel={editingGridModel}
                 currentCategory={selectedCategory}
                 existingModels={[...DEFAULT_LAYOUT_MODELS, ...customLayouts]}
+                previewImage={selectedImage}
                 onSave={async (newModel) => {
-                    // 1. Resolver conflito de nome com sufixos alfabéticos
-                    let finalName = newModel.name;
+                    // 1. Verificar se já existe um modelo IDÊNTICO na mesma categoria (exceto Nome e ID)
                     const allCurrentModels = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
-                    const categoryModels = allCurrentModels.filter(m => 
-                        m.category === selectedCategory && 
-                        m.id !== (editingGridModel?.id || '')
-                    );
-
-                    let suffixCode = 0; // 0 = sem sufixo, 1 = A, 2 = B...
-                    const getCandidateName = (code: number) => {
-                        if (code === 0) return finalName;
-                        return `${finalName} - ${String.fromCharCode(64 + code)}`;
+                    
+                    const isIdentical = (m1: GridModel, m2: GridModel) => {
+                        const fieldsToCompare: (keyof GridModel)[] = [
+                            'columns', 'rows', 'marginT', 'marginB', 'marginL', 'marginR', 
+                            'gapH', 'gapV', 'paperSize', 'paperWidth', 'paperHeight', 'type',
+                            'nameFontSize', 'nameColor', 'nameBold', 'nameAlign', 'nameVAlign',
+                            'priceFontSize', 'priceColor', 'priceBold', 'priceAlign', 'priceVAlign',
+                            'promoPriceFontSize', 'promoPriceColor', 'promoPriceBold', 'promoPriceAlign', 'promoPriceVAlign',
+                            'oldPriceFontSize', 'oldPriceColor', 'oldPriceBold', 'oldPriceAlign', 'oldPriceVAlign',
+                            'namePosX', 'namePosY', 'pricePosX', 'pricePosY', 'promoPosX', 'promoPosY', 'barcodePosX', 'barcodePosY',
+                            'nameWidth', 'nameHeight', 'priceWidth', 'priceHeight', 'promoWidth', 'promoHeight',
+                            'priceFontSizeHundreds', 'priceFontSizeThousands', 'bg_color', 'nameBgColor', 'priceBgColor', 'promoBgColor'
+                        ];
+                        return fieldsToCompare.every(field => m1[field] === m2[field]);
                     };
 
-                    while (categoryModels.some(m => m.name === getCandidateName(suffixCode))) {
-                        suffixCode++;
-                    }
-                    finalName = getCandidateName(suffixCode);
+                    const identicalLayout = allCurrentModels.find(m => 
+                        m.category === selectedCategory && 
+                        m.id !== (editingGridModel?.id || '') &&
+                        isIdentical(m, newModel)
+                    );
 
-                    const modelToSave = { ...newModel, name: finalName, category: selectedCategory as any };
+                    if (identicalLayout) {
+                        toast.info(`Este modelo de etiqueta já existe (como "${identicalLayout.name}").`);
+                        setGridModalOpen(false);
+                        setEditingGridModel(null);
+                        return;
+                    }
+
+                    const modelToSave = { ...newModel, category: selectedCategory as any };
                     
                     // 2. Lógica de Persistência no Supabase
                     const dbModel = {
                         name: modelToSave.name,
                         category: modelToSave.category,
-                        columns: modelToSave.columns,
-                        rows: modelToSave.rows,
-                        margin_t: modelToSave.marginT,
-                        margin_b: modelToSave.marginB,
-                        margin_l: modelToSave.marginL,
-                        margin_r: modelToSave.marginR,
-                        gap_h: modelToSave.gapH,
-                        gap_v: modelToSave.gapV,
+                        columns: Math.round(modelToSave.columns || 1),
+                        rows: Math.round(modelToSave.rows || 1),
+                        margin_t: Math.round(modelToSave.marginT ?? 10),
+                        margin_b: Math.round(modelToSave.marginB ?? 10),
+                        margin_l: Math.round(modelToSave.marginL ?? 10),
+                        margin_r: Math.round(modelToSave.marginR ?? 10),
+                        gap_h: Math.round(modelToSave.gapH ?? 2),
+                        gap_v: Math.round(modelToSave.gapV ?? 2),
                         paper_size: modelToSave.paperSize,
-                        paper_width: modelToSave.paperWidth,
-                        paper_height: modelToSave.paperHeight,
+                        paper_width: Math.round(modelToSave.paperWidth ?? 210),
+                        paper_height: Math.round(modelToSave.paperHeight ?? 297),
                         icon: modelToSave.icon,
                         type: modelToSave.type,
                         name_font_size: Math.round(modelToSave.nameFontSize || 7),
@@ -1334,17 +1401,19 @@ const LabelPrinting: React.FC = () => {
                         promo_pos_y: Math.round(modelToSave.promoPosY ?? 75),
                         barcode_pos_x: Math.round(modelToSave.barcodePosX ?? 50),
                         barcode_pos_y: Math.round(modelToSave.barcodePosY ?? 90),
-                        price_font_size_hundreds: modelToSave.priceFontSizeHundreds ? Math.round(modelToSave.priceFontSizeHundreds) : null,
-                        price_font_size_thousands: modelToSave.priceFontSizeThousands ? Math.round(modelToSave.priceFontSizeThousands) : null,
+                        price_font_size_tens: (modelToSave.priceFontSizeTens !== undefined && modelToSave.priceFontSizeTens !== null) ? Math.round(modelToSave.priceFontSizeTens) : null,
+                        price_font_size_hundreds: (modelToSave.priceFontSizeHundreds !== undefined && modelToSave.priceFontSizeHundreds !== null) ? Math.round(modelToSave.priceFontSizeHundreds) : null,
+                        price_font_size_thousands: (modelToSave.priceFontSizeThousands !== undefined && modelToSave.priceFontSizeThousands !== null) ? Math.round(modelToSave.priceFontSizeThousands) : null,
+                        price_font_size_ten_thousands: (modelToSave.priceFontSizeTenThousands !== undefined && modelToSave.priceFontSizeTenThousands !== null) ? Math.round(modelToSave.priceFontSizeTenThousands) : null,
                         promo_price_color: modelToSave.promoPriceColor,
                         old_price_color: modelToSave.oldPriceColor,
                         promo_price_font_size: Math.round(modelToSave.promoPriceFontSize || 24),
-                        name_width: Math.round(modelToSave.nameWidth || 80),
-                        name_height: Math.round(modelToSave.nameHeight || 20),
-                        price_width: Math.round(modelToSave.priceWidth || 80),
-                        price_height: Math.round(modelToSave.priceHeight || 30),
-                        promo_width: Math.round(modelToSave.promoWidth || 80),
-                        promo_height: Math.round(modelToSave.promoHeight || 40),
+                        name_width: Math.round(modelToSave.nameWidth ?? 80),
+                        name_height: Math.round(modelToSave.nameHeight ?? 20),
+                        price_width: Math.round(modelToSave.priceWidth ?? 80),
+                        price_height: Math.round(modelToSave.priceHeight ?? 30),
+                        promo_width: Math.round(modelToSave.promoWidth ?? 80),
+                        promo_height: Math.round(modelToSave.promoHeight ?? 40),
                         name_bold: modelToSave.nameBold,
                         name_align: modelToSave.nameAlign,
                         name_valign: modelToSave.nameVAlign,
@@ -1365,6 +1434,48 @@ const LabelPrinting: React.FC = () => {
                         name_bg_color: modelToSave.nameBgColor,
                         price_bg_color: modelToSave.priceBgColor,
                         promo_bg_color: modelToSave.promoBgColor,
+                        price_format: modelToSave.priceFormat,
+                        price_symbol_font_size: (modelToSave.priceSymbolFontSize !== undefined && modelToSave.priceSymbolFontSize !== null) ? Math.round(modelToSave.priceSymbolFontSize) : null,
+                        price_decimals_font_size: (modelToSave.priceDecimalsFontSize !== undefined && modelToSave.priceDecimalsFontSize !== null) ? Math.round(modelToSave.priceDecimalsFontSize) : null,
+                        price_symbol_pos_x: (modelToSave.priceSymbolPosX !== undefined && modelToSave.priceSymbolPosX !== null) ? Math.round(modelToSave.priceSymbolPosX) : null,
+                        price_symbol_pos_y: (modelToSave.priceSymbolPosY !== undefined && modelToSave.priceSymbolPosY !== null) ? Math.round(modelToSave.priceSymbolPosY) : null,
+                        price_decimals_pos_x: (modelToSave.priceDecimalsPosX !== undefined && modelToSave.priceDecimalsPosX !== null) ? Math.round(modelToSave.priceDecimalsPosX) : null,
+                        price_decimals_pos_y: (modelToSave.priceDecimalsPosY !== undefined && modelToSave.priceDecimalsPosY !== null) ? Math.round(modelToSave.priceDecimalsPosY) : null,
+                        price_symbol_color: modelToSave.priceSymbolColor,
+                        price_decimals_color: modelToSave.priceDecimalsColor,
+                        price_symbol_bold: modelToSave.priceSymbolBold,
+                        price_decimals_bold: modelToSave.priceDecimalsBold,
+                        // Promo fields
+                        old_price_pos_x: (modelToSave.oldPricePosX !== undefined && modelToSave.oldPricePosX !== null) ? Math.round(modelToSave.oldPricePosX) : null, 
+                        old_price_pos_y: (modelToSave.oldPricePosY !== undefined && modelToSave.oldPricePosY !== null) ? Math.round(modelToSave.oldPricePosY) : null,
+                        old_price_width: (modelToSave.oldPriceWidth !== undefined && modelToSave.oldPriceWidth !== null) ? Math.round(modelToSave.oldPriceWidth) : null,
+                        old_price_height: (modelToSave.oldPriceHeight !== undefined && modelToSave.oldPriceHeight !== null) ? Math.round(modelToSave.oldPriceHeight) : null,
+                        promo_name_pos_x: (modelToSave.promoNamePosX !== undefined && modelToSave.promoNamePosX !== null) ? Math.round(modelToSave.promoNamePosX) : null,
+                        promo_name_pos_y: (modelToSave.promoNamePosY !== undefined && modelToSave.promoNamePosY !== null) ? Math.round(modelToSave.promoNamePosY) : null,
+                        promo_name_font_size: (modelToSave.promoNameFontSize !== undefined && modelToSave.promoNameFontSize !== null) ? Math.round(modelToSave.promoNameFontSize) : null,
+                        promo_name_align: modelToSave.promoNameAlign,
+                        promo_name_valign: modelToSave.promoNameVAlign,
+                        promo_name_color: modelToSave.promoNameColor,
+                        promo_name_bold: modelToSave.promoNameBold,
+                        promo_name_width: (modelToSave.promoNameWidth !== undefined && modelToSave.promoNameWidth !== null) ? Math.round(modelToSave.promoNameWidth) : null,
+                        promo_name_height: (modelToSave.promoNameHeight !== undefined && modelToSave.promoNameHeight !== null) ? Math.round(modelToSave.promoNameHeight) : null,
+                        promo_name_bg_color: modelToSave.promoNameBgColor,
+                        promo_barcode_pos_x: (modelToSave.promoBarcodePosX !== undefined && modelToSave.promoBarcodePosX !== null) ? Math.round(modelToSave.promoBarcodePosX) : null,
+                        promo_barcode_pos_y: (modelToSave.promoBarcodePosY !== undefined && modelToSave.promoBarcodePosY !== null) ? Math.round(modelToSave.promoBarcodePosY) : null,
+                        // Split Price Promoção
+                        promo_price_symbol_pos_x: (modelToSave.promoPriceSymbolPosX !== undefined && modelToSave.promoPriceSymbolPosX !== null) ? Math.round(modelToSave.promoPriceSymbolPosX) : null,
+                        promo_price_symbol_pos_y: (modelToSave.promoPriceSymbolPosY !== undefined && modelToSave.promoPriceSymbolPosY !== null) ? Math.round(modelToSave.promoPriceSymbolPosY) : null,
+                        promo_price_symbol_font_size: (modelToSave.promoPriceSymbolFontSize !== undefined && modelToSave.promoPriceSymbolFontSize !== null) ? Math.round(modelToSave.promoPriceSymbolFontSize) : null,
+                        promo_price_symbol_color: modelToSave.promoPriceSymbolColor,
+                        promo_price_symbol_bold: modelToSave.promoPriceSymbolBold,
+                        promo_price_decimals_pos_x: (modelToSave.promoPriceDecimalsPosX !== undefined && modelToSave.promoPriceDecimalsPosX !== null) ? Math.round(modelToSave.promoPriceDecimalsPosX) : null,
+                        promo_price_decimals_pos_y: (modelToSave.promoPriceDecimalsPosY !== undefined && modelToSave.promoPriceDecimalsPosY !== null) ? Math.round(modelToSave.promoPriceDecimalsPosY) : null,
+                        promo_price_decimals_font_size: (modelToSave.promoPriceDecimalsFontSize !== undefined && modelToSave.promoPriceDecimalsFontSize !== null) ? Math.round(modelToSave.promoPriceDecimalsFontSize) : null,
+                        promo_price_decimals_color: modelToSave.promoPriceDecimalsColor,
+                        promo_price_decimals_bold: modelToSave.promoPriceDecimalsBold,
+                        // Campos Extras (JSONB)
+                        extra_fields: modelToSave.extraFields || [],
+                        extra_fields_promo: modelToSave.extraFieldsPromo || []
                     };
 
                     let resultData: any = null;
@@ -1448,6 +1559,34 @@ const LabelPrinting: React.FC = () => {
                             nameBgColor: resultData.name_bg_color,
                             priceBgColor: resultData.price_bg_color,
                             promoBgColor: resultData.promo_bg_color,
+                            priceFormat: resultData.price_format,
+                            priceSymbolFontSize: resultData.price_symbol_font_size,
+                            priceDecimalsFontSize: resultData.price_decimals_font_size,
+                            priceSymbolPosX: resultData.price_symbol_pos_x,
+                            priceSymbolPosY: resultData.price_symbol_pos_y,
+                            priceDecimalsPosX: resultData.price_decimals_pos_x,
+                            priceDecimalsPosY: resultData.price_decimals_pos_y,
+                            priceSymbolColor: resultData.price_symbol_color,
+                            priceDecimalsColor: resultData.price_decimals_color,
+                            priceSymbolBold: resultData.price_symbol_bold,
+                            priceDecimalsBold: resultData.price_decimals_bold,
+                            // Promo fields
+                            oldPricePosX: resultData.old_price_pos_x,
+                            oldPricePosY: resultData.old_price_pos_y,
+                            oldPriceWidth: resultData.old_price_width,
+                            oldPriceHeight: resultData.old_price_height,
+                            promoNamePosX: resultData.promo_name_pos_x,
+                            promoNamePosY: resultData.promo_name_pos_y,
+                            promoNameFontSize: resultData.promo_name_font_size,
+                            promoNameAlign: resultData.promo_name_align,
+                            promoNameVAlign: resultData.promo_name_valign,
+                            promoNameColor: resultData.promo_name_color,
+                            promoNameBold: resultData.promo_name_bold,
+                            promoNameWidth: resultData.promo_name_width,
+                            promoNameHeight: resultData.promo_name_height,
+                            promoNameBgColor: resultData.promo_name_bg_color,
+                            promoBarcodePosX: resultData.promo_barcode_pos_x,
+                            promoBarcodePosY: resultData.promo_barcode_pos_y
                         };
                         
                         let updatedCustom;
@@ -1470,11 +1609,58 @@ const LabelPrinting: React.FC = () => {
                         toast.error(`Erro ao salvar no banco: ${resultError?.message || 'Erro desconhecido'}`);
                         // Não fazemos o fallback local para custom_id para não enganar o usuário
                     }
-                    
                     setGridModalOpen(false);
                     setEditingGridModel(null);
                 }}
             />
+
+            {/* Modal de Cópia de Layout para outra Categoria */}
+            {isCopyModalOpen && modelToCopy && (
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-all duration-300" onClick={() => setIsCopyModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in fade-in duration-300">
+                        <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 text-center">
+                            <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 mx-auto mb-4">
+                                <i className="bi bi-files-alternate text-2xl" />
+                            </div>
+                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-2">Enviar Cópia</h3>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black">Selecione a categoria de destino</p>
+                        </div>
+                        
+                        <div className="p-10 space-y-3">
+                            {(['identificacao', 'precos', 'logos', 'posts'] as const).filter(c => c !== selectedCategory).map(cat => (
+                                <button 
+                                    key={cat}
+                                    onClick={() => {
+                                        handleCopyToCategory(modelToCopy!, cat);
+                                        setIsCopyModalOpen(false);
+                                    }}
+                                    className="w-full p-6 bg-slate-50 dark:bg-slate-800 hover:bg-blue-600 text-slate-600 dark:text-slate-300 hover:text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between group active:scale-95 shadow-sm hover:shadow-xl hover:shadow-blue-500/20"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-8 h-8 rounded-xl bg-white/50 dark:bg-slate-700/50 flex items-center justify-center group-hover:bg-blue-500 transition-colors">
+                                            <i className={`bi bi-${cat === 'identificacao' ? 'qr-code-scan' : cat === 'precos' ? 'tag-fill' : cat === 'logos' ? 'palette-fill' : 'instagram'}`} />
+                                        </div>
+                                        <span>
+                                            {cat === 'identificacao' ? 'Identificação / ID' : 
+                                             cat === 'precos' ? 'Preços de Venda' : 
+                                             cat === 'logos' ? 'Logos e Rótulos' : 'Marketing / Posts'}
+                                        </span>
+                                    </div>
+                                    <i className="bi bi-chevron-right text-xs group-hover:translate-x-1 transition-transform" />
+                                </button>
+                            ))}
+                        </div>
+
+                        <button 
+                            onClick={() => setIsCopyModalOpen(false)}
+                            className="bg-slate-100 dark:bg-slate-800 p-6 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

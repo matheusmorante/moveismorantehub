@@ -91,70 +91,56 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
         );
     }
 
-    if (config.preset === 'qr_product') {
-        return (
-            <div style={{ ...containerStyle, flexDirection: 'column', justifyContent: 'space-between', padding: '2mm' }}>
-                <div style={{ borderBottom: '0.1px solid #f1f5f9', paddingBottom: '1mm', width: '100%', display: 'flex', gap: '2mm', alignItems: 'center' }}>
-                    {config.showSKU && <span style={{ fontSize: '7px', fontWeight: 'bold', background: '#f1f5f9', padding: '0.2mm 1mm' }}>{config.sku}</span>}
-                    <span style={{ fontSize: `${config.nameFontSize || 7}px`, fontWeight: '900', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>{config.text}</span>
-                </div>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                    <Barcode text={config.qrContent || config.sku} height={20} />
-                </div>
-            </div>
-        );
-    }
-
-    if (config.preset === 'price_only' || config.preset === 'promotional_price' || config.preset === 'custom') {
+    if (config.preset === 'price_only' || config.preset === 'promotional_price' || config.preset === 'custom' || config.preset === 'qr_product' || config.namePosX !== undefined) {
+        const isLogosCategory = config.category === 'logos';
         const hasPromo = config.showPromoPrice && config.promoPrice;
         const priceToDisplay = hasPromo ? config.promoPrice : config.price;
 
         const getAlignment = (align?: string) => align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
         const getVAlignment = (valign?: string) => valign === 'middle' ? 'center' : valign === 'bottom' ? 'flex-end' : 'flex-start';
 
-        // Lógica de cálculo de fonte dinâmica (Centena vs Milhar)
+        // Lógica de cálculo de fonte dinâmica (4 Faixas: 10, 100, 1000, 10000)
         const getDynamicPriceFontSize = () => {
             const baseSize = hasPromo ? (config.promoPriceFontSize || 24) : (config.priceFontSize || 24);
-            const priceStr = priceToDisplay ? String(priceToDisplay).replace(/\D/g, '') : '';
-            const digits = priceStr.length;
+            const digits = priceToDisplay ? String(priceToDisplay).replace(/\D/g, '').length : 0;
             
-            if (digits >= 6) { // Milhar (ex: 1.000,00 -> 100000 tem 6 dígitos)
-                return baseSize + (config.priceFontSizeThousands || 0);
-            } else if (digits >= 5) { // Centena (ex: 100,00 -> 10000 tem 5 dígitos)
-                return baseSize + (config.priceFontSizeHundreds || 0);
-            }
+            if (digits >= 7) return baseSize + (config.priceFontSizeTenThousands || 0); // 10k+
+            if (digits >= 6) return baseSize + (config.priceFontSizeThousands || 0);    // 1k+
+            if (digits >= 5) return baseSize + (config.priceFontSizeHundreds || 0);     // 100+
+            if (digits >= 4) return baseSize + (config.priceFontSizeTens || 0);         // 10+
+            
             return baseSize;
         };
 
         const dynamicFontSize = getDynamicPriceFontSize();
 
         return (
-            <div style={{ ...containerStyle, position: 'relative', padding: '1mm', backgroundColor: config.bg_color || 'white' }}>
+            <div style={{ ...containerStyle, position: 'relative', padding: '0', backgroundColor: config.bg_color || 'white', containerType: 'size' }}>
                 {image && (
-                    <img src={image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.1, zIndex: 0, transform: `scale(${activeScale})` }} />
+                    <img src={image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: (config.preset === 'store_logo' || isLogosCategory) ? 1 : 0.1, zIndex: 0, transform: `scale(${activeScale})` }} />
                 )}
 
                 <div style={{ flex: 1, width: '100%', height: '100%', position: 'relative', zIndex: 2 }}>
-                    {/* Nome com Área de Segurança */}
+                    {/* Nome do Produto */}
                     {config.showName && (
                         <div style={{
                             position: 'absolute',
-                            left: `${config.namePosX ?? 50}%`,
-                            top: `${config.namePosY ?? 25}%`,
-                            width: `${config.nameWidth ?? 80}%`,
-                            height: `${config.nameHeight ?? 20}%`,
+                            left: `${(hasPromo ? config.promoNamePosX : config.namePosX) ?? 50}%`,
+                            top: `${(hasPromo ? config.promoNamePosY : config.namePosY) ?? 25}%`,
+                            width: `${(hasPromo ? config.promoNameWidth : config.nameWidth) ?? 80}%`,
+                            height: `${(hasPromo ? config.promoNameHeight : config.nameHeight) ?? 20}%`,
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
-                            alignItems: getVAlignment(config.nameVAlign),
-                            justifyContent: getAlignment(config.nameAlign),
-                            backgroundColor: config.nameBgColor || 'transparent',
-                            padding: config.nameBgColor && config.nameBgColor !== 'transparent' ? '4px' : '0'
+                            alignItems: getVAlignment(hasPromo ? config.promoNameVAlign : config.nameVAlign),
+                            justifyContent: getAlignment(hasPromo ? config.promoNameAlign : config.nameAlign),
+                            backgroundColor: (hasPromo ? config.promoNameBgColor : config.nameBgColor) || 'transparent',
+                            padding: (hasPromo ? config.promoNameBgColor : config.nameBgColor) && (hasPromo ? config.promoNameBgColor : config.nameBgColor) !== 'transparent' ? 'calc( (8 / 500) * 100cqh )' : '0'
                         }}>
                             <div style={{
-                                fontSize: `${config.nameFontSize || 9}px`,
-                                fontWeight: config.nameBold ? '950' : '500',
-                                color: config.nameColor || '#1e293b',
-                                textAlign: config.nameAlign || 'center',
+                                fontSize: `calc( (${(hasPromo ? config.promoNameFontSize : config.nameFontSize) || 9} / 500) * 100cqh )`,
+                                fontWeight: (hasPromo ? config.promoNameBold : config.nameBold) ? '950' : '500',
+                                color: (hasPromo ? config.promoNameColor : config.nameColor) || '#1e293b',
+                                textAlign: (hasPromo ? config.promoNameAlign : config.nameAlign) || 'center',
                                 lineHeight: '1.1',
                                 whiteSpace: 'normal',
                                 wordBreak: 'break-word',
@@ -165,31 +151,32 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
                         </div>
                     )}
 
-                    {/* Preço (Normal ou Antigo Riscado) */}
+                    {/* Preço Base (ou Antigo) */}
                     {config.showPrice && (
                         <div style={{
                             position: 'absolute',
-                            left: `${config.pricePosX ?? 50}%`,
-                            top: `${config.pricePosY ?? 60}%`,
-                            width: `${config.priceWidth ?? 80}%`,
-                            height: `${config.priceHeight ?? 30}%`,
+                            left: `${(hasPromo ? config.oldPricePosX : config.pricePosX) ?? 50}%`,
+                            top: `${(hasPromo ? config.oldPricePosY : config.pricePosY) ?? 60}%`,
+                            width: `${(hasPromo ? config.oldPriceWidth : config.priceWidth) ?? 80}%`,
+                            height: `${(hasPromo ? config.oldPriceHeight : config.priceHeight) ?? 30}%`,
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
                             alignItems: getVAlignment(hasPromo ? config.oldPriceVAlign : config.priceVAlign),
                             justifyContent: getAlignment(hasPromo ? config.oldPriceAlign : config.priceAlign),
                             backgroundColor: config.priceBgColor || 'transparent',
-                            padding: config.priceBgColor && config.priceBgColor !== 'transparent' ? '4px' : '0'
+                            padding: config.priceBgColor && config.priceBgColor !== 'transparent' ? 'calc( (8 / 500) * 100cqh )' : '0'
                         }}>
                             <div style={{ 
                                 position: 'relative',
-                                fontSize: `${hasPromo ? (config.oldPriceFontSize || 7) : (config.priceFontSize || 11)}px`, 
+                                fontSize: `calc( (${hasPromo ? (config.oldPriceFontSize || 7) : (config.priceFontSize || 11)} / 500) * 100cqh )`, 
                                 fontWeight: (hasPromo ? config.oldPriceBold : config.priceBold) ? '950' : '500', 
                                 color: (hasPromo ? (config.oldPriceColor || '#64748b') : (config.priceColor || '#1e293b')),
                                 textAlign: (hasPromo ? config.oldPriceAlign : config.priceAlign) || 'center',
                                 lineHeight: '1',
-                                display: 'inline-block'
+                                display: 'inline-block',
+                                whiteSpace: 'nowrap'
                             }}>
-                                {config.price}
+                                {config.priceFormat === 'split' ? (String(hasPromo ? config.price : config.price || '').replace('R$', '').split(',')[0].trim()) : (hasPromo ? config.price : config.price)}
                                 {hasPromo && (
                                     <div style={{
                                         position: 'absolute',
@@ -205,48 +192,94 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale }) => {
                         </div>
                     )}
 
-                    {/* Novo Preço Promocional */}
+                    {/* Preço Dividido (Símbolo e Centavos) */}
+                    {config.priceFormat === 'split' && (
+                        <>
+                            <div style={{
+                                position: 'absolute',
+                                left: `${(hasPromo ? config.promoPriceSymbolPosX : config.priceSymbolPosX) ?? 35}%`,
+                                top: `${(hasPromo ? config.promoPriceSymbolPosY : config.priceSymbolPosY) ?? 55}%`,
+                                transform: 'translate(-50%, -50%)',
+                                fontSize: `calc( (${(hasPromo ? config.promoPriceSymbolFontSize : config.priceSymbolFontSize) || 8} / 500) * 100cqh )`,
+                                fontWeight: (hasPromo ? config.promoPriceSymbolBold : config.priceSymbolBold) ? '950' : '500',
+                                color: (hasPromo ? config.promoPriceSymbolColor : config.priceSymbolColor) || '#1e293b',
+                                lineHeight: '1'
+                            }}>R$</div>
+
+                            <div style={{
+                                position: 'absolute',
+                                left: `${(hasPromo ? config.promoPriceDecimalsPosX : config.priceDecimalsPosX) ?? 65}%`,
+                                top: `${(hasPromo ? config.promoPriceDecimalsPosY : config.priceDecimalsPosY) ?? 55}%`,
+                                transform: 'translate(-50%, -50%)',
+                                fontSize: `calc( (${(hasPromo ? config.promoPriceDecimalsFontSize : config.priceDecimalsFontSize) || 8} / 500) * 100cqh )`,
+                                fontWeight: (hasPromo ? config.promoPriceDecimalsBold : config.priceDecimalsBold) ? '950' : '500',
+                                color: (hasPromo ? config.promoPriceDecimalsColor : config.priceDecimalsColor) || '#1e293b',
+                                lineHeight: '1'
+                            }}>,{String(hasPromo ? config.promoPrice : config.price || '').split(',')[1] || '00'}</div>
+                        </>
+                    )}
+
+                    {/* Preço Promocional */}
                     {hasPromo && config.showPrice && (
                         <div style={{
                             position: 'absolute',
                             left: `${config.promoPosX ?? 50}%`,
                             top: `${config.promoPosY ?? 75}%`,
                             width: `${config.promoWidth ?? 80}%`,
-                            height: `${config.promoHeight ?? 40}%`,
+                            height: `${config.promoHeight ?? 30}%`,
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
                             alignItems: getVAlignment(config.promoPriceVAlign),
                             justifyContent: getAlignment(config.promoPriceAlign),
                             backgroundColor: config.promoBgColor || 'transparent',
-                            padding: config.promoBgColor && config.promoBgColor !== 'transparent' ? '4px' : '0'
+                            padding: config.promoBgColor && config.promoBgColor !== 'transparent' ? 'calc( (8 / 500) * 100cqh )' : '0'
                         }}>
                             <div style={{ 
-                                fontSize: `${dynamicFontSize}px`, 
+                                fontSize: `calc( (${dynamicFontSize} / 500) * 100cqh )`,
                                 fontWeight: config.promoPriceBold ? '950' : '500', 
                                 color: config.promoPriceColor || '#2563eb',
                                 lineHeight: '1',
                                 whiteSpace: 'nowrap',
                                 textAlign: config.promoPriceAlign || 'center'
                             }}>
-                                {priceToDisplay}
+                                {config.priceFormat === 'split' ? (String(config.promoPrice || '').replace('R$', '').split(',')[0].trim()) : priceToDisplay}
                             </div>
                         </div>
                     )}
 
-                    {/* Barcode / SKU */}
+                    {/* Barcode */}
                     {config.showBarcode && (
                         <div style={{
                             position: 'absolute',
-                            left: `${config.barcodePosX ?? 50}%`,
-                            top: `${config.barcodePosY ?? 85}%`,
+                            left: `${(hasPromo ? config.promoBarcodePosX : config.barcodePosX) ?? 50}%`,
+                            top: `${(hasPromo ? config.promoBarcodePosY : config.barcodePosY) ?? 85}%`,
                             width: '90%',
                             transform: 'translate(-50%, -50%)',
                             display: 'flex',
                             justifyContent: 'center'
                         }}>
-                            <Barcode text={config.qrContent || config.sku} height={10} />
+                            <Barcode text={config.qrContent || config.sku || ''} height={10} />
                         </div>
                     )}
+
+                    {/* Campos Extras */}
+                    {(hasPromo ? config.extraFieldsPromo : config.extraFields || []).map((f: any) => (
+                        <div key={f.id} style={{
+                            position: 'absolute',
+                            left: `${f.x ?? 50}%`,
+                            top: `${f.y ?? 50}%`,
+                            width: `${f.width ?? 40}%`,
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: `calc( (${f.size || 10} / 500) * 100cqh )`,
+                            fontWeight: f.bold ? '950' : '500',
+                            color: f.color || '#1e293b',
+                            textAlign: f.align || 'center',
+                            lineHeight: '1',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {f.text}
+                        </div>
+                    ))}
                 </div>
             </div>
         );

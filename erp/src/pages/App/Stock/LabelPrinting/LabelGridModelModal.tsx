@@ -44,8 +44,10 @@ export interface GridModel {
     barcodePosX?: number;
     barcodePosY?: number;
     // Fontes por faixa
+    priceFontSizeTens?: number;
     priceFontSizeHundreds?: number;
     priceFontSizeThousands?: number;
+    priceFontSizeTenThousands?: number;
     promoPriceColor?: string;
     oldPriceColor?: string;
     promoPriceFontSize?: number;
@@ -57,6 +59,30 @@ export interface GridModel {
     oldPriceFontSize?: number;
     oldPriceAlign?: 'left' | 'center' | 'right';
     oldPriceVAlign?: 'top' | 'middle' | 'bottom';
+    // Estilo de Preço Dividido
+    priceFormat?: 'standard' | 'split';
+    priceSymbolFontSize?: number;
+    priceDecimalsFontSize?: number;
+    priceSymbolPosX?: number;
+    priceSymbolPosY?: number;
+    priceDecimalsPosX?: number;
+    priceDecimalsPosY?: number;
+    priceSymbolColor?: string;
+    priceDecimalsColor?: string;
+    priceSymbolBold?: boolean;
+    priceDecimalsBold?: boolean;
+    // Variações de Promoção (Independentes)
+    oldPricePosX?: number; oldPricePosY?: number; oldPriceWidth?: number; oldPriceHeight?: number;
+    promoNamePosX?: number; promoNamePosY?: number; promoNameFontSize?: number;
+    promoNameAlign?: 'left' | 'center' | 'right'; promoNameVAlign?: 'top' | 'middle' | 'bottom';
+    promoNameColor?: string; promoNameBold?: boolean; promoNameWidth?: number; promoNameHeight?: number;
+    promoNameBgColor?: string;
+    promoBarcodePosX?: number; promoBarcodePosY?: number;
+    // Split Price Promoção
+    promoPriceSymbolPosX?: number; promoPriceSymbolPosY?: number;
+    promoPriceSymbolFontSize?: number; promoPriceSymbolBold?: boolean; promoPriceSymbolColor?: string;
+    promoPriceDecimalsPosX?: number; promoPriceDecimalsPosY?: number;
+    promoPriceDecimalsFontSize?: number; promoPriceDecimalsBold?: boolean; promoPriceDecimalsColor?: string;
     // Áreas de Segurança
     nameWidth?: number;
     nameHeight?: number;
@@ -68,6 +94,8 @@ export interface GridModel {
     nameBgColor?: string;
     priceBgColor?: string;
     promoBgColor?: string;
+    extraFields?: any[];
+    extraFieldsPromo?: any[];
 }
 
 interface LabelGridModelModalProps {
@@ -77,6 +105,7 @@ interface LabelGridModelModalProps {
     editingModel?: GridModel | null;
     currentCategory?: 'identificacao' | 'precos' | 'logos' | 'posts' | null;
     existingModels?: GridModel[];
+    previewImage?: string | null;
 }
 
 const PAPER_OPTIONS = [
@@ -87,7 +116,7 @@ const PAPER_OPTIONS = [
     { id: 'Custom', name: 'Tamanho Personalizado', w: 0, h: 0 },
 ];
 
-const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClose, onSave, editingModel, currentCategory, existingModels }) => {
+const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClose, onSave, editingModel, currentCategory, existingModels, previewImage }) => {
     const [name, setName] = useState('');
     const [paperSize, setPaperSize] = useState('A4');
     const [customWidth, setCustomWidth] = useState(210);
@@ -135,8 +164,10 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
     const [priceBgColor, setPriceBgColor] = useState('transparent');
     const [promoBgColor, setPromoBgColor] = useState('transparent');
 
+    const [priceFontSizeTens, setPriceFontSizeTens] = useState<number | undefined>(undefined);
     const [priceFontSizeHundreds, setPriceFontSizeHundreds] = useState<number | undefined>(undefined);
     const [priceFontSizeThousands, setPriceFontSizeThousands] = useState<number | undefined>(undefined);
+    const [priceFontSizeTenThousands, setPriceFontSizeTenThousands] = useState<number | undefined>(undefined);
 
     // Estados de Posicionamento
     const [namePos, setNamePos] = useState({ x: 50, y: 30 });
@@ -146,11 +177,14 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
 
     // Estados de Áreas de Segurança (Largura baseada em %)
     const [nameWidth, setNameWidth] = useState(80);
+    const [nameHeight, setNameHeight] = useState(20);
     const [priceWidth, setPriceWidth] = useState(80);
+    const [priceHeight, setPriceHeight] = useState(30);
     const [promoWidth, setPromoWidth] = useState(80);
+    const [promoHeight, setPromoHeight] = useState(40);
 
     // Lógica de Interação
-    const [selectedElement, setSelectedElement] = useState<'name' | 'price' | 'promo' | 'barcode' | null>(null);
+    const [selectedElement, setSelectedElement] = useState<'name' | 'price' | 'promo' | 'barcode' | 'priceSymbol' | 'priceDecimals' | null>('name');
     const [resizingElement, setResizingElement] = useState<string | null>(null);
     const [resizeSide, setResizeSide] = useState<'left' | 'right' | 'font' | null>(null);
     const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
@@ -158,6 +192,76 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
     const [resizeStartX, setResizeStartX] = useState(0);
     const [resizeStartWidth, setResizeStartWidth] = useState(0);
 
+    // Estados de Preço Dividido
+    const [priceFormat, setPriceFormat] = useState<'standard' | 'split'>('standard');
+    const [priceSymbolFontSize, setPriceSymbolFontSize] = useState(8);
+    const [priceSymbolColor, setPriceSymbolColor] = useState('#1e293b');
+    const [priceSymbolBold, setPriceSymbolBold] = useState(true);
+    const [priceSymbolPos, setPriceSymbolPos] = useState({ x: 35, y: 55 });
+
+    const [priceDecimalsFontSize, setPriceDecimalsFontSize] = useState(8);
+    const [priceDecimalsColor, setPriceDecimalsColor] = useState('#1e293b');
+    const [priceDecimalsBold, setPriceDecimalsBold] = useState(true);
+    const [priceDecimalsPos, setPriceDecimalsPos] = useState({ x: 65, y: 55 });
+
+    // Estados Específicos para o Modo Promocional
+    const [promoNamePos, setPromoNamePos] = useState({ x: 50, y: 25 });
+    const [promoNameFontSize, setPromoNameFontSize] = useState(9);
+    const [promoNameAlign, setPromoNameAlign] = useState<'left' | 'center' | 'right'>('center');
+    const [promoNameVAlign, setPromoNameVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
+    const [promoNameColor, setPromoNameColor] = useState('#1e293b');
+    const [promoNameBold, setPromoNameBold] = useState(false);
+    const [promoNameWidth, setPromoNameWidth] = useState(80);
+    const [promoNameHeight, setPromoNameHeight] = useState(20);
+    const [promoNameBgColor, setPromoNameBgColor] = useState('transparent');
+    
+    const [oldPricePos, setOldPricePos] = useState({ x: 50, y: 60 });
+    const [oldPriceWidth, setOldPriceWidth] = useState(80);
+    const [oldPriceHeight, setOldPriceHeight] = useState(30);
+    
+    const [promoBarcodePos, setPromoBarcodePos] = useState({ x: 50, y: 85 });
+
+    // Campos Extras (Texto Livre)
+    const [extraFields, setExtraFields] = useState<any[]>([]);
+    const [extraFieldsPromo, setExtraFieldsPromo] = useState<any[]>([]);
+
+    const addExtraField = () => {
+        const newField = {
+            id: `extra_${Date.now()}`,
+            text: 'Novo Texto',
+            x: 50,
+            y: 50,
+            size: 10,
+            color: '#1e293b',
+            bold: false,
+            align: 'center',
+            width: 40,
+            height: 10,
+            bgColor: 'transparent'
+        };
+        if (isPromoPreview) setExtraFieldsPromo(prev => [...prev, newField]);
+        else setExtraFields(prev => [...prev, newField]);
+        setSelectedElement(newField.id as any);
+    };
+
+    const removeExtraField = (id: string) => {
+        if (isPromoPreview) setExtraFieldsPromo(prev => prev.filter(f => f.id !== id));
+        else setExtraFields(prev => prev.filter(f => f.id !== id));
+        setSelectedElement(null);
+    };
+
+    // Estados de Preço Dividido Promoção
+    const [promoPriceSymbolFontSize, setPromoPriceSymbolFontSize] = useState(12);
+    const [promoPriceSymbolColor, setPromoPriceSymbolColor] = useState('#2563eb');
+    const [promoPriceSymbolBold, setPromoPriceSymbolBold] = useState(true);
+    const [promoPriceSymbolPos, setPromoPriceSymbolPos] = useState({ x: 35, y: 70 });
+
+    const [promoPriceDecimalsFontSize, setPromoPriceDecimalsFontSize] = useState(12);
+    const [promoPriceDecimalsColor, setPromoPriceDecimalsColor] = useState('#2563eb');
+    const [promoPriceDecimalsBold, setPromoPriceDecimalsBold] = useState(true);
+    const [promoPriceDecimalsPos, setPromoPriceDecimalsPos] = useState({ x: 65, y: 70 });
+
+    // Lógica de Interação
     const [draggingElement, setDraggingElement] = useState<string | null>(null);
     const [previewRef, setPreviewRef] = useState<HTMLDivElement | null>(null);
     const [showGuides, setShowGuides] = useState({ h: false, v: false });
@@ -186,55 +290,77 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        if (!draggingElement && !resizingElement) return;
+        const rect = previewRef?.getBoundingClientRect();
+        if (!rect) return;
+        const targetX = e.clientX - rect.left;
+        const targetY = e.clientY - rect.top;
+        const newX = (targetX / rect.width) * 100;
+        const newY = (targetY / rect.height) * 100;
+
         if (resizingElement && resizeSide) {
             const deltaX = e.clientX - resizeStartPos.x; const deltaY = e.clientY - resizeStartPos.y;
-            const previewW = previewRef?.clientWidth || 300;
+            const previewW = rect.width;
             const deltaPX = (deltaX / previewW) * 100;
 
             if (resizeSide === 'font') {
-                const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-                const newValue = Math.max(1, resizeStartValue + delta / 4);
-                const ratio = newValue / resizeStartValue;
-                const newWidth = Math.min(100, Math.max(10, resizeStartWidth * ratio));
-
-                if (resizingElement === 'name') { setNameFontSize(newValue); setNameWidth(newWidth); }
+                const newValue = Math.max(4, resizeStartValue + (deltaY / 2));
+                const newWidth = Math.max(10, resizeStartWidth + (deltaX / 2));
+                
+                if (resizingElement === 'name') { 
+                    if (isPromoPreview) { setPromoNameFontSize(newValue); setPromoNameWidth(newWidth); }
+                    else { setNameFontSize(newValue); setNameWidth(newWidth); }
+                }
                 else if (resizingElement === 'price') { 
-                    if (isPromoPreview) { setOldPriceFontSize(newValue); } else { setPriceFontSize(newValue); }
-                    setPriceWidth(newWidth); 
+                    if (isPromoPreview) { setOldPriceFontSize(newValue); setOldPriceWidth(newWidth); } 
+                    else { setPriceFontSize(newValue); setPriceWidth(newWidth); }
                 }
                 else if (resizingElement === 'promo') { setPromoPriceFontSize(newValue); setPromoWidth(newWidth); }
-            } else if (resizeSide === 'right') {
-                const newWidth = Math.max(10, resizeStartWidth + deltaPX);
-                const newX = resizeStartX + (newWidth - resizeStartWidth) / 2;
-                if (resizingElement === 'name') { setNameWidth(newWidth); setNamePos(p => ({ ...p, x: newX })); }
-                else if (resizingElement === 'price') { setPriceWidth(newWidth); setPricePos(p => ({ ...p, x: newX })); }
-                else if (resizingElement === 'promo') { setPromoWidth(newWidth); setPromoPos(p => ({ ...p, x: newX })); }
-            } else if (resizeSide === 'left') {
-                const newWidth = Math.max(10, resizeStartWidth - deltaPX);
-                const newX = resizeStartX + (deltaPX / 2);
-                if (resizingElement === 'name') { setNameWidth(newWidth); setNamePos(p => ({ ...p, x: newX })); }
-                else if (resizingElement === 'price') { setPriceWidth(newWidth); setPricePos(p => ({ ...p, x: newX })); }
+                else if (resizingElement === 'priceSymbol') { 
+                    if (isPromoPreview) setPromoPriceSymbolFontSize(newValue); else setPriceSymbolFontSize(newValue); 
+                }
+                else if (resizingElement === 'priceDecimals') { 
+                    if (isPromoPreview) setPromoPriceDecimalsFontSize(newValue); else setPriceDecimalsFontSize(newValue); 
+                }
+                else if (resizingElement.startsWith('extra_')) {
+                    const update = (prev: any[]) => prev.map(f => f.id === resizingElement ? { ...f, size: newValue, width: newWidth } : f);
+                    if (isPromoPreview) setExtraFieldsPromo(update); else setExtraFields(update);
+                }
+            } else if (resizeSide === 'right' || resizeSide === 'left') {
+                const isLeft = resizeSide === 'left';
+                const newWidth = Math.max(10, isLeft ? (resizeStartWidth - deltaPX) : (resizeStartWidth + deltaPX));
+                const newX = resizeStartX + (newWidth - resizeStartWidth) / (isLeft ? -2 : 2);
+                
+                if (resizingElement === 'name') { 
+                    if (isPromoPreview) { setPromoNameWidth(newWidth); setPromoNamePos(p => ({ ...p, x: newX })); }
+                    else { setNameWidth(newWidth); setNamePos(p => ({ ...p, x: newX })); }
+                }
+                else if (resizingElement === 'price') { 
+                    if (isPromoPreview) { setOldPriceWidth(newWidth); setOldPricePos(p => ({ ...p, x: newX })); }
+                    else { setPriceWidth(newWidth); setPricePos(p => ({ ...p, x: newX })); }
+                }
                 else if (resizingElement === 'promo') { setPromoWidth(newWidth); setPromoPos(p => ({ ...p, x: newX })); }
             }
-            return;
+        } else if (draggingElement) {
+            if (draggingElement === 'name') {
+                if (isPromoPreview) { setPromoNamePos({ x: newX, y: newY }); } else { setNamePos({ x: newX, y: newY }); }
+            } else if (draggingElement === 'price') {
+                if (isPromoPreview) { setOldPricePos({ x: newX, y: newY }); } else { setPricePos({ x: newX, y: newY }); }
+            } else if (draggingElement === 'promo') { setPromoPos({ x: newX, y: newY }); }
+            else if (draggingElement === 'barcode') {
+                if (isPromoPreview) { setPromoBarcodePos({ x: newX, y: newY }); } else { setBarcodePos({ x: newX, y: newY }); }
+            }
+            else if (draggingElement === 'priceSymbol') {
+                if (isPromoPreview) setPromoPriceSymbolPos({ x: newX, y: newY }); else setPriceSymbolPos({ x: newX, y: newY });
+            }
+            else if (draggingElement === 'priceDecimals') {
+                if (isPromoPreview) setPromoPriceDecimalsPos({ x: newX, y: newY }); else setPriceDecimalsPos({ x: newX, y: newY });
+            }
+            else if (draggingElement.startsWith('extra_')) {
+                const update = (prev: any[]) => prev.map(f => f.id === draggingElement ? { ...f, x: newX, y: newY } : f);
+                if (isPromoPreview) setExtraFieldsPromo(update); else setExtraFields(update);
+            }
         }
-        if (!draggingElement || !previewRef) return;
-        const rect = previewRef.getBoundingClientRect();
-        let newX = ((e.clientX - rect.left) / rect.width) * 100; let newY = ((e.clientY - rect.top) / rect.height) * 100;
-        const snapThreshold = 1.5; 
-        let snapH = false; let snapV = false;
-        
-        if (snapEnabled) {
-            if (Math.abs(newX - 50) < snapThreshold) { newX = 50; snapH = true; }
-            if (Math.abs(newY - 50) < snapThreshold) { newY = 50; snapV = true; }
-        }
-
-        setShowGuides({ h: snapH, v: snapV });
-        newX = Math.max(0, Math.min(100, newX)); newY = Math.max(0, Math.min(100, newY));
-        if (draggingElement === 'name') setNamePos({ x: newX, y: newY });
-        else if (draggingElement === 'price') setPricePos({ x: newX, y: newY });
-        else if (draggingElement === 'promo') setPromoPos({ x: newX, y: newY });
-        else if (draggingElement === 'barcode') setBarcodePos({ x: newX, y: newY });
     };
 
     const handleMouseUp = () => { setDraggingElement(null); setResizingElement(null); setShowGuides({ h: false, v: false }); };
@@ -273,10 +399,15 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
             if (editingModel.oldPriceAlign) setOldPriceAlign(editingModel.oldPriceAlign);
             if (editingModel.oldPriceVAlign) setOldPriceVAlign(editingModel.oldPriceVAlign);
             if (editingModel.nameWidth) setNameWidth(editingModel.nameWidth);
+            if (editingModel.nameHeight) setNameHeight(editingModel.nameHeight);
             if (editingModel.priceWidth) setPriceWidth(editingModel.priceWidth);
+            if (editingModel.priceHeight) setPriceHeight(editingModel.priceHeight);
             if (editingModel.promoWidth) setPromoWidth(editingModel.promoWidth);
+            if (editingModel.promoHeight) setPromoHeight(editingModel.promoHeight);
+            if (editingModel.priceFontSizeTens) setPriceFontSizeTens(editingModel.priceFontSizeTens);
             if (editingModel.priceFontSizeHundreds) setPriceFontSizeHundreds(editingModel.priceFontSizeHundreds);
             if (editingModel.priceFontSizeThousands) setPriceFontSizeThousands(editingModel.priceFontSizeThousands);
+            if (editingModel.priceFontSizeTenThousands) setPriceFontSizeTenThousands(editingModel.priceFontSizeTenThousands);
             if (editingModel.bg_color) setBgColor(editingModel.bg_color);
             if (editingModel.nameBgColor) setNameBgColor(editingModel.nameBgColor);
             if (editingModel.priceBgColor) setPriceBgColor(editingModel.priceBgColor);
@@ -286,6 +417,52 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
             setPricePos({ x: editingModel.pricePosX ?? 50, y: editingModel.pricePosY ?? 60 });
             setPromoPos({ x: editingModel.promoPosX ?? 50, y: editingModel.promoPosY ?? 75 });
             setBarcodePos({ x: editingModel.barcodePosX ?? 50, y: editingModel.barcodePosY ?? 90 });
+
+            setPriceFormat(editingModel.priceFormat || 'standard');
+            if (editingModel.priceSymbolFontSize) setPriceSymbolFontSize(editingModel.priceSymbolFontSize);
+            if (editingModel.priceSymbolColor) setPriceSymbolColor(editingModel.priceSymbolColor);
+            if (editingModel.priceSymbolBold !== undefined) setPriceSymbolBold(editingModel.priceSymbolBold);
+            setPriceSymbolPos({ x: editingModel.priceSymbolPosX ?? 35, y: editingModel.priceSymbolPosY ?? 55 });
+
+            if (editingModel.priceDecimalsFontSize) setPriceDecimalsFontSize(editingModel.priceDecimalsFontSize);
+            if (editingModel.priceDecimalsColor) setPriceDecimalsColor(editingModel.priceDecimalsColor);
+            if (editingModel.priceDecimalsBold !== undefined) setPriceDecimalsBold(editingModel.priceDecimalsBold);
+            setPriceDecimalsPos({ x: editingModel.priceDecimalsPosX ?? 65, y: editingModel.priceDecimalsPosY ?? 55 });
+
+            // Carregar Estados Promocionais
+            setPromoNamePos({ x: editingModel.promoNamePosX ?? 50, y: editingModel.promoNamePosY ?? 25 });
+            if (editingModel.promoNameFontSize) setPromoNameFontSize(editingModel.promoNameFontSize);
+            if (editingModel.promoNameAlign) setPromoNameAlign(editingModel.promoNameAlign);
+            if (editingModel.promoNameVAlign) setPromoNameVAlign(editingModel.promoNameVAlign);
+            if (editingModel.promoNameColor) setPromoNameColor(editingModel.promoNameColor);
+            if (editingModel.promoNameBold !== undefined) setPromoNameBold(editingModel.promoNameBold);
+            if (editingModel.promoNameWidth) setPromoNameWidth(editingModel.promoNameWidth);
+            if (editingModel.promoNameHeight) setPromoNameHeight(editingModel.promoNameHeight);
+            if (editingModel.promoNameBgColor) setPromoNameBgColor(editingModel.promoNameBgColor);
+
+            setOldPricePos({ x: editingModel.oldPricePosX ?? 50, y: editingModel.oldPricePosY ?? 60 });
+            if (editingModel.oldPriceWidth) setOldPriceWidth(editingModel.oldPriceWidth);
+            if (editingModel.oldPriceHeight) setOldPriceHeight(editingModel.oldPriceHeight);
+            if (editingModel.oldPriceFontSize) setOldPriceFontSize(editingModel.oldPriceFontSize);
+            if (editingModel.oldPriceColor) setOldPriceColor(editingModel.oldPriceColor);
+            if (editingModel.oldPriceBold !== undefined) setOldPriceBold(editingModel.oldPriceBold);
+            if (editingModel.oldPriceAlign) setOldPriceAlign(editingModel.oldPriceAlign);
+            if (editingModel.oldPriceVAlign) setOldPriceVAlign(editingModel.oldPriceVAlign);
+
+            setPromoBarcodePos({ x: editingModel.promoBarcodePosX ?? 50, y: editingModel.promoBarcodePosY ?? 85 });
+            if (editingModel.extraFields) setExtraFields(editingModel.extraFields);
+            if (editingModel.extraFieldsPromo) setExtraFieldsPromo(editingModel.extraFieldsPromo);
+
+            // Carregar Split Price Promoção
+            if (editingModel.promoPriceSymbolPosX !== undefined) setPromoPriceSymbolPos({ x: editingModel.promoPriceSymbolPosX, y: editingModel.promoPriceSymbolPosY ?? 70 });
+            if (editingModel.promoPriceSymbolFontSize) setPromoPriceSymbolFontSize(editingModel.promoPriceSymbolFontSize);
+            if (editingModel.promoPriceSymbolColor) setPromoPriceSymbolColor(editingModel.promoPriceSymbolColor);
+            if (editingModel.promoPriceSymbolBold !== undefined) setPromoPriceSymbolBold(editingModel.promoPriceSymbolBold);
+
+            if (editingModel.promoPriceDecimalsPosX !== undefined) setPromoPriceDecimalsPos({ x: editingModel.promoPriceDecimalsPosX, y: editingModel.promoPriceDecimalsPosY ?? 70 });
+            if (editingModel.promoPriceDecimalsFontSize) setPromoPriceDecimalsFontSize(editingModel.promoPriceDecimalsFontSize);
+            if (editingModel.promoPriceDecimalsColor) setPromoPriceDecimalsColor(editingModel.promoPriceDecimalsColor);
+            if (editingModel.promoPriceDecimalsBold !== undefined) setPromoPriceDecimalsBold(editingModel.promoPriceDecimalsBold);
             }
         }
     }, [isOpen, editingModel]);
@@ -306,11 +483,35 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 promoPriceFontSize, promoPriceColor, promoPriceBold, promoPriceAlign, promoPriceVAlign,
                 oldPriceFontSize, oldPriceColor, oldPriceBold, oldPriceAlign, oldPriceVAlign,
                 namePosX: namePos.x, namePosY: namePos.y, pricePosX: pricePos.x, pricePosY: pricePos.y, promoPosX: promoPos.x, promoPosY: promoPos.y, barcodePosX: barcodePos.x, barcodePosY: barcodePos.y,
-                nameWidth, priceWidth, promoWidth, priceFontSizeHundreds, priceFontSizeThousands,
+                priceWidth, priceHeight, promoWidth, promoHeight,
+                priceFontSizeTens, priceFontSizeHundreds, priceFontSizeThousands, priceFontSizeTenThousands,
                 bg_color: bgColor,
                 nameBgColor,
                 priceBgColor,
-                promoBgColor
+                promoBgColor,
+                priceFormat,
+                priceSymbolFontSize, priceSymbolColor, priceSymbolBold,
+                priceSymbolPosX: priceSymbolPos.x, priceSymbolPosY: priceSymbolPos.y,
+                priceDecimalsFontSize, priceDecimalsColor, priceDecimalsBold,
+                priceDecimalsPosX: priceDecimalsPos.x, priceDecimalsPosY: priceDecimalsPos.y,
+                // Promo-specific fields
+                oldPricePosX: oldPricePos.x, oldPricePosY: oldPricePos.y, 
+                oldPriceWidth: oldPriceWidth, oldPriceHeight: oldPriceHeight,
+                promoNamePosX: promoNamePos.x, promoNamePosY: promoNamePos.y,
+                promoNameFontSize: promoNameFontSize, promoNameAlign: promoNameAlign,
+                promoNameVAlign: promoNameVAlign, promoNameColor: promoNameColor,
+                promoNameBold: promoNameBold, promoNameWidth: promoNameWidth,
+                promoNameHeight: promoNameHeight, promoNameBgColor: promoNameBgColor,
+                promoBarcodePosX: promoBarcodePos.x, promoBarcodePosY: promoBarcodePos.y,
+                // Split Price Promoção no Modelo
+                promoPriceSymbolPosX: promoPriceSymbolPos.x, promoPriceSymbolPosY: promoPriceSymbolPos.y,
+                promoPriceSymbolFontSize: promoPriceSymbolFontSize, promoPriceSymbolColor: promoPriceSymbolColor,
+                promoPriceSymbolBold: promoPriceSymbolBold,
+                promoPriceDecimalsPosX: promoPriceDecimalsPos.x, promoPriceDecimalsPosY: promoPriceDecimalsPos.y,
+                promoPriceDecimalsFontSize: promoPriceDecimalsFontSize, promoPriceDecimalsColor: promoPriceDecimalsColor,
+                promoPriceDecimalsBold: promoPriceDecimalsBold,
+                extraFields: extraFields,
+                extraFieldsPromo: extraFieldsPromo
             };
             await onSave(newModel);
             onClose();
@@ -333,7 +534,20 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 return { font: priceFontSize, color: priceColor, bold: priceBold, align: priceAlign, valign: priceVAlign };
             }
             if (selectedElement === 'promo') return { font: promoPriceFontSize, color: promoPriceColor, bold: promoPriceBold, align: promoPriceAlign, valign: promoPriceVAlign };
-            return { font: 0, color: '#ccc', bold: false, align: 'center' as const, valign: 'middle' as const };
+            if (selectedElement === 'priceSymbol') {
+                if (isPromoPreview) return { font: promoPriceSymbolFontSize, color: promoPriceSymbolColor, bold: promoPriceSymbolBold, align: 'center' as const, valign: 'middle' as const };
+                return { font: priceSymbolFontSize, color: priceSymbolColor, bold: priceSymbolBold, align: 'center' as const, valign: 'middle' as const };
+            }
+            if (selectedElement === 'priceDecimals') {
+                if (isPromoPreview) return { font: promoPriceDecimalsFontSize, color: promoPriceDecimalsColor, bold: promoPriceDecimalsBold, align: 'center' as const, valign: 'middle' as const };
+                return { font: priceDecimalsFontSize, color: priceDecimalsColor, bold: priceDecimalsBold, align: 'center' as const, valign: 'middle' as const };
+            }
+            if (selectedElement?.toString().startsWith('extra_')) {
+                const fields = isPromoPreview ? extraFieldsPromo : extraFields;
+                const f = fields.find(field => field.id === selectedElement);
+                if (f) return { font: f.size, color: f.color, bold: f.bold, align: f.align || 'center', valign: 'middle' as const, text: f.text };
+            }
+            return { font: 0, color: '#ccc', bold: false, align: 'center' as const, valign: 'middle' as const, text: '' };
         };
 
         const active = getActiveValue();
@@ -343,11 +557,11 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         const activeAlign = isText ? active.align : 'center';
         const activeVAlign = isText ? active.valign : 'middle';
         
-        // Fundo dinâmico baseado na seleção
         const activeBg = !selectedElement ? bgColor : 
-                        selectedElement === 'name' ? nameBgColor :
+                        selectedElement === 'name' ? (isPromoPreview ? promoNameBgColor : nameBgColor) :
                         selectedElement === 'price' ? priceBgColor :
-                        selectedElement === 'promo' ? promoBgColor : 'transparent';
+                        selectedElement === 'promo' ? promoBgColor : 
+                        (selectedElement === 'priceSymbol' || selectedElement === 'priceDecimals') ? priceBgColor : 'transparent';
 
         const updateStyle = (key: string, val: any) => {
             if (!selectedElement) {
@@ -355,22 +569,54 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 return;
             }
             if (selectedElement === 'name') {
-                if (key === 'color') setNameColor(val); if (key === 'size') setNameFontSize(val); if (key === 'bold') setNameBold(val);
-                if (key === 'align') setNameAlign(val); if (key === 'valign') setNameVAlign(val);
-                if (key === 'bg') setNameBgColor(val);
-            } else if (selectedElement === 'price') {
                 if (isPromoPreview) {
+                    if (key === 'color') setPromoNameColor(val); if (key === 'size') setPromoNameFontSize(val); if (key === 'bold') setPromoNameBold(val);
+                    if (key === 'align') setPromoNameAlign(val); if (key === 'valign') setPromoNameVAlign(val);
+                    if (key === 'bg') setPromoNameBgColor(val);
+                } else {
+                    if (key === 'color') setNameColor(val); if (key === 'size') setNameFontSize(val); if (key === 'bold') setNameBold(val);
+                    if (key === 'align') setNameAlign(val); if (key === 'valign') setNameVAlign(val);
+                    if (key === 'bg') setNameBgColor(val);
+                }
+            } else if (selectedElement === 'price') {
+                 if (isPromoPreview) {
                     if (key === 'color') setOldPriceColor(val); if (key === 'size') setOldPriceFontSize(val); if (key === 'bold') setOldPriceBold(val);
                     if (key === 'align') setOldPriceAlign(val); if (key === 'valign') setOldPriceVAlign(val);
-                } else {
+                 } else {
                     if (key === 'color') setPriceColor(val); if (key === 'size') setPriceFontSize(val); if (key === 'bold') setPriceBold(val);
                     if (key === 'align') setPriceAlign(val); if (key === 'valign') setPriceVAlign(val);
-                }
-                if (key === 'bg') setPriceBgColor(val);
+                 }
+                 if (key === 'bg') setPriceBgColor(val);
             } else if (selectedElement === 'promo') {
                 if (key === 'color') setPromoPriceColor(val); if (key === 'size') setPromoPriceFontSize(val); if (key === 'bold') setPromoPriceBold(val);
                 if (key === 'align') setPromoPriceAlign(val); if (key === 'valign') setPromoPriceVAlign(val);
                 if (key === 'bg') setPromoBgColor(val);
+            } else if (selectedElement === 'priceSymbol') {
+                if (isPromoPreview) {
+                    if (key === 'color') setPromoPriceSymbolColor(val); if (key === 'size') setPromoPriceSymbolFontSize(val); if (key === 'bold') setPromoPriceSymbolBold(val);
+                } else {
+                    if (key === 'color') setPriceSymbolColor(val); if (key === 'size') setPriceSymbolFontSize(val); if (key === 'bold') setPriceSymbolBold(val);
+                }
+                if (key === 'bg') setPriceBgColor(val);
+            } else if (selectedElement === 'priceDecimals') {
+                if (isPromoPreview) {
+                    if (key === 'color') setPromoPriceDecimalsColor(val); if (key === 'size') setPromoPriceDecimalsFontSize(val); if (key === 'bold') setPromoPriceDecimalsBold(val);
+                } else {
+                    if (key === 'color') setPriceDecimalsColor(val); if (key === 'size') setPriceDecimalsFontSize(val); if (key === 'bold') setPriceDecimalsBold(val);
+                }
+                if (key === 'bg') setPriceBgColor(val);
+            } else if (selectedElement?.toString().startsWith('extra_')) {
+                const update = (prev: any[]) => prev.map(f => {
+                    if (f.id === selectedElement) {
+                        if (key === 'color') return { ...f, color: val };
+                        if (key === 'size') return { ...f, size: val };
+                        if (key === 'bold') return { ...f, bold: val };
+                        if (key === 'text') return { ...f, text: val };
+                        if (key === 'align') return { ...f, align: val };
+                    }
+                    return f;
+                });
+                if (isPromoPreview) setExtraFieldsPromo(update); else setExtraFields(update);
             }
         };
 
@@ -385,7 +631,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         };
 
         return (
-            <div className={`px-12 py-5 border-b min-h-[100px] flex items-center justify-between transition-all ${isInactive && !isDesignMode ? 'bg-slate-50/50 grayscale opacity-50' : 'bg-white dark:bg-slate-900 shadow-sm border-blue-500/20'}`}>
+            <div className={`px-12 py-3 border-b min-h-[85px] flex items-center justify-between transition-all ${isInactive && !isDesignMode ? 'bg-slate-50/50 grayscale opacity-50' : 'bg-white dark:bg-slate-900 shadow-sm border-blue-500/20'}`}>
                 <div className="flex items-center gap-6 flex-wrap">
                     <button onClick={() => setIsDesignMode(false)} className="px-5 py-3 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all flex items-center gap-2 shadow-lg active:scale-95 shrink-0">
                         <i className="bi bi-chevron-left" /> Voltar
@@ -409,7 +655,26 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                         </button>
                     </div>
 
+                    <button onClick={addExtraField} className="px-5 py-3 bg-blue-50 text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 shadow-sm border border-blue-100 active:scale-95 shrink-0">
+                        <i className="bi bi-fonts" /> Texto+
+                    </button>
+
                     <div className="h-8 w-px bg-slate-200" />
+
+                    {selectedElement?.toString().startsWith('extra_') && (
+                        <div className="flex items-center gap-2 bg-blue-50/50 p-1 rounded-xl border border-blue-100">
+                             <input 
+                                type="text"
+                                value={active.text || ''}
+                                onChange={e => updateStyle('text', e.target.value)}
+                                placeholder="Editar texto..."
+                                className="bg-white border-none text-[10px] font-bold px-3 py-1.5 rounded-lg w-48 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                            />
+                            <button onClick={() => removeExtraField(selectedElement as string)} className="p-1 px-2 text-rose-500 hover:bg-rose-100 rounded-lg transition-all">
+                                <i className="bi bi-trash3-fill text-[10px]" />
+                            </button>
+                        </div>
+                    )}
                     
                     <div className="flex items-center gap-3 flex-wrap">
                         {/* Cor de Fundo Dinâmica */}
@@ -475,10 +740,34 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                             )}
                         </div>
 
-                        {/* Tamanho */}
-                        <div className={`flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl ${isInactive ? 'opacity-30' : ''}`}>
+                        {/* Tamanho Base */}
+                        <div className={`flex flex-col items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl ${isInactive ? 'opacity-30' : ''}`}>
+                            <span className="text-[7px] font-black uppercase text-slate-400">Base</span>
                             <input disabled={isInactive} type="number" value={Math.round(activeSize)} onChange={e => updateStyle('size', parseInt(e.target.value) || 1)} className="w-9 bg-transparent border-none text-[11px] font-black text-center outline-none cursor-pointer" />
                         </div>
+
+                        {/* Escalas Dinâmicas (Apenas para Preços) */}
+                        {(selectedElement === 'price' || selectedElement === 'promo') && (
+                            <div className="flex items-center gap-1.5 animate-in slide-in-from-left-2 duration-300">
+                                <div className="h-6 w-px bg-slate-200 mx-1" />
+                                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
+                                    <span className="text-[6px] font-black uppercase text-slate-400">10+</span>
+                                    <input type="number" value={priceFontSizeTens || 0} onChange={e => setPriceFontSizeTens(parseInt(e.target.value) || 0)} className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600" />
+                                </div>
+                                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
+                                    <span className="text-[6px] font-black uppercase text-slate-400">100+</span>
+                                    <input type="number" value={priceFontSizeHundreds || 0} onChange={e => setPriceFontSizeHundreds(parseInt(e.target.value) || 0)} className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600" />
+                                </div>
+                                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
+                                    <span className="text-[6px] font-black uppercase text-slate-400">1k+</span>
+                                    <input type="number" value={priceFontSizeThousands || 0} onChange={e => setPriceFontSizeThousands(parseInt(e.target.value) || 0)} className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600" />
+                                </div>
+                                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
+                                    <span className="text-[6px] font-black uppercase text-slate-400">10k+</span>
+                                    <input type="number" value={priceFontSizeTenThousands || 0} onChange={e => setPriceFontSizeTenThousands(parseInt(e.target.value) || 0)} className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600" />
+                                </div>
+                            </div>
+                        )}
 
                         {/* Negrito */}
                         <button disabled={isInactive} onClick={() => updateStyle('bold', !activeBold)} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${activeBold ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'} ${isInactive ? 'opacity-30 cursor-not-allowed' : ''}`}>
@@ -502,7 +791,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                      <div className="flex flex-col items-end">
                         <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selecionado</span>
                         <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 truncate max-w-[120px]">
-                            {selectedElement === 'name' ? 'Produto' : selectedElement === 'price' ? (isPromoPreview ? 'Preço Antigo' : 'Preço') : selectedElement === 'promo' ? 'Novo Preço' : 'Nenhum'}
+                            {selectedElement === 'name' ? 'Produto' : selectedElement === 'price' ? (isPromoPreview ? 'Preço Antigo' : 'Preço') : selectedElement === 'promo' ? 'Novo Preço' : selectedElement === 'priceSymbol' ? 'Símbolo R$' : selectedElement === 'priceDecimals' ? 'Centavos' : 'Nenhum'}
                         </span>
                     </div>
                     {selectedElement && (
@@ -524,6 +813,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         const previewH = 1000;
         const previewW = previewH * aspect;
 
+        const getAlignment = (align?: string) => align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
+        const getVAlignment = (valign?: string) => valign === 'middle' ? 'center' : valign === 'bottom' ? 'flex-end' : 'flex-start';
+
         return (
             <div className="relative bg-white shadow-2xl border-4 border-white overflow-hidden flex flex-col" style={{ width: `${previewW}px`, height: `${previewH}px`, padding: `${marginT/2}px ${marginR/2}px ${marginB/2}px ${marginL/2}px` }}>
                 <div 
@@ -536,30 +828,137 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                     }}
                 >
                     {Array.from({ length: columns * rows }).map((_, i) => {
-                        const isPromo = i % 2 !== 0; // Alternando promocional
-                        // Simulação de comprimentos de preço para testar o auto-ajuste (9,90, 99,90, 1.250,00)
-                        const priceValue = i % 3 === 0 ? 9.90 : i % 3 === 1 ? 99.90 : 1250.00;
+                        const col = i % columns;
+                        const isPromo = i % 2 !== 0; // Alternando promocional para comparação rápida
+                        
+                        // Teste de faixas para o preview
+                        let priceValue = col === 0 ? 129.90 : 3490.00;
+                        if (i > columns * 2) priceValue = 18500.00;
+                        if (i % 7 === 0) priceValue = 59.90;
+                        if (i % 5 === 0) priceValue = 9.90;
+
+                        const isTen = priceValue >= 10 && priceValue < 100;
                         const isHundred = priceValue >= 100 && priceValue < 1000;
-                        const isThousand = priceValue >= 1000;
+                        const isThousand = priceValue >= 1000 && priceValue < 10000;
+                        const isTenThousand = priceValue >= 10000;
                         
-                        const adjustedPriceSize = isPromoPreview && isPromo 
-                            ? oldPriceFontSize + (isThousand ? (priceFontSizeThousands || 0) : isHundred ? (priceFontSizeHundreds || 0) : 0)
-                            : priceFontSize + (isThousand ? (priceFontSizeThousands || 0) : isHundred ? (priceFontSizeHundreds || 0) : 0);
+                        const dynamicScale = isTen ? (priceFontSizeTens || 0) : 
+                                            isHundred ? (priceFontSizeHundreds || 0) : 
+                                            isThousand ? (priceFontSizeThousands || 0) :
+                                            isTenThousand ? (priceFontSizeTenThousands || 0) : 0;
                         
-                        const currentPromoSize = promoPriceFontSize + (isThousand ? (priceFontSizeThousands || 0) : isHundred ? (priceFontSizeHundreds || 0) : 0);
+                        // Ajuste dinâmico de fonte para a prévia (Hundreds / Thousands)
+                        const dynamicAdjustment = isThousand ? (priceFontSizeThousands || 0) : (isHundred ? (priceFontSizeHundreds || 0) : 0);
+                        const adjustedPriceSize = isPromo 
+                            ? oldPriceFontSize + dynamicAdjustment
+                            : priceFontSize + dynamicAdjustment;
+                        
+                        const currentPromoSize = promoPriceFontSize + dynamicAdjustment;
+
+                        // Lógica de Preço Dividido para a prévia
+                        const priceParts = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }).split(',');
+                        const integerPart = priceParts[0].replace('R$', '').trim();
+                        const decimalPart = `,${priceParts[1]}`;
 
                         return (
-                            <div key={i} className={`relative border border-slate-100 overflow-hidden flex items-center justify-center ${layoutType === 'round' ? 'rounded-full' : ''}`} style={{ backgroundColor: bgColor }}>
-                                <div className="absolute inset-0 pointer-events-none origin-center flex items-center justify-center w-[833%] h-[833%] left-[-366%] top-[-366%]" style={{ transform: 'scale(0.12)' }}>
+                            <div key={i} className={`relative border border-slate-100 overflow-hidden flex items-center justify-center ${layoutType === 'round' ? 'rounded-full' : ''}`} style={{ backgroundColor: bgColor, containerType: 'size' }}>
+                                {previewImage && (
+                                    <img src={previewImage} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: (currentCategory === 'logos') ? 1 : 0.1, zIndex: 0 }} />
+                                )}
+                                <div className="absolute inset-0 pointer-events-none origin-center flex items-center justify-center w-full h-full">
                                     <div className="relative w-full h-full">
-                                        <div style={{ position: 'absolute', left: `${namePos.x}%`, top: `${namePos.y}%`, width: `${nameWidth}%`, transform: 'translate(-50%, -50%)', fontSize: `${nameFontSize}px`, fontWeight: nameBold ? '950' : '400', color: nameColor, textAlign: nameAlign }}>Produto de Exemplo</div>
-                                        <div style={{ position: 'absolute', left: `${pricePos.x}%`, top: `${pricePos.y}%`, width: `${priceWidth}%`, transform: 'translate(-50%, -50%)', fontSize: `${adjustedPriceSize}px`, fontWeight: (isPromoPreview && isPromo ? oldPriceBold : priceBold) ? '950' : '400', color: isPromoPreview && isPromo ? oldPriceColor : priceColor, textAlign: isPromoPreview && isPromo ? oldPriceAlign : priceAlign }}>
-                                            {isPromo ? (
-                                                <span className="relative">{priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <div className="absolute top-1/2 left-0 right-0 h-1 bg-red-500 rounded-full" /></span>
-                                            ) : priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        {/* Nome do Produto */}
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            left: `${(isPromo ? promoNamePos.x : namePos.x)}%`, 
+                                            top: `${(isPromo ? promoNamePos.y : namePos.y)}%`, 
+                                            width: `${(isPromo ? promoNameWidth : nameWidth)}%`, 
+                                            height: `${(isPromo ? promoNameHeight : nameHeight)}%`, 
+                                            transform: 'translate(-50%, -50%)', display: 'flex', 
+                                            alignItems: getVAlignment(isPromo ? promoNameVAlign : nameVAlign), 
+                                            justifyContent: getAlignment(isPromo ? promoNameAlign : nameAlign),
+                                            backgroundColor: (isPromo ? promoNameBgColor : nameBgColor), 
+                                            padding: ((isPromo ? promoNameBgColor : nameBgColor) && (isPromo ? promoNameBgColor : nameBgColor) !== 'transparent') ? 'calc( (8 / 500) * 100cqh )' : '0' 
+                                        }}>
+                                            <div style={{ 
+                                                fontSize: `calc( (${isPromo ? promoNameFontSize : nameFontSize} / 500) * 100cqh )`, 
+                                                fontWeight: (isPromo ? promoNameBold : nameBold) ? '950' : '500', 
+                                                color: isPromo ? promoNameColor : nameColor, 
+                                                textAlign: isPromo ? promoNameAlign : nameAlign 
+                                            }}>Produto de Exemplo {isPromo ? '(Promo)' : ''}</div>
                                         </div>
-                                        {isPromo && <div style={{ position: 'absolute', left: `${promoPos.x}%`, top: `${promoPos.y}%`, width: `${promoWidth}%`, transform: 'translate(-50%, -50%)', fontSize: `${currentPromoSize}px`, fontWeight: promoPriceBold ? '950' : '400', color: promoPriceColor, textAlign: promoPriceAlign }}>R$ {(priceValue * 0.8).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>}
-                                        <div style={{ position: 'absolute', left: `${barcodePos.x}%`, top: `${barcodePos.y}%`, width: '60%', transform: 'translate(-50%, -50%)', opacity: 0.2 }}> <i className="bi bi-barcode text-[40px]" /> </div>
+
+                                        {/* Preço (Normal ou Antigo Riscado) */}
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            left: `${(isPromo ? oldPricePos.x : pricePos.x)}%`, 
+                                            top: `${(isPromo ? oldPricePos.y : pricePos.y)}%`, 
+                                            width: `${(isPromo ? oldPriceWidth : priceWidth)}%`, 
+                                            height: `${(isPromo ? oldPriceHeight : priceHeight)}%`, 
+                                            transform: 'translate(-50%, -50%)', 
+                                            display: 'flex', 
+                                            alignItems: getVAlignment(isPromo ? oldPriceVAlign : priceVAlign), 
+                                            justifyContent: getAlignment(isPromo ? oldPriceAlign : priceAlign),
+                                            backgroundColor: priceBgColor, 
+                                            padding: (priceBgColor && priceBgColor !== 'transparent') ? 'calc( (8 / 500) * 100cqh )' : '0' 
+                                        }}>
+                                            <div style={{ 
+                                                fontSize: `calc( (${adjustedPriceSize} / 500) * 100cqh )`, 
+                                                fontWeight: (isPromo ? oldPriceBold : priceBold) ? '950' : '500', 
+                                                color: isPromo ? oldPriceColor : priceColor, 
+                                                textAlign: isPromo ? oldPriceAlign : priceAlign 
+                                            }}>
+                                                {isPromo ? (
+                                                    <span className="relative">
+                                                        {(priceFormat === 'split' ? integerPart : priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))} 
+                                                        <div className="absolute top-1/2 left-[-2%] right-[-2%] h-[2px] bg-red-500 rounded-full opacity-100" />
+                                                    </span>
+                                                ) : (priceFormat === 'split' ? integerPart : priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))}
+                                            </div>
+                                        </div>
+
+                                        {priceFormat === 'split' && !isPromo && (
+                                            <>
+                                                {/* Símbolo R$ */}
+                                                <div style={{ 
+                                                    position: 'absolute', left: `${priceSymbolPos.x}%`, top: `${priceSymbolPos.y}%`, 
+                                                    transform: 'translate(-50%, -50%)', 
+                                                    fontSize: `calc( (${priceSymbolFontSize} / 500) * 100cqh )`,
+                                                    fontWeight: priceSymbolBold ? '950' : '400',
+                                                    color: priceSymbolColor
+                                                }}>R$</div>
+
+                                                {/* Centavos ,00 */}
+                                                <div style={{ 
+                                                    position: 'absolute', left: `${priceDecimalsPos.x}%`, top: `${priceDecimalsPos.y}%`, 
+                                                    transform: 'translate(-50%, -50%)', 
+                                                    fontSize: `calc( (${priceDecimalsFontSize} / 500) * 100cqh )`,
+                                                    fontWeight: priceDecimalsBold ? '950' : '400',
+                                                    color: priceDecimalsColor
+                                                }}>{decimalPart}</div>
+                                            </>
+                                        )}
+
+                                        {isPromo && (
+                                            <div style={{ 
+                                                position: 'absolute', left: `${promoPos.x}%`, top: `${promoPos.y}%`, width: `${promoWidth}%`, height: `${promoHeight}%`, 
+                                                transform: 'translate(-50%, -50%)', display: 'flex', alignItems: getVAlignment(promoPriceVAlign), justifyContent: getAlignment(promoPriceAlign),
+                                                backgroundColor: promoBgColor, padding: (promoBgColor && promoBgColor !== 'transparent') ? 'calc( (8 / 500) * 100cqh )' : '0' 
+                                            }}>
+                                                <div style={{ fontSize: `calc( (${currentPromoSize} / 500) * 100cqh )`, fontWeight: promoPriceBold ? '950' : '400', color: promoPriceColor, textAlign: promoPriceAlign }}>R$ {(priceValue * 0.8).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                                            </div>
+                                        )}
+
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            left: `${(isPromo ? promoBarcodePos.x : barcodePos.x)}%`, 
+                                            top: `${(isPromo ? promoBarcodePos.y : barcodePos.y)}%`, 
+                                            width: '100%', 
+                                            transform: 'translate(-50%, -50%)', 
+                                            opacity: 0.2, 
+                                            display: 'flex', 
+                                            justifyContent: 'center' 
+                                        }}> <i className="bi bi-barcode" style={{ fontSize: '15cqh' }} /> </div>
                                     </div>
                                 </div>
                             </div>
@@ -602,11 +1001,16 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 {isDesignMode ? (
                     <>
                         <FixedToolbar />
-                        <div className="flex-1 overflow-y-auto p-12 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-start gap-12 select-none" onMouseMove={handleMouseMove}>
+                        <div 
+                            className="flex-1 overflow-y-auto p-12 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-start gap-12 select-none" 
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                        >
                             <div 
                                 ref={setPreviewRef} 
                                 className="relative bg-white rounded-[2rem] shadow-2xl border-4 border-white transition-all duration-500 cursor-default group overflow-visible" 
-                                style={{ width: '90%', maxWidth: '700px', height: '500px', backgroundColor: bgColor }} 
+                                style={{ width: '90%', maxWidth: '700px', height: '500px', backgroundColor: bgColor, containerType: 'size' }} 
                                 onClick={(e) => {
                                     if (e.target === e.currentTarget) setSelectedElement(null);
                                 }}
@@ -616,15 +1020,29 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                 {showGuides.v && <div className="absolute top-1/2 left-0 right-0 h-px bg-blue-500/50 z-50 pointer-events-none" />}
 
                                     {[
-                                        { id: 'name', pos: namePos, width: nameWidth, font: nameFontSize, color: nameColor, bold: nameBold, align: nameAlign, valign: nameVAlign, text: 'Sofá de Canto Luxo Reclinável', bgColor: nameBgColor },
-                                        { id: 'price', pos: pricePos, width: priceWidth, font: isPromoPreview ? oldPriceFontSize : priceFontSize, color: isPromoPreview ? oldPriceColor : priceColor, bold: isPromoPreview ? oldPriceBold : priceBold, align: isPromoPreview ? oldPriceAlign : priceAlign, valign: isPromoPreview ? oldPriceVAlign : priceVAlign, text: isPromoPreview ? (
+                                        { id: 'name', pos: isPromoPreview ? promoNamePos : namePos, width: isPromoPreview ? promoNameWidth : nameWidth, font: isPromoPreview ? promoNameFontSize : nameFontSize, color: isPromoPreview ? promoNameColor : nameColor, bold: isPromoPreview ? promoNameBold : nameBold, align: isPromoPreview ? promoNameAlign : nameAlign, valign: isPromoPreview ? promoNameVAlign : nameVAlign, text: 'Sofá de Canto Luxo Reclinável', bgColor: isPromoPreview ? promoNameBgColor : nameBgColor },
+                                        { id: 'price', pos: isPromoPreview ? oldPricePos : pricePos, width: isPromoPreview ? oldPriceWidth : priceWidth, font: (isPromoPreview ? oldPriceFontSize : priceFontSize) + (priceFontSizeThousands || 0), color: isPromoPreview ? oldPriceColor : priceColor, bold: isPromoPreview ? oldPriceBold : priceBold, align: isPromoPreview ? oldPriceAlign : priceAlign, valign: isPromoPreview ? oldPriceVAlign : priceVAlign, text: isPromoPreview ? (
                                             <span className="relative">
-                                                R$ 3.490,00
+                                                {priceFormat === 'split' ? '3.490' : 'R$ 3.490,00'}
                                                 <div className="absolute top-[50%] left-[-5%] right-[-5%] h-[4px] bg-red-500 rounded-full opacity-100 shadow-sm" />
                                             </span>
-                                        ) : 'R$ 3.490,00', bgColor: priceBgColor },
-                                        { id: 'promo', pos: promoPos, width: promoWidth, font: promoPriceFontSize, color: promoPriceColor, bold: promoPriceBold, align: promoPriceAlign, valign: promoPriceVAlign, text: 'R$ 2.990,00', hidden: !isPromoPreview, bgColor: promoBgColor },
-                                        { id: 'barcode', pos: barcodePos, width: 80, isBarcode: true }
+                                        ) : (priceFormat === 'split' ? '3.490' : 'R$ 3.490,00'), bgColor: priceBgColor },
+                                        { id: 'promo', pos: promoPos, width: promoWidth, font: promoPriceFontSize + (priceFontSizeThousands || 0), color: promoPriceColor, bold: promoPriceBold, align: promoPriceAlign, valign: promoPriceVAlign, text: priceFormat === 'split' ? '2.990' : 'R$ 2.990,00', hidden: !isPromoPreview, bgColor: promoBgColor },
+                                        { id: 'priceSymbol', pos: isPromoPreview ? promoPriceSymbolPos : priceSymbolPos, font: isPromoPreview ? promoPriceSymbolFontSize : priceSymbolFontSize, color: isPromoPreview ? promoPriceSymbolColor : priceSymbolColor, bold: isPromoPreview ? promoPriceSymbolBold : priceSymbolBold, text: 'R$', hidden: priceFormat !== 'split' },
+                                        { id: 'priceDecimals', pos: isPromoPreview ? promoPriceDecimalsPos : priceDecimalsPos, font: isPromoPreview ? promoPriceDecimalsFontSize : priceDecimalsFontSize, color: isPromoPreview ? promoPriceDecimalsColor : priceDecimalsColor, bold: isPromoPreview ? promoPriceDecimalsBold : priceDecimalsBold, text: ',00', hidden: priceFormat !== 'split' },
+                                                                                                                        { id: 'barcode', pos: isPromoPreview ? promoBarcodePos : barcodePos, width: 80, isBarcode: true },
+                                        ...(isPromoPreview ? extraFieldsPromo : extraFields).map(f => ({
+                                            id: f.id,
+                                            pos: { x: f.x, y: f.y },
+                                            width: f.width || 40,
+                                            font: f.size,
+                                            color: f.color,
+                                            bold: f.bold,
+                                            align: f.align || 'center',
+                                            valign: 'middle',
+                                            text: f.text,
+                                            hidden: false
+                                        }))
                                     ].filter(el => !el.hidden).map((el: any) => (
                                     <div 
                                         key={el.id} 
@@ -637,17 +1055,26 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                             width: `${el.width}%`, 
                                             minHeight: el.id === 'barcode' ? '10%' : '40px', 
                                             transform: 'translate(-50%, -50%)', 
-                                            padding: '4px', 
+                                            backgroundColor: el.bgColor || 'transparent',
+                                            padding: (el.bgColor && el.bgColor !== 'transparent') ? 'calc( (8 / 500) * 100cqh )' : '0',
                                             display: 'flex', 
                                             alignItems: el.valign === 'middle' ? 'center' : el.valign === 'bottom' ? 'flex-end' : 'flex-start', 
-                                            justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start',
-                                            backgroundColor: el.bgColor || 'transparent'
+                                            justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start'
                                         }}
                                     >
                                         {el.id === 'barcode' ? (
                                             <div className="w-full flex items-center justify-center opacity-40"> <i className="bi bi-barcode text-5xl" /> </div>
                                         ) : (
-                                            <div style={{ fontSize: `${el.font}px`, fontWeight: el.bold ? '950' : '400', color: el.color, textAlign: el.align, lineHeight: '1', whiteSpace: 'normal', wordBreak: 'break-word', width: '100%' }}> {el.text} </div>
+                                            <div style={{ 
+                                                fontSize: `calc( (${el.font} / 500) * 100cqh )`, 
+                                                fontWeight: el.bold ? '950' : '400', 
+                                                color: el.color, 
+                                                textAlign: el.align, 
+                                                width: '100%', 
+                                                lineHeight: '1.1',
+                                                whiteSpace: el.id === 'name' ? 'normal' : 'nowrap',
+                                                wordBreak: el.id === 'name' ? 'break-word' : 'normal'
+                                            }}> {el.text} </div>
                                         )}
                                         {selectedElement === el.id && el.id !== 'barcode' && (
                                             <>
@@ -662,7 +1089,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 overflow-y-auto p-12 bg-slate-50 dark:bg-slate-950 flex flex-col gap-12 items-center">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-950 flex flex-col gap-8 items-center">
                         <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* Formato do Papel */}
                             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
@@ -725,7 +1152,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
 
                         {/* Prévia da Folha */}
                         <div className="flex flex-col items-center gap-4 w-full pb-12">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prévia da Folha Inteira</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Prévia do modelo em folha inteira</p>
                             <SheetPreviewGrid />
                         </div>
                     </div>
