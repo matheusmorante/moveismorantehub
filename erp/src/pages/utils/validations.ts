@@ -16,6 +16,10 @@ export const validateItems = (items: Item[]): ValidationErrors => {
         if (!item.description || item.description.trim() === "") {
             errors[`item_${idx}_description`] = "A descrição do item é obrigatória.";
         }
+        // No longer has default, must be explicitly selected
+        if (!item.handlingType || item.handlingType.trim() === "") {
+            errors[`item_${idx}_handlingType`] = "O manuseio do item é obrigatório.";
+        }
     });
     return errors;
 }

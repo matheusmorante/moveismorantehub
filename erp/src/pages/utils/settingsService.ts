@@ -13,6 +13,7 @@ export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 
 export interface HandlingOption {
     label: string;
     includeInAssemblySchedule: boolean;
+    isAssemblyAtDelivery?: boolean; // Se a montagem é realizada no local da entrega
     color?: string; // Cor personalizada para identificação visual (Hex)
 }
 
@@ -51,8 +52,6 @@ export interface AppSettings {
     };
     deliveryHandlingOptions: HandlingOption[];
     pickupHandlingOptions: HandlingOption[];
-    defaultDeliveryHandling: string;
-    defaultPickupHandling: string;
 
     // Regras de Pagamento
     cardFlagRules: CardFlagRule[];
@@ -231,13 +230,15 @@ const migrateSettings = (settings: any): AppSettings => {
     if (settings.deliveryHandlingOptions && settings.deliveryHandlingOptions.length > 0 && typeof settings.deliveryHandlingOptions[0] === 'string') {
         settings.deliveryHandlingOptions = settings.deliveryHandlingOptions.map((label: string) => ({
             label,
-            includeInAssemblySchedule: label.toLowerCase().includes('montagem')
+            includeInAssemblySchedule: label.toLowerCase().includes('montagem'),
+            isAssemblyAtDelivery: label.toLowerCase().includes('local')
         }));
     }
     if (settings.pickupHandlingOptions && settings.pickupHandlingOptions.length > 0 && typeof settings.pickupHandlingOptions[0] === 'string') {
         settings.pickupHandlingOptions = settings.pickupHandlingOptions.map((label: string) => ({
             label,
-            includeInAssemblySchedule: label.toLowerCase().includes('montagem')
+            includeInAssemblySchedule: label.toLowerCase().includes('montagem'),
+            isAssemblyAtDelivery: label.toLowerCase().includes('local')
         }));
     }
 
@@ -283,19 +284,17 @@ export const getDefaultSettings = (): AppSettings => ({
         budget: 'blue'
     },
     deliveryHandlingOptions: [
-        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false },
-        { label: 'Já Montado', includeInAssemblySchedule: false },
-        { label: 'Montagem no Local', includeInAssemblySchedule: true },
-        { label: 'Manuseio Especial', includeInAssemblySchedule: false }
+        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false, isAssemblyAtDelivery: false },
+        { label: 'Já Montado', includeInAssemblySchedule: false, isAssemblyAtDelivery: false },
+        { label: 'Montagem no Local', includeInAssemblySchedule: true, isAssemblyAtDelivery: true },
+        { label: 'Manuseio Especial', includeInAssemblySchedule: false, isAssemblyAtDelivery: false }
     ],
     pickupHandlingOptions: [
-        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false },
-        { label: 'Já Montado', includeInAssemblySchedule: false },
-        { label: 'Montagem no Local', includeInAssemblySchedule: true },
-        { label: 'Manuseio Especial', includeInAssemblySchedule: false }
+        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false, isAssemblyAtDelivery: false },
+        { label: 'Já Montado', includeInAssemblySchedule: false, isAssemblyAtDelivery: false },
+        { label: 'Montagem no Local', includeInAssemblySchedule: true, isAssemblyAtDelivery: true },
+        { label: 'Manuseio Especial', includeInAssemblySchedule: false, isAssemblyAtDelivery: false }
     ],
-    defaultDeliveryHandling: 'Para Montar (Desmontado)',
-    defaultPickupHandling: 'Já Montado',
     cardFlagRules: [
         { flag: 'VISA', interestRates: [{ installments: 10, rate: 0 }] },
         { flag: 'MASTERCARD', interestRates: [{ installments: 10, rate: 0 }] },

@@ -26,6 +26,8 @@ interface Props {
 const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct }: Props) => {
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
+    const handlingErrorKey = `item_${idx}_handlingType`;
+    const handlingError = errors[handlingErrorKey];
     const settings = getSettings();
 
     if (isMobile) {
@@ -57,9 +59,17 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                 <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Manuseio</label>
                                 <div className="relative group/sel">
                                     <select
-                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-2 rounded-xl text-[11px] font-bold outline-none dark:text-slate-300 transition-all pr-8"
+                                        className={`w-full bg-slate-50 dark:bg-slate-800 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-100 dark:border-slate-800'} focus:border-blue-500 px-2 py-2 rounded-xl text-[11px] font-bold outline-none dark:text-slate-300 transition-all pr-8`}
                                         value={item.handlingType || ''}
-                                        onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (!val) return;
+                                            if (item.handlingType && item.handlingType === val) return;
+                                            
+                                            if (window.confirm(`Deseja alterar o manuseio para "${val}"?`)) {
+                                                onChange(idx, 'handlingType', val);
+                                            }
+                                        }}
                                     >
                                         <option value="" disabled className="dark:bg-slate-900">Selecione...</option>
                                         {(() => {
@@ -180,11 +190,19 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
             </td>
             <td className="px-4 py-2">
                 {!item.isComboItem && (
-                    <div className="relative">
+                    <div className="relative group/hsel">
                         <select
-                            className="w-full min-w-[120px] bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7"
+                            className={`w-full min-w-[120px] bg-transparent border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
                             value={item.handlingType || ''}
-                            onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (!val) return;
+                                if (item.handlingType && item.handlingType === val) return;
+
+                                if (window.confirm(`Deseja alterar o manuseio para "${val}"?`)) {
+                                    onChange(idx, 'handlingType', val);
+                                }
+                            }}
                         >
                             <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
                             {(() => {
@@ -205,6 +223,12 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                 );
                             })()}
                         </select>
+                        {handlingError && (
+                            <div className="absolute left-0 -top-8 hidden group-hover/hsel:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap font-sans">
+                                {handlingError}
+                                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                            </div>
+                        )}
                     </div>
                 )}
             </td>

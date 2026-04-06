@@ -313,13 +313,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     }, [setShipping]);
 
     const handleSelectProduct = useCallback((idx: number, product: Product, variation?: Variation) => {
-        const settings = getSettings();
         setItems(prev => {
             const newItems = [...prev];
-            const defaultHandling = shipping.deliveryMethod === 'pickup' 
-                ? settings.defaultPickupHandling 
-                : settings.defaultDeliveryHandling;
-
             newItems[idx] = {
                 ...newItems[idx],
                 productId: product.id,
@@ -328,12 +323,12 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 description: variation ? `${product.description} - ${variation.name}` : product.description,
                 unitPrice: (variation?.unitPrice || product.unitPrice) || 0,
                 costPrice: (variation?.costPrice || product.costPrice) || 0,
-                handlingType: product.itemType === 'service' ? 'Execução no local' : defaultHandling,
+                handlingType: product.itemType === 'service' ? 'Execução no local' : '',
                 condition: product.condition || 'novo'
             };
             return newItems;
         });
-    }, [setItems, shipping.deliveryMethod]);
+    }, [setItems]);
 
     const handleItemChange = useCallback((idx: number, key: keyof Item, value: any) => {
         setItems(prev => {
@@ -360,34 +355,11 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         }
     }, [customerData.fullAddress, shipping.deliveryAddress, shipping.useCustomerAddress, handleAutoCalculateDistance]);
 
-    // Synchronize item handling defaults when switching global delivery method
+    // Note: Implicit auto-update when switching delivery method was removed as requested
+    // Since there's no default handling anymore, items retain their manually selected handling type.
     useEffect(() => {
-        const prevMethod = prevDeliveryMethodRef.current;
-        if (prevMethod === shipping.deliveryMethod) return;
-        
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
-        const settings = getSettings();
-        
-        setItems(prev => prev.map(item => {
-            // Respect special service handling types
-            if (item.handlingType === 'Execução no local') return item;
-            
-            const oldDefault = prevMethod === 'pickup' 
-                ? settings.defaultPickupHandling 
-                : settings.defaultDeliveryHandling;
-
-            const newDefault = shipping.deliveryMethod === 'pickup' 
-                ? settings.defaultPickupHandling 
-                : settings.defaultDeliveryHandling;
-                
-            // Only update if it was the default value or empty (untouched)
-            if (item.handlingType === oldDefault || !item.handlingType) {
-                return { ...item, handlingType: newDefault };
-            }
-
-            return item;
-        }));
-    }, [shipping.deliveryMethod, setItems]);
+    }, [shipping.deliveryMethod]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();

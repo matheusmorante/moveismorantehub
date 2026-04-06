@@ -26,7 +26,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                     unitPrice: 0,
                     unitDiscount: 0,
                     discountType: 'fixed',
-                    handlingType: deliveryMethod === 'delivery' ? getSettings().defaultDeliveryHandling : getSettings().defaultPickupHandling
+                    handlingType: ''
                 }
             ])
         })

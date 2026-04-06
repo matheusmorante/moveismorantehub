@@ -214,7 +214,7 @@ const DeliverySchedule = () => {
     );
 
     const renderHeader = () => (
-        <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 ${isStandalone ? 'bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
+        <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 ${viewMode === 'table' ? 'px-6' : ''} ${isStandalone ? 'bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
             <div className="flex items-center gap-4 w-full xl:w-auto">
                 <div className="bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-100 dark:shadow-blue-900/20 transition-all duration-500">
                     <i className="bi bi-truck text-white text-2xl" />
@@ -431,7 +431,7 @@ const DeliverySchedule = () => {
     };
 
     return (
-        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-2 sm:p-4' : 'max-w-full mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}>
+        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-2 sm:p-4' : `max-w-full ${viewMode === 'table' ? 'mt-4 px-0 pb-0' : 'mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}`}>
             {renderHeader()}
 
             <div className="relative">

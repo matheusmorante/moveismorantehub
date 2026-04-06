@@ -162,6 +162,47 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
         return () => window.removeEventListener('resize', handleLayout);
     }, [schedule]);
 
+    const dragRef = useRef({
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        scrollLeft: 0,
+        scrollTop: 0
+    });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        // Prevent drag on interactive elements if needed, but for table it's fine
+        if (!scrollParentRef.current) return;
+        dragRef.current = {
+            isDragging: true,
+            startX: e.pageX - scrollParentRef.current.offsetLeft,
+            startY: e.pageY - scrollParentRef.current.offsetTop,
+            scrollLeft: scrollParentRef.current.scrollLeft,
+            scrollTop: scrollParentRef.current.scrollTop
+        };
+        scrollParentRef.current.style.cursor = 'grabbing';
+        scrollParentRef.current.style.userSelect = 'none';
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!dragRef.current.isDragging || !scrollParentRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - scrollParentRef.current.offsetLeft;
+        const y = e.pageY - scrollParentRef.current.offsetTop;
+        const walkX = (x - dragRef.current.startX) * 1.5;
+        const walkY = (y - dragRef.current.startY) * 1.5;
+        scrollParentRef.current.scrollLeft = dragRef.current.scrollLeft - walkX;
+        scrollParentRef.current.scrollTop = dragRef.current.scrollTop - walkY;
+    };
+
+    const handleMouseUp = () => {
+        dragRef.current.isDragging = false;
+        if (scrollParentRef.current) {
+            scrollParentRef.current.style.cursor = 'grab';
+            scrollParentRef.current.style.removeProperty('user--select');
+        }
+    };
+
     useEffect(() => {
         const el = scrollParentRef.current;
         if (!el) return;
@@ -172,6 +213,8 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
         el.addEventListener('touchcancel', handleTouchEnd);
         el.addEventListener('wheel', handleWheel, { passive: false });
         el.addEventListener('scroll', applyTransform);
+
+        el.style.cursor = 'grab';
 
         return () => {
             el.removeEventListener('touchstart', handleTouchStart);
@@ -184,15 +227,19 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
     }, []);
 
     return (
-        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-3 h-[calc(100vh-220px)]'}`}>
+        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-0 w-full h-[calc(100vh-130px)]'}`}>
             <div 
                 ref={scrollParentRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
                 className={`${isMobile ? 'rounded-none border-0 overflow-auto overscroll-contain' : 'rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-auto'} flex-1 bg-white dark:bg-slate-950 relative custom-scrollbar`}
                 style={{ WebkitOverflowScrolling: 'touch' }}
             >
                 <div 
                     style={{ 
-                        width: isMobile ? `calc(5000px * var(--zoom, 1))` : '100%',
+                        width: '100%',
                         height: isMobile ? `calc(${tableHeight}px * var(--zoom, 1))` : 'auto',
                         position: 'relative',
                     }}
@@ -201,20 +248,20 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                         ref={containerRef}
                         className={`${isMobile ? 'absolute top-0 left-0 origin-top-left' : 'w-full'}`}
                         style={{ 
-                            width: isMobile ? '5000px' : '100%',
+                            width: '100%',
                             willChange: 'transform'
                         }}
                     >
-                         <table className="w-full border-collapse" style={{ tableLayout: isMobile ? 'fixed' : 'auto' }}>
+                         <table className="w-full border-collapse table-fixed">
                              <thead>
                                  <tr className="bg-slate-900 dark:bg-slate-950 text-white">
-                                     <th className="manual-sticky p-4 w-[120px] text-[10px] font-black uppercase tracking-widest border-r border-slate-800 dark:border-slate-900 z-20 bg-slate-900 text-center">
+                                     <th className="manual-sticky p-4 w-[80px] sm:w-[120px] text-[10px] font-black uppercase tracking-widest border-r border-slate-800 dark:border-slate-900 z-20 bg-slate-900 text-center">
                                          Data
                                      </th>
                                      {HOURS.map((h) => (
                                          <th 
                                              key={h} 
-                                             className={`p-3 ${isMobile ? 'w-[350px]' : 'min-w-[380px]'} text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
+                                             className={`p-3 text-[10px] sm:text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
                                          >
                                              {String(h).padStart(2, '0')}:00
                                          </th>
