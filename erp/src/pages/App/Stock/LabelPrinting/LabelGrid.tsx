@@ -1,5 +1,5 @@
 import React from 'react';
-import { LabelConfig } from './Index';
+import { LabelConfig } from './LabelConstants';
 import LabelItem from './LabelItem';
 
 export interface LabelItemConfig {
@@ -8,13 +8,24 @@ export interface LabelItemConfig {
     promoPrice?: string;
     sku?: string;
     quantity: number;
+    image?: string;
+    scale?: number;
+    rotation?: number;
+    imageFit?: 'contain' | 'cover' | 'fill';
+    extraFields?: any[];
 }
 
 export interface LogoItemConfig {
     image: string;
     quantity: number;
     scale?: number;
+    rotation?: number;
     name?: string;
+    imageFit?: 'contain' | 'cover' | 'fill';
+    price?: string;
+    promoPrice?: string;
+    sku?: string;
+    extraFields?: any[];
 }
 
 interface Props {
@@ -50,20 +61,9 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
         });
     }
 
-    // Fallback para exibir exemplo se a fila da categoria estiver vazia (para edição de layout)
+    // Garantir que a grade fique vazia se não houver itens selecionados
     if (itemsToRender.length === 0) {
-        const dummyProductHeader = config.category === 'precos' ? 'POLTRONA MODERNA LUXO' : 'CAMISETTE ALGODÃO PREMIUM';
-        const dummyPrice = config.category === 'precos' ? 'R$ 1.250,00' : 'R$ 89,90';
-        
-        itemsToRender = Array.from({ length: totalCells }).map((_, i) => ({ 
-            type: isLogos ? 'logo' : 'product', 
-            name: dummyProductHeader,
-            price: dummyPrice,
-            promoPrice: 'R$ 990,00',
-            sku: 'MOR-1234',
-            quantity: 1,
-            index: i 
-        }));
+        itemsToRender = [];
     }
 
     // Slice items for the current page
@@ -123,37 +123,46 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                 }} 
                 className="label-sheet"
             >
-            {finalItems.map((item, i) => (
-                <div 
-                    key={`${i}-${currentPage}`} 
-                    onClick={() => onCellClick?.(i)}
-                    className={`flex items-center justify-center overflow-hidden transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
-                    style={{ width: '100%', height: '100%', position: 'relative' }}
-                >
-                    <LabelItem 
-                        config={{
-                            ...config,
-                            text: item.type === 'product' ? item.name : config.text,
-                            price: item.type === 'product' ? item.price : config.price,
-                            promoPrice: item.type === 'product' ? item.promoPrice : config.promoPrice,
-                            sku: item.type === 'product' ? item.sku : config.sku,
-                            // Forçar preto para identificação para máxima legibilidade
-                            nameColor: config.nameColor,
-                            priceColor: config.priceColor,
-                            promoPriceColor: config.promoPriceColor,
-                            oldPriceColor: config.oldPriceColor,
-                        }} 
-                        image={item.type === 'logo' ? item.image : (cellImages[i] || image)} 
-                        index={i} 
-                        scale={config.imageScale}
-                    />
-                    {config.preset === 'custom' && !cellImages[i] && !image && item.type === 'default' && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <i className="bi bi-plus-circle text-blue-500 text-xl" />
-                        </div>
-                    )}
-                </div>
-            ))}
+            {Array.from({ length: totalCells }).map((_, i) => {
+                const item = finalItems[i];
+                return (
+                    <div 
+                        key={`${i}-${currentPage}`} 
+                        onClick={() => onCellClick?.(i)}
+                        className={`flex items-center justify-center overflow-hidden transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
+                        style={{ width: '100%', height: '100%', position: 'relative' }}
+                    >
+                        {item ? (
+                            <LabelItem 
+                                config={{
+                                    ...config,
+                                    text: item.name || config.text,
+                                    price: item.price || config.price,
+                                    promoPrice: item.promoPrice || config.promoPrice,
+                                    sku: item.sku || config.sku,
+                                    extraFields: item.extraFields || config.extraFields,
+                                    nameColor: config.nameColor,
+                                    priceColor: config.priceColor,
+                                    promoPriceColor: config.promoPriceColor,
+                                    oldPriceColor: config.oldPriceColor,
+                                    imageFit: item.imageFit || config.imageFit,
+                                }} 
+                                image={item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image))} 
+                                index={i} 
+                                scale={item.scale || config.imageScale}
+                                rotation={item.rotation || 0}
+                            />
+                        ) : (
+                            null
+                        )}
+                        {config.preset === 'custom' && !cellImages[i] && !image && (!item || item.type === 'default') && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i className="bi bi-plus-circle text-blue-500 text-xl" />
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
             </div>
             
             <style dangerouslySetInnerHTML={{ __html: `
@@ -180,18 +189,6 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                         z-index: 99999 !important;
                     }
                     .print-only * {
-                        visibility: visible !important;
-                    }
-                    .label-sheet {
-                        box-shadow: none !important;
-                        border: none !important;
-                    }
-                    .no-print {
-                        display: none !important;
-                    }
-                }
-                .print-only {
-                    display: none;
                 }
             `}} />
         </div>
