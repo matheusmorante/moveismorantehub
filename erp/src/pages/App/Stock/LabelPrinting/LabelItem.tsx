@@ -308,7 +308,7 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation }) =
     }
 
     return (
-        <div style={containerStyle}>
+        <div className="label-item-container" style={containerStyle}>
             {/* Vazio - Apenas formato/borda conforme solicitado pelo usuário */}
         </div>
     );

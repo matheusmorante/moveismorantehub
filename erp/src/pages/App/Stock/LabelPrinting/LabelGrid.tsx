@@ -188,7 +188,22 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                         background: white !important;
                         z-index: 99999 !important;
                     }
-                    .print-only * {
+                    .print-only *, .label-sheet, .label-item-container {
+                        visibility: visible !important;
+                    }
+                    .label-sheet {
+                        box-shadow: none !important;
+                        border: none !important;
+                    }
+                    .label-item-container {
+                         border: none !important;
+                    }
+                    .no-print {
+                        display: none !important;
+                    }
+                }
+                .print-only {
+                    display: none;
                 }
             `}} />
         </div>
