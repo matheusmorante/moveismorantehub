@@ -31,12 +31,23 @@ END $$;
 INSERT INTO public.financial_categories (name, type) VALUES
 ('Vendas de Produtos', 'income'),
 ('Serviços e Montagem', 'income'),
+('Outras Receitas', 'income'),
 ('Compra de Mercadorias', 'expense'),
 ('Salários e Encargos', 'expense'),
+('Pró-labore', 'expense'),
+('Internet e Telefone', 'expense'),
+('Combustível e Manutenção', 'expense'),
+('Seguros e Impostos', 'expense'),
+('Taxas Bancárias', 'expense'),
 ('Impostos e Taxas', 'expense'),
 ('Energia e Utilidades', 'expense'),
 ('Aluguel', 'expense'),
-('Marketing e Publicidade', 'expense')
+('Marketing e Publicidade', 'expense'),
+('Manutenção e Peças', 'expense'),
+('Material de Escritório', 'expense'),
+('Limpeza e Conservação', 'expense'),
+('Embalagens e Fretes', 'expense'),
+('Outras Despesas', 'expense')
 ON CONFLICT DO NOTHING;
 
 -- 2. Tabela de Contas a Pagar (Accounts Payable)

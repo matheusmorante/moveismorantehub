@@ -81,6 +81,7 @@ export type VisibilitySettings = {
     totalValue: boolean;
     status: boolean;
     orderType: boolean;
+    labels: boolean;
 
     actions: boolean;
 };

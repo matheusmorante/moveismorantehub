@@ -106,24 +106,46 @@ const OrderHistoryRow = ({
         ...(settings.pickupHandlingOptions || [])
     ];
 
-    const checkItems = (itemsList: any[]) => itemsList?.some(item => {
-        const hLabel = (item.handlingType || "").trim().toLowerCase();
-        if (!hLabel) return false;
-        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
-        return foundOpt?.includeInAssemblySchedule === true;
-    });
+    const normalize = (str: string) => (str || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    const hasAssembly = checkItems(order.items) || checkItems(order.assistanceItems as any);
+    const getMatchingOption = (hLabel: string) => {
+        if (!hLabel) return null;
+        
+        // Match exato ou parcial (ex: "Montagem" em "Pedido de Montagem")
+        return allOptions.find(o => {
+            const sLabel = normalize(o?.label);
+            return sLabel === hLabel || (sLabel && (hLabel.includes(sLabel) || sLabel.includes(hLabel)));
+        });
+    };
+
+    const isHandlingAssembly = (item: any) => {
+        const hLabel = normalize(item.handlingType);
+        const opt = getMatchingOption(hLabel);
+        return opt?.includeInAssemblySchedule || false;
+    };
+
+    const isHandlingOutside = (item: any) => {
+        const hLabel = normalize(item.handlingType);
+        const opt = getMatchingOption(hLabel);
+        return (opt?.includeInAssemblySchedule && opt?.isAssemblyOutside) || false;
+    };
+
+    const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
+    const hasAssemblyConfig = allOrderItems.some(isHandlingAssembly);
+    const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
+    const isOnlyInternalAssembly = hasAssemblyConfig && !isAssemblyOutside;
     
     // Explicit colors to match legend and be visible on white background
     const cellBgClass = 
-        (rowColorKey === 'green' 
-            ? 'bg-green-100 dark:bg-green-950/40' 
-            : (rowColorKey === 'purple' 
-                ? 'bg-purple-100 dark:bg-purple-900/50' 
-                : (rowColorKey === 'orange' 
-                    ? 'bg-orange-100/40 dark:bg-orange-900/40' 
-                    : cls.rowHover)));
+        (isDraft 
+            ? 'bg-slate-100/80 dark:bg-slate-900/40' 
+            : (rowColorKey === 'green' 
+                ? 'bg-green-100 dark:bg-green-950/40' 
+                : (rowColorKey === 'purple' 
+                    ? 'bg-purple-100 dark:bg-purple-900/50' 
+                    : (rowColorKey === 'orange' 
+                        ? 'bg-orange-100/40 dark:bg-orange-900/40' 
+                        : cls.rowHover))));
 
     const baseTdClass = `px-1 py-1 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-middle`;
 
@@ -255,94 +277,6 @@ const OrderHistoryRow = ({
                     </td>
                 );
             case 'customer':
-                return (
-                    <td key={key} className={baseTdClass}>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{order.customerData?.fullName || "Não informado"}</span>
-                            
-                             {order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                                    {!showBlingConfirm ? (
-                                        <button 
-                                            onClick={() => setShowBlingConfirm(true)}
-                                            className="flex items-center gap-1.5 px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm hover:scale-105 transition-all"
-                                        >
-                                            <i className="bi bi-check-circle-fill text-[8px]" />
-                                            <span className="text-[8px] font-black uppercase tracking-tight">Lançado Bling</span>
-                                        </button>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
-                                            <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Desfazer?</span>
-                                            <div className="flex gap-1">
-                                                <button 
-                                                    onClick={() => {
-                                                        onBlingUpdate?.(order.id!, false);
-                                                        setShowBlingConfirm(false);
-                                                    }}
-                                                    className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-red-700 transition-colors"
-                                                >
-                                                    Sim
-                                                </button>
-                                                <button 
-                                                    onClick={() => setShowBlingConfirm(false)}
-                                                    className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                >
-                                                    Não
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Bling Pending Flag */}
-                            {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                                    {!showBlingConfirm ? (
-                                        <button 
-                                            onClick={() => setShowBlingConfirm(true)}
-                                            className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md border border-red-100 dark:border-red-900/30 animate-pulse hover:scale-105 transition-all w-fit shadow-sm"
-                                        >
-                                            <i className="bi bi-exclamation-triangle-fill text-[8px]" />
-                                            <span className="text-[8px] font-black uppercase tracking-tight">Falta Bling</span>
-                                        </button>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
-                                            <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Lançou?</span>
-                                            <div className="flex gap-1">
-                                                <button 
-                                                    onClick={() => {
-                                                        onBlingUpdate?.(order.id!, true);
-                                                        setShowBlingConfirm(false);
-                                                    }}
-                                                    className="px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-emerald-700 transition-colors"
-                                                >
-                                                    Sim
-                                                </button>
-                                                <button 
-                                                    onClick={() => setShowBlingConfirm(false)}
-                                                    className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                >
-                                                    Não
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-
-                        </div>
-                    </td>
-                );
-            case 'totalValue':
-                const displayTotal = order.paymentsSummary?.totalOrderValue || order.paymentsSummary?.totalValue || 0;
-                return (
-                    <td key={key} className={`${baseTdClass} text-right whitespace-nowrap`}>
-                        <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(displayTotal)}</span>
-                    </td>
-                );
-            case 'status':
                 const isAssis = order.orderType === 'assistance';
                 const isPick = order.shipping?.deliveryMethod === 'pickup';
                 const tIcon = isAssis ? 'bi-tools' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck');
@@ -357,55 +291,162 @@ const OrderHistoryRow = ({
                 const sIcon = sIcons[order.status || 'draft'] || 'bi-dot';
 
                 return (
-                    <td key={key} className={`${baseTdClass} relative text-center min-w-[80px]`} onClick={(e) => e.stopPropagation()}>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                            className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 min-w-[64px] mx-auto hover:brightness-95 dark:hover:brightness-125 transition-all active:scale-95 border border-white/50 dark:border-slate-800/50 shadow-sm relative`}
-                            title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}`}
-                        >
-                            <i className={`bi ${tIcon} ${tColor} text-xs`} />
-                            {hasAssembly && (
-                                <i className="bi bi-hammer text-red-600 dark:text-red-500 text-[10px] animate-pulse" title="Necessita de Montagem" />
-                            )}
-                            <i className={`bi ${sIcon} ${currentStatus.text} text-xs`} />
+                    <td key={key} className={baseTdClass}>
+                        <div className="flex flex-col py-1">
+                            <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate">
+                                {order.customerData?.fullName || "Não informado"}
+                            </span>
                             
-                            {/* Stock Processed Indicator Badge - Only show if has products and was processed */}
-                            {order.stockProcessed && order.items?.some(i => i.productId && i.productId.trim() !== "") && (
-                                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm" title="Saída de Estoque Lançada">
-                                    <i className="bi bi-check text-[10px] font-black" />
-                                </div>
-                            )}
-                        </button>
+                            <div className="flex flex-wrap items-center gap-1">
+                                {/* Status Picker Button */}
+                                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
+                                        className={`flex items-center justify-center w-6 h-6 rounded-md ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 hover:brightness-95 dark:hover:brightness-125 transition-all shadow-sm border border-white/50 dark:border-slate-800/20`}
+                                        title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}`}
+                                    >
+                                        <i className={`bi ${sIcon} ${currentStatus.text} text-[10px]`} />
+                                    </button>
 
-                        {showPicker && (
-                            <>
-                                <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowPicker(false); }} />
-                                <div className="absolute top-[calc(100%-8px)] left-1/2 -ml-20 w-40 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-none p-2 flex flex-col gap-1 z-[100] animate-slide-up">
-                                    {Object.keys(statusConfig).map((key) => {
-                                        const s = statusConfig[key];
-                                        return (
-                                            <button
-                                                key={key}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onStatusUpdate(order.id!, key);
-                                                    setShowPicker(false);
-                                                }}
-                                                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-950 group/item ${order.status === key ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
-                                            >
-                                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                                                <span className={`text-[10px] font-black uppercase tracking-widest ${order.status === key ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-500'}`}>
-                                                    {s.label}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
+                                    {showPicker && (
+                                        <>
+                                            <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowPicker(false); }} />
+                                            <div className="absolute top-full mt-1 left-0 w-40 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 z-[250] animate-slide-up">
+                                                {Object.keys(statusConfig).map((k) => {
+                                                    const s = statusConfig[k];
+                                                    return (
+                                                        <button
+                                                            key={k}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onStatusUpdate(order.id!, k);
+                                                                setShowPicker(false);
+                                                            }}
+                                                            className={`flex items-center gap-2.5 p-2 rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-950 group/item ${order.status === k ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
+                                                        >
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${order.status === k ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}>
+                                                                {s.label}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-                            </>
-                        )}
+
+                                {/* Transport Type Icon */}
+                                <div 
+                                    className={`flex items-center justify-center w-6 h-6 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50`}
+                                    title={isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}
+                                >
+                                    <i className={`bi ${tIcon} ${tColor} text-[10px]`} />
+                                </div>
+
+                                {/* Assembly Icons */}
+                                {hasAssemblyConfig && (
+                                    <div 
+                                        className={`flex items-center justify-center gap-0.5 w-fit min-w-[1.5rem] h-6 px-1 rounded-md border animate-blink ${isAssemblyOutside ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20 font-bold' : 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-100 dark:border-yellow-900/20'}`}
+                                        title={isAssemblyOutside ? 'Montagem FORA' : 'Montagem no Depósito'}
+                                    >
+                                        <i className={`bi bi-hammer ${isAssemblyOutside ? 'text-red-500' : 'text-yellow-600'} text-[9px]`} />
+                                        {isAssemblyOutside && <i className="bi bi-house-door-fill text-red-500 text-[8px]" />}
+                                    </div>
+                                )}
+
+                                {/* Stock Processed Indicator */}
+                                {order.stockProcessed && order.items?.some(i => i.productId && i.productId.trim() !== "") && (
+                                    <div 
+                                        className="flex items-center justify-center w-6 h-6 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 shadow-sm" 
+                                        title="Saída de Estoque Lançada"
+                                    >
+                                        <i className="bi bi-box-seam-fill text-[10px]" />
+                                    </div>
+                                )}
+
+                                {/* Bling Status Badges */}
+                                {order.isRegisteredInBling && !showTrash && (
+                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                                        {!showBlingConfirm ? (
+                                            <button 
+                                                onClick={() => setShowBlingConfirm(true)}
+                                                className="flex items-center justify-center w-6 h-6 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 shadow-sm hover:scale-105 transition-all relative"
+                                                title="Lançado no Bling"
+                                            >
+                                                <span className="text-[10px] font-black">B</span>
+                                                <i className="bi bi-check text-[10px] absolute -top-1 -right-1 font-black" />
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
+                                                <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Desfazer?</span>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={() => {
+                                                            onBlingUpdate?.(order.id!, false);
+                                                            setShowBlingConfirm(false);
+                                                        }}
+                                                        className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-red-700 transition-colors"
+                                                    >
+                                                        Sim
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setShowBlingConfirm(false)}
+                                                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Não
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                                        {!showBlingConfirm ? (
+                                            <button 
+                                                onClick={() => setShowBlingConfirm(true)}
+                                                className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md border border-red-100 dark:border-red-900/30 animate-pulse hover:scale-105 transition-all w-fit shadow-sm"
+                                            >
+                                                <i className="bi bi-exclamation-triangle-fill text-[8px]" />
+                                                <span className="text-[8px] font-black uppercase tracking-tight">Falta Bling</span>
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
+                                                <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Lançou?</span>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={() => {
+                                                            onBlingUpdate?.(order.id!, true);
+                                                            setShowBlingConfirm(false);
+                                                        }}
+                                                        className="px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-emerald-700 transition-colors"
+                                                    >
+                                                        Sim
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setShowBlingConfirm(false)}
+                                                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Não
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </td>
                 );
-
+            case 'totalValue':
+                const displayTotal = order.paymentsSummary?.totalOrderValue || order.paymentsSummary?.totalValue || 0;
+                return (
+                    <td key={key} className={`${baseTdClass} text-right whitespace-nowrap`}>
+                        <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(displayTotal)}</span>
+                    </td>
+                );
             case 'actions':
                 return (
                     <td key={key} className={`${baseTdClass} text-center`} onClick={(e) => e.stopPropagation()}>
@@ -451,7 +492,7 @@ const OrderHistoryRow = ({
                                                 </button>
 
                                                 {/* Dropdown Menu - Continuous hover area */}
-                                                <div className={`absolute top-full right-0 pt-2 w-48 flex-col z-[100] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
+                                                <div className={`absolute bottom-full right-0 mb-2 w-48 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up">
                                                         
                                                         {/* Manual Stock Action - Moved to TOP for visibility */}
@@ -597,10 +638,11 @@ const OrderHistoryRow = ({
 
 
     return (
-        <tr
+        <>
+            <tr
             id={id}
             onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[60]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
+            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
         >
             {/* Row Checkbox */}
             <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${cellBgClass}`}>
@@ -629,6 +671,15 @@ const OrderHistoryRow = ({
                 </>
             )}
         </tr>
+        <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes blink {
+                0% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.4; transform: scale(0.92); }
+                100% { opacity: 1; transform: scale(1); }
+            }
+            .animate-blink { animation: blink 1.2s ease-in-out infinite; }
+        `}} />
+        </>
     );
 };
 

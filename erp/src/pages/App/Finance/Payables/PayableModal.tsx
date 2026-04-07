@@ -48,8 +48,8 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
     };
 
     const handleSave = async () => {
-        if (!formData.description || formData.amount <= 0 || !formData.due_date) {
-            toast.error("Preencha descrição, valor e vencimento.");
+        if (!formData.description || formData.amount <= 0 || !formData.due_date || !formData.category_id) {
+            toast.error("Preencha descrição, valor, vencimento e categoria.");
             return;
         }
 
@@ -189,7 +189,7 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
                 <div className="flex-1 overflow-y-auto p-6 xl:p-8 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2 md:col-span-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-500">Descrição</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">Descrição <span className="text-rose-500">*</span></label>
                             <input
                                 type="text"
                                 name="description"
@@ -202,7 +202,6 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
 
                         {!payable && (
                             <div className="space-y-2 md:col-span-2 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 block">Tipo de Custo / Repetição</label>
                                 <div className="flex flex-col sm:flex-row gap-4">
                                     <label className={`flex-1 flex items-center justify-center p-3 rounded-2xl cursor-pointer transition-all border ${expenseType === 'single' ? 'bg-white border-blue-500 text-blue-600 shadow-sm' : 'border-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                                         <input type="radio" className="hidden" checked={expenseType === 'single'} onChange={() => setExpenseType('single')} />
@@ -214,7 +213,7 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
                                     </label>
                                     <label className={`flex-1 flex items-center justify-center p-3 rounded-2xl cursor-pointer transition-all border ${expenseType === 'recurring' ? 'bg-white border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                                         <input type="radio" className="hidden" checked={expenseType === 'recurring'} onChange={() => setExpenseType('recurring')} />
-                                        <span className="text-sm font-bold text-center flex items-center gap-1"><i className="bi bi-arrow-repeat"></i> Fixa / Recorrente</span>
+                                        <span className="text-sm font-bold text-center flex items-center gap-1"><i className="bi bi-arrow-repeat"></i> Todo mês (recorrente)</span>
                                     </label>
                                 </div>
                                 
@@ -227,20 +226,31 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
                                 )}
 
                                 {expenseType === 'recurring' && (
-                                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-4">
-                                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Repetir a cada:</label>
-                                        <select value={recurringFrequency} onChange={(e) => setRecurringFrequency(e.target.value as any)} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500">
-                                            <option value="monthly">Mês</option>
-                                            <option value="yearly">Ano</option>
-                                        </select>
-                                        <span className="text-[10px] text-slate-400 max-w-[200px] leading-tight">*Geraremos automaticamente 12 meses de {formData.amount || 0} no Contas a Pagar</span>
+                                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 items-center">
+                                        <div className="flex-1 space-y-1">
+                                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Começa em qual mês?</label>
+                                            <select 
+                                                value={new Date(formData.due_date).getMonth()} 
+                                                onChange={(e) => {
+                                                    const d = new Date(formData.due_date);
+                                                    d.setMonth(parseInt(e.target.value));
+                                                    setFormData({...formData, due_date: d.toISOString().split('T')[0]});
+                                                }}
+                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500"
+                                            >
+                                                {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                                                    <option key={i} value={i}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 max-w-[200px] leading-tight">*Geraremos automaticamente 12 meses de cobrança no Contas a Pagar</span>
                                     </div>
                                 )}
                             </div>
                         )}
 
                         <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-500">Valor (R$)</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">Valor (R$) <span className="text-rose-500">*</span></label>
                             <input
                                 type="number"
                                 name="amount"
@@ -252,14 +262,43 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-500">Data de Vencimento</label>
-                            <input
-                                type="date"
-                                name="due_date"
-                                value={formData.due_date}
-                                onChange={handleChange}
-                                className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
-                            />
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
+                                {expenseType === 'single' ? 'Data do Pagamento' : (expenseType === 'recurring' ? 'Dia do Vencimento' : 'Data de Vencimento')} <span className="text-rose-500">*</span>
+                            </label>
+                            <div className="relative group/date">
+                                {expenseType === 'recurring' ? (
+                                    <select
+                                        name="due_day_select"
+                                        value={new Date(formData.due_date).getDate()}
+                                        onChange={(e) => {
+                                            const d = new Date(formData.due_date);
+                                            d.setDate(parseInt(e.target.value));
+                                            setFormData({...formData, due_date: d.toISOString().split('T')[0]});
+                                        }}
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500 transition-all font-sans"
+                                    >
+                                        {Array.from({length: 31}, (_, i) => i + 1).map(day => (
+                                            <option key={day} value={day}>{day}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="date"
+                                        name="due_date"
+                                        value={formData.due_date}
+                                        onChange={handleChange}
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                                    />
+                                )}
+                                {expenseType === 'recurring' && (
+                                    <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-800/30 rounded-xl">
+                                        <i className="bi bi-info-circle-fill text-blue-500 text-xs" />
+                                        <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tight">
+                                            Será lançado e marcado como pago automaticamente ao passar da data
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -275,14 +314,14 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-500">Categoria</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">Categoria <span className="text-rose-500">*</span></label>
                             <select
                                 name="category_id"
                                 value={formData.category_id}
                                 onChange={handleChange}
-                                className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                                className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500 transition-all font-sans"
                             >
-                                <option value="">Sem categoria</option>
+                                <option value="" disabled>Selecione uma categoria</option>
                                 {categories.map(c => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}

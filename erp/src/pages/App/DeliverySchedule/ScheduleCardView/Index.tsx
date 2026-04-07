@@ -80,12 +80,29 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     const colorKey = isAssemblyTask ? 'rose' : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const cls = getOrderTypeClasses(colorKey);
 
+    const allOptions = [
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || [])
+    ];
+
+    const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
+    
+    const isAssemblyOutside = allItems.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.includeInAssemblySchedule === true && foundOpt?.isAssemblyOutside === true;
+    });
+
+    const isOnlyInternalAssembly = allItems.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.includeInAssemblySchedule === true && !foundOpt?.isAssemblyOutside;
+    });
+
     const getHandlingColor = (label?: string) => {
         if (!label) return undefined;
-        const allOptions = [
-            ...(settings.deliveryHandlingOptions || []),
-            ...(settings.pickupHandlingOptions || [])
-        ];
         return allOptions.find(o => o.label === label)?.color;
     };
 
@@ -100,6 +117,17 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                     <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600 shadow-md shadow-rose-200' : cls.dotBg + ' shadow-md'}`}>
                         {typeLabel}
                     </span>
+                    {isAssemblyOutside && (
+                        <div className="flex items-center gap-0.5 bg-red-600 text-white px-2 py-1 rounded-full shadow-md border border-white/20 ml-1 animate-blink" title="Montagem Fora - Realizada fora da morante">
+                            <i className="bi bi-hammer text-[10px]" />
+                            <i className="bi bi-house-door-fill text-[8px]" />
+                        </div>
+                    )}
+                    {isOnlyInternalAssembly && (
+                        <div className="flex items-center gap-1 bg-yellow-500 text-white px-2 py-1 rounded-full shadow-md border border-white/20 ml-1 animate-blink" title="Montagem agendada">
+                            <i className="bi bi-hammer text-[10px]" />
+                        </div>
+                    )}
                 </div>
                 {/* Hammer Button Overlay */}
                 {isLinked && (
@@ -427,6 +455,21 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
         </div>
     );
 };
+
+const styles = `
+    @keyframes blink {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.92); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    .animate-blink { animation: blink 1.2s ease-in-out infinite; }
+`;
+
+if (typeof document !== 'undefined') {
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = styles;
+    document.head.appendChild(styleTag);
+}
 
 
 export default ScheduleCardView;

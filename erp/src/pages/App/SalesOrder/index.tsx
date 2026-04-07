@@ -58,6 +58,7 @@ const SalesOrder = () => {
         totalValue: true,
         status: true,
         orderType: true,
+        labels: true,
 
         actions: true,
     });
@@ -219,6 +220,7 @@ const SalesOrder = () => {
                                                     { key: 'deliveryDate', label: 'Data de Entrega' },
                                                     { key: 'customer', label: 'Cliente' },
                                                     { key: 'totalValue', label: 'Valor Total' },
+                                                    { key: 'labels', label: 'Rótulos' },
                                                     { key: 'status', label: 'Status' },
                                                     { key: 'actions', label: 'Ações' },
                                                 ].map((col) => (

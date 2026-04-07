@@ -31,6 +31,27 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     const isAssembly = (order as any).taskType === 'assembly';
     const typeLabel = isAssembly ? 'MONTAGEM' : (isAssistance ? 'ASSISTÊNCIA' : (isPickup ? 'RETIRADA' : 'ENTREGA'));
 
+    const allOptions = [
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || [])
+    ];
+
+    const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
+    
+    const isAssemblyOutside = allItems.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.includeInAssemblySchedule === true && foundOpt?.isAssemblyOutside === true;
+    });
+
+    const isOnlyInternalAssembly = allItems.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.includeInAssemblySchedule === true && !foundOpt?.isAssemblyOutside;
+    });
+
     const timeDisplay = order.shipping?.scheduling?.startTime || order.shipping?.scheduling?.time || (order as any).period || (order as any).startTime || "Horário Livre";
     const endTimeDisplay = order.shipping?.scheduling?.endTime || (order as any).endTime;
 
@@ -131,9 +152,22 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                     );
                 })()}
                 <div className="flex justify-between items-center mb-1">
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600' : cls.dotBg}`}>
-                        {typeLabel}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600' : cls.dotBg}`}>
+                            {typeLabel}
+                        </span>
+                        {isAssemblyOutside && (
+                            <div className="flex items-center gap-0.5 bg-red-600 text-white px-2 py-1 rounded-full shadow-md border border-white/20 animate-blink" title="Montagem Fora - Realizada fora da morante">
+                                <i className="bi bi-hammer text-[10px]" />
+                                <i className="bi bi-house-door-fill text-[8px]" />
+                            </div>
+                        )}
+                        {isOnlyInternalAssembly && (
+                            <div className="flex items-center gap-1 bg-yellow-500 text-white px-2 py-1 rounded-full shadow-md border border-white/20 animate-blink" title="Montagem agendada">
+                                <i className="bi bi-hammer text-[10px]" />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
 
@@ -185,6 +219,15 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                     </div>
                 )}
 
+                {isAssemblyOutside && (
+                    <div className="flex items-start gap-3 bg-red-50/60 dark:bg-red-900/10 p-2.5 rounded-xl border border-red-100 dark:border-red-900/20">
+                        <i className="bi bi-geo-fill text-red-500 mt-0.5 shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 leading-tight">
+                            MONTAGEM EXTERNA (FORA)
+                        </span>
+                    </div>
+                )}
+
                 {isAssembly && (
                     <div className="flex flex-col gap-1.5">
                         <div className="text-[12px] text-slate-500 dark:text-slate-400 font-black truncate">
@@ -214,6 +257,13 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 
                 <style dangerouslySetInnerHTML={{
                     __html: `
+                    @keyframes blink {
+                        0% { opacity: 1; transform: scale(1); }
+                        50% { opacity: 0.4; transform: scale(0.92); }
+                        100% { opacity: 1; transform: scale(1); }
+                    }
+                    .animate-blink { animation: blink 1.2s ease-in-out infinite; }
+                    
                     @keyframes slide-up-custom {
                         from { transform: translateY(10px); opacity: 0; }
                         to { transform: translateY(0); opacity: 1; }

@@ -42,7 +42,6 @@ const COLUMNS_DEF: ColumnDef[] = [
     { key: 'deliveryDate', label: 'Agendado' },
     { key: 'customer', label: 'Cliente' },
     { key: 'totalValue', label: 'Valor Total', align: 'text-right' },
-    { key: 'status', label: '', align: 'text-center' },
     { key: 'actions', label: 'Ações', align: 'text-center' },
 ];
 

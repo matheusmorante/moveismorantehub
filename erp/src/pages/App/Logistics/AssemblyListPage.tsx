@@ -46,14 +46,18 @@ const AssemblyListPage = () => {
         if (!settingsLoaded) return;
 
         const unsubscribe = subscribeToOrders((allOrders) => {
+            const normalize = (str: string) => (str || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
             const orderTasks = allOrders.filter(order => {
                 if (order.deleted || order.status === 'cancelled') return false;
                 const isPickup = order.shipping?.deliveryMethod === 'pickup';
                 const modalityOptions = isPickup ? (settings.pickupHandlingOptions || []) : (settings.deliveryHandlingOptions || []);
                 
                 return order.items?.some(i => {
-                    const opt = modalityOptions.find(o => o.label === (i.handlingType || "").trim());
-                    return opt?.includeInAssemblySchedule;
+                    const hLabel = normalize(i.handlingType);
+                    const opt = modalityOptions.find(o => normalize(o.label) === hLabel);
+                    // Exclusivo para depósito: inclui no cronograma E NÃO é fora
+                    return opt?.includeInAssemblySchedule && !opt?.isAssemblyOutside;
                 });
             }).map(order => ({
                 id: order.id,
@@ -70,8 +74,9 @@ const AssemblyListPage = () => {
                 items: order.items.filter(i => {
                     const isPickup = order.shipping?.deliveryMethod === 'pickup';
                     const modalityOptions = isPickup ? (settings.pickupHandlingOptions || []) : (settings.deliveryHandlingOptions || []);
-                    const opt = modalityOptions.find(o => o.label === (i.handlingType || "").trim());
-                    return opt?.includeInAssemblySchedule;
+                    const hLabel = normalize(i.handlingType);
+                    const opt = modalityOptions.find(o => normalize(o.label) === hLabel);
+                    return opt?.includeInAssemblySchedule && !opt?.isAssemblyOutside;
                 }).map(i => ({ description: i.description, quantity: i.quantity })),
                 status: order.status,
                 fullData: order
@@ -166,7 +171,7 @@ const AssemblyListPage = () => {
     const renderHeader = () => (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-                <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Lista de Montagem</h1>
+                <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Montagem no Depósito</h1>
                 <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
                     {isStandalone ? "Visualização em Tempo Real" : "Gestão de serviços técnicos e montagens"}
                 </p>

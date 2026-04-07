@@ -56,21 +56,37 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                                                 next[idx] = { ...next[idx], label: e.target.value };
                                                                 onChange(path, next);
                                                             }}
-                                                            rows={1}
-                                                            className="flex-1 bg-transparent border-none text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:ring-0 outline-none transition-all placeholder:text-slate-300 p-0 resize-none leading-tight"
+                                                            className="flex-1 bg-transparent border-none text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:ring-0 outline-none transition-all placeholder:text-slate-300 p-0 resize-none leading-tight min-h-[32px] py-1 overflow-hidden"
                                                             placeholder="Ex: Montagem, Na Caixa..."
+                                                            onInput={(e) => {
+                                                                const target = e.target as HTMLTextAreaElement;
+                                                                target.style.height = 'auto';
+                                                                target.style.height = target.scrollHeight + 'px';
+                                                            }}
+                                                            ref={(el) => {
+                                                                if (el) {
+                                                                    el.style.height = 'auto';
+                                                                    el.style.height = el.scrollHeight + 'px';
+                                                                }
+                                                            }}
                                                         />
                                                     </div>
 
                                                     <div className="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800/50">
                                                         <div className="flex items-center gap-4">
-                                                            {/* Assembly Toggle */}
+                                                            {/* Assembly Toggle (Depósito) */}
                                                             <div className="flex flex-col items-center gap-0.5 group/toggle">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
                                                                         const next = [...options];
-                                                                        next[idx] = { ...next[idx], includeInAssemblySchedule: !opt.includeInAssemblySchedule };
+                                                                        const newValue = !opt.includeInAssemblySchedule;
+                                                                        next[idx] = { 
+                                                                            ...next[idx], 
+                                                                            includeInAssemblySchedule: newValue,
+                                                                            // Se ligar montagem no depósito, desliga montagem fora
+                                                                            isAssemblyOutside: newValue ? false : opt.isAssemblyOutside
+                                                                        };
                                                                         onChange(path, next);
                                                                     }}
                                                                     className={`w-7 h-3.5 rounded-full transition-all relative border-2 ${opt.includeInAssemblySchedule ? 'bg-blue-600 border-blue-600' : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-700'}`}
@@ -78,25 +94,31 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                                                     <div className={`absolute top-0 w-2 h-2 bg-white rounded-full transition-all shadow-sm ${opt.includeInAssemblySchedule ? 'left-3.5' : 'left-0.5'}`} />
                                                                 </button>
                                                                 <span className={`text-[7px] font-black uppercase tracking-tighter leading-tight ${opt.includeInAssemblySchedule ? 'text-blue-600' : 'text-slate-400'} text-center w-12`}>
-                                                                    {opt.includeInAssemblySchedule ? 'Agendar Montagem' : 'Sem Agend.'}
+                                                                    {opt.includeInAssemblySchedule ? 'Montagem no Depósito' : 'SEM AGEND.'}
                                                                 </span>
                                                             </div>
 
-                                                            {/* Is Local Assembly Toggle */}
+                                                            {/* Is Outside Assembly Toggle */}
                                                             <div className="flex flex-col items-center gap-0.5 group/toggle">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
                                                                         const next = [...options];
-                                                                        next[idx] = { ...next[idx], isAssemblyAtDelivery: !opt.isAssemblyAtDelivery };
+                                                                        const newValue = !opt.isAssemblyOutside;
+                                                                        next[idx] = { 
+                                                                            ...next[idx], 
+                                                                            isAssemblyOutside: newValue,
+                                                                            // Se ligar montagem fora, desliga montagem no depósito
+                                                                            includeInAssemblySchedule: newValue ? false : opt.includeInAssemblySchedule
+                                                                        };
                                                                         onChange(path, next);
                                                                     }}
-                                                                    className={`w-7 h-3.5 rounded-full transition-all relative border-2 ${opt.isAssemblyAtDelivery ? 'bg-emerald-600 border-emerald-600' : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-700'}`}
+                                                                    className={`w-7 h-3.5 rounded-full transition-all relative border-2 ${opt.isAssemblyOutside ? 'bg-rose-600 border-rose-600' : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-700'}`}
                                                                 >
-                                                                    <div className={`absolute top-0 w-2 h-2 bg-white rounded-full transition-all shadow-sm ${opt.isAssemblyAtDelivery ? 'left-3.5' : 'left-0.5'}`} />
+                                                                    <div className={`absolute top-0 w-2 h-2 bg-white rounded-full transition-all shadow-sm ${opt.isAssemblyOutside ? 'left-3.5' : 'left-0.5'}`} />
                                                                 </button>
-                                                                <span className={`text-[7px] font-black uppercase tracking-tighter leading-tight ${opt.isAssemblyAtDelivery ? 'text-emerald-600' : 'text-slate-400'} text-center w-12`}>
-                                                                    {opt.isAssemblyAtDelivery ? 'Montagem no Local' : 'Montagem Fora'}
+                                                                <span className={`text-[7px] font-black uppercase tracking-tighter leading-tight ${opt.isAssemblyOutside ? 'text-rose-600' : 'text-slate-400'} text-center w-12`}>
+                                                                    {opt.isAssemblyOutside ? 'Montagem FORA' : 'SEM MONT. FORA'}
                                                                 </span>
                                                             </div>
 
