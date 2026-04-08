@@ -167,10 +167,10 @@ const LabelPrinting: React.FC = () => {
         showStoreName: !isProductContext,
         showStoreLogo: !isProductContext,
         showCustomText: false,
-        text: 'PRODUTO EXEMPLO',
-        price: 'R$ 0,00',
-        sku: 'SKU-001',
-        qrContent: 'https://moveismorante.com.br',
+        text: '',
+        price: '',
+        sku: '',
+        qrContent: '',
         customText: 'Qualidade Garantida',
         imageScale: 1,
         marginT: 8,
@@ -753,7 +753,7 @@ const LabelPrinting: React.FC = () => {
                 // Adicionar automaticamente à fila para conveniência no modo simples
                 if (selectedCategory === 'precos') {
                     const newItem: LabelItemConfig = {
-                        name: file.name.split('.')[0].toUpperCase(),
+                        name: "", // Usuário removeu a necessidade do nome da etiqueta
                         price: '',
                         sku: '',
                         quantity: 1,

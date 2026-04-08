@@ -35,14 +35,10 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
         return () => el.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Load order data into form on mount
     useEffect(() => {
         if (order && order.id) {
             form.actions.loadOrderForEditing(order);
         }
-        // We only want to load the order when the component mounts or the order ID changes.
-        // Dependent on form.actions.loadOrderForEditing which is memoized and stable.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [order?.id, form.actions.loadOrderForEditing]);
 
     const handleUpdate = useCallback(async (e?: React.MouseEvent) => {

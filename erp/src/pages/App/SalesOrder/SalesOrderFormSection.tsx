@@ -96,6 +96,8 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     setCustomerData={actions.setCustomerData}
                                     errors={state.errors}
                                     isPickup={isPickup}
+                                    marketingOrigin={state.marketingOrigin}
+                                    setMarketingOrigin={actions.setMarketingOrigin}
                                 />
                             </SectionCard>
                         </div>

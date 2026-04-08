@@ -17,6 +17,8 @@ interface Props {
     setCustomerData: React.Dispatch<React.SetStateAction<CustomerData>>;
     errors: ValidationErrors;
     isPickup: boolean;
+    marketingOrigin?: string;
+    setMarketingOrigin?: (origin: string) => void;
 }
 
 const EMPTY_ADDRESS = {
@@ -24,8 +26,7 @@ const EMPTY_ADDRESS = {
     complement: '', neighborhood: '', city: '', observation: ''
 };
 
-const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }: Props) => {
-    const [isSyncing, setIsSyncing] = useState(false);
+const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, marketingOrigin, setMarketingOrigin }: Props) => {
     const [customers, setCustomers] = useState<Person[]>([]);
     const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -77,6 +78,9 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
             fullAddress: customer.fullAddress || EMPTY_ADDRESS
         });
         setSearchTerm(customer.fullName || customer.tradeName || '');
+        if (customer.marketingOrigin && setMarketingOrigin) {
+            setMarketingOrigin(customer.marketingOrigin === 'paid' ? 'Tráfego Pago' : 'Direto na Loja');
+        }
         setIsDropdownOpen(false);
     };
 
@@ -138,37 +142,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
         setIsStreetSuggestionsOpen(false);
     };
 
-    // Real-time Database Sync Logic (Debounced)
-    useEffect(() => {
-        if (!customerData.id || customerData.fullName === 'Consumidor Final') return;
-
-        setIsSyncing(true);
-        const timer = setTimeout(async () => {
-            try {
-                await updatePerson('customers', customerData.id!, {
-                    fullName: customerData.fullName,
-                    phone: customerData.phone,
-                    noPhone: customerData.noPhone,
-                    fullAddress: customerData.fullAddress
-                });
-                toast.success("Cadastro do cliente atualizado automaticamente", { 
-                    toastId: 'customer-sync-success',
-                    autoClose: 2000,
-                    position: "bottom-right"
-                });
-            } catch (e) {
-                console.error("Erro ao sincronizar dados do cliente:", e);
-                toast.error("Falha ao sincronizar dados com o servidor");
-            } finally {
-                setIsSyncing(false);
-            }
-        }, 2000); // 2s debounce to avoid too many writes
-
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [customerData.fullName, customerData.phone, customerData.noPhone, customerData.fullAddress, customerData.id]);
-
+    // Sync effect removed to prevent accidental customer modification
     const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
         const cep = e.target.value.replace(/\D/g, '');
         if (cep.length === 8) {
@@ -201,12 +175,32 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
     const isStreetError = !!errors['customer_street'];
     const isNumberError = !!errors['customer_number'];
     const isCityError = !!errors['customer_city'];
+    const isReadOnly = !!customerData.id;
+
+    const personToEdit = React.useMemo(() => {
+        if (!isEditCustomerModalOpen || !customerData.id) return null;
+        
+        const existing = customers.find(c => c.id === customerData.id);
+        if (existing) return existing;
+        
+        // Construct a virtual Person from customerData
+        return {
+            id: customerData.id,
+            fullName: customerData.fullName || "",
+            phone: customerData.phone || "",
+            noPhone: customerData.noPhone || false,
+            fullAddress: customerData.fullAddress || EMPTY_ADDRESS,
+            personType: 'PF', // Fallback
+            type: 'customers',
+            marketingOrigin: marketingOrigin === 'Tráfego Pago' ? 'paid' : 'organic',
+            active: true
+        } as Person;
+    }, [isEditCustomerModalOpen, customerData, customers, marketingOrigin]);
 
     const field = (hasError?: boolean) =>
-        `w-full bg-white dark:bg-slate-900 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${hasError
-            ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10'
-            : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
-        }`;
+        `w-full border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${isReadOnly
+            ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent focus:ring-0'
+            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'} ${hasError && !isReadOnly ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : ''}`;
 
     return (
         <div className="space-y-6" ref={wrapperRef}>
@@ -217,12 +211,6 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                         Selecionar Cliente
                     </label>
-                    {isSyncing && (
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500 animate-pulse flex items-center gap-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            Sincronizando Cadastro Central...
-                        </span>
-                    )}
                 </div>
 
                 <div className="relative flex gap-2">
@@ -354,6 +342,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 placeholder="Nome Completo"
                                 value={customerData.fullName}
                                 onChange={e => setCustomerData(prev => ({ ...prev, fullName: e.target.value }))}
+                                readOnly={isReadOnly}
                             />
                             {isNameError && (
                                 <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
@@ -371,7 +360,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 <button
                                     type="button"
                                     onClick={() => setCustomerData(prev => ({ ...prev, noPhone: !prev.noPhone, phone: !prev.noPhone ? "" : prev.phone }))}
-                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                    disabled={isReadOnly}
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'} ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {customerData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
                                 </button>
@@ -383,7 +373,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                     placeholder={customerData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
                                     value={customerData.phone}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                                    disabled={customerData.noPhone}
+                                    disabled={customerData.noPhone || isReadOnly}
                                 />
                                 <button type="button"
                                     onClick={() => {
@@ -422,6 +412,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                     value={customerData.fullAddress?.cep || ''}
                                     onChange={e => updateAddress('cep', e.target.value)}
                                     onBlur={handleCepBlur}
+                                    readOnly={isReadOnly}
                                 />
                             </div>
                             <div className="flex-1 relative group/field" ref={streetWrapperRef}>
@@ -429,7 +420,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 <input type="text" className={field(isStreetError)} placeholder="Nome da rua"
                                     value={customerData.fullAddress?.street || ''}
                                     onChange={e => handleStreetChange(e.target.value)}
-                                    onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
+                                    onFocus={() => { if (streetSuggestions.length > 0 && !isReadOnly) setIsStreetSuggestionsOpen(true); }}
+                                    readOnly={isReadOnly}
                                 />
                                 {isSearchingStreet && (
                                     <div className="absolute right-3 top-[34px] -translate-y-1/2">
@@ -466,6 +458,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 <input type="text" className={field(isNumberError)} placeholder="123"
                                     value={customerData.fullAddress?.number || ''}
                                     onChange={e => updateAddress('number', e.target.value)}
+                                    readOnly={isReadOnly}
                                 />
                                 {isNumberError && (
                                     <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
@@ -483,6 +476,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 <input type="text" className={field()} placeholder="Apto, Bloco..."
                                     value={customerData.fullAddress?.complement || ''}
                                     onChange={e => updateAddress('complement', e.target.value)}
+                                    readOnly={isReadOnly}
                                 />
                             </div>
                             <div className="flex-1">
@@ -490,6 +484,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 <input type="text" className={field()} placeholder="Seu bairro"
                                     value={customerData.fullAddress?.neighborhood || ''}
                                     onChange={e => updateAddress('neighborhood', e.target.value)}
+                                    readOnly={isReadOnly}
                                 />
                             </div>
                             <div className="flex-1 relative group/field">
@@ -497,6 +492,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 <input type="text" className={field(isCityError)} placeholder="Nome da cidade"
                                     value={customerData.fullAddress?.city || ''}
                                     onChange={e => updateAddress('city', e.target.value)}
+                                    readOnly={isReadOnly}
                                 />
                                 {isCityError && (
                                     <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
@@ -513,10 +509,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                                 Ponto de Referência / Observação
                             </label>
                             <input type="text"
-                                className="w-full bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-amber-300 dark:placeholder:text-amber-700/50"
+                                className={`w-full border px-3 py-2 rounded-xl text-sm font-bold outline-none transition-all ${isReadOnly ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent text-slate-700 dark:text-slate-300' : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 text-slate-700 dark:text-amber-100 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder:text-amber-300 dark:placeholder:text-amber-700/50'}`}
                                 placeholder="Ex: Casa verde em frente à padaria..."
                                 value={customerData.fullAddress?.observation || ''}
                                 onChange={e => updateAddress('observation', e.target.value)}
+                                readOnly={isReadOnly}
                             />
                         </div>
 
@@ -561,7 +558,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                 title="Cliente"
             />
 
-            {isEditCustomerModalOpen && (
+    {isEditCustomerModalOpen && (
                 <PersonFormModal
                     isOpen={isEditCustomerModalOpen}
                     onClose={() => setIsEditCustomerModalOpen(false)}
@@ -569,7 +566,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup }:
                         handleSelectCustomer(updated);
                         setIsEditCustomerModalOpen(false);
                     }}
-                    person={customers.find(c => c.id === customerData.id) || null}
+                    person={personToEdit}
                     collectionName="customers"
                     title="Cliente"
                 />

@@ -84,6 +84,23 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     const isEditing = !!order;
     const initialDataFetched = useRef(false);
 
+    // Sync state when order prop changes (important for editing existing orders)
+    useEffect(() => {
+        if (order) {
+            setCustomerData(order.customerData || EMPTY_CUSTOMER);
+            setDescription(order.assistanceDescription || "");
+            setObservation(order.observation || "");
+            setScheduledDate(order.scheduledDate || "");
+            setScheduledTime(order.scheduledTime || "");
+            setIsLinked(!!order.linkedOrderId);
+            setLinkedOrderId(order.linkedOrderId || "");
+            setSelectedAssistanceItems(order.assistanceItems || []);
+            setExtraItems(order.items || []);
+            setAssistanceCost(order.assistanceCost || 0);
+            setAssistanceServiceValue(order.assistanceServiceValue || 0);
+        }
+    }, [order]);
+
     useEffect(() => {
         const unsubscribe = subscribeToOrders((data) => {
             const filtered = data.filter(o => o.orderType !== 'assistance' && !o.deleted);

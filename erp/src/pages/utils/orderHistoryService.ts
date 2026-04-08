@@ -33,11 +33,44 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 return;
             }
 
+            // Fetch people to populate legacy missing marketingOrigin
+            let peopleOrigins: Record<string, string> = {};
+            try {
+                const { data: peopleData } = await supabase.from('people').select('id, full_name, marketing_origin');
+                if (peopleData) {
+                    peopleData.forEach((p: any) => {
+                        const origin = p.marketing_origin || '';
+                        if (p.id) peopleOrigins[String(p.id)] = origin;
+                        if (p.full_name) peopleOrigins[String(p.full_name).trim().toLowerCase()] = origin;
+                    });
+                }
+            } catch (e) {
+                console.error('[OrdersSync] Failed to fetch people origins', e);
+            }
+
             if (data && Array.isArray(data)) {
                 console.log('[OrdersSync] Data received, count:', data.length);
                 const orders = data.map((row: any) => {
                     try {
                         const rawData = { ...(row.order_data || {}), id: String(row.id) } as Order;
+                        // Inject marketing origin from people registry for legacy orders
+                        const cInfo = rawData.customerData;
+                        
+                        let legacyMarketingOrig: string | undefined = undefined;
+                        if (cInfo?.id && peopleOrigins[String(cInfo.id)]) {
+                            legacyMarketingOrig = peopleOrigins[String(cInfo.id)];
+                        } else if (cInfo?.fullName && peopleOrigins[String(cInfo.fullName).trim().toLowerCase()]) {
+                            legacyMarketingOrig = peopleOrigins[String(cInfo.fullName).trim().toLowerCase()];
+                        }
+                        
+                        if (legacyMarketingOrig === 'paid') {
+                            // Automatically override if CRM says they are paid
+                            rawData.marketingOrigin = 'paid';
+                        } else if (legacyMarketingOrig && (!rawData.marketingOrigin || rawData.marketingOrigin === 'Direto na Loja')) {
+                            // Only set organic/others if order doesn't have a valid one
+                            rawData.marketingOrigin = legacyMarketingOrig;
+                        }
+                        
                         return capitalizeOrder(rawData);
                     } catch (_e) {
                         return { ...(row.order_data || {}), id: String(row.id) } as Order;
@@ -61,7 +94,13 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
     const channel = supabase.channel(`orders_changes_${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
             if (!aborted) {
-                console.log('[OrdersSync] Change detected, refetching...');
+                console.log('[OrdersSync] Change detected in orders, refetching...');
+                fetchAndCallback();
+            }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, (payload: any) => {
+            if (!aborted) {
+                console.log('[OrdersSync] Change detected in people (CRM), refetching to update marketing origins...');
                 fetchAndCallback();
             }
         })

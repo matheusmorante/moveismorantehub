@@ -97,8 +97,21 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
         columnGap: `${config.gapH}mm`,
         justifyContent: 'center',
         boxSizing: 'border-box',
-        overflow: 'hidden',
-        position: 'relative'
+        overflow: 'hidden', // Mantém o recorte da imagem e conteúdo na folha
+        position: 'relative',
+        zIndex: 1
+    };
+
+    // Layer for overflowing bleed borders
+    const bleedOverlayStyle: React.CSSProperties = {
+        ...sheetStyle,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        backgroundColor: 'transparent',
+        overflow: 'visible',
+        zIndex: 10,
+        pointerEvents: 'none'
     };
 
     return (
@@ -116,53 +129,74 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
             <div 
                 style={{
                     ...sheetStyle,
-                    transform: previewMode ? 'scale(0.85)' : 'none', // Ajuste leve para preview
+                    transform: previewMode ? 'scale(0.85)' : 'none',
                     transformOrigin: 'top center',
                     boxShadow: previewMode ? '0 20px 50px -12px rgb(0 0 0 / 0.15)' : 'none',
                     margin: previewMode ? '0 auto 40px' : '0 auto'
                 }} 
                 className="label-sheet"
             >
-            {Array.from({ length: totalCells }).map((_, i) => {
-                const item = finalItems[i];
-                return (
-                    <div 
-                        key={`${i}-${currentPage}`} 
-                        onClick={() => onCellClick?.(i)}
-                        className={`flex items-center justify-center overflow-hidden transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
-                        style={{ width: '100%', height: '100%', position: 'relative' }}
-                    >
-                        {item ? (
-                            <LabelItem 
-                                config={{
-                                    ...config,
-                                    text: item.name || config.text,
-                                    price: item.price || config.price,
-                                    promoPrice: item.promoPrice || config.promoPrice,
-                                    sku: item.sku || config.sku,
-                                    extraFields: item.extraFields || config.extraFields,
-                                    nameColor: config.nameColor,
-                                    priceColor: config.priceColor,
-                                    promoPriceColor: config.promoPriceColor,
-                                    oldPriceColor: config.oldPriceColor,
-                                    imageFit: item.imageFit || config.imageFit,
-                                }} 
-                                image={item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image))} 
-                                index={i} 
-                                scale={item.scale || config.imageScale}
-                                rotation={item.rotation || 0}
-                            />
-                        ) : (
-                            null
-                        )}
-                        {config.preset === 'custom' && !cellImages[i] && !image && (!item || item.type === 'default') && (
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <i className="bi bi-plus-circle text-blue-500 text-xl" />
+                {/* Camada 1: Conteúdo Recortado pela Folha (Imagens, Textos) */}
+                {Array.from({ length: totalCells }).map((_, i) => {
+                    const item = finalItems[i];
+                    return (
+                        <div 
+                            key={`content-${i}-${currentPage}`} 
+                            onClick={() => onCellClick?.(i)}
+                            className={`flex items-center justify-center overflow-hidden transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
+                            style={{ width: '100%', height: '100%', position: 'relative' }}
+                        >
+                            {item ? (
+                                <LabelItem 
+                                    config={{
+                                        ...config,
+                                        text: item.name || (item.type === 'logo' ? '' : (config.text || '')),
+                                        price: item.price || (item.type === 'logo' ? '' : (config.price || '')),
+                                        promoPrice: item.promoPrice || (item.type === 'logo' ? '' : (config.promoPrice || '')),
+                                        sku: item.sku || (item.type === 'logo' ? '' : (config.sku || '')),
+                                        extraFields: item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || [])),
+                                        imageFit: item.imageFit || config.imageFit,
+                                    }} 
+                                    image={item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image))} 
+                                    index={i} 
+                                    scale={item.scale || config.imageScale}
+                                    rotation={item.rotation || 0}
+                                    hideBleedBorder={true} // Oculta a borda aqui para ela não ser cortada pela folha
+                                />
+                            ) : (
+                                config.preset === 'custom' && !cellImages[i] && !image && (!item || item.type === 'default') && (
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i className="bi bi-plus-circle text-blue-500 text-xl" />
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* Camada 2: Bordas de Sangria (Vazam a folha para visualização) */}
+                <div style={bleedOverlayStyle}>
+                    {Array.from({ length: totalCells }).map((_, i) => {
+                        const item = finalItems[i];
+                        return (
+                            <div 
+                                key={`bleed-${i}-${currentPage}`} 
+                                className="flex items-center justify-center overflow-visible" 
+                                style={{ width: '100%', height: '100%', position: 'relative' }}
+                            >
+                                {(item || config.preset === 'custom') ? (
+                                    <LabelItem 
+                                        config={{ ...config }} 
+                                        image={null}
+                                        index={i}
+                                        hideContent={true} // Esconde textos e imagens nesta camada
+                                        hidePhysicalBorder={true} // Esconde a borda de corte
+                                    />
+                                ) : null}
                             </div>
-                        )}
-                    </div>
-                );
-            })}
+                        );
+                    })}
+                </div>
             </div>
             
             <style dangerouslySetInnerHTML={{ __html: `
@@ -194,6 +228,7 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                     .label-sheet {
                         box-shadow: none !important;
                         border: none !important;
+                        overflow: hidden !important;
                     }
                     .label-item-container {
                          border: none !important;

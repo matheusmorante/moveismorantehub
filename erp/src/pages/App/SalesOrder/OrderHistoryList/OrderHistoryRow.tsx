@@ -290,14 +290,32 @@ const OrderHistoryRow = ({
                 };
                 const sIcon = sIcons[order.status || 'draft'] || 'bi-dot';
 
+                const mOrigin1 = (order.marketingOrigin || "").toLowerCase();
+                const mOrigin2 = (((order as any).customerData?.marketingOrigin) || "").toLowerCase();
+                
+                const isPaidTraffic = 
+                    mOrigin1 === 'paid' || mOrigin1.includes('pago') || mOrigin1.includes('ads') || mOrigin1.includes('facebook') || mOrigin1.includes('insta') || mOrigin1.includes('trafego') || mOrigin1.includes('tráfego') ||
+                    mOrigin2 === 'paid' || mOrigin2.includes('pago') || mOrigin2.includes('ads') || mOrigin2.includes('facebook') || mOrigin2.includes('insta') || mOrigin2.includes('trafego') || mOrigin2.includes('tráfego');
+
                 return (
                     <td key={key} className={baseTdClass}>
-                        <div className="flex flex-col py-1">
-                            <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate">
+                        <div className="flex flex-col py-1 group/name">
+                            <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400 transition-colors flex items-center gap-1.5">
                                 {order.customerData?.fullName || "Não informado"}
+                                <i className="bi bi-pencil text-[10px] opacity-0 group-hover/name:opacity-50 transition-opacity" />
                             </span>
                             
                             <div className="flex flex-wrap items-center gap-1">
+                                {/* Tráfego Pago Badge */}
+                                {isPaidTraffic && (
+                                    <div 
+                                        className="flex items-center justify-center w-6 h-6 rounded-md bg-orange-50 dark:bg-orange-900/40 border border-orange-200 dark:border-orange-800/50"
+                                        title="Gerado por Tráfego Pago"
+                                    >
+                                        <i className="bi bi-megaphone text-orange-600 dark:text-orange-400 text-[10px]"></i>
+                                    </div>
+                                )}
+
                                 {/* Status Picker Button */}
                                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                                     <button
@@ -434,6 +452,22 @@ const OrderHistoryRow = ({
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* Marketing Origin Indicator (Tráfego Pago / Ads) */}
+                                {order.marketingOrigin && (
+                                    order.marketingOrigin.toLowerCase().includes('trafego') || 
+                                    order.marketingOrigin.toLowerCase().includes('ads') ||
+                                    order.marketingOrigin.toLowerCase().includes('facebook') ||
+                                    order.marketingOrigin.toLowerCase().includes('instagram') ||
+                                    order.marketingOrigin.toLowerCase().includes('google')
+                                ) && (
+                                    <div 
+                                        className="flex items-center justify-center w-6 h-6 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md border border-indigo-100 dark:border-indigo-900/30 shadow-sm" 
+                                        title={`Origem: ${order.marketingOrigin}`}
+                                    >
+                                        <i className="bi bi-megaphone-fill text-[10px]" />
                                     </div>
                                 )}
                             </div>

@@ -102,6 +102,8 @@ export interface GridModel {
     extraFields?: any[];
     extraFieldsPromo?: any[];
     fontFamily?: string;
+    safetyMargin?: number;
+    previewImage?: string | null;
 }
 
 interface LabelGridModelModalProps {
@@ -137,6 +139,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
     const [gapH, setGapH] = useState(2);
     const [gapV, setGapV] = useState(2);
     const [layoutType, setLayoutType] = useState<'round' | 'rect'>(currentType || 'rect');
+    const [safetyMargin, setSafetyMargin] = useState(0);
+    const [customPreviewImage, setCustomPreviewImage] = useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Estados de tipografia
     const [nameFontSize, setNameFontSize] = useState(7);
@@ -543,6 +548,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 if (editingModel.extraFieldsPromo) setExtraFieldsPromo(editingModel.extraFieldsPromo);
                 if (editingModel.fontFamily) setFontFamily(editingModel.fontFamily);
                 if (editingModel.priceFormat) setPriceFormat(editingModel.priceFormat);
+                if (editingModel.safetyMargin !== undefined) setSafetyMargin(editingModel.safetyMargin);
+                if (editingModel.previewImage) setCustomPreviewImage(editingModel.previewImage);
 
                 // Carregar Split Price Promoção
                 if (editingModel.promoPriceSymbolPosX !== undefined) setPromoPriceSymbolPos({ x: editingModel.promoPriceSymbolPosX, y: editingModel.promoPriceSymbolPosY ?? 70 });
@@ -687,7 +694,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 promoPriceDecimalsPosY: promoPriceDecimalsPos.y,
                 promoPriceDecimalsFontSize: promoPriceDecimalsFontSize, 
                 promoPriceDecimalsColor: promoPriceDecimalsColor,
-                promoPriceDecimalsBold: promoPriceDecimalsBold
+                promoPriceDecimalsBold: promoPriceDecimalsBold,
+                safetyMargin: safetyMargin,
+                previewImage: customPreviewImage
             };
             await onSave(newModel);
             onClose();
@@ -1003,6 +1012,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         );
     };
 
+    const effectivePreviewImage = customPreviewImage || previewImage;
+
     // Visualizador de Folha Inteira com Exemplos
     const SheetPreviewGrid = () => {
         const option = PAPER_OPTIONS.find(o => o.id === paperSize) || PAPER_OPTIONS[0];
@@ -1016,161 +1027,115 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         const getVAlignment = (valign?: string) => valign === 'middle' ? 'center' : valign === 'bottom' ? 'flex-end' : 'flex-start';
 
         return (
-            <div className="relative bg-white shadow-2xl border-4 border-white overflow-hidden flex flex-col" style={{ width: `${previewW}px`, height: `${previewH}px`, padding: `${marginT/2}px ${marginR/2}px ${marginB/2}px ${marginL/2}px` }}>
-                <div 
-                    className="flex-1 grid" 
-                    style={{ 
-                        gridTemplateColumns: `repeat(${columns}, 1fr)`,
-                        gridTemplateRows: `repeat(${rows}, 1fr)`,
-                        columnGap: `${gapH/2}px`,
-                        rowGap: `${gapV/2}px`
-                    }}
-                >
-                    {Array.from({ length: columns * rows }).map((_, i) => {
-                        const col = i % columns;
-                        const isPromo = i % 2 !== 0; // Alternando promocional para comparação rápida
-                        
-                        // Teste de faixas para o preview
-                        let priceValue = col === 0 ? 129.90 : 3490.00;
-                        if (i > columns * 2) priceValue = 18500.00;
-                        if (i % 7 === 0) priceValue = 59.90;
-                        if (i % 5 === 0) priceValue = 9.90;
+            <div className="flex flex-col items-center gap-6 w-full">
+                {/* Botão de Upload de Exemplo */}
+                <div className="w-full max-w-4xl flex items-center justify-between">
+                   <div className="flex flex-col">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Conteúdo de Amostra</p>
+                        <p className="text-[7px] text-slate-400 italic">Escolha uma imagem para pré-visualizar o layout da folha.</p>
+                   </div>
+                   <div className="flex items-center gap-3">
+                        {customPreviewImage && (
+                            <button 
+                                onClick={() => setCustomPreviewImage(null)}
+                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl text-[8px] font-black uppercase transition-all"
+                            >
+                                <i className="bi bi-trash3 mr-2" /> Limpar
+                            </button>
+                        )}
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (re) => setCustomPreviewImage(re.target?.result as string);
+                                    reader.readAsDataURL(file);
+                                }
+                            }}
+                        />
+                        <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-6 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3"
+                        >
+                            <i className="bi bi-image-fill" /> {customPreviewImage ? 'Trocar Amostra' : 'Escolher Amostra'}
+                        </button>
+                   </div>
+                </div>
 
-                        const isTen = priceValue >= 10 && priceValue < 100;
-                        const isHundred = priceValue >= 100 && priceValue < 1000;
-                        const isThousand = priceValue >= 1000 && priceValue < 10000;
-                        const isTenThousand = priceValue >= 10000;
-                        
-                        const dynamicScale = isTen ? (priceFontSizeTens || 0) : 
-                                            isHundred ? (priceFontSizeHundreds || 0) : 
-                                            isThousand ? (priceFontSizeThousands || 0) :
-                                            isTenThousand ? (priceFontSizeTenThousands || 0) : 0;
-                        
-                        // Ajuste dinâmico de fonte para a prévia (Hundreds / Thousands)
-                        const dynamicAdjustment = isThousand ? (priceFontSizeThousands || 0) : (isHundred ? (priceFontSizeHundreds || 0) : 0);
-                        const adjustedPriceSize = isPromo 
-                            ? oldPriceFontSize + dynamicAdjustment
-                            : priceFontSize + dynamicAdjustment;
-                        
-                        const currentPromoSize = promoPriceFontSize + dynamicAdjustment;
-
-                        // Lógica de Preço Dividido para a prévia
-                        const priceParts = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }).split(',');
-                        const integerPart = priceParts[0].replace('R$', '').trim();
-                        const decimalPart = `,${priceParts[1]}`;
-
-                        return (
-                            <div key={i} className={`relative border border-slate-100 overflow-hidden flex items-center justify-center ${layoutType === 'round' ? 'rounded-full' : ''}`} style={{ backgroundColor: bgColor, containerType: 'size' }}>
-                                {previewImage && (
-                                    <img src={previewImage} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: (currentCategory === 'logos') ? 1 : 0.1, zIndex: 0 }} />
-                                )}
-                                <div className="absolute inset-0 pointer-events-none origin-center flex items-center justify-center w-full h-full">
-                                    <div className="relative w-full h-full">
-                                        {/* Nome do Produto */}
-                                        <div style={{ 
-                                            position: 'absolute', 
-                                            left: `${(isPromo ? promoNamePos.x : namePos.x)}%`, 
-                                            top: `${(isPromo ? promoNamePos.y : namePos.y)}%`, 
-                                            width: `${(isPromo ? promoNameWidth : nameWidth)}%`, 
-                                            height: 'max-content',
-                                            transform: 'translate(-50%, -50%)', display: 'flex', 
-                                            alignItems: getVAlignment(isPromo ? promoNameVAlign : nameVAlign), 
-                                            justifyContent: getAlignment(isPromo ? promoNameAlign : nameAlign),
-                                            backgroundColor: (isPromo ? promoNameBgColor : nameBgColor), 
-                                            padding: 'calc( (2 / 500) * 100cqh )'
-                                        }}>
-                                            <div style={{ 
-                                                fontSize: `calc( (${isPromo ? promoNameFontSize : nameFontSize} / 500) * 100cqh )`, 
-                                                fontWeight: (isPromo ? promoNameBold : nameBold) ? '950' : '500', 
-                                                color: isPromo ? promoNameColor : nameColor, 
-                                                textAlign: isPromo ? promoNameAlign : nameAlign,
-                                                fontFamily: fontFamily || 'Inter, sans-serif'
-                                            }}>Produto de Exemplo {isPromo ? '(Promo)' : ''}</div>
-                                        </div>
-
-                                        {/* Preço (Normal ou Antigo Riscado) */}
-                                        <div style={{ 
-                                            position: 'absolute', 
-                                            left: `${(isPromo ? oldPricePos.x : pricePos.x)}%`, 
-                                            top: `${(isPromo ? oldPricePos.y : pricePos.y)}%`, 
-                                            width: `${(isPromo ? oldPriceWidth : priceWidth)}%`, 
-                                            height: 'max-content',
-                                            transform: 'translate(-50%, -50%)', 
-                                            display: 'flex', 
-                                            alignItems: getVAlignment(isPromo ? oldPriceVAlign : priceVAlign), 
-                                            justifyContent: getAlignment(isPromo ? oldPriceAlign : priceAlign),
-                                            backgroundColor: priceBgColor, 
-                                            padding: 'calc( (2 / 500) * 100cqh )'
-                                        }}>
-                                            <div style={{ 
-                                                fontSize: `calc( (${adjustedPriceSize} / 500) * 100cqh )`, 
-                                                fontWeight: (isPromo ? oldPriceBold : priceBold) ? '950' : '500', 
-                                                color: isPromo ? oldPriceColor : priceColor, 
-                                                textAlign: isPromo ? oldPriceAlign : priceAlign,
-                                                fontFamily: fontFamily || 'Inter, sans-serif'
-                                            }}>
-                                                {isPromo ? (
-                                                    <span className="relative">
-                                                        {(priceFormat === 'split' ? integerPart : priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))} 
-                                                        <div className="absolute top-1/2 left-[-2%] right-[-2%] h-[2px] bg-red-500 rounded-full opacity-100" />
-                                                    </span>
-                                                ) : (priceFormat === 'split' ? integerPart : priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))}
-                                            </div>
-                                        </div>
-
-                                        {priceFormat === 'split' && !isPromo && (
-                                            <>
-                                                {/* Símbolo R$ */}
-                                                <div style={{ 
-                                                    position: 'absolute', left: `${priceSymbolPos.x}%`, top: `${priceSymbolPos.y}%`, 
-                                                    transform: 'translate(-50%, -50%)', 
-                                                    fontSize: `calc( (${priceSymbolFontSize} / 500) * 100cqh )`,
-                                                    fontWeight: priceSymbolBold ? '950' : '400',
-                                                    color: priceSymbolColor
-                                                }}>R$</div>
-
-                                                {/* Centavos ,00 */}
-                                                <div style={{ 
-                                                    position: 'absolute', left: `${priceDecimalsPos.x}%`, top: `${priceDecimalsPos.y}%`, 
-                                                    transform: 'translate(-50%, -50%)', 
-                                                    fontSize: `calc( (${priceDecimalsFontSize} / 500) * 100cqh )`,
-                                                    fontWeight: priceDecimalsBold ? '950' : '400',
-                                                    color: priceDecimalsColor
-                                                }}>{decimalPart}</div>
-                                            </>
-                                        )}
-
-                                        {isPromo && (
-                                            <div style={{ 
-                                                position: 'absolute', left: `${promoPos.x}%`, top: `${promoPos.y}%`, width: `${promoWidth}%`, height: 'max-content', 
-                                                transform: 'translate(-50%, -50%)', display: 'flex', alignItems: getVAlignment(promoPriceVAlign), justifyContent: getAlignment(promoPriceAlign),
-                                                backgroundColor: promoBgColor, padding: 'calc( (2 / 500) * 100cqh )' 
-                                            }}>
-                                                <div style={{ 
-                                                    fontSize: `calc( (${currentPromoSize} / 500) * 100cqh )`, 
-                                                    fontWeight: promoPriceBold ? '950' : '400', 
-                                                    color: promoPriceColor, 
-                                                    textAlign: promoPriceAlign,
-                                                    fontFamily: fontFamily || 'Inter, sans-serif'
-                                                }}>R$ {(priceValue * 0.8).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
-                                            </div>
-                                        )}
-
-                                        <div style={{ 
-                                            position: 'absolute', 
-                                            left: `${(isPromo ? promoBarcodePos.x : barcodePos.x)}%`, 
-                                            top: `${(isPromo ? promoBarcodePos.y : barcodePos.y)}%`, 
-                                            width: '100%', 
-                                            transform: 'translate(-50%, -50%)', 
-                                            opacity: 0.2, 
-                                            display: 'flex', 
-                                            justifyContent: 'center' 
-                                        }}> <i className="bi bi-barcode" style={{ fontSize: '15cqh' }} /> </div>
-                                    </div>
+                <div className="relative bg-white shadow-2xl border-4 border-white overflow-hidden flex flex-col" style={{ width: `${previewW}px`, height: `${previewH}px`, padding: `${marginT/2}px ${marginR/2}px ${marginB/2}px ${marginL/2}px` }}>
+                    {/* Camada de Fundo (Backgrounds) */}
+                    <div 
+                        className="flex-1 grid" 
+                        style={{ 
+                            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                            gridTemplateRows: `repeat(${rows}, 1fr)`,
+                            columnGap: `${gapH/2}px`,
+                            rowGap: `${gapV/2}px`
+                        }}
+                    >
+                        {Array.from({ length: columns * rows }).map((_, i) => (
+                            <div key={i} className="relative flex items-center justify-center overflow-visible">
+                                <div style={{ 
+                                    position: 'absolute',
+                                    width: `calc(100% + ${(safetyMargin / (w / previewW)) * 2}px)`,
+                                    height: `calc(100% + ${(safetyMargin / (w / previewW)) * 2}px)`,
+                                    backgroundColor: bgColor || 'white',
+                                    zIndex: 0
+                                }}>
+                                    {effectivePreviewImage && (
+                                        <img 
+                                            src={effectivePreviewImage} 
+                                            alt="" 
+                                            style={{ 
+                                                position: 'absolute', 
+                                                inset: 0, 
+                                                width: '100%', 
+                                                height: '100%', 
+                                                objectFit: 'cover', 
+                                                opacity: 1 // Amostra com 100% de opacidade na prévia da folha
+                                            }} 
+                                        />
+                                    )}
                                 </div>
                             </div>
-                        );
-                    })}
+                        ))}
+                    </div>
+
+                    {/* Camada de Bordas (Sobrepostas e visíveis umas sobre as outras) */}
+                    <div 
+                        className="absolute grid pointer-events-none" 
+                        style={{ 
+                            inset: `${marginT/2}px ${marginR/2}px ${marginB/2}px ${marginL/2}px`,
+                            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                            gridTemplateRows: `repeat(${rows}, 1fr)`,
+                            columnGap: `${gapH/2}px`,
+                            rowGap: `${gapV/2}px`
+                        }}
+                    >
+                        {Array.from({ length: columns * rows }).map((_, i) => {
+                            const safetyPx = (safetyMargin / (w / previewW));
+                            return (
+                                <div key={i} className="relative flex items-center justify-center overflow-visible">
+                                    {/* Borda de Sangria (Azul) - Desenha por cima de tudo */}
+                                    <div style={{ 
+                                        position: 'absolute',
+                                        width: `calc(100% + ${safetyPx * 2}px)`,
+                                        height: `calc(100% + ${safetyPx * 2}px)`,
+                                        border: safetyMargin > 0 ? '0.8px dashed #3b82f6' : 'none',
+                                        zIndex: 10
+                                    }} />
+                                    
+                                    {/* Borda da Etiqueta (Cinza) */}
+                                    <div className={`relative border border-slate-400 overflow-hidden ${layoutType === 'round' ? 'rounded-full' : ''}`} 
+                                         style={{ width: '100%', height: '100%', zIndex: 5 }} />
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         );
@@ -1190,14 +1155,14 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                         <div> 
                             <div className="flex items-center gap-3 mb-1">
                                 <p className="text-[9px] text-slate-400 uppercase tracking-[0.3em] font-black leading-none">
-                                    {isDesignMode ? 'Design da Etiqueta' : 'Editar Modelo da Etiqueta'}
+                                    {isDesignMode ? 'Design da Etiqueta' : 'Editar Modelo de Etiqueta'}
                                 </p>
                                 <div className="h-1 w-1 rounded-full bg-slate-300" />
                                 <p className="text-[9px] text-blue-500 font-black uppercase tracking-widest leading-none">
                                     Margens: {marginT}|{marginB}|{marginL}|{marginR} - Gaps: {gapH}|{gapV} (mm)
                                 </p>
                             </div>
-                            <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">{name || 'Novo Modelo'}</h3> 
+                            <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">{name || 'Editar Modelo de Etiqueta'}</h3> 
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -1238,23 +1203,51 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                     const aspectRatio = labelW / labelH;
 
                                     return (
-                                        <div 
-                                            ref={setPreviewRef}
-                                            style={{ 
-                                                width: '500px', 
-                                                height: `${500 / (aspectRatio || 1)}px`,
-                                                backgroundColor: bgColor || 'white', 
-                                                boxShadow: '0 30px 60px -12px rgba(0,0,0,0.25)',
-                                                position: 'relative', 
-                                                overflow: 'hidden', 
-                                                containerType: 'size', 
-                                                border: '1px solid #e2e8f0', 
-                                                borderRadius: '4px'
-                                            }}
-                                            onMouseMove={handleMouseMove}
-                                            onMouseUp={handleMouseUp}
-                                            onMouseLeave={handleMouseUp}
-                                        >
+                                        <div className="relative flex items-center justify-center">
+                                            {/* Área de Sangria Interativa (Azul) - Prioridade Visual para a Imagem */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                width: `${500 + ((safetyMargin * 500) / labelW) * 2}px`,
+                                                height: `${(500 / (aspectRatio || 1)) + ((safetyMargin * (500 / aspectRatio)) / labelH) * 2}px`,
+                                                border: safetyMargin > 0 ? '2px dashed #3b82f6' : 'none',
+                                                backgroundColor: bgColor || 'white',
+                                                zIndex: 0,
+                                                borderRadius: '8px',
+                                                overflow: 'hidden' // Importante para a imagem respeitar a área de sangria
+                                            }}>
+                                                {effectivePreviewImage && (
+                                                    <img 
+                                                        src={effectivePreviewImage} 
+                                                        alt="" 
+                                                        style={{ 
+                                                            position: 'absolute', 
+                                                            inset: 0, 
+                                                            width: '100%', 
+                                                            height: '100%', 
+                                                            objectFit: 'cover' 
+                                                        }} 
+                                                    />
+                                                )}
+                                            </div>
+
+                                            <div 
+                                                ref={setPreviewRef}
+                                                style={{ 
+                                                    width: '500px', 
+                                                    height: `${500 / (aspectRatio || 1)}px`,
+                                                    backgroundColor: 'transparent', 
+                                                    boxShadow: '0 30px 60px -12px rgba(0,0,0,0.25)',
+                                                    position: 'relative', 
+                                                    overflow: 'hidden', 
+                                                    containerType: 'size', 
+                                                    border: '1px solid #94a3b8', 
+                                                    borderRadius: '4px',
+                                                    zIndex: 1
+                                                }}
+                                                onMouseMove={handleMouseMove}
+                                                onMouseUp={handleMouseUp}
+                                                onMouseLeave={handleMouseUp}
+                                            >
                                             <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                                             {showGuides.h && <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-500/50 z-50 pointer-events-none" />}
                                             {showGuides.v && <div className="absolute top-1/2 left-0 right-0 h-px bg-blue-500/50 z-50 pointer-events-none" />}
@@ -1351,6 +1344,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                                     )}
                                                 </div>
                                             ))}
+                                            </div>
                                         </div>
                                     );
                                 })()}
@@ -1414,6 +1408,26 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                     <div> <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">Horizontal</label> <input type="number" step="0.1" value={gapH} onChange={e => setGapH(parseFloat(e.target.value) || 0)} className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-center font-black" /> </div>
                                     <div> <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">Vertical</label> <input type="number" step="0.1" value={gapV} onChange={e => setGapV(parseFloat(e.target.value) || 0)} className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-center font-black" /> </div>
                                 </div>
+                            </div>
+
+                            {/* Margem de Segurança (Sangria) */}
+                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Margem de Segurança (Sangria)</p>
+                                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">+{safetyMargin}mm</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="10" 
+                                        step="0.1" 
+                                        value={safetyMargin} 
+                                        onChange={e => setSafetyMargin(parseFloat(e.target.value))} 
+                                        className="flex-1 accent-blue-600 cursor-pointer h-2 bg-slate-100 rounded-lg appearance-none"
+                                    />
+                                </div>
+                                <p className="text-[7px] text-slate-400 italic">Aumenta o tamanho da imagem da etiqueta para evitar bordas brancas se a impressora estiver desalinhada.</p>
                             </div>
 
                             {/* Margens do Papel */}

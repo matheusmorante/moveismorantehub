@@ -142,19 +142,36 @@ export const formatCurrency = (value: number) => {
 };
 
 export const capitalizeCustomerData = (data: CustomerData): CustomerData => {
-    if (!data) return data;
+    const defaultData: CustomerData = {
+        fullName: "",
+        phone: "",
+        noPhone: false,
+        fullAddress: {
+            cep: "",
+            street: "",
+            number: "",
+            complement: "",
+            neighborhood: "",
+            city: "",
+            observation: "",
+        }
+    };
+
+    if (!data) return defaultData;
 
     return {
+        ...defaultData,
         ...data,
         fullName: toTitleCase(data.fullName || ""),
         fullAddress: data.fullAddress ? {
+            ...defaultData.fullAddress,
             ...data.fullAddress,
             street: toTitleCase(data.fullAddress.street || ""),
             complement: toTitleCase(data.fullAddress.complement || ""),
             neighborhood: toTitleCase(data.fullAddress.neighborhood || ""),
             city: toTitleCase(data.fullAddress.city || ""),
             observation: toTitleCase(data.fullAddress.observation || ""),
-        } : data.fullAddress
+        } : defaultData.fullAddress
     };
 };
 
@@ -163,14 +180,25 @@ export const capitalizeOrder = (order: Order): Order => {
 
     return {
         ...order,
-        customerData: capitalizeCustomerData(order.customerData),
-        items: order.items?.map(item => {
+        items: (order.items || []).map(item => {
             if (!item) return item;
             return {
                 ...item,
                 description: item.description?.toUpperCase() || ""
             };
-        })
+        }),
+        assistanceItems: order.assistanceItems || [],
+        customerData: capitalizeCustomerData(order.customerData),
+        payments: order.payments || [],
+        shipping: order.shipping || {
+            value: 0,
+            deliveryMethod: 'delivery',
+            orderType: 'Standard',
+            scheduling: { date: "", time: "", startTime: "", endTime: "", type: "range" },
+            autoCalculateValue: false,
+            useCustomerAddress: true,
+            deliveryAddress: { cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '' }
+        }
     };
 };
 
