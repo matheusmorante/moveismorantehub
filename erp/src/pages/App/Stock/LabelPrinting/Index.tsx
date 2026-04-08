@@ -162,9 +162,9 @@ const LabelPrinting: React.FC = () => {
 
 
     const [config, setConfig] = useState<LabelConfig>({
-        type: isProductContext ? 'rect' : 'round',
+        type: 'rect',
         preset: isProductContext ? 'qr_product' : 'store_logo',
-        layout: isProductContext ? 'horizontal' : 'vertical',
+        layout: isProductContext ? 'horizontal' : 'horizontal',
         showName: isProductContext,
         showPrice: false,
         showBarcode: isProductContext,
@@ -351,8 +351,8 @@ const LabelPrinting: React.FC = () => {
 
         switch (preset) {
             case 'store_logo':
-                newConfig.type = 'round';
-                newConfig.layout = 'vertical';
+                newConfig.type = 'rect';
+                newConfig.layout = 'horizontal';
                 newConfig.showName = false;
                 newConfig.showPrice = false;
                 newConfig.showBarcode = false;

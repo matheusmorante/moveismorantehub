@@ -12,6 +12,13 @@ const OrderPage = () => {
     const queryParams = new URLSearchParams(window.location.search);
     const isBudget = queryParams.get('type') === 'budget' || order?.orderType === 'budget';
 
+    const allObs: string[] = [];
+    if (order?.observation) allObs.push(...order.observation.split(';'));
+    if (order?.shipping?.deliveryAddress?.observation) {
+        allObs.push(...order.shipping.deliveryAddress.observation.split(';'));
+    }
+    const tags = allObs.filter((t: string) => t.trim() !== "");
+
     useEffect(() => {
         if (order) {
             const timer = setTimeout(() => window.print(), 500);
@@ -47,15 +54,14 @@ const OrderPage = () => {
                 </div>
             </div>
 
-            {/* Observações de Entrega - NOW RED / ALERT STYLE */}
-            {order.observation && (
-                <div className="border border-red-500 rounded-2xl p-2 bg-red-50/50">
+            {tags.length > 0 && (
+                <div className="border border-red-500 rounded-2xl p-2 bg-red-50/50 print-exact-bg-light shadow-sm">
                     <h2 className="text-sm font-black uppercase tracking-widest text-red-600 mb-1 flex items-center gap-2">
                         <i className="bi bi-exclamation-triangle-fill"></i>
                         AVISOS IMPORTANTES SOBRE A ENTREGA
                     </h2>
                     <div className="flex flex-wrap gap-1">
-                        {order.observation.split(';').filter((t: string) => t.trim() !== "").map((tag: string, i: number) => (
+                        {tags.map((tag: string, i: number) => (
                             <span key={i} className="px-2 py-0.5 bg-white border border-red-200 text-xs font-black rounded text-red-700 uppercase tracking-tight shadow-sm">
                                 {tag}
                             </span>
@@ -96,6 +102,7 @@ const OrderPage = () => {
             <style>{`
                 @media print {
                     body { background: white !important; }
+                    .print-exact-bg-light { background-color: #fef2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .bg-slate-50\\/50 { background-color: #f8fafc !important; }
                     .bg-red-50\\/50 { background-color: #fef2f2 !important; }
                     .border-slate-100 { border-color: #f1f5f9 !important; }

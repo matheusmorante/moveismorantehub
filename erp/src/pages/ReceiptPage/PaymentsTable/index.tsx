@@ -17,8 +17,8 @@ const PaymentsTable = ({ payments, summary }: Props) => {
                 </colgroup>
                 <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                        <th className="px-4 py-2.5 text-left text-[9px] font-black uppercase tracking-widest text-slate-400">Forma de Pagamento</th>
-                        <th className="px-4 py-2.5 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Valor</th>
+                        <th className="px-4 py-1.5 text-left text-[9px] font-black uppercase tracking-widest text-slate-400">Forma de Pagamento</th>
+                        <th className="px-4 py-1.5 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Valor</th>
                     </tr>
                 </thead>
                 <Body payments={payments} />
