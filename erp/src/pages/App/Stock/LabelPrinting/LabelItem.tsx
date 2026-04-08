@@ -77,7 +77,7 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
     const bleedStyle: React.CSSProperties = {
         width: `calc(100% + ${safety * 2}mm)`,
         height: `calc(100% + ${safety * 2}mm)`,
-        backgroundColor: config.bg_color || 'white',
+        backgroundColor: hideContent ? 'transparent' : (config.bg_color || 'white'),
         boxSizing: 'border-box',
         display: 'flex',
         alignItems: 'center',
