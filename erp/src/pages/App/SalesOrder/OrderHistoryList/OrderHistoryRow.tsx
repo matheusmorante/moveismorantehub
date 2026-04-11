@@ -525,8 +525,8 @@ const OrderHistoryRow = ({
                                                     <i className="bi bi-three-dots-vertical" />
                                                 </button>
 
-                                                {/* Dropdown Menu - Continuous hover area */}
-                                                <div className={`absolute top-full right-0 mt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
+                                                {/* Dropdown Menu - Continuous hover area bridged with pt-2 instead of mt-2 */}
+                                                <div className={`absolute top-full right-0 pt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                         
                                                         {/* Manual Stock Action - Moved to TOP for visibility */}

@@ -103,12 +103,7 @@ const FormFooter = ({
                     </div>
                 </div>
 
-                {/* Secondary Actions (WhatsApp, Print, etc) - Only on Confirmation Step if Saved */}
-                {isLastStep && currentOrder?.id && (
-                    <div className="w-full pt-4 border-t border-slate-100 dark:border-slate-800 transition-all animate-fade-in">
-                        <OrderActions order={currentOrder} context="form" />
-                    </div>
-                )}
+                {/* Secondary Actions (WhatsApp, Print, etc) REMOVED as per user request. Actions handled in the list view. */}
             </div>
         </div>
     );

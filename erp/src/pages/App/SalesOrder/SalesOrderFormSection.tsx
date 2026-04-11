@@ -178,16 +178,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                      </div>
                                 </div>
                                 <div className="text-right flex items-center gap-3">
-                                    {isBudget && state.currentOrderId && (
-                                        <button 
-                                            type="button"
-                                            onClick={() => window.open(`/sales-order/print/${state.currentOrderId}?type=budget`, '_blank')}
-                                            className="flex items-center gap-2 px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                                        >
-                                            <i className="bi bi-printer-fill"></i>
-                                            Imprimir Orçamento
-                                        </button>
-                                    )}
+                                    {/* Link de impressão do orçamento removido conforme solicitação */}
                                     <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
                                         state.status === 'scheduled' ? 'bg-blue-100/50 text-blue-600 dark:bg-blue-900/40' : 
                                         state.status === 'fulfilled' ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-900/40' : 

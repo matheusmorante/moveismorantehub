@@ -38,6 +38,7 @@ export const useSalesReport = () => {
     // Matriz de Giro e Lucro
     const [avgProfitPerItem, setAvgProfitPerItem] = useState(0);
     const [avgTurnoverPerItem, setAvgTurnoverPerItem] = useState(0);
+    const [allProducts, setAllProducts] = useState<any[]>([]);
     const [reportStartDate, setReportStartDate] = useState<Date | null>(null);
     const [reportEndDate, setReportEndDate] = useState<Date | null>(null);
 
@@ -46,58 +47,64 @@ export const useSalesReport = () => {
         basis: 'revenue' | 'profit' = 'revenue', 
         returnRaw: boolean = false,
         config?: any,
-        productMappings: Record<string, string> = {}
+        productMappings: Record<string, string> = {},
+        forceMonthCount?: number
     ) => {
         const productStats: Record<string, { product: string, supplier: string, qty: number, rev: number, profit: number, totalCost: number }> = {};
         const excludedItems = config?.excludedItems || [];
         
-        // Inicializar com a primeira data válida ou data atual
-        const validItems = items.filter(i => i.date && !isNaN(i.date.getTime()));
-        const firstValidDate = validItems.length > 0 ? validItems[0].date : new Date();
-        let minDate = firstValidDate;
-        let maxDate = firstValidDate;
+        let minDate: Date | null = null;
+        let maxDate: Date | null = null;
         let currentTotalProfit = 0;
+        
+        const allItemsRaw = items.map(item => ({
+            ...item,
+            mappedName: productMappings[item.product] || item.product
+        }));
 
-        items.forEach(item => {
-            const mappedName = productMappings[item.product] || item.product;
-            
-            if (excludedItems.includes(item.product) || excludedItems.includes(mappedName)) return; 
-            
-            // Se a data for válida, atualizamos o período do relatório
+        allItemsRaw.forEach(item => {
+            // Se a data for válida, atualizamos o período do relatório (independente de estar excluído ou não)
             if (item.date && !isNaN(item.date.getTime())) {
-                if (item.date.getTime() < minDate.getTime()) minDate = item.date;
-                if (item.date.getTime() > maxDate.getTime()) maxDate = item.date;
+                if (!minDate || item.date.getTime() < minDate.getTime()) minDate = item.date;
+                if (!maxDate || item.date.getTime() > maxDate.getTime()) maxDate = item.date;
             }
 
-            const key = `${mappedName}-${item.supplier}`;
+            const key = `${item.mappedName}-${item.supplier}`;
             if (!productStats[key]) {
-                productStats[key] = { product: mappedName, supplier: item.supplier, qty: 0, rev: 0, profit: 0, totalCost: 0 };
+                productStats[key] = { product: item.mappedName, supplier: item.supplier, qty: 0, rev: 0, profit: 0, totalCost: 0 };
             }
             
-            const qty = Number(item.quantity) || 0;
-            const rev = Number(item.salesValue) || 0;
-            const profit = Number(item.profit) || 0;
-            const cost = Number(item.cost) || 0;
+            const qty = Number(item.quantity ?? item.qty ?? 0);
+            const rev = Number(item.salesValue ?? item.rev ?? 0);
+            const profit = Number(item.profit ?? 0);
+            const cost = Number(item.cost ?? 0);
 
             productStats[key].qty += qty;
             productStats[key].rev += rev;
             productStats[key].profit += profit;
             productStats[key].totalCost += cost * qty;
-            currentTotalProfit += profit;
+            
+            // SOMAR LUCRO TOTAL APENAS PARA ITENS NÃO EXCLUÍDOS
+            if (!excludedItems.includes(item.product) && !excludedItems.includes(item.mappedName)) {
+                currentTotalProfit += profit;
+            }
         });
 
         // Calcular diferença em meses calendário (mínimo 1)
-        // Usamos fórmula manual para garantir precisão absoluta:
-        const diffMonths = (minDate && maxDate) ? 
+        const diffMonths = forceMonthCount || ((minDate && maxDate) ? 
             ((maxDate.getFullYear() - minDate.getFullYear()) * 12) + (maxDate.getMonth() - minDate.getMonth()) + 1 
-            : 1;
+            : 1);
         
         setMonthCount(diffMonths);
         setTotalProfit(currentTotalProfit);
         setReportStartDate(minDate);
         setReportEndDate(maxDate);
 
-        const statsArray = Object.values(productStats);
+        //statsArray contém APENAS os itens incluídos para o cálculo da curva ABC
+        const statsArray = Object.values(productStats).filter(s => 
+            !excludedItems.includes(s.product)
+        );
+        
         const totalBasis = statsArray.reduce((acc, curr) => acc + (basis === 'revenue' ? curr.rev : curr.profit), 0);
         
         // Médias para Matriz baseadas em valores MENSAIS para comparação justa
@@ -180,10 +187,22 @@ export const useSalesReport = () => {
         if (!returnRaw) {
             setResults(finalResults);
             setRawResults(finalResults);
+            setAllProducts(allProducts);
         }
         
+        // Return all unique products for the exclusion modal list
+        const allProducts = Object.values(productStats).map(s => ({
+            product: s.product,
+            supplier: s.supplier,
+            qty: s.qty,
+            rev: s.rev,
+            profit: s.profit,
+            cost: s.qty > 0 ? s.totalCost / s.qty : 0
+        }));
+
         return { 
             results: finalResults, 
+            allProducts,
             totalProfit: currentTotalProfit, 
             monthCount: diffMonths, 
             avgProfitPerItem: avgP, 
@@ -313,7 +332,7 @@ export const useSalesReport = () => {
                     name,
                     type: 'abc_curve',
                     source,
-                    report_data: manualData || { results, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate },
+                    report_data: manualData || { results: rawResults, allProducts, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate },
                     config,
                     created_at: new Date().toISOString()
                 }])
@@ -335,7 +354,7 @@ export const useSalesReport = () => {
                 .update({
                     name,
                     source,
-                    report_data: manualData || { results, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate },
+                    report_data: manualData || { results: rawResults, allProducts, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate },
                     config,
                     updated_at: new Date().toISOString()
                 })
@@ -377,6 +396,8 @@ export const useSalesReport = () => {
         setLoading,
         results,
         rawResults,
+        allProducts,
+        setAllProducts,
         totalProfit,
         monthCount,
         savedReports,

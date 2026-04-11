@@ -59,46 +59,70 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
                             <i className="bi bi-filter-square-fill text-indigo-600 text-2xl"></i> Gerenciar Itens
                         </h2>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Selecione quais itens incluir na análise</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                            Mostrando {filteredAndSortedItems.length} de {items.length} itens totais
+                        </span>
                     </div>
                     <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-500 hover:text-red-500 transition-all">
                         <i className="bi bi-x-lg text-xl"></i>
                     </button>
                 </div>
 
-                <div className="px-10 py-6 bg-slate-50 dark:bg-slate-955 border-b border-slate-100 dark:border-slate-800 flex gap-4 items-center">
-                    <div className="flex-1 relative">
-                        <i className="bi bi-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <div className="px-10 py-8 bg-slate-50 dark:bg-slate-955 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-6 items-center">
+                    <div className="flex-1 min-w-[400px] relative flex items-center">
+                        <div className="absolute left-5 text-slate-400 pointer-events-none">
+                            <i className="bi bi-search text-base"></i>
+                        </div>
                         <input 
                             type="text" 
-                            placeholder="Pesquisar por descrição..." 
+                            placeholder="Pesquisar itens por nome..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-6 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] pl-14 pr-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm placeholder:text-slate-300"
                         />
                     </div>
-                    <select
-                        value={selectedSupplier}
-                        onChange={(e) => setSelectedSupplier(e.target.value)}
-                        className="w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-600 dark:text-slate-300"
-                    >
-                        <option value="">Todos Fornecedores</option>
-                        {uniqueSuppliers.map(s => (
-                            <option key={s as string} value={s as string}>{s}</option>
-                        ))}
-                    </select>
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => onToggleAll(true)}
-                            className="px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 transition-all shadow-sm"
+
+                    <div className="w-full sm:w-64 relative">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-500 uppercase pointer-events-none">Filtro</div>
+                        <select
+                            value={selectedSupplier}
+                            onChange={(e) => setSelectedSupplier(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] pl-14 pr-4 py-4 text-xs font-black outline-none focus:border-indigo-500 transition-all text-slate-600 dark:text-slate-300 appearance-none cursor-pointer shadow-sm"
                         >
-                            Marcar Todos
+                            <option value="">TODOS FORNECEDORES</option>
+                            {uniqueSuppliers.map(s => (
+                                <option key={s as string} value={s as string}>{String(s).toUpperCase()}</option>
+                            ))}
+                        </select>
+                        <i className="bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => {
+                                const namesToSelect = filteredAndSortedItems.map(i => i.product);
+                                // Se estamos marcando todos os FILTRADOS, devemos removê-los da lista de excluídos
+                                namesToSelect.forEach(name => {
+                                    if (excludedItems.includes(name)) onToggleItem(name);
+                                });
+                            }}
+                            className="px-6 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2 whitespace-nowrap"
+                        >
+                            <i className="bi bi-check-all text-lg"></i>
+                            Incluir Filtrados
                         </button>
                         <button 
-                            onClick={() => onToggleAll(false)}
-                            className="px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-600 hover:text-red-600 transition-all shadow-sm"
+                            onClick={() => {
+                                const namesToExclude = filteredAndSortedItems.map(i => i.product);
+                                // Se estamos limpando os FILTRADOS, devemos adicioná-los à lista de excluídos
+                                namesToExclude.forEach(name => {
+                                    if (!excludedItems.includes(name)) onToggleItem(name);
+                                });
+                            }}
+                            className="px-6 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm flex items-center gap-2 whitespace-nowrap"
                         >
-                            Desmarcar Todos
+                            <i className="bi bi-x-circle text-sm"></i>
+                            Excluir Filtrados
                         </button>
                     </div>
                 </div>

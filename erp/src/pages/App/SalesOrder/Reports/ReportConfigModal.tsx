@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { parseCSV } from './csvUtils';
-import ItemExclusionModal from './ItemExclusionModal';
-import ProductReferenceModal from './ProductReferenceModal';
 
 interface ColumnMapping {
     date: string;
@@ -27,7 +25,7 @@ interface ReportConfigModalProps {
 
 const ReportConfigModal: React.FC<ReportConfigModalProps> = ({ 
     isOpen, onClose, onSave, initialConfig, initialSource, initialName, 
-    initialExcludedItems, availableItems = [], loading 
+    availableItems = [], loading 
 }) => {
     const [source, setSource] = useState<'erp' | 'csv'>(initialSource || 'erp');
     const [abcBasis, setAbcBasis] = useState<'revenue' | 'profit'>('profit');
@@ -47,9 +45,6 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
     const [profitThresholdMode, setProfitThresholdMode] = useState<'avg' | 'custom'>(initialConfig?.profitThresholdMode || 'avg');
     const [turnoverThreshold, setTurnoverThreshold] = useState<number>(initialConfig?.turnoverThreshold || 0);
     const [profitThreshold, setProfitThreshold] = useState<number>(initialConfig?.profitThreshold || 0);
-    const [excludedItems, setExcludedItems] = useState<string[]>(initialExcludedItems || []);
-    const [isExclusionModalOpen, setIsExclusionModalOpen] = useState(false);
-    const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
 
     useEffect(() => {
         if (initialSource) setSource(initialSource);
@@ -65,9 +60,8 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
             setProfitThresholdMode(initialConfig.profitThresholdMode || 'avg');
             setTurnoverThreshold(initialConfig.turnoverThreshold || 0);
             setProfitThreshold(initialConfig.profitThreshold || 0);
-            setExcludedItems(initialExcludedItems || []);
         }
-    }, [initialSource, initialName, initialConfig, initialExcludedItems, isOpen]);
+    }, [initialSource, initialName, initialConfig, isOpen]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -153,7 +147,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                                              key === 'product' ? 'Nome do Produto' :
                                              key === 'supplier' ? 'Fornecedor' :
                                              key === 'quantity' ? 'Quantidade' :
-                                             key === 'cost' ? 'Custo Unitário' :
+                                             key === 'cost' ? 'Preço de Custo' :
                                              key === 'salesValue' ? 'Valor de Venda' :
                                              key === 'profit' ? 'Lucro Bruto' : key}
                                              <span className="text-red-500 ml-1">*</span>
@@ -207,28 +201,6 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                                 />
                             )}
                         </div>
-
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-4 block">Refinamento de Dados</label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button 
-                                    onClick={() => setIsExclusionModalOpen(true)}
-                                    type="button"
-                                    className="py-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center justify-center gap-3"
-                                >
-                                    <i className="bi bi-filter-square-fill text-lg"></i>
-                                    {excludedItems.length > 0 ? `Itens (${excludedItems.length})` : 'Excluir Itens'}
-                                </button>
-                                <button 
-                                    onClick={() => setIsReferenceModalOpen(true)}
-                                    type="button"
-                                    className="py-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center justify-center gap-3"
-                                >
-                                    <i className="bi bi-link-45deg text-xl"></i>
-                                    Referências
-                                </button>
-                            </div>
-                        </div>
                     </div>
 
                     <button 
@@ -243,13 +215,13 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                                 name, 
                                 source, 
                                 config: { 
+                                    ...initialConfig, // Preserve existing fields like excludedItems and filters
                                     ...mapping, 
                                     abcBasis, 
                                     turnoverThresholdMode, 
                                     profitThresholdMode, 
                                     turnoverThreshold: turnoverThreshold || 0, 
-                                    profitThreshold: profitThreshold || 0,
-                                    excludedItems: excludedItems
+                                    profitThreshold: profitThreshold || 0
                                 }, 
                                 csvData 
                             });
@@ -260,28 +232,6 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                         {loading ? <i className="bi bi-arrow-clockwise animate-spin text-2xl"></i> : <><i className="bi bi-check-circle-fill text-xl"></i> Salvar e Atualizar Resultados</>}
                     </button>
                 </div>
-                
-                <ItemExclusionModal 
-                    isOpen={isExclusionModalOpen}
-                    onClose={() => setIsExclusionModalOpen(false)}
-                    items={availableItems}
-                    excludedItems={excludedItems}
-                    onToggleItem={(name: string) => {
-                        setExcludedItems(prev => 
-                            prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
-                        );
-                    }}
-                    onToggleAll={(select: boolean) => {
-                        if (select) setExcludedItems([]);
-                        else setExcludedItems(availableItems.map(i => i.product));
-                    }}
-                />
-
-                <ProductReferenceModal 
-                    isOpen={isReferenceModalOpen}
-                    onClose={() => setIsReferenceModalOpen(false)}
-                    availableProducts={availableItems?.map(i => ({ name: i.product, supplier: i.supplier || '' })) || []}
-                />
             </div>
         </div>
     );

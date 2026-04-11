@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
+import ItemExclusionModal from './ItemExclusionModal';
+import ProductReferenceModal from './ProductReferenceModal';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
     Line, ComposedChart, Bar, Cell, ScatterChart, Scatter, ReferenceLine, Area
@@ -19,7 +21,8 @@ const ReportView = () => {
         totalProfit, setTotalProfit, monthCount, setMonthCount,
         avgProfitPerItem, setAvgProfitPerItem, avgTurnoverPerItem, setAvgTurnoverPerItem,
         results, setResults, rawResults, setRawResults, applyFilters, loading, setLoading,
-        updateReport, fetchFromERP, calculateABC, reportStartDate, reportEndDate, setReportStartDate, setReportEndDate
+        updateReport, fetchFromERP, calculateABC, reportStartDate, reportEndDate, setReportStartDate, setReportEndDate,
+        allProducts, setAllProducts
     } = useSalesReport();
 
     const [reportName, setReportName] = useState('');
@@ -41,6 +44,9 @@ const ReportView = () => {
     const [hoveredResult, setHoveredResult] = useState<any | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     const [productMappings, setProductMappings] = useState<Record<string, string>>({});
+    const [isExclusionOpen, setIsExclusionOpen] = useState(false);
+    const [isReferenceOpen, setIsReferenceOpen] = useState(false);
+    const debounceTimeout = React.useRef<NodeJS.Timeout | null>(null);
 
     const fetchProductMappings = async () => {
         const { data, error } = await supabase.from('product_references').select('master_name, reference_name');
@@ -184,6 +190,12 @@ const ReportView = () => {
 
                 setRawResults(resultsWithMonthly);
                 setResults(resultsWithMonthly);
+                setAllProducts(rd.allProducts || resultsWithMonthly.map((r: any) => ({
+                    product: r.product,
+                    qty: r.totalQuantity,
+                    profit: r.totalProfit,
+                    supplier: r.supplier
+                })));
                 setTotalProfit(rd.totalProfit);
                 setMonthCount(rd.monthCount || 1);
                 setAvgProfitPerItem(rd.avgProfitPerItem || 0);
@@ -285,14 +297,8 @@ const ReportView = () => {
                         };
                     });
                 } else if (id) {
-                    // Update only metadata and config for existing CSV report
-                    await updateReport(id, newConfig.name, newConfig.source, newConfig.config);
-                    setReportName(newConfig.name);
-                    setReportConfig(newConfig.config);
-                    setAbcBasis(newConfig.config?.abcBasis || 'revenue');
-                    setIsConfigOpen(false);
-                    setLoading(false);
-                    return;
+                    // Se estivermos editando um relatório CSV sem anexar arquivo, usamos o que já temos em memória
+                    items = allProducts;
                 } else {
                     alert("Para processar dados de CSV, você precisa anexar o arquivo.");
                     setLoading(false);
@@ -307,7 +313,14 @@ const ReportView = () => {
             }
 
             const currentMappings = await fetchProductMappings();
-            const reportData = calculateABC(items, newConfig.config.abcBasis, true, newConfig.config, currentMappings);
+            const reportData = calculateABC(
+                items, 
+                newConfig.config.abcBasis, 
+                true, 
+                newConfig.config, 
+                currentMappings,
+                monthCount // Passamos o monthCount atual para não perder a referência de tempo
+            );
             if (!reportData || reportData.results.length === 0) {
                 const totalParsed = items.length;
                 alert(`A análise resultou em zero resultados úteis (de ${totalParsed} itens). Verifique se as novas colunas selecionadas contêm valores numéricos válidos (Lucro/Venda).`);
@@ -324,6 +337,7 @@ const ReportView = () => {
             setReportConfig(newConfig.config);
             setRawResults(reportData.results);
             setResults(reportData.results);
+            if (reportData.allProducts) setAllProducts(reportData.allProducts);
             setTotalProfit(reportData.totalProfit || 0);
             setMonthCount(reportData.monthCount || 1);
             setAvgProfitPerItem(reportData.avgProfitPerItem || 0);
@@ -378,9 +392,9 @@ const ReportView = () => {
     }, [rawResults, reportConfig]);
 
     const allSuppliers = useMemo(() => {
-        const suppliers = Array.from(new Set(rawResults.map(r => r.supplier)));
+        const suppliers = Array.from(new Set(allProducts.map(r => r.supplier)));
         return suppliers.sort();
-    }, [rawResults]);
+    }, [allProducts]);
 
     useEffect(() => {
         applyFilters({
@@ -418,6 +432,17 @@ const ReportView = () => {
             };
         });
     }, [results, abcBasis, monthCount]);
+
+    // Métricas dinâmicas para o refinamento (respeitando fornecedores selecionados)
+    const refinementMetrics = useMemo(() => {
+        const base = allProducts.filter(i => selectedSuppliers.includes(i.supplier || 'N/A') || selectedSuppliers.length === 0);
+        const excluded = (reportConfig?.excludedItems || []).filter((name: string) => base.some(i => i.product === name));
+        return {
+            total: base.length,
+            excluded: excluded.length,
+            active: base.length - excluded.length
+        };
+    }, [allProducts, selectedSuppliers, reportConfig?.excludedItems]);
 
     if (loading && !results.length) {
         return (
@@ -538,38 +563,70 @@ const ReportView = () => {
                     @media print {
                         @page {
                             size: landscape;
-                            margin: 1cm;
+                            margin: 0.5cm;
                         }
                         body {
                             background: white !important;
                             -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
                         }
-                        nav, aside, .print\\:hidden, button, header, .custom-scrollbar::-webkit-scrollbar {
+                        nav, aside, .print\\:hidden, button, header, .custom-scrollbar::-webkit-scrollbar, .translate-x-full {
                             display: none !important;
                         }
                         main {
+                            height: auto !important;
                             overflow: visible !important;
                             display: block !important;
                         }
+                        .flex-1 {
+                            height: auto !important;
+                            flex: none !important;
+                            overflow: visible !important;
+                        }
                         .overflow-y-auto {
                             overflow: visible !important;
+                            max-height: none !important;
                         }
                         .max-h-[500px] {
                             max-height: none !important;
                         }
                         .shadow-premium, .shadow-2xl, .shadow-inner, .shadow-sm {
                             box-shadow: none !important;
-                            border: 1px solid #e2e8f0 !important;
+                            border: 1px solid #f1f5f9 !important;
                         }
-                        .bg-slate-950, .dark\\:bg-slate-950 {
+                        .bg-slate-950, .dark\\:bg-slate-950, .dark\\:bg-slate-900 {
                             background-color: white !important;
                         }
-                        .text-slate-100, .dark\\:text-slate-100 {
+                        .text-slate-100, .dark\\:text-slate-100, .dark\\:text-white {
                             color: #1e293b !important;
                         }
-                        .flex-1 {
-                            height: auto !important;
-                            flex: none !important;
+                        
+                        /* Forçar Insights visíveis na impressão */
+                        .group-hover\\/insight\\:opacity-100 {
+                            opacity: 1 !important;
+                            visibility: visible !important;
+                            position: relative !important;
+                            display: block !important;
+                            width: 100% !important;
+                            bottom: auto !important;
+                            left: auto !important;
+                            margin-top: 10px !important;
+                            transform: none !important;
+                            box-shadow: none !important;
+                            border: 1px dashed #cbd5e1 !important;
+                            background: #f8fafc !important;
+                        }
+                        .group\\/insight button {
+                            display: none !important;
+                        }
+                        .group\\/insight::before {
+                            content: 'ANÁLISE DE POTENCIAL (INSIGHT)';
+                            display: block;
+                            font-size: 8px;
+                            font-weight: 900;
+                            color: #6366f1;
+                            letter-spacing: 0.1em;
+                            margin-bottom: 5px;
                         }
                     }
                 `}</style>
@@ -583,10 +640,13 @@ const ReportView = () => {
                                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800">
                                     <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-10 flex items-center justify-between">
                                         Análise de Pareto Completa
-                                        <div className="flex gap-4">
-                                            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe A</span></div>
-                                            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-indigo-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe B</span></div>
-                                            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-400 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe C</span></div>
+                                        <div className="flex items-center gap-6">
+                                                {refinementMetrics.active} Itens Analisados
+                                            <div className="flex gap-4 border-l border-slate-100 dark:border-slate-800 pl-6">
+                                                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe A</span></div>
+                                                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-indigo-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe B</span></div>
+                                                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-400 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe C</span></div>
+                                            </div>
                                         </div>
                                     </h3>
                                     <div className="h-[450px] overflow-hidden">
@@ -710,13 +770,18 @@ const ReportView = () => {
                         ) : (
                             <>
                                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800">
-                                    <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-10">Matriz Giro vs Lucratividade</h3>
+                                    <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-10 flex items-center justify-between">
+                                        Matriz Giro vs Lucratividade
+                                        <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-black text-slate-500">
+                                            {refinementMetrics.active} Itens Analisados
+                                        </span>
+                                    </h3>
                                     <div className="h-[500px]">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <ScatterChart margin={{ top: 20, right: 30, bottom: 40, left: 30 }}>
+                                            <ScatterChart margin={{ top: 40, right: 120, bottom: 40, left: 40 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" strokeOpacity={0.8} />
-                                                <XAxis type="number" dataKey="x" name="Giro Mensal" fontSize={9} fontWeight="900" axisLine={false} tickLine={false} tickFormatter={(val) => val.toFixed(1)} />
-                                                <YAxis type="number" dataKey="y" name="Lucro Mensal" fontSize={9} fontWeight="900" axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val.toLocaleString('pt-BR')}`} />
+                                                <XAxis type="number" dataKey="x" name="Giro Mensal" fontSize={9} fontWeight="900" axisLine={false} tickLine={false} tickFormatter={(val) => val.toFixed(1)} domain={['auto', 'auto']} />
+                                                <YAxis type="number" dataKey="y" name="Lucro Mensal" fontSize={9} fontWeight="900" axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val.toLocaleString('pt-BR')}`} domain={['auto', 'auto']} />
                                                 <Tooltip 
                                                     cursor={{ strokeDasharray: '3 3' }} 
                                                     content={({ active, payload }) => {
@@ -740,8 +805,8 @@ const ReportView = () => {
                                                         return null;
                                                     }}
                                                 />
-                                                <ReferenceLine x={avgTurnoverPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'top', value: 'MÉD. GIRO MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
-                                                <ReferenceLine y={avgProfitPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'right', value: 'MÉD. LUCRO MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
+                                                <ReferenceLine x={avgTurnoverPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'top', value: `MÉD. GIRO: ${avgTurnoverPerItem.toFixed(1)} un/mês`, fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
+                                                <ReferenceLine y={avgProfitPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'right', value: `MÉD. LUCRO: ${avgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
                                                 <Scatter name="Produtos" data={scatterData}>
                                                     {scatterData.map((entry: any, index: number) => (
                                                         <Cell key={`cell-${index}`} fill={entry.quadrant === 1 ? '#10b981' : entry.quadrant === 2 ? '#3b82f6' : entry.quadrant === 3 ? '#f59e0b' : '#94a3b8'} fillOpacity={0.8} />
@@ -753,6 +818,10 @@ const ReportView = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
                                         {(() => {
                                             const totalViewQty = results.reduce((acc, curr) => acc + (curr.totalQuantity || 0), 0);
+                                            const q1ResTotal = results.filter(r => r.quadrant === 1);
+                                            const q1ProfitSum = q1ResTotal.reduce((acc, curr) => acc + (curr.totalProfit || 0), 0);
+                                            const q1AvgProfitPerItem = q1ResTotal.length > 0 ? q1ProfitSum / q1ResTotal.length : 0;
+
                                             return [
                                                 { id: 1, label: 'Q1: Estrelas', sub: 'Alto Giro Mensal + Alto Lucro Mensal', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/50', text: 'text-emerald-600', valText: 'text-emerald-800 dark:text-emerald-400' },
                                                 { id: 2, label: 'Q2: Potencial', sub: 'Baixo Giro Mensal + Alto Lucro Mensal', color: 'blue', bg: 'bg-blue-50 dark:bg-blue-955/20', border: 'border-blue-100 dark:border-blue-900/50', text: 'text-blue-600', valText: 'text-blue-800 dark:text-blue-400' },
@@ -765,6 +834,7 @@ const ReportView = () => {
                                                 
                                                 const qPerc = totalProfit > 0 ? (qProfit / totalProfit) * 100 : 0;
                                                 const qItemsPerc = results.length > 0 ? (qResults.length / results.length) * 100 : 0;
+                                                const qMonthlyProfit = qProfit / (monthCount || 1);
                                                 
                                                 return (
                                                     <div key={q.id} className={`${q.bg} p-6 rounded-[2.5rem] border ${q.border} flex flex-col gap-2 shadow-sm transition-all hover:scale-[1.02]`}>
@@ -774,11 +844,76 @@ const ReportView = () => {
                                                         </div>
                                                         <div className="flex flex-col gap-1">
                                                             <p className={`text-xl font-black ${q.valText}`}>{qResults.length} <span className="text-[10px] font-bold opacity-60 uppercase">itens</span></p>
-                                                            <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{qProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                                            <div className="flex flex-col">
+                                                                <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{qProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <span className="text-[8px] font-bold opacity-30 ml-1">TOTAL</span></p>
+                                                                <p className={`text-[11px] font-black ${q.text}`}>{qMonthlyProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <span className="text-[8px] font-bold opacity-40 ml-1">/ MÊS</span></p>
+                                                            </div>
                                                             <div className="flex flex-col gap-0.5 mt-1 border-t border-black/5 dark:border-white/5 pt-2">
                                                                 <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do lucro total</span></p>
                                                                 <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qItemsPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">da quantidade de itens</span></p>
                                                             </div>
+                                                            {q.id !== 1 && (qResults.length * q1AvgProfitPerItem - qProfit) > 0 && (
+                                                                <div className="mt-4 pt-2 -mx-2">
+                                                                    <div className="relative group/insight">
+                                                                        <button className="flex items-center gap-2 px-3 py-2 bg-white/40 dark:bg-black/10 hover:bg-white dark:hover:bg-indigo-600 hover:text-white rounded-xl border border-black/5 dark:border-white/5 transition-all cursor-help">
+                                                                            <i className="bi bi-lightbulb-fill text-amber-500 group-hover/insight:text-white text-[10px]"></i>
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest">Ver Insight</span>
+                                                                        </button>
+                                                                        
+                                                                        <div className="absolute bottom-full left-0 mb-3 w-80 p-6 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 opacity-0 invisible group-hover/insight:opacity-100 group-hover/insight:visible transition-all z-50 transform translate-y-2 group-hover/insight:translate-y-0">
+                                                                            <div className="flex items-center gap-2 mb-4">
+                                                                                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+                                                                                    <i className="bi bi-graph-up-arrow text-indigo-600 dark:text-indigo-400 text-sm"></i>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <h5 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Simulação de Performance</h5>
+                                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Benchmark: Q1 - Estrelas</p>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div className="space-y-3">
+                                                                                {[100, 50, 25].map(perc => {
+                                                                                    const ratio = perc / 100;
+                                                                                    const scenarioProfit = (qResults.length * ratio * q1AvgProfitPerItem) + (qProfit * (1 - ratio));
+                                                                                    const scenarioMonthly = scenarioProfit / (monthCount || 1);
+                                                                                    const profitIncrease = scenarioProfit - qProfit;
+                                                                                    const monthlyIncrease = profitIncrease / (monthCount || 1);
+
+                                                                                    return (
+                                                                                        <div key={perc} className="bg-slate-50 dark:bg-slate-955 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 group/scenario hover:border-indigo-500/30 transition-all">
+                                                                                            <div className="flex justify-between items-center mb-2">
+                                                                                                <span className="text-[10px] font-black text-slate-800 dark:text-slate-100">{perc}% dos itens no Q1</span>
+                                                                                                <div className="text-right">
+                                                                                                    <p className="text-[9px] font-black text-emerald-600">+{profitIncrease.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <span className="text-[7px] font-bold opacity-60">TOTAL</span></p>
+                                                                                                    <p className="text-[8px] font-black text-emerald-500">+{monthlyIncrease.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <span className="text-[7px] font-bold opacity-60">/ MÊS</span></p>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="grid grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-2">
+                                                                                                <div>
+                                                                                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lucro Total</p>
+                                                                                                    <p className="text-[11px] font-black text-indigo-600">{scenarioProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lucro Mensal</p>
+                                                                                                    <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{scenarioMonthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+
+                                                                            <div className="mt-4 p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/30 text-center">
+                                                                                <p className="text-[9px] font-black text-white uppercase tracking-widest">
+                                                                                    Media Q1: {q1AvgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} / item
+                                                                                </p>
+                                                                            </div>
+
+                                                                            <div className="absolute -bottom-2 left-6 w-4 h-4 bg-white dark:bg-slate-900 border-r border-b border-slate-100 dark:border-slate-800 rotate-45"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
@@ -889,6 +1024,60 @@ const ReportView = () => {
                                     ))}
                                 </div>
                             </div>
+
+                            <div className="border-t border-slate-100 dark:border-slate-800 pt-8">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-5 block">Refinamento de Dados</label>
+                                <div className="flex flex-col gap-3">
+                                    <button 
+                                        onClick={() => setIsExclusionOpen(true)}
+                                        className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-955 border border-slate-100 dark:border-slate-800 flex items-center gap-4 hover:border-indigo-500 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm"
+                                    >
+                                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform border border-slate-100 dark:border-slate-800">
+                                            <i className="bi bi-filter-square-fill text-lg"></i>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase">Gerenciar Itens</p>
+                                            <p className="text-[8px] font-bold text-slate-400 uppercase">
+                                                {refinementMetrics.excluded} excluídos / {refinementMetrics.active} ativos
+                                            </p>
+                                        </div>
+                                    </button>
+
+                                    <button 
+                                        onClick={() => setIsReferenceOpen(true)}
+                                        className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-955 border border-slate-100 dark:border-slate-800 flex items-center gap-4 hover:border-emerald-500 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm"
+                                    >
+                                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform border border-slate-100 dark:border-slate-800">
+                                            <i className="bi bi-tag-fill text-lg"></i>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase">Referências</p>
+                                            <p className="text-[8px] font-bold text-slate-400 uppercase">Mapear itens duplicados</p>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-100 dark:border-slate-800 pt-8">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-5 block">Ordenação do Relatório</label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {[
+                                        { key: 'accumulatedPercentage', label: 'Participação no Lucro' },
+                                        { key: 'giroMensal', label: 'Giro Mensal' },
+                                        { key: 'lucroMensal', label: 'Lucro Mensal' },
+                                        { key: 'product', label: 'Nome do Produto' }
+                                    ].map(opt => (
+                                        <button 
+                                            key={opt.key}
+                                            onClick={() => handleSort(opt.key)}
+                                            className={`flex items-center justify-between p-4 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all ${sortConfig.key === opt.key ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-indigo-600'}`}
+                                        >
+                                            {opt.label}
+                                            {sortConfig.key === opt.key && <i className={`bi bi-sort-${sortConfig.direction === 'asc' ? 'down' : 'up'}`}></i>}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </aside>
@@ -904,6 +1093,48 @@ const ReportView = () => {
                 initialExcludedItems={reportConfig?.excludedItems || []}
                 availableItems={rawResults.map(r => ({ product: r.product, qty: r.totalQuantity, profit: r.totalProfit, supplier: r.supplier }))}
                 loading={loading}
+            />
+
+            <ItemExclusionModal 
+                isOpen={isExclusionOpen}
+                onClose={() => setIsExclusionOpen(false)}
+                items={allProducts.filter(i => selectedSuppliers.includes(i.supplier || 'N/A') || selectedSuppliers.length === 0)}
+                excludedItems={reportConfig?.excludedItems || []}
+                onToggleItem={(name) => {
+                    setReportConfig(prev => {
+                        const current = prev?.excludedItems || [];
+                        const next = current.includes(name) ? current.filter(x => x !== name) : [...current, name];
+                        const nextConfig = { ...prev, excludedItems: next };
+                        
+                        // Debounced backend update
+                        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+                        debounceTimeout.current = setTimeout(() => {
+                            handleUpdateReport({ name: reportName, source: reportSource, config: nextConfig });
+                        }, 800);
+                        
+                        return nextConfig;
+                    });
+                }}
+                onToggleAll={(select) => {
+                    setReportConfig(prev => {
+                        const next = select ? [] : allProducts.map(r => r.product);
+                        const nextConfig = { ...prev, excludedItems: next };
+                        
+                        // Debounced update
+                        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+                        debounceTimeout.current = setTimeout(() => {
+                            handleUpdateReport({ name: reportName, source: reportSource, config: nextConfig });
+                        }, 800);
+                        
+                        return nextConfig;
+                    });
+                }}
+            />
+
+            <ProductReferenceModal 
+                isOpen={isReferenceOpen}
+                onClose={() => setIsReferenceOpen(false)}
+                availableProducts={rawResults.map(i => ({ name: i.product, supplier: i.supplier || '' }))}
             />
 
             {hoveredResult && (
@@ -930,14 +1161,18 @@ const ReportView = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-8">
-                            <div className="bg-slate-50 dark:bg-slate-955 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">Giro Período</span>
-                                <span className="text-3xl font-black text-slate-800 dark:text-blue-500">{hoveredResult.totalQuantity} <span className="text-xs font-bold opacity-40 uppercase ml-1">un.</span></span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-slate-50 dark:bg-slate-955 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Giro Período</span>
+                                <span className="text-2xl font-black text-slate-800 dark:text-blue-500">{hoveredResult.totalQuantity} <span className="text-[10px] font-bold opacity-40 uppercase ml-1">un.</span></span>
                             </div>
-                            <div className="bg-slate-50 dark:bg-slate-955 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">Giro Mensal</span>
-                                <span className="text-3xl font-black text-indigo-600">{(hoveredResult.totalQuantity / (monthCount || 1)).toFixed(1)} <span className="text-xs font-bold opacity-40 uppercase ml-1">un.</span></span>
+                            <div className="bg-slate-50 dark:bg-slate-955 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Preço de Custo</span>
+                                <span className="text-2xl font-black text-amber-600">{(hoveredResult.avgCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-955 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Giro Mensal</span>
+                                <span className="text-2xl font-black text-indigo-600">{(hoveredResult.totalQuantity / (monthCount || 1)).toFixed(1)} <span className="text-[10px] font-bold opacity-40 uppercase ml-1">un.</span></span>
                             </div>
                         </div>
 
