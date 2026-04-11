@@ -306,6 +306,7 @@ const ReportView = () => {
                 return;
             }
 
+            setIsConfigOpen(false); // Fechar imediatamente para dar feedback de progresso
             await updateReport(id!, newConfig.name, newConfig.source, newConfig.config, reportData);
             
             // Refresh local state
@@ -323,7 +324,6 @@ const ReportView = () => {
             if (reportData.reportStartDate) setReportStartDate(reportData.reportStartDate);
             if (reportData.reportEndDate) setReportEndDate(reportData.reportEndDate);
             
-            setIsConfigOpen(false);
             alert("Relatório atualizado com sucesso!");
         } catch (e: any) {
             console.error("Erro ao atualizar relatório:", e);

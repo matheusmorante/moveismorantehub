@@ -340,11 +340,10 @@ export const useSalesReport = () => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', id)
-                .select()
-                .single();
+                .select();
             if (error) throw error;
             await listSavedReports();
-            return data;
+            return data?.[0];
         } finally {
             setLoading(false);
         }
