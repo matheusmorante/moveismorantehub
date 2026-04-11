@@ -12,8 +12,8 @@ export interface ABCResult {
     avgCost: number;
     accumulatedPercentage: number;
     classification: 'A' | 'B' | 'C';
-    avgTurnover?: number;
     monthlyProfit: number;
+    monthlyTurnover: number;
     quadrant?: 1 | 2 | 3 | 4;
 }
 
@@ -103,15 +103,16 @@ export const useSalesReport = () => {
         // Médias para Matriz baseadas em valores MENSAIS para comparação justa
         const statsWithMonthly = statsArray.map(s => ({
             ...s,
-            monthlyProfit: s.profit / (diffMonths || 1)
+            monthlyProfit: s.profit / (diffMonths || 1),
+            monthlyTurnover: s.qty / (diffMonths || 1)
         }));
 
         const totalMonthlyProfitVal = statsWithMonthly.reduce((acc, curr) => acc + curr.monthlyProfit, 0);
-        const totalQtyVal = statsArray.reduce((acc, curr) => acc + curr.qty, 0);
+        const totalMonthlyTurnoverVal = statsWithMonthly.reduce((acc, curr) => acc + curr.monthlyTurnover, 0);
         
         // Determinar as médias reais (thresholds)
         let avgP = statsArray.length > 0 ? totalMonthlyProfitVal / statsArray.length : 0;
-        let avgT = statsArray.length > 0 ? (totalQtyVal / statsArray.length) / (diffMonths || 1) : 0;
+        let avgT = statsArray.length > 0 ? totalMonthlyTurnoverVal / statsArray.length : 0;
         
         // Se houver configuração personalizada INDIVIDUAL, sobrepõe a média automática
         if (config?.profitThresholdMode === 'custom' && config.profitThreshold > 0) {
@@ -168,6 +169,7 @@ export const useSalesReport = () => {
                 totalRevenue: stat.rev,
                 totalProfit: stat.profit,
                 monthlyProfit,
+                monthlyTurnover,
                 avgCost: stat.qty > 0 ? stat.totalCost / stat.qty : 0,
                 accumulatedPercentage,
                 classification,
@@ -230,7 +232,7 @@ export const useSalesReport = () => {
             }
             
             if (!(config?.turnoverThresholdMode === 'custom' && config.turnoverThreshold > 0)) {
-                const sumT = filtered.reduce((acc, curr) => acc + (curr.totalQuantity / (monthCount || 1)), 0);
+                const sumT = filtered.reduce((acc, curr) => acc + (curr.monthlyTurnover || (curr.totalQuantity / (monthCount || 1))), 0);
                 setAvgTurnoverPerItem(sumT / filtered.length);
             }
         }

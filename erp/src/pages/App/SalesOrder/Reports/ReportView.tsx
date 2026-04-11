@@ -383,7 +383,7 @@ const ReportView = () => {
     }, [selectedSuppliers, minProfit, maxProfit, searchTerm, rawResults, monthCount]);
 
     const scatterData = useMemo(() => results.map(r => ({
-        x: r.totalQuantity / (monthCount || 1),
+        x: r.monthlyTurnover || (r.totalQuantity / (monthCount || 1)),
         y: r.monthlyProfit,
         name: r.product,
         quadrant: r.quadrant
