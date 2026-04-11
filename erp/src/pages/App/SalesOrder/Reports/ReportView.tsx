@@ -66,7 +66,8 @@ const ReportView = () => {
     };
     
     const handleShareWhatsApp = () => {
-        const publicUrl = `${window.location.origin}/public/report/${id}${location.search}`;
+        const REAL_URL = "https://moveismorantehub.vercel.app";
+        const publicUrl = `${REAL_URL}/public/report/${id}${location.search}`;
         const text = `📊 *Análise Estratégica MoranteHub*\n\nConfira o relatório: *${reportName}*\n\n🔗 Acesse aqui: ${publicUrl}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
@@ -378,8 +379,8 @@ const ReportView = () => {
             minProfit,
             maxProfit,
             search: searchTerm
-        });
-    }, [selectedSuppliers, minProfit, maxProfit, searchTerm, rawResults]);
+        }, reportConfig);
+    }, [selectedSuppliers, minProfit, maxProfit, searchTerm, rawResults, monthCount]);
 
     const scatterData = useMemo(() => results.map(r => ({
         x: r.totalQuantity / (monthCount || 1),
@@ -441,11 +442,11 @@ const ReportView = () => {
                         {/* Indicadores de Meta no Header */}
                         <div className="hidden lg:flex items-center gap-6">
                             <div className="flex flex-col items-end">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Meta de Giro</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Média de Giro</span>
                                 <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgTurnoverPerItem.toFixed(1)} un.</span>
                             </div>
                             <div className="flex flex-col items-end">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Meta Lc. Mensal</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Média Lc. Mensal</span>
                                 <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                             </div>
                         </div>
@@ -565,21 +566,21 @@ const ReportView = () => {
                                             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-400 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Classe C</span></div>
                                         </div>
                                     </h3>
-                                    <div className="h-[450px] overflow-x-auto custom-scrollbar">
-                                        <div style={{ minWidth: chartData.length > 25 ? `${chartData.length * 40}px` : '100%', height: '100%' }}>
+                                    <div className="h-[450px] overflow-hidden">
+                                        <div className="w-full h-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ComposedChart data={chartData} margin={{ bottom: 40 }}>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                                     <XAxis 
                                                         dataKey="name" 
-                                                        fontSize={9} 
+                                                        fontSize={8} 
                                                         fontWeight="900" 
                                                         tickLine={false} 
                                                         axisLine={false} 
-                                                        interval={chartData.length > 50 ? Math.floor(chartData.length / 20) : 0} 
+                                                        interval={0} 
                                                         angle={-45} 
                                                         textAnchor="end" 
-                                                        height={100}
+                                                        height={110}
                                                         tick={{ fill: '#64748b' }}
                                                     />
                                                     <YAxis 
@@ -705,8 +706,8 @@ const ReportView = () => {
                                                         return null;
                                                     }}
                                                 />
-                                                <ReferenceLine x={avgTurnoverPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'top', value: reportConfig?.turnoverThresholdMode === 'custom' ? 'META GIRO' : 'MÉDIA GIRO', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
-                                                <ReferenceLine y={avgProfitPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'right', value: reportConfig?.profitThresholdMode === 'custom' ? 'META LC. MENSAL' : 'MÉDIA LC. MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
+                                                <ReferenceLine x={avgTurnoverPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'top', value: 'MÉDIA GIRO', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
+                                                <ReferenceLine y={avgProfitPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'right', value: 'MÉDIA LUCRO MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
                                                 <Scatter name="Produtos" data={scatterData}>
                                                     {scatterData.map((entry: any, index: number) => (
                                                         <Cell key={`cell-${index}`} fill={entry.quadrant === 1 ? '#10b981' : entry.quadrant === 2 ? '#3b82f6' : entry.quadrant === 3 ? '#f59e0b' : '#94a3b8'} fillOpacity={0.8} />
@@ -716,30 +717,39 @@ const ReportView = () => {
                                         </ResponsiveContainer>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                                        {[
-                                            { id: 1, label: 'Q1: Estrelas', sub: 'Alto Giro + Alto Lucro', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/50', text: 'text-emerald-600', valText: 'text-emerald-800 dark:text-emerald-400' },
-                                            { id: 2, label: 'Q2: Potencial', sub: 'Baixo Giro + Alto Lucro', color: 'blue', bg: 'bg-blue-50 dark:bg-blue-955/20', border: 'border-blue-100 dark:border-blue-900/50', text: 'text-blue-600', valText: 'text-blue-800 dark:text-blue-400' },
-                                            { id: 3, label: 'Q3: Volume', sub: 'Alto Giro + Baixo Lucro', color: 'amber', bg: 'bg-amber-50 dark:bg-amber-955/20', border: 'border-amber-100 dark:border-amber-900/50', text: 'text-amber-600', valText: 'text-amber-800 dark:text-amber-400' },
-                                            { id: 4, label: 'Q4: Problemas', sub: 'Baixo Giro + Baixo Lucro', color: 'slate', bg: 'bg-slate-50 dark:bg-slate-950/40', border: 'border-slate-100 dark:border-slate-800/50', text: 'text-slate-500', valText: 'text-slate-800 dark:text-slate-400' },
-                                        ].map(q => {
-                                            const qResults = results.filter(r => r.quadrant === q.id);
-                                            const qProfit = qResults.reduce((acc, curr) => acc + (curr.totalProfit || 0), 0);
-                                            const qPerc = totalProfit > 0 ? (qProfit / totalProfit) * 100 : 0;
-                                            
-                                            return (
-                                                <div key={q.id} className={`${q.bg} p-6 rounded-[2.5rem] border ${q.border} flex flex-col gap-2 shadow-sm transition-all hover:scale-[1.02]`}>
-                                                    <div className="flex flex-col mb-2">
-                                                        <h4 className={`text-[9px] font-black ${q.text} uppercase tracking-[0.2em]`}>{q.label}</h4>
-                                                        <span className="text-[7px] font-bold opacity-50 uppercase tracking-widest">{q.sub}</span>
+                                        {(() => {
+                                            const totalViewQty = results.reduce((acc, curr) => acc + (curr.totalQuantity || 0), 0);
+                                            return [
+                                                { id: 1, label: 'Q1: Estrelas', sub: 'Alto Giro + Alto Lucro', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/50', text: 'text-emerald-600', valText: 'text-emerald-800 dark:text-emerald-400' },
+                                                { id: 2, label: 'Q2: Potencial', sub: 'Baixo Giro + Alto Lucro', color: 'blue', bg: 'bg-blue-50 dark:bg-blue-955/20', border: 'border-blue-100 dark:border-blue-900/50', text: 'text-blue-600', valText: 'text-blue-800 dark:text-blue-400' },
+                                                { id: 3, label: 'Q3: Volume', sub: 'Alto Giro + Baixo Lucro', color: 'amber', bg: 'bg-amber-50 dark:bg-amber-955/20', border: 'border-amber-100 dark:border-amber-900/50', text: 'text-amber-600', valText: 'text-amber-800 dark:text-amber-400' },
+                                                { id: 4, label: 'Q4: Problemas', sub: 'Baixo Giro + Baixo Lucro', color: 'slate', bg: 'bg-slate-50 dark:bg-slate-950/40', border: 'border-slate-100 dark:border-slate-800/50', text: 'text-slate-500', valText: 'text-slate-800 dark:text-slate-400' },
+                                            ].map(q => {
+                                                const qResults = results.filter(r => r.quadrant === q.id);
+                                                const qProfit = qResults.reduce((acc, curr) => acc + (curr.totalProfit || 0), 0);
+                                                const qQty = qResults.reduce((acc, curr) => acc + (curr.totalQuantity || 0), 0);
+                                                
+                                                const qPerc = totalProfit > 0 ? (qProfit / totalProfit) * 100 : 0;
+                                                const qQtyPerc = totalViewQty > 0 ? (qQty / totalViewQty) * 100 : 0;
+                                                
+                                                return (
+                                                    <div key={q.id} className={`${q.bg} p-6 rounded-[2.5rem] border ${q.border} flex flex-col gap-2 shadow-sm transition-all hover:scale-[1.02]`}>
+                                                        <div className="flex flex-col mb-2">
+                                                            <h4 className={`text-[9px] font-black ${q.text} uppercase tracking-[0.2em]`}>{q.label}</h4>
+                                                            <span className="text-[7px] font-bold opacity-50 uppercase tracking-widest">{q.sub}</span>
+                                                        </div>
+                                                        <div className="flex flex-col gap-1">
+                                                            <p className={`text-xl font-black ${q.valText}`}>{qResults.length} <span className="text-[10px] font-bold opacity-60 uppercase">itens</span></p>
+                                                            <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{qProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                                            <div className="flex flex-col gap-0.5 mt-1 border-t border-black/5 dark:border-white/5 pt-2">
+                                                                <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do lucro total</span></p>
+                                                                <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qQtyPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do volume total</span></p>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-col gap-1">
-                                                        <p className={`text-xl font-black ${q.valText}`}>{qResults.length} <span className="text-[10px] font-bold opacity-60 uppercase">itens</span></p>
-                                                        <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{qProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                                        <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do lucro total</span></p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                 </div>
 

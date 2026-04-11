@@ -111,7 +111,7 @@ export const useSalesReport = () => {
         
         // Determinar as médias reais (thresholds)
         let avgP = statsArray.length > 0 ? totalMonthlyProfitVal / statsArray.length : 0;
-        let avgT = statsArray.length > 0 ? totalQtyVal / statsArray.length : 0;
+        let avgT = statsArray.length > 0 ? (totalQtyVal / statsArray.length) / (diffMonths || 1) : 0;
         
         // Se houver configuração personalizada INDIVIDUAL, sobrepõe a média automática
         if (config?.profitThresholdMode === 'custom' && config.profitThreshold > 0) {
@@ -152,13 +152,14 @@ export const useSalesReport = () => {
             else if (accumulatedPercentage <= 90) classification = 'B';
 
             const monthlyProfit = stat.profit / (diffMonths || 1);
+            const monthlyTurnover = stat.qty / (diffMonths || 1);
 
             // Determinar Quadrante (1: +,+ | 2: +qty, -profit | 3: -qty, +profit | 4: -,-)
-            // Agora usando lucro MENSAL como base para a matriz
+            // Agora usando lucro MENSAL e giro MENSAL como base para a matriz
             let quadrant: 1 | 2 | 3 | 4 = 4;
-            if (stat.qty >= avgT && monthlyProfit >= avgP) quadrant = 1;
-            else if (stat.qty < avgT && monthlyProfit >= avgP) quadrant = 2; // Nicho (Alto lucro mensal, baixo giro total)
-            else if (stat.qty >= avgT && monthlyProfit < avgP) quadrant = 3; // Volume (Baixo lucro mensal, alto giro total)
+            if (monthlyTurnover >= safeAvgT && monthlyProfit >= safeAvgP) quadrant = 1;
+            else if (monthlyTurnover < safeAvgT && monthlyProfit >= safeAvgP) quadrant = 2; // Nicho (Alto lucro mensal, baixo giro mensal)
+            else if (monthlyTurnover >= safeAvgT && monthlyProfit < safeAvgP) quadrant = 3; // Volume (Baixo lucro mensal, alto giro mensal)
 
             return {
                 product: stat.product,
@@ -195,7 +196,7 @@ export const useSalesReport = () => {
         minProfit?: number, 
         maxProfit?: number, 
         search: string 
-    }) => {
+    }, config?: any) => {
         let filtered = [...rawResults];
 
         if (filters.suppliers.length > 0) {
@@ -217,9 +218,22 @@ export const useSalesReport = () => {
 
         setResults(filtered);
 
-        // Recalcular Lucro Total e Média com base no filtro
+        // Recalcular Lucro Total e Médias com base no filtro para que as linhas no gráfico façam sentido
         const newTotalProfit = filtered.reduce((acc, curr) => acc + curr.totalProfit, 0);
         setTotalProfit(newTotalProfit);
+
+        if (filtered.length > 0) {
+            // Se NÃO estiver em modo customizado, recalculamos a média baseada no que está visível
+            if (!(config?.profitThresholdMode === 'custom' && config.profitThreshold > 0)) {
+                const sumP = filtered.reduce((acc, curr) => acc + curr.monthlyProfit, 0);
+                setAvgProfitPerItem(sumP / filtered.length);
+            }
+            
+            if (!(config?.turnoverThresholdMode === 'custom' && config.turnoverThreshold > 0)) {
+                const sumT = filtered.reduce((acc, curr) => acc + (curr.totalQuantity / (monthCount || 1)), 0);
+                setAvgTurnoverPerItem(sumT / filtered.length);
+            }
+        }
     };
 
     const fetchFromERP = async (): Promise<SaleItem[]> => {
