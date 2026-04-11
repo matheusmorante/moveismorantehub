@@ -60,6 +60,10 @@ const LabelPrinting: React.FC = () => {
         
         if (cat) {
             setSearchParams(prev => { prev.set('cat', cat); return prev; }, { replace: true });
+            
+            if (cat !== 'logos') {
+                setPrintingMode('advanced');
+            }
         } else {
             setSearchParams(prev => { prev.delete('cat'); return prev; }, { replace: true });
         }
@@ -80,6 +84,7 @@ const LabelPrinting: React.FC = () => {
         if (finalCat && finalCat !== selectedCategory) {
             setSelectedCategoryState(finalCat);
             if (finalCat === 'logos') setPrintingMode('simple');
+            else setPrintingMode('advanced');
         }
     }, [searchParams, selectedCategory]);
 
@@ -157,9 +162,9 @@ const LabelPrinting: React.FC = () => {
 
 
     const [config, setConfig] = useState<LabelConfig>({
-        type: isProductContext ? 'rect' : 'round',
+        type: 'rect',
         preset: isProductContext ? 'qr_product' : 'store_logo',
-        layout: isProductContext ? 'horizontal' : 'vertical',
+        layout: isProductContext ? 'horizontal' : 'horizontal',
         showName: isProductContext,
         showPrice: false,
         showBarcode: isProductContext,
@@ -346,8 +351,8 @@ const LabelPrinting: React.FC = () => {
 
         switch (preset) {
             case 'store_logo':
-                newConfig.type = 'round';
-                newConfig.layout = 'vertical';
+                newConfig.type = 'rect';
+                newConfig.layout = 'horizontal';
                 newConfig.showName = false;
                 newConfig.showPrice = false;
                 newConfig.showBarcode = false;
@@ -813,6 +818,7 @@ const LabelPrinting: React.FC = () => {
             extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : []
         };
         setLogoItems(prev => [...prev, newItem]);
+        setIsAssetManagerModalOpen(false);
         toast.success(`${logo.name} adicionado à fila.`);
     };
 
@@ -1945,6 +1951,7 @@ const LabelPrinting: React.FC = () => {
                     } else {
                         setSelectedImage(image);
                     }
+                    setIsImageModalOpen(false);
                     toast.success('Imagem selecionada da biblioteca!');
                 }}
              />

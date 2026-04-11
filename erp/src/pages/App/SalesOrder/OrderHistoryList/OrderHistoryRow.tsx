@@ -526,8 +526,8 @@ const OrderHistoryRow = ({
                                                 </button>
 
                                                 {/* Dropdown Menu - Continuous hover area */}
-                                                <div className={`absolute bottom-full right-0 mb-2 w-48 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
-                                                    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up">
+                                                <div className={`absolute top-full right-0 mt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
+                                                    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                         
                                                         {/* Manual Stock Action - Moved to TOP for visibility */}
                                                         {!showStockConfirm ? (
@@ -537,7 +537,7 @@ const OrderHistoryRow = ({
                                                                 disabled={isStockLoading || order.status === 'cancelled' || order.status === 'draft' || (!(order.stockProcessed) && !(order.items?.some(i => i.productId && i.productId.trim() !== "")))}
                                                                 title={order.status === 'draft' ? 'Salve o pedido para habilitar o controle de estoque' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Este pedido não contém produtos do catálogo' : (order.stockProcessed ? 'Reverter movimentações de estoque' : 'Registrar saída de estoque manualmente'))}
                                                             >
-                                                                <i className={`bi ${order.stockProcessed ? 'bi-arrow-left-right' : 'bi-box-arrow-right'} text-lg`} />
+                                                                <i className={`bi ${order.stockProcessed ? 'bi-arrow-left-right' : 'bi-box-arrow-right'} text-lg min-w-[20px]`} />
                                                                 <div className="flex flex-col text-left">
                                                                     <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
                                                                         {order.stockProcessed ? 'Estornar Saída' : 'Lançar Saída'}

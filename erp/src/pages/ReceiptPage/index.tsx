@@ -90,31 +90,30 @@ const ReceiptPage = () => {
 
             {/* Seu Lizandro Interaction Area */}
             <div className="mt-2 pt-2">
-                <div className="flex items-center gap-6 p-5 bg-slate-50/80 rounded-[2rem] border border-slate-100 relative overflow-hidden">
-                    <div className="flex-shrink-0">
-                        <div className="w-28 h-28 bg-white rounded-3xl p-1 shadow-sm border border-slate-100 overflow-hidden">
+                <div className="flex items-center gap-4 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 relative overflow-hidden">
+                    <div className="flex-shrink-0 z-10 relative">
+                        <div className="w-16 h-16 bg-white rounded-2xl p-1 shadow-sm border border-slate-100 overflow-hidden">
                             <img 
                                 src={settings.aiPrompts?.aiMascotVariants?.receipt || settings.aiPrompts?.aiMascot || "/lizandro.png"} 
                                 alt="Seu Lizandro" 
-                                className="w-full h-full object-cover rounded-2xl"
+                                className="w-full h-full object-cover rounded-xl"
                             />
                         </div>
                     </div>
                     
-                    <div className="flex-1">
+                    <div className="flex-1 z-10 relative">
                         <div className="relative">
-                            <p className="text-blue-900 font-black italic text-lg leading-tight tracking-tighter mb-1">
+                            <p className="text-blue-900 font-black italic text-[13px] leading-tight tracking-tight mb-0.5">
                                 "Ah, que alegria! Ficamos muito felizes em fazer parte do seu lar."
                             </p>
-                            <p className="text-[10px] text-blue-400 font-black uppercase tracking-[0.2em]">
+                            <p className="text-[9px] text-blue-400 font-black uppercase tracking-[0.2em]">
                                Muito obrigado pela preferência!
                             </p>
                         </div>
                     </div>
 
                     {/* Decorative Elements */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                    <div className="absolute bottom-0 left-1/4 w-24 h-24 bg-blue-600/5 rounded-full blur-2xl"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full -mr-16 -mt-16 blur-2xl z-0"></div>
                 </div>
             </div>
             
