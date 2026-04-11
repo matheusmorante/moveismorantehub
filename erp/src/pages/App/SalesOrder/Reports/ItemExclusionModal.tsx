@@ -13,12 +13,21 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
     isOpen, onClose, items, excludedItems, onToggleItem, onToggleAll 
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedSupplier, setSelectedSupplier] = useState<string>('');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'qty', direction: 'desc' });
 
+    const uniqueSuppliers = useMemo(() => {
+        const suppliers = items.map(i => i.supplier).filter(Boolean);
+        return Array.from(new Set(suppliers)).sort();
+    }, [items]);
+
     const filteredAndSortedItems = useMemo(() => {
-        let result = items.filter(item => 
-            item.product.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        let result = items.filter(item => {
+            const matchesSearch = item.product.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesSupplier = selectedSupplier ? item.supplier === selectedSupplier : true;
+            return matchesSearch && matchesSupplier;
+        });
 
         if (sortConfig.key) {
             result.sort((a, b) => {
@@ -31,7 +40,7 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
         }
 
         return result;
-    }, [items, searchTerm, sortConfig]);
+    }, [items, searchTerm, selectedSupplier, sortConfig]);
 
     const handleSort = (key: string) => {
         setSortConfig(prev => ({
@@ -43,8 +52,8 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <div className="bg-white dark:bg-slate-900 w-[95vw] max-w-[1600px] h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up flex flex-col">
                 <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0">
                     <div className="flex flex-col">
                         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
@@ -68,6 +77,16 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-6 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         />
                     </div>
+                    <select
+                        value={selectedSupplier}
+                        onChange={(e) => setSelectedSupplier(e.target.value)}
+                        className="w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-600 dark:text-slate-300"
+                    >
+                        <option value="">Todos Fornecedores</option>
+                        {uniqueSuppliers.map(s => (
+                            <option key={s as string} value={s as string}>{s}</option>
+                        ))}
+                    </select>
                     <div className="flex gap-2">
                         <button 
                             onClick={() => onToggleAll(true)}
@@ -86,11 +105,14 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <table className="w-full text-left">
-                        <thead className="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                        <thead className="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10">
                             <tr>
                                 <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 w-16">Incluir</th>
                                 <th onClick={() => handleSort('product')} className="px-4 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                     Descrição <i className={`bi bi-sort-${sortConfig.key === 'product' ? (sortConfig.direction === 'asc' ? 'down' : 'up') : 'down-up'} ml-1 opacity-40`}></i>
+                                </th>
+                                <th onClick={() => handleSort('supplier')} className="px-4 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                    Fornecedor <i className={`bi bi-sort-${sortConfig.key === 'supplier' ? (sortConfig.direction === 'asc' ? 'down' : 'up') : 'down-up'} ml-1 opacity-40`}></i>
                                 </th>
                                 <th onClick={() => handleSort('qty')} className="px-4 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-right w-24">
                                     Qtd. <i className={`bi bi-sort-${sortConfig.key === 'qty' ? (sortConfig.direction === 'asc' ? 'down' : 'up') : 'down-up'} ml-1 opacity-40`}></i>
@@ -116,6 +138,9 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                                         </td>
                                         <td className="px-4 py-4">
                                             <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{item.product}</p>
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.supplier}</p>
                                         </td>
                                         <td className="px-4 py-4 text-right">
                                             <span className="text-[11px] font-black text-slate-500">{item.qty}</span>

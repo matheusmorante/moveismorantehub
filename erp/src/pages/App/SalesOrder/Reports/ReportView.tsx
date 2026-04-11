@@ -273,26 +273,35 @@ const ReportView = () => {
                         } catch (e) {
                             console.error("Erro ao converter data:", dateStr, e);
                         }
-
+    
                         const qty = parseNum(row[newConfig.config.quantity]);
                         const sVal = parseNum(row[newConfig.config.salesValue]);
                         const cost = parseNum(row[newConfig.config.cost]);
                         const profit = parseNum(row[newConfig.config.profit]);
-
+    
                         return {
                             date, product: row[newConfig.config.product] || 'Nome não encontrado', supplier: row[newConfig.config.supplier] || 'S/ Fornecedor',
                             quantity: qty, cost: cost, salesValue: sVal, profit: profit
                         };
                     });
+                } else if (id) {
+                    // Update only metadata and config for existing CSV report
+                    await updateReport(id, newConfig.name, newConfig.source, newConfig.config);
+                    setReportName(newConfig.name);
+                    setReportConfig(newConfig.config);
+                    setAbcBasis(newConfig.config?.abcBasis || 'revenue');
+                    setIsConfigOpen(false);
+                    setLoading(false);
+                    return;
                 } else {
-                    alert("Para reprocessar dados de CSV, você precisa anexar o arquivo novamente no modal de configuração.");
+                    alert("Para processar dados de CSV, você precisa anexar o arquivo.");
                     setLoading(false);
                     return;
                 }
             }
-
-            if (items.length === 0) {
-                alert("Nenhum dado encontrado no CSV. Certifique-se de anexar o arquivo novamente no modal para reprocessar.");
+    
+            if (newConfig.source === 'erp' && items.length === 0) {
+                alert("Nenhum dado encontrado no ERP para o período.");
                 setLoading(false);
                 return;
             }
@@ -389,12 +398,26 @@ const ReportView = () => {
         quadrant: r.quadrant
     })), [results, monthCount]);
 
-    const chartData = useMemo(() => results.map(r => ({
-        name: r.product.substring(0, 20),
-        valor: abcBasis === 'revenue' ? r.totalRevenue : r.totalProfit,
-        perc: r.accumulatedPercentage,
-        class: r.classification
-    })), [results, abcBasis]);
+    const chartData = useMemo(() => {
+        let accValor = 0;
+        const totalItems = results.length;
+        const divider = monthCount || 1;
+        
+        return results.map((i_item, i) => {
+            const val = abcBasis === 'revenue' ? (i_item.totalRevenue / divider) : i_item.monthlyProfit;
+            accValor += val;
+            
+            return {
+                name: i_item.product.substring(0, 20),
+                valor: val,
+                lucroAcumulado: accValor,
+                numeroItens: i + 1,
+                percItens: ((i + 1) / (totalItems || 1)) * 100,
+                perc: i_item.accumulatedPercentage,
+                class: i_item.classification
+            };
+        });
+    }, [results, abcBasis, monthCount]);
 
     if (loading && !results.length) {
         return (
@@ -572,18 +595,26 @@ const ReportView = () => {
                                                 <ComposedChart data={chartData} margin={{ bottom: 20 }}>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                                     <XAxis 
-                                                        dataKey="name" 
-                                                        hide={true} 
+                                                        dataKey="percItens" 
+                                                        fontSize={9} 
+                                                        fontWeight="900" 
+                                                        tickLine={false} 
+                                                        axisLine={false} 
+                                                        tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
                                                     />
+
                                                     <YAxis 
                                                         yAxisId="left" 
                                                         fontSize={9} 
                                                         fontWeight="900" 
                                                         tickLine={false} 
                                                         axisLine={false} 
-                                                        tickFormatter={(val) => `R$ ${val.toLocaleString('pt-BR')}`}
-                                                        domain={[0, 'auto']}
-                                                        allowDataOverflow={true}
+                                                        tickFormatter={(val) => {
+                                                            if (val >= 1000000) return `R$ ${(val/1000000).toFixed(1)}M`;
+                                                            if (val >= 1000) return `R$ ${(val/1000).toFixed(0)}k`;
+                                                            return `R$ ${val}`;
+                                                        }}
+                                                        domain={[0, 'dataMax']}
                                                     />
                                                     <YAxis 
                                                         yAxisId="right" 
@@ -592,19 +623,28 @@ const ReportView = () => {
                                                         fontWeight="900" 
                                                         tickLine={false} 
                                                         axisLine={false} 
-                                                        unit="%" 
+                                                        tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
                                                         domain={[0, 100]}
                                                     />
                                                     <Tooltip 
                                                         formatter={(value, name) => {
-                                                            if (name === 'valor') return [value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 'Valor'];
-                                                            if (name === 'perc') return [`${Number(value).toFixed(2)}%`, 'Acumulado'];
+                                                            if (name === 'percItens') return [`${Number(value).toFixed(1)}%`, 'da Quantidade de Itens'];
+                                                            if (name === 'perc') return [`${Number(value).toFixed(1)}%`, '% do Lucro Total'];
+                                                            if (name === 'lucroAcumulado') return [Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 'Lucro Mensal Acumulado'];
                                                             return [value, name];
+                                                        }}
+                                                        labelFormatter={(label, payload) => {
+                                                            if (payload && payload.length > 0) {
+                                                                const p = payload[0].payload;
+                                                                return `${p.percItens.toFixed(1)}% dos itens (${p.numeroItens} produtos até ${p.name})`;
+                                                            }
+                                                            return `${Number(label).toFixed(1)}% dos Itens`;
                                                         }}
                                                         contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 40px -10px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)' }} 
                                                     />
-                                                    <Line yAxisId="left" type="monotone" dataKey="valor" stroke="#3b82f6" strokeWidth={3} dot={false} />
-                                                    <Area yAxisId="right" type="monotone" dataKey="perc" stroke="#ef4444" fill="url(#colorPerc)" strokeWidth={2} dot={false} fillOpacity={0.1} />
+
+                                                    <Area yAxisId="right" type="monotone" dataKey="perc" stroke="transparent" fill="url(#colorPerc)" strokeWidth={0} dot={false} fillOpacity={0.1} />
+                                                    <Line yAxisId="left" type="monotone" dataKey="lucroAcumulado" stroke="#3b82f6" strokeWidth={3} dot={false} />
                                                     <defs>
                                                         <linearGradient id="colorPerc" x1="0" y1="0" x2="0" y2="1">
                                                             <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
@@ -724,7 +764,7 @@ const ReportView = () => {
                                                 const qQty = qResults.reduce((acc, curr) => acc + (curr.totalQuantity || 0), 0);
                                                 
                                                 const qPerc = totalProfit > 0 ? (qProfit / totalProfit) * 100 : 0;
-                                                const qQtyPerc = totalViewQty > 0 ? (qQty / totalViewQty) * 100 : 0;
+                                                const qItemsPerc = results.length > 0 ? (qResults.length / results.length) * 100 : 0;
                                                 
                                                 return (
                                                     <div key={q.id} className={`${q.bg} p-6 rounded-[2.5rem] border ${q.border} flex flex-col gap-2 shadow-sm transition-all hover:scale-[1.02]`}>
@@ -737,7 +777,7 @@ const ReportView = () => {
                                                             <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{qProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                                             <div className="flex flex-col gap-0.5 mt-1 border-t border-black/5 dark:border-white/5 pt-2">
                                                                 <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do lucro total</span></p>
-                                                                <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qQtyPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do volume total</span></p>
+                                                                <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qItemsPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">da quantidade de itens</span></p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -862,7 +902,7 @@ const ReportView = () => {
                 initialSource={reportSource}
                 initialName={reportName}
                 initialExcludedItems={reportConfig?.excludedItems || []}
-                availableItems={rawResults.map(r => ({ product: r.product, qty: r.totalQuantity, profit: r.totalProfit }))}
+                availableItems={rawResults.map(r => ({ product: r.product, qty: r.totalQuantity, profit: r.totalProfit, supplier: r.supplier }))}
                 loading={loading}
             />
 

@@ -280,7 +280,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                 <ProductReferenceModal 
                     isOpen={isReferenceModalOpen}
                     onClose={() => setIsReferenceModalOpen(false)}
-                    availableProducts={availableItems.map(i => i.product)}
+                    availableProducts={availableItems?.map(i => ({ name: i.product, supplier: i.supplier || '' })) || []}
                 />
             </div>
         </div>
