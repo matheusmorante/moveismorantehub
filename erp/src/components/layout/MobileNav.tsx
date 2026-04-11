@@ -85,25 +85,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         )}
                     </div>
 
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-box-fill text-lg"></i>
-                                <span>Estoque</span>
-                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'stock' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/stock?tab=history" onClick={onClose} className={mobileSubLinkClass}>Movimentações</Link>
-                                <Link to="/stock" onClick={onClose} className={mobileSubLinkClass}>Controle de Saldo</Link>
-                                <Link to="/stock/purchases" onClick={onClose} className={mobileSubLinkClass}>Pedidos de Compra</Link>
-                                <Link to="/stock/label-printing" onClick={onClose} className={mobileSubLinkClass}>Gerenciar Etiquetas</Link>
-                            </div>
-                        )}
-                    </div>
-
                     {/* Pedidos */}
                     <div className="flex flex-col">
                         <button onClick={() => toggle('salesOrder')} className={menuBtnClass(activeMenu === 'salesOrder')}>
@@ -117,8 +98,8 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
                                 <Link to="/sales-order" onClick={onClose} className={mobileSubLinkClass}>Lista de Pedidos</Link>
                                 <Link to="/attendance-dashboard" onClick={onClose} className={mobileSubLinkClass}>BI de Atendimento</Link>
-                                
                                 <Link to="/sales-order?type=budget" onClick={onClose} className={mobileSubLinkClass}>Orçamentos</Link>
+                                <Link to="/sales-order/reports" onClick={onClose} className={mobileSubLinkClass}>Relatórios de Vendas</Link>
                             </div>
                         )}
                     </div>
@@ -141,6 +122,23 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         )}
                     </div>
 
+                    {/* Estoque */}
+                    <div className="flex flex-col">
+                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
+                            <div className="flex items-center gap-3">
+                                <i className="bi bi-box-fill text-lg"></i>
+                                <span>Estoque</span>
+                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
+                            </div>
+                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
+                        </button>
+                        {activeMenu === 'stock' && (
+                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
+                                <Link to="/stock?tab=history" onClick={onClose} className={mobileSubLinkClass}>Movimentações</Link>
+                                <Link to="/stock" onClick={onClose} className={mobileSubLinkClass}>Controle de Saldo</Link>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Financeiro */}
                     <div className="flex flex-col">
@@ -161,7 +159,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                             </div>
                         )}
                     </div>
-
 
                     {/* Comunicação Visual */}
                     <div className="flex flex-col">
@@ -190,9 +187,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                             </div>
                         )}
                     </div>
-
-
-
                 </nav>
 
                 {/* Footer */}

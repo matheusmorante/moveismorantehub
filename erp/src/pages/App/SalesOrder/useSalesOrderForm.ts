@@ -176,12 +176,18 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
         if (isDefaultState) return;
 
+        // Use a ref for immediate check to avoid race conditions during auto-save
+        const isSavingRef = { current: false };
+
         autoSaveTimerRef.current = setTimeout(async () => {
+            if (latestState.current.isSaving || latestState.current.isSavingDraft || isSavingRef.current) return;
+            
             const currentStatus = latestState.current.status;
             // Only force 'draft' for new orders or those already in 'draft'
             const saveStatus = (currentStatus === 'draft' || !latestState.current.currentOrderId) ? 'draft' : currentStatus;
             const draft = getOrderData(saveStatus as any); 
             try {
+                isSavingRef.current = true;
                 setIsSavingDraft(true);
                 const savedId = await saveOrder(draft);
                 // After first auto-save, update currentOrderId so all subsequent
@@ -192,6 +198,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             } catch (error) {
                 console.error("Erro no salvamento automático:", error);
             } finally {
+                isSavingRef.current = false;
                 setTimeout(() => setIsSavingDraft(false), 1000);
             }
         }, 3000);

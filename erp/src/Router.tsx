@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, BrowserRouter, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import SalesOrder from './pages/App/SalesOrder';
@@ -40,6 +40,8 @@ import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
 import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
 import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
+const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
+const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/ReportView'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
@@ -96,11 +98,14 @@ function Router() {
           <Route path='/schedule' element={<DeliverySchedule />} />
           <Route path='/assembly-schedule' element={<AssemblyListPage />} />
           <Route path='/logistics/assembly-print' element={<AssemblyPrintPage />} />
+          <Route path='/public/report/:id' element={<Suspense fallback={null}><SalesOrderReportView /></Suspense>} />
 
           {/* Protected ERP Application */}
           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path='/sales-order' element={<SalesOrder />} />
+            <Route path='/sales-order/reports' element={<SalesOrderReports />} />
+            <Route path='/sales-order/reports/:id' element={<Suspense fallback={null}><SalesOrderReportView /></Suspense>} />
             <Route path='/sales-order/freight-calculation' element={<OrderRouteMap />} />
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
