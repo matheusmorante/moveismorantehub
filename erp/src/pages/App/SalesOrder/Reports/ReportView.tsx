@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-    Line, ComposedChart, Bar, Cell, ScatterChart, Scatter, ReferenceLine
+    Line, ComposedChart, Bar, Cell, ScatterChart, Scatter, ReferenceLine, Area
 } from 'recharts';
 import { format, parse } from 'date-fns';
 import { useSalesReport, ABCResult, SaleItem } from './useSalesReport';
@@ -442,11 +442,11 @@ const ReportView = () => {
                         {/* Indicadores de Meta no Header */}
                         <div className="hidden lg:flex items-center gap-6">
                             <div className="flex flex-col items-end">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Média de Giro</span>
-                                <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgTurnoverPerItem.toFixed(1)} un.</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Giro Mensal Médio</span>
+                                <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgTurnoverPerItem.toFixed(1)} un/mês</span>
                             </div>
                             <div className="flex flex-col items-end">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Média Lc. Mensal</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Lucro Mensal Médio</span>
                                 <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                             </div>
                         </div>
@@ -569,19 +569,11 @@ const ReportView = () => {
                                     <div className="h-[450px] overflow-hidden">
                                         <div className="w-full h-full">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <ComposedChart data={chartData} margin={{ bottom: 40 }}>
+                                                <ComposedChart data={chartData} margin={{ bottom: 20 }}>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                                     <XAxis 
                                                         dataKey="name" 
-                                                        fontSize={8} 
-                                                        fontWeight="900" 
-                                                        tickLine={false} 
-                                                        axisLine={false} 
-                                                        interval={0} 
-                                                        angle={-45} 
-                                                        textAnchor="end" 
-                                                        height={110}
-                                                        tick={{ fill: '#64748b' }}
+                                                        hide={true} 
                                                     />
                                                     <YAxis 
                                                         yAxisId="left" 
@@ -590,7 +582,7 @@ const ReportView = () => {
                                                         tickLine={false} 
                                                         axisLine={false} 
                                                         tickFormatter={(val) => `R$ ${val.toLocaleString('pt-BR')}`}
-                                                        domain={[0, 'auto']} // Forçar início em zero para o gráfico de Pareto ser legível
+                                                        domain={[0, 'auto']}
                                                         allowDataOverflow={true}
                                                     />
                                                     <YAxis 
@@ -601,7 +593,7 @@ const ReportView = () => {
                                                         tickLine={false} 
                                                         axisLine={false} 
                                                         unit="%" 
-                                                        domain={[0, 100]} // Escala fixa de 0 a 100% para a curva de Pareto
+                                                        domain={[0, 100]}
                                                     />
                                                     <Tooltip 
                                                         formatter={(value, name) => {
@@ -611,12 +603,14 @@ const ReportView = () => {
                                                         }}
                                                         contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 40px -10px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)' }} 
                                                     />
-                                                    <Bar yAxisId="left" dataKey="valor" radius={[6, 6, 0, 0]} barSize={chartData.length > 50 ? undefined : 30}>
-                                                        {chartData.map((entry: any, index: number) => (
-                                                            <Cell key={`cell-${index}`} fill={entry.class === 'A' ? '#2563eb' : entry.class === 'B' ? '#6366f1' : '#94a3b8'} fillOpacity={0.9} />
-                                                        ))}
-                                                    </Bar>
-                                                    <Line yAxisId="right" type="monotone" dataKey="perc" stroke="#ef4444" strokeWidth={3} dot={chartData.length > 50 ? false : { fill: '#ef4444', r: 3 }} />
+                                                    <Line yAxisId="left" type="monotone" dataKey="valor" stroke="#3b82f6" strokeWidth={3} dot={false} />
+                                                    <Area yAxisId="right" type="monotone" dataKey="perc" stroke="#ef4444" fill="url(#colorPerc)" strokeWidth={2} dot={false} fillOpacity={0.1} />
+                                                    <defs>
+                                                        <linearGradient id="colorPerc" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
+                                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                                        </linearGradient>
+                                                    </defs>
                                                 </ComposedChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -706,8 +700,8 @@ const ReportView = () => {
                                                         return null;
                                                     }}
                                                 />
-                                                <ReferenceLine x={avgTurnoverPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'top', value: 'MÉDIA GIRO', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
-                                                <ReferenceLine y={avgProfitPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'right', value: 'MÉDIA LUCRO MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
+                                                <ReferenceLine x={avgTurnoverPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'top', value: 'MÉD. GIRO MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
+                                                <ReferenceLine y={avgProfitPerItem} stroke="#94a3b8" strokeDasharray="8 8" strokeWidth={1} label={{ position: 'right', value: 'MÉD. LUCRO MENSAL', fill: '#94a3b8', fontSize: 8, fontWeight: 900 }} />
                                                 <Scatter name="Produtos" data={scatterData}>
                                                     {scatterData.map((entry: any, index: number) => (
                                                         <Cell key={`cell-${index}`} fill={entry.quadrant === 1 ? '#10b981' : entry.quadrant === 2 ? '#3b82f6' : entry.quadrant === 3 ? '#f59e0b' : '#94a3b8'} fillOpacity={0.8} />
@@ -720,10 +714,10 @@ const ReportView = () => {
                                         {(() => {
                                             const totalViewQty = results.reduce((acc, curr) => acc + (curr.totalQuantity || 0), 0);
                                             return [
-                                                { id: 1, label: 'Q1: Estrelas', sub: 'Alto Giro + Alto Lucro', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/50', text: 'text-emerald-600', valText: 'text-emerald-800 dark:text-emerald-400' },
-                                                { id: 2, label: 'Q2: Potencial', sub: 'Baixo Giro + Alto Lucro', color: 'blue', bg: 'bg-blue-50 dark:bg-blue-955/20', border: 'border-blue-100 dark:border-blue-900/50', text: 'text-blue-600', valText: 'text-blue-800 dark:text-blue-400' },
-                                                { id: 3, label: 'Q3: Volume', sub: 'Alto Giro + Baixo Lucro', color: 'amber', bg: 'bg-amber-50 dark:bg-amber-955/20', border: 'border-amber-100 dark:border-amber-900/50', text: 'text-amber-600', valText: 'text-amber-800 dark:text-amber-400' },
-                                                { id: 4, label: 'Q4: Problemas', sub: 'Baixo Giro + Baixo Lucro', color: 'slate', bg: 'bg-slate-50 dark:bg-slate-950/40', border: 'border-slate-100 dark:border-slate-800/50', text: 'text-slate-500', valText: 'text-slate-800 dark:text-slate-400' },
+                                                { id: 1, label: 'Q1: Estrelas', sub: 'Alto Giro Mensal + Alto Lucro Mensal', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/50', text: 'text-emerald-600', valText: 'text-emerald-800 dark:text-emerald-400' },
+                                                { id: 2, label: 'Q2: Potencial', sub: 'Baixo Giro Mensal + Alto Lucro Mensal', color: 'blue', bg: 'bg-blue-50 dark:bg-blue-955/20', border: 'border-blue-100 dark:border-blue-900/50', text: 'text-blue-600', valText: 'text-blue-800 dark:text-blue-400' },
+                                                { id: 3, label: 'Q3: Volume', sub: 'Alto Giro Mensal + Baixo Lucro Mensal', color: 'amber', bg: 'bg-amber-50 dark:bg-amber-955/20', border: 'border-amber-100 dark:border-amber-900/50', text: 'text-amber-600', valText: 'text-amber-800 dark:text-amber-400' },
+                                                { id: 4, label: 'Q4: Problemas', sub: 'Baixo Giro Mensal + Baixo Lucro Mensal', color: 'slate', bg: 'bg-slate-50 dark:bg-slate-950/40', border: 'border-slate-100 dark:border-slate-800/50', text: 'text-slate-500', valText: 'text-slate-800 dark:text-slate-400' },
                                             ].map(q => {
                                                 const qResults = results.filter(r => r.quadrant === q.id);
                                                 const qProfit = qResults.reduce((acc, curr) => acc + (curr.totalProfit || 0), 0);

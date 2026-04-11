@@ -175,7 +175,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
 
                     <div className="bg-slate-50 dark:bg-slate-955 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-8">
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-4 block">Giro Médio (Eixo X)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-4 block">Giro Médio Mensal (Eixo X)</label>
                             <div className="flex p-1.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4">
                                 <button onClick={() => setTurnoverThresholdMode('avg')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${turnoverThresholdMode === 'avg' ? 'bg-slate-100 dark:bg-slate-800 text-blue-600' : 'text-slate-400'}`}>Média</button>
                                 <button onClick={() => setTurnoverThresholdMode('custom')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${turnoverThresholdMode === 'custom' ? 'bg-slate-100 dark:bg-slate-800 text-indigo-600' : 'text-slate-400'}`}>Valor Fixo</button>
@@ -192,7 +192,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                         </div>
 
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-4 block">Lucratividade Média (Eixo Y)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-4 block">Lucratividade Média Mensal (Eixo Y)</label>
                             <div className="flex p-1.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4">
                                 <button onClick={() => setProfitThresholdMode('avg')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${profitThresholdMode === 'avg' ? 'bg-slate-100 dark:bg-slate-800 text-blue-600' : 'text-slate-400'}`}>Média</button>
                                 <button onClick={() => setProfitThresholdMode('custom')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${profitThresholdMode === 'custom' ? 'bg-slate-100 dark:bg-slate-800 text-indigo-600' : 'text-slate-400'}`}>Valor Fixo</button>

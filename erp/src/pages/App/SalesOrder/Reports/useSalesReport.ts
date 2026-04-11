@@ -218,24 +218,46 @@ export const useSalesReport = () => {
             filtered = filtered.filter(r => r.product.toLowerCase().includes(lowSearch));
         }
 
-        setResults(filtered);
+        // 1. Determinar as médias que serão usadas para os quadrantes (respeitando modo custom)
+        let finalAvgP = 0;
+        let finalAvgT = 0;
 
-        // Recalcular Lucro Total e Médias com base no filtro para que as linhas no gráfico façam sentido
+        if (config?.profitThresholdMode === 'custom' && config.profitThreshold > 0) {
+            finalAvgP = config.profitThreshold;
+        } else if (filtered.length > 0) {
+            const sumP = filtered.reduce((acc, curr) => acc + curr.monthlyProfit, 0);
+            finalAvgP = sumP / filtered.length;
+        }
+
+        if (config?.turnoverThresholdMode === 'custom' && config.turnoverThreshold > 0) {
+            finalAvgT = config.turnoverThreshold;
+        } else if (filtered.length > 0) {
+            const sumT = filtered.reduce((acc, curr) => acc + (curr.monthlyTurnover || (curr.totalQuantity / (monthCount || 1))), 0);
+            finalAvgT = sumT / filtered.length;
+        }
+
+        // 2. Atualizar estados de média para que os ReferenceLines do gráfico reflitam o valor usado
+        setAvgProfitPerItem(finalAvgP);
+        setAvgTurnoverPerItem(finalAvgT);
+
+        // 3. Recalcular Lucro Total acumulado do filtro
         const newTotalProfit = filtered.reduce((acc, curr) => acc + curr.totalProfit, 0);
         setTotalProfit(newTotalProfit);
 
-        if (filtered.length > 0) {
-            // Se NÃO estiver em modo customizado, recalculamos a média baseada no que está visível
-            if (!(config?.profitThresholdMode === 'custom' && config.profitThreshold > 0)) {
-                const sumP = filtered.reduce((acc, curr) => acc + curr.monthlyProfit, 0);
-                setAvgProfitPerItem(sumP / filtered.length);
-            }
+        // 4. RE-CALCULAR QUADRANTES: Crucial para que as cores das bolinhas mudem ao alterar filtros/thresholds
+        const updatedWithQuadrants = filtered.map(r => {
+            let q: 1 | 2 | 3 | 4 = 4;
+            const turnover = r.monthlyTurnover || (r.totalQuantity / (monthCount || 1));
+            const profit = r.monthlyProfit;
+
+            if (turnover >= finalAvgT && profit >= finalAvgP) q = 1;
+            else if (turnover < finalAvgT && profit >= finalAvgP) q = 2; // Nicho (Alto lucro mensal, baixo giro mensal)
+            else if (turnover >= finalAvgT && profit < finalAvgP) q = 3; // Volume (Baixo lucro mensal, alto giro mensal)
             
-            if (!(config?.turnoverThresholdMode === 'custom' && config.turnoverThreshold > 0)) {
-                const sumT = filtered.reduce((acc, curr) => acc + (curr.monthlyTurnover || (curr.totalQuantity / (monthCount || 1))), 0);
-                setAvgTurnoverPerItem(sumT / filtered.length);
-            }
-        }
+            return { ...r, quadrant: q };
+        });
+
+        setResults(updatedWithQuadrants);
     };
 
     const fetchFromERP = async (): Promise<SaleItem[]> => {
