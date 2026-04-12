@@ -42,6 +42,7 @@ import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
 const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
 const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/ReportView'));
+import BlingStock from './pages/App/Stock/BlingStock';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
@@ -119,6 +120,7 @@ function Router() {
             <Route path='/registrations/product-types' element={<ProductTypes />} />
             <Route path='/stock' element={<Stock />} />
             <Route path='/stock/purchases' element={<PurchasesPage />} />
+            <Route path='/stock/bling' element={<BlingStock />} />
             <Route path='/stock/label-printing' element={<LabelPrinting />} />
             <Route path='/design/labels' element={<LabelPrinting />} />
             <Route path='/marketing/channel-catalog' element={<ChannelCatalog />} />

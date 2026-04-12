@@ -196,6 +196,13 @@ export interface AppSettings {
         enableBeep: boolean;
         vibrate: boolean;
     };
+    blingConfig?: {
+        apiKey: string;
+        apiToken: string;
+        clientId: string;
+        clientSecret: string;
+        syncEnabled: boolean;
+    };
 }
 
 /**
@@ -572,6 +579,13 @@ RESPOSTA NO FORMATO JSON:
         delay: 1500,
         enableBeep: true,
         vibrate: true
+    },
+    blingConfig: {
+        apiKey: '',
+        apiToken: '',
+        clientId: '',
+        clientSecret: '',
+        syncEnabled: false
     }
 });
 

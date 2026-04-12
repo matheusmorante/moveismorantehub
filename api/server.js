@@ -275,6 +275,140 @@ app.post('/api/ai-detect-intent', async (req, res) => {
     }
 });
 
+// --- BLING INTEGRATION ---
+app.post('/api/bling-oauth', async (req, res) => {
+    try {
+        const { action, code, clientId, clientSecret, redirectUri } = req.body;
+        addLog("BLING_AUTH", `Iniciando troca de código Bling (${action})`);
+
+        if (action === 'exchange_code') {
+            const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+            const response = await fetch('https://www.bling.com.br/Api/v3/oauth/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${auth}`
+                },
+                body: new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    code,
+                    redirect_uri: redirectUri
+                })
+            });
+
+            const data = await response.json();
+            console.log("--- RESPOSTA DO BLING ---");
+            console.log(JSON.stringify(data, null, 2));
+            console.log("-------------------------");
+            
+            if (!response.ok) {
+                addLog("BLING_ERROR", "Erro ao trocar token no Bling", data);
+                return res.status(response.status).json(data);
+            }
+
+            // Persiste no Supabase usando a SERVICE_ROLE se disponível, ou ANON se não
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+            
+            const expiresAt = new Date();
+            expiresAt.setSeconds(expiresAt.getSeconds() + data.expires_in);
+
+            const dbUpdate = await fetch(`${process.env.SUPABASE_URL}/rest/v1/bling_config`, {
+                method: 'POST',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                    id: '00000000-0000-0000-0000-000000000001',
+                    access_token: data.access_token,
+                    refresh_token: data.refresh_token,
+                    expires_at: expiresAt.toISOString(),
+                    active: true,
+                    updated_at: new Date().toISOString()
+                })
+            });
+
+            if (!dbUpdate.ok) {
+                const dbError = await dbUpdate.text();
+                addLog("DB_ERROR", "Falha ao gravar tokens no Supabase", dbError);
+                return res.status(500).json({ error: "Erro ao salvar tokens no banco", details: dbError });
+            }
+
+            addLog("BLING_SUCCESS", "Tokens salvos com sucesso no Supabase");
+            res.json({ success: true, message: 'Tokens atualizados' });
+        } else {
+            res.status(400).json({ error: 'Ação inválida' });
+        }
+    } catch (error) {
+        addLog("ERROR", `Erro no OAuth Bling: ${error.message}`);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/bling-proxy', async (req, res) => {
+    try {
+        const { endpoint, params, method = 'GET', body: reqBody } = req.body;
+        
+        // Busca o token no Supabase
+        const configResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/bling_config?id=eq.00000000-0000-0000-0000-000000000001&select=*`, {
+            headers: {
+                'apikey': process.env.SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+            }
+        });
+        const configs = await configResp.json();
+        const config = configs[0];
+
+        if (!config || !config.access_token) {
+            return res.status(401).json({ error: 'Bling não autenticado' });
+        }
+
+        const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
+        const response = await fetch(`https://www.bling.com.br/Api/v3${endpoint}${queryString}`, {
+            method,
+            headers: {
+                'Authorization': `Bearer ${config.access_token}`,
+                'Content-Type': 'application/json'
+            },
+            body: reqBody ? JSON.stringify(reqBody) : undefined
+        });
+
+        const data = await response.json();
+
+        // Se estivermos listando produtos, vamos buscar o estoque em lote para economizar chamadas
+        if (endpoint === '/produtos' && data.data) {
+            const ids = data.data.map(p => p.id);
+            if (ids.length > 0) {
+                const stockUrl = `https://www.bling.com.br/Api/v3/estoques/saldos?idsProdutos[]=${ids.join('&idsProdutos[]=')}`;
+                console.log("--- BUSCANDO ESTOQUES ---", stockUrl);
+                
+                const stockResp = await fetch(stockUrl, {
+                    headers: { 'Authorization': `Bearer ${config.access_token}` }
+                });
+                const stockData = await stockResp.json();
+                console.log("--- RESPOSTA ESTOQUES ---", JSON.stringify(stockData).substring(0, 500));
+                
+                // Mescla o estoque no objeto do produto
+                data.data = data.data.map(p => {
+                    const stockInfo = stockData.data?.find(s => String(s.produto.id) === String(p.id));
+                    return {
+                        ...p,
+                        estoque: {
+                            saldoTotal: stockInfo ? (stockInfo.saldoFisicoTotal || 0) : 0
+                        }
+                    };
+                });
+            }
+        }
+
+        res.status(response.status).json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 const port = process.env.PORT || 3003;
 app.listen(port, '0.0.0.0', () => {
     console.log("==========================================");

@@ -28,6 +28,7 @@ import InventoryAutomationSection from './components/InventoryAutomationSection'
 import ScannerConfigSection from './components/ScannerConfigSection';
 import ProductMaterialsSection from './components/ProductMaterialsSection';
 import CardFlagSettings from './components/CardFlagSettings';
+import BlingConfigSection from './components/BlingConfigSection';
 // import SaveButton from './components/SaveButton'; // Removido para auto-save
 
 const categories: any[] = [
@@ -51,6 +52,7 @@ const categories: any[] = [
     { id: 'manuseio', label: 'Manuseio de Pedidos', icon: 'bi-hand-index-thumb', group: 'system', keywords: ['manuseio', 'montagem', 'entrega', 'retirada', 'padrão'] },
     { id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
     { id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
+    { id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
 ];
 
 /**
@@ -310,6 +312,10 @@ export default function Settings(): any {
 
                     <SettingsSection id="scanner" title="Leitor de Código de Barras" icon="bi-qr-code-scan" isVisible={isVisible('scanner')}>
                         <ScannerConfigSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="bling" title="Integração Bling (API v3)" icon="bi-clouds-fill" isVisible={isVisible('bling')}>
+                        <BlingConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
 
