@@ -10,6 +10,7 @@ import { format, parse } from 'date-fns';
 import { useSalesReport, ABCResult, SaleItem } from './useSalesReport';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import ReportConfigModal from './ReportConfigModal';
+import SupplierPerformanceView from './SupplierPerformanceView';
 
 const ReportView = () => {
     const { id } = useParams<{ id: string }>();
@@ -26,6 +27,7 @@ const ReportView = () => {
     } = useSalesReport();
 
     const [reportName, setReportName] = useState('');
+    const [viewMode, setViewMode] = useState<'product' | 'supplier'>('product');
     const [reportType, setReportType] = useState<'abc' | 'matrix'>('abc');
     const [showFilters, setShowFilters] = useState(false);
     const [abcBasis, setAbcBasis] = useState<'revenue' | 'profit'>('revenue');
@@ -576,19 +578,40 @@ const ReportView = () => {
                 {/* Linha 2: Controles de Navegação e Ações */}
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 px-6 py-3">
                     <div className="max-w-[1800px] mx-auto flex justify-between items-center">
-                        <div className="flex p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                            <button 
-                                onClick={() => setReportType('abc')} 
-                                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${reportType === 'abc' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                            >
-                                Curva ABC
-                            </button>
-                            <button 
-                                onClick={() => setReportType('matrix')} 
-                                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${reportType === 'matrix' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                            >
-                                Matriz Giro/Lucro
-                            </button>
+                        <div className="flex items-center gap-4">
+                            <div className="flex p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <button 
+                                    onClick={() => setViewMode('product')} 
+                                    className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'product' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                >
+                                    <i className="bi bi-box-seam mr-2"></i>
+                                    Desempenho dos Produtos
+                                </button>
+                                <button 
+                                    onClick={() => setViewMode('supplier')} 
+                                    className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'supplier' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                >
+                                    <i className="bi bi-truck mr-2"></i>
+                                    Desempenho por Fornecedor
+                                </button>
+                            </div>
+
+                            {viewMode === 'product' && (
+                                <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+                                    <button 
+                                        onClick={() => setReportType('abc')} 
+                                        className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${reportType === 'abc' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                                    >
+                                        Curva ABC
+                                    </button>
+                                    <button 
+                                        onClick={() => setReportType('matrix')} 
+                                        className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${reportType === 'matrix' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                                    >
+                                        Matriz Giro
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -707,8 +730,9 @@ const ReportView = () => {
             <main className="flex-1 flex overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-6 lg:p-10 custom-scrollbar">
                     <div className="max-w-[1600px] mx-auto flex flex-col gap-8">
-                        {reportType === 'abc' ? (
-                            <>
+                        {viewMode === 'product' ? (
+                            reportType === 'abc' ? (
+                                <>
                                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800">
                                     <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-10 flex items-center justify-between">
                                         Análise de Pareto Completa
@@ -1045,9 +1069,8 @@ const ReportView = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 pb-10">
                                     {[1, 2, 3, 4].map(q => (
-                                        <div key={q} className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden max-h-[500px]">
-                                            <div className={`px-6 py-5 flex flex-col gap-1 ${q === 1 ? 'bg-emerald-50 text-emerald-700' : q === 2 ? 'bg-blue-50 text-blue-700' : q === 3 ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-500'}`}>
-                                                <div className="flex justify-between items-center">
+                                        <div key={q} className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800 flex flex-col min-h-[400px] overflow-hidden">
+                                            <div className={`p-8 border-b ${q === 1 ? 'border-emerald-100 bg-emerald-50/30' : q === 2 ? 'border-blue-100 bg-blue-50/30' : q === 3 ? 'border-amber-100 bg-amber-50/30' : 'border-slate-100 bg-slate-50/30'}`}>
                                                     <h3 className="text-[10px] font-black uppercase tracking-widest">
                                                         {q === 1 ? 'Q1: ESTRELAS' : q === 2 ? 'Q2: POTENCIAL' : q === 3 ? 'Q3: VOLUME' : 'Q4: PROBLEMAS'}
                                                     </h3>
@@ -1056,7 +1079,6 @@ const ReportView = () => {
                                                 <p className="text-[7px] font-black opacity-60 uppercase tracking-widest">
                                                     {q === 1 ? 'Alto Giro + Alto Lucro' : q === 2 ? 'Baixo Giro + Alto Lucro' : q === 3 ? 'Alto Giro + Baixo Lucro' : 'Baixo Giro + Baixo Lucro'}
                                                 </p>
-                                            </div>
                                             <div className="flex-1 overflow-y-auto">
                                                 <table className="w-full">
                                                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -1079,7 +1101,10 @@ const ReportView = () => {
                                     ))}
                                 </div>
                             </>
-                        )}
+                        )
+                    ) : (
+                        <SupplierPerformanceView results={results} monthCount={monthCount} />
+                    )}
                     </div>
                 </div>
 
