@@ -100,6 +100,9 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                                 <Link to="/attendance-dashboard" onClick={onClose} className={mobileSubLinkClass}>BI de Atendimento</Link>
                                 <Link to="/sales-order?type=budget" onClick={onClose} className={mobileSubLinkClass}>Orçamentos</Link>
                                 <Link to="/sales-order/reports" onClick={onClose} className={mobileSubLinkClass}>Relatórios de Vendas</Link>
+                                <Link to="/sales-order/reports-bling" onClick={onClose} className={mobileSubLinkClass}>
+                                    Relatórios do Bling <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-indigo-500 px-1 py-0.5 rounded ml-1 tracking-tighter uppercase">BETA</span>
+                                </Link>
                             </div>
                         )}
                     </div>

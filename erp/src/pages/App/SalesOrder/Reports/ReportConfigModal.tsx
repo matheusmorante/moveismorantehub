@@ -16,7 +16,7 @@ interface ReportConfigModalProps {
     onClose: () => void;
     onSave: (config: any) => void;
     initialConfig?: any;
-    initialSource?: 'erp' | 'csv';
+    initialSource?: 'erp' | 'csv' | 'bling';
     initialName?: string;
     initialExcludedItems?: string[];
     availableItems?: any[];
@@ -27,7 +27,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
     isOpen, onClose, onSave, initialConfig, initialSource, initialName, 
     availableItems = [], loading 
 }) => {
-    const [source, setSource] = useState<'erp' | 'csv'>(initialSource || 'erp');
+    const [source, setSource] = useState<'erp' | 'csv' | 'bling'>(initialSource || 'erp');
     const [abcBasis, setAbcBasis] = useState<'revenue' | 'profit'>('profit');
     const [csvData, setCsvData] = useState<any[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
@@ -120,11 +120,12 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
+                        <div className="col-span-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-3 block">Fonte de Dados</label>
                             <div className="flex p-1.5 bg-slate-50 dark:bg-slate-955 rounded-2xl border border-slate-100 dark:border-slate-800">
                                 <button onClick={() => setSource('erp')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${source === 'erp' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xl' : 'text-slate-400'}`}>ERP</button>
                                 <button onClick={() => setSource('csv')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${source === 'csv' ? 'bg-white dark:bg-slate-900 text-orange-600 shadow-xl' : 'text-slate-400'}`}>CSV</button>
+                                <button onClick={() => setSource('bling')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${source === 'bling' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-xl' : 'text-slate-400'}`}>BLING API</button>
                             </div>
                         </div>
                     </div>

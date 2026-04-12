@@ -42,6 +42,8 @@ import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
 const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
 const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/ReportView'));
+const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/Index'));
+const SalesOrderReportViewBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/ReportView'));
 import BlingStock from './pages/App/Stock/BlingStock';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -107,6 +109,8 @@ function Router() {
             <Route path='/sales-order' element={<SalesOrder />} />
             <Route path='/sales-order/reports' element={<SalesOrderReports />} />
             <Route path='/sales-order/reports/:id' element={<Suspense fallback={null}><SalesOrderReportView /></Suspense>} />
+            <Route path='/sales-order/reports-bling' element={<Suspense fallback={null}><SalesOrderReportsBling /></Suspense>} />
+            <Route path='/sales-order/reports-bling/:id' element={<Suspense fallback={null}><SalesOrderReportViewBling /></Suspense>} />
             <Route path='/sales-order/freight-calculation' element={<OrderRouteMap />} />
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />

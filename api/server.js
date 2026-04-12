@@ -365,7 +365,18 @@ app.post('/api/bling-proxy', async (req, res) => {
             return res.status(401).json({ error: 'Bling não autenticado' });
         }
 
-        const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
+        let queryString = '';
+        if (params) {
+            const usp = new URLSearchParams();
+            Object.entries(params).forEach(([key, val]) => {
+                if (Array.isArray(val)) {
+                    val.forEach(v => usp.append(key, v));
+                } else if (val !== undefined) {
+                    usp.append(key, val);
+                }
+            });
+            queryString = '?' + usp.toString();
+        }
         const response = await fetch(`https://www.bling.com.br/Api/v3${endpoint}${queryString}`, {
             method,
             headers: {

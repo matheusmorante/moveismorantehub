@@ -531,8 +531,8 @@ const ReportView = () => {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
             <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm print:hidden">
                 {/* Linha 1: Identidade e Métricas Rápidas */}
-                <div className="px-6 py-4">
-                    <div className="max-w-[1800px] mx-auto flex justify-between items-center gap-4">
+                <div className="px-6 py-6 pb-2">
+                    <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                         <div className="flex items-center gap-4">
                             {!isPublicMode && (
                                 <Link to="/sales-order/reports" className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-800">
@@ -540,13 +540,13 @@ const ReportView = () => {
                                 </Link>
                             )}
                             <div>
-                                <h1 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
+                                <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight uppercase">
                                     {isPublicMode && <i className="bi bi-shield-check text-emerald-500 mr-2"></i>}
                                     {reportName}
                                 </h1>
-                                <div className="flex items-center gap-3 mt-0.5">
+                                <div className="flex items-center gap-3 mt-1.5">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{reportSource === 'erp' ? 'VIA ERP' : 'VIA CSV'}:</span>
-                                    <span className="text-xs font-black text-emerald-600">{totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                    <span className="text-sm font-black text-emerald-600">{totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                     <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amostragem:</span>
                                     <div className="flex items-center gap-2">
@@ -562,53 +562,80 @@ const ReportView = () => {
                         </div>
 
                         {/* Indicadores de Meta no Header */}
-                        <div className="hidden lg:flex items-center gap-6">
+                        <div className="hidden lg:flex items-center gap-8">
                             <div className="flex flex-col items-end">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Giro Mensal Médio</span>
-                                <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgTurnoverPerItem.toFixed(1)} un/mês</span>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Giro Mensal Médio</span>
+                                <span className="text-sm font-black text-slate-700 dark:text-slate-300">{avgTurnoverPerItem.toFixed(1)} <span className="text-[10px] opacity-40 uppercase ml-1">un/mês</span></span>
                             </div>
+                            <div className="h-8 w-px bg-slate-100 dark:bg-slate-800"></div>
                             <div className="flex flex-col items-end">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Lucro Mensal Médio</span>
-                                <span className="text-xs font-black text-slate-700 dark:text-slate-300">{avgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lucro Mensal Médio</span>
+                                <span className="text-sm font-black text-slate-700 dark:text-slate-300">{avgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Linha 2: Controles de Navegação e Ações */}
+                {/* Linha 2: ABAS de Navegação Principal (NOVO) */}
+                <div className="px-6">
+                    <div className="max-w-[1800px] mx-auto flex border-b border-transparent">
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setViewMode('product')} 
+                                className={`px-6 py-4 flex items-center gap-3 transition-all relative group ${viewMode === 'product' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <i className={`bi bi-box-seam ${viewMode === 'product' ? 'text-indigo-600' : 'text-slate-300 group-hover:text-indigo-400'} text-lg transition-colors`}></i>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em]">Desempenho dos Produtos</span>
+                                {viewMode === 'product' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full animate-fade-in"></div>}
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('supplier')} 
+                                className={`px-6 py-4 flex items-center gap-3 transition-all relative group ${viewMode === 'supplier' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <i className={`bi bi-truck ${viewMode === 'supplier' ? 'text-indigo-600' : 'text-slate-300 group-hover:text-indigo-400'} text-lg transition-colors`}></i>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em]">Desempenho por Fornecedor</span>
+                                {viewMode === 'supplier' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full animate-fade-in"></div>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Linha 3: Controles de Refinamento e Ações */}
                 <div className="bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800 px-6 py-3">
                     <div className="max-w-[1800px] mx-auto flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="flex p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <button 
-                                    onClick={() => setViewMode('product')} 
-                                    className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'product' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                                >
-                                    <i className="bi bi-box-seam mr-2"></i>
-                                    Desempenho dos Produtos
-                                </button>
-                                <button 
-                                    onClick={() => setViewMode('supplier')} 
-                                    className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'supplier' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                                >
-                                    <i className="bi bi-truck mr-2"></i>
-                                    Desempenho por Fornecedor
-                                </button>
-                            </div>
+                            {viewMode === 'product' && (
+                                <div className="flex p-1 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <button 
+                                        onClick={() => setReportType('abc')} 
+                                        className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${reportType === 'abc' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-100'}`}
+                                    >
+                                        <i className="bi bi-graph-up-arrow mr-2 text-xs"></i>
+                                        Curva ABC Matriz
+                                    </button>
+                                    <button 
+                                        onClick={() => setReportType('matrix')} 
+                                        className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${reportType === 'matrix' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-100'}`}
+                                    >
+                                        <i className="bi bi-grid-3x3-gap-fill mr-2 text-xs"></i>
+                                        Matriz de Giro
+                                    </button>
+                                </div>
+                            )}
 
                             {viewMode === 'product' && (
                                 <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
                                     <button 
-                                        onClick={() => setReportType('abc')} 
-                                        className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${reportType === 'abc' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                                        onClick={() => setAbcBasis('revenue')} 
+                                        className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${abcBasis === 'revenue' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
                                     >
-                                        Curva ABC
+                                        Por Faturamento
                                     </button>
                                     <button 
-                                        onClick={() => setReportType('matrix')} 
-                                        className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${reportType === 'matrix' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                                        onClick={() => setAbcBasis('profit')} 
+                                        className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${abcBasis === 'profit' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
                                     >
-                                        Matriz Giro
+                                        Por Lucratividade
                                     </button>
                                 </div>
                             )}

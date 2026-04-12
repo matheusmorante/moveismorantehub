@@ -116,6 +116,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/sales-order/reports" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-bar-chart-fill mr-2"></i> Relatórios de Vendas
                         </Link>
+                        <Link to="/sales-order/reports-bling" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-clouds-fill mr-2 text-indigo-500"></i> Relatórios de Vendas (Bling)
+                            <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-indigo-500 px-1 py-0.5 rounded ml-1 tracking-tighter uppercase">BETA</span>
+                        </Link>
                     </div>
                 )}
             </div>
