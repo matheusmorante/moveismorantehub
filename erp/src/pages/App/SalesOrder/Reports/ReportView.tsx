@@ -63,6 +63,33 @@ const ReportView = () => {
         fetchProductMappings();
     }, []);
 
+    const supplierAverages = useMemo(() => {
+        const map: Record<string, { totalProfit: number, totalQty: number, count: number }> = {};
+        results.forEach(r => {
+            const s = r.supplier || 'N/A';
+            if (!map[s]) map[s] = { totalProfit: 0, totalQty: 0, count: 0 };
+            map[s].totalProfit += r.monthlyProfit;
+            map[s].totalQty += (r.monthlyTurnover ?? 0);
+            map[s].count += 1;
+        });
+        
+        const finalMap: Record<string, { avgProfit: number, avgTurnover: number }> = {};
+        Object.keys(map).forEach(s => {
+            finalMap[s] = {
+                avgProfit: map[s].totalProfit / map[s].count,
+                avgTurnover: map[s].totalQty / map[s].count
+            };
+        });
+        return finalMap;
+    }, [results]);
+
+    const salvadosBenchmark = useMemo(() => {
+        const items = rawResults.filter(r => (r.supplier || '').toUpperCase().includes('SALVADOS'));
+        if (items.length === 0) return null;
+        const totalP = items.reduce((acc, r) => acc + (r.monthlyProfit || 0), 0);
+        return totalP / items.length;
+    }, [rawResults]);
+
     const handleRowClick = (res: any) => {
         setHoveredResult(res);
     };
@@ -183,23 +210,68 @@ const ReportView = () => {
                 setReportName(data.name);
                 setReportSource(data.source);
                 setReportConfig(data.config);
-                const resultsWithMonthly = rd.results.map((r: any) => ({
-                    ...r,
-                    monthlyProfit: r.monthlyProfit || (r.totalProfit / (rd.monthCount || 1))
-                }));
+                let mCount = rd.monthCount || 1;
+                let aProfit = rd.avgProfitPerItem || 0;
+                let aTurnover = rd.avgTurnoverPerItem || 0;
+
+                // Se as médias vieram zeradas (relatórios antigos), recalcular a partir dos resultados
+                if (aProfit === 0 || aTurnover === 0) {
+                    const tempResults = rd.results || [];
+                    if (tempResults.length > 0) {
+                        const sumP = tempResults.reduce((acc: number, curr: any) => acc + (curr.monthlyProfit ?? (curr.totalProfit / mCount)), 0);
+                        const sumT = tempResults.reduce((acc: number, curr: any) => acc + (curr.monthlyTurnover ?? (curr.totalQuantity / mCount)), 0);
+                        aProfit = sumP / tempResults.length;
+                        aTurnover = sumT / tempResults.length;
+                    }
+                }
+
+                const resultsWithMonthly = rd.results.map((r: any) => {
+                    const mP = r.monthlyProfit ?? (r.totalProfit / mCount);
+                    const mT = r.monthlyTurnover ?? (r.totalQuantity / mCount);
+                    
+                    let q: 1 | 2 | 3 | 4 = 4;
+                    if (mT >= aTurnover && mP >= aProfit) q = 1;
+                    else if (mT < aTurnover && mP >= aProfit) q = 2;
+                    else if (mT >= aTurnover && mP < aProfit) q = 3;
+
+                    return {
+                        ...r,
+                        monthlyProfit: mP,
+                        monthlyTurnover: mT,
+                        quadrant: q
+                    };
+                });
 
                 setRawResults(resultsWithMonthly);
                 setResults(resultsWithMonthly);
-                setAllProducts(rd.allProducts || resultsWithMonthly.map((r: any) => ({
-                    product: r.product,
-                    qty: r.totalQuantity,
-                    profit: r.totalProfit,
-                    supplier: r.supplier
-                })));
+                setMonthCount(mCount);
+                setAvgProfitPerItem(aProfit);
+                setAvgTurnoverPerItem(aTurnover);
+
+                // Normalizar allProducts para sempre ser um array de objetos enriquecidos
+                let baseAllProducts = rd.allProducts || [];
+                
+                if (baseAllProducts.length === 0 || (baseAllProducts.length > 0 && typeof baseAllProducts[0] === 'string')) {
+                    baseAllProducts = resultsWithMonthly.map((r: any) => ({
+                        product: r.product,
+                        qty: r.totalQuantity,
+                        profit: r.totalProfit,
+                        supplier: r.supplier
+                    }));
+                }
+
+                const enrichedAllProducts = baseAllProducts.map((p: any) => {
+                    const mP = (p.profit || 0) / mCount;
+                    const mT = (p.qty || 0) / mCount;
+                    let q: 1 | 2 | 3 | 4 = 4;
+                    if (mT >= aTurnover && mP >= aProfit) q = 1;
+                    else if (mT < aTurnover && mP >= aProfit) q = 2;
+                    else if (mT >= aTurnover && mP < aProfit) q = 3;
+                    return { ...p, quadrant: q };
+                });
+
+                setAllProducts(enrichedAllProducts);
                 setTotalProfit(rd.totalProfit);
-                setMonthCount(rd.monthCount || 1);
-                setAvgProfitPerItem(rd.avgProfitPerItem || 0);
-                setAvgTurnoverPerItem(rd.avgTurnoverPerItem || 0);
                 setAbcBasis(data.config?.abcBasis || 'revenue');
                 
                 // Carregar filtros salvos
@@ -835,6 +907,11 @@ const ReportView = () => {
                                                 const qPerc = totalProfit > 0 ? (qProfit / totalProfit) * 100 : 0;
                                                 const qItemsPerc = results.length > 0 ? (qResults.length / results.length) * 100 : 0;
                                                 const qMonthlyProfit = qProfit / (monthCount || 1);
+
+                                                const qSupplierProfitSum = qResults.reduce((acc, r) => {
+                                                    const sAvg = supplierAverages[r.supplier || 'N/A']?.avgProfit || 0;
+                                                    return acc + (sAvg * (monthCount || 1));
+                                                }, 0);
                                                 
                                                 return (
                                                     <div key={q.id} className={`${q.bg} p-6 rounded-[2.5rem] border ${q.border} flex flex-col gap-2 shadow-sm transition-all hover:scale-[1.02]`}>
@@ -852,61 +929,105 @@ const ReportView = () => {
                                                                 <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">do lucro total</span></p>
                                                                 <p className={`text-[10px] font-black opacity-60 ${q.text}`}>{qItemsPerc.toFixed(1)}% <span className="text-[8px] uppercase tracking-tighter">da quantidade de itens</span></p>
                                                             </div>
-                                                            {q.id !== 1 && (qResults.length * q1AvgProfitPerItem - qProfit) > 0 && (
+                                                            {q.id !== 1 && qResults.length > 0 && (
                                                                 <div className="mt-4 pt-2 -mx-2">
                                                                     <div className="relative group/insight">
                                                                         <button className="flex items-center gap-2 px-3 py-2 bg-white/40 dark:bg-black/10 hover:bg-white dark:hover:bg-indigo-600 hover:text-white rounded-xl border border-black/5 dark:border-white/5 transition-all cursor-help">
                                                                             <i className="bi bi-lightbulb-fill text-amber-500 group-hover/insight:text-white text-[10px]"></i>
-                                                                            <span className="text-[8px] font-black uppercase tracking-widest">Ver Insight</span>
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest">Ver Insights</span>
                                                                         </button>
                                                                         
-                                                                        <div className="absolute bottom-full left-0 mb-3 w-80 p-6 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 opacity-0 invisible group-hover/insight:opacity-100 group-hover/insight:visible transition-all z-50 transform translate-y-2 group-hover/insight:translate-y-0">
-                                                                            <div className="flex items-center gap-2 mb-4">
-                                                                                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                                                                                    <i className="bi bi-graph-up-arrow text-indigo-600 dark:text-indigo-400 text-sm"></i>
+                                                                        <div className="absolute bottom-full left-0 mb-3 w-[400px] p-8 bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 opacity-0 invisible group-hover/insight:opacity-100 group-hover/insight:visible transition-all z-50 transform translate-y-2 group-hover/insight:translate-y-0">
+                                                                            <div className="flex items-center gap-3 mb-6">
+                                                                                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+                                                                                    <i className="bi bi-graph-up-arrow text-indigo-600 dark:text-indigo-400 text-lg"></i>
                                                                                 </div>
                                                                                 <div>
-                                                                                    <h5 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Simulação de Performance</h5>
-                                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Benchmark: Q1 - Estrelas</p>
+                                                                                    <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none mb-1">Análise de Potencial</h5>
+                                                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Simulações de Melhoria de Margem</p>
                                                                                 </div>
                                                                             </div>
 
-                                                                            <div className="space-y-3">
-                                                                                {[100, 50, 25].map(perc => {
-                                                                                    const ratio = perc / 100;
-                                                                                    const scenarioProfit = (qResults.length * ratio * q1AvgProfitPerItem) + (qProfit * (1 - ratio));
-                                                                                    const scenarioMonthly = scenarioProfit / (monthCount || 1);
-                                                                                    const profitIncrease = scenarioProfit - qProfit;
-                                                                                    const monthlyIncrease = profitIncrease / (monthCount || 1);
+                                                                            <div className="grid grid-cols-2 gap-6">
+                                                                                {/* Coluna 1: Cenário Realista (Benchmark SALVADOS) */}
+                                                                                <div className={`flex flex-col gap-4 ${!salvadosBenchmark ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                                        <div className="w-2 h-4 bg-indigo-500 rounded-full"></div>
+                                                                                        <h6 className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Padrão SALVADOS</h6>
+                                                                                    </div>
+                                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase leading-tight mb-2">
+                                                                                        {salvadosBenchmark 
+                                                                                            ? "Simula elevar itens para o lucro médio do fornecedor Salvados." 
+                                                                                            : "Fornecedor SALVADOS não encontrado neste relatório."}
+                                                                                    </p>
+                                                                                    
+                                                                                    {salvadosBenchmark && [100, 50, 25].map(perc => {
+                                                                                        const ratio = perc / 100;
+                                                                                        const scenarioProfit = (qResults.length * ratio * salvadosBenchmark * (monthCount || 1)) + (qProfit * (1 - ratio));
+                                                                                        const profitIncrease = scenarioProfit - qProfit;
+                                                                                        const monthlyIncrease = profitIncrease / (monthCount || 1);
 
-                                                                                    return (
-                                                                                        <div key={perc} className="bg-slate-50 dark:bg-slate-955 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 group/scenario hover:border-indigo-500/30 transition-all">
-                                                                                            <div className="flex justify-between items-center mb-2">
-                                                                                                <span className="text-[10px] font-black text-slate-800 dark:text-slate-100">{perc}% dos itens no Q1</span>
-                                                                                                <div className="text-right">
-                                                                                                    <p className="text-[9px] font-black text-emerald-600">+{profitIncrease.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <span className="text-[7px] font-bold opacity-60">TOTAL</span></p>
-                                                                                                    <p className="text-[8px] font-black text-emerald-500">+{monthlyIncrease.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} <span className="text-[7px] font-bold opacity-60">/ MÊS</span></p>
+                                                                                        return (
+                                                                                            <div key={perc} className="bg-slate-50 dark:bg-slate-955 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-indigo-500/20 transition-all">
+                                                                                                <div className="flex justify-between items-center mb-1">
+                                                                                                    <span className="text-[9px] font-black text-slate-600">{perc}% dos itens</span>
+                                                                                                    <span className="text-[9px] font-black text-emerald-600">+{monthlyIncrease.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}/mês</span>
+                                                                                                </div>
+                                                                                                <div className="h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                                                    <div className="h-full bg-indigo-500" style={{ width: `${perc}%` }}></div>
                                                                                                 </div>
                                                                                             </div>
-                                                                                            <div className="grid grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-2">
-                                                                                                <div>
-                                                                                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lucro Total</p>
-                                                                                                    <p className="text-[11px] font-black text-indigo-600">{scenarioProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+
+                                                                                {/* Coluna 2: Cenário Otimista (Benchmark Q1) */}
+                                                                                <div className="flex flex-col gap-4">
+                                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                                        <div className="w-2 h-4 bg-emerald-500 rounded-full"></div>
+                                                                                        <h6 className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Meta Estrela (Q1)</h6>
+                                                                                    </div>
+                                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase leading-tight mb-2">Simula elevar itens para a média geral dos melhores itens (Q1).</p>
+
+                                                                                    {[100, 50, 25].map(perc => {
+                                                                                        const ratio = perc / 100;
+                                                                                        const scenarioProfit = (qResults.length * ratio * q1AvgProfitPerItem) + (qProfit * (1 - ratio));
+                                                                                        const profitIncrease = scenarioProfit - qProfit;
+                                                                                        const monthlyIncrease = profitIncrease / (monthCount || 1);
+
+                                                                                        return (
+                                                                                            <div key={perc} className="bg-slate-50 dark:bg-slate-955 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 transition-all">
+                                                                                                <div className="flex justify-between items-center mb-1">
+                                                                                                    <span className="text-[9px] font-black text-slate-600">{perc}% dos itens</span>
+                                                                                                    <span className="text-[9px] font-black text-emerald-600">+{monthlyIncrease.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}/mês</span>
                                                                                                 </div>
-                                                                                                <div>
-                                                                                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lucro Mensal</p>
-                                                                                                    <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{scenarioMonthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                                                                                <div className="h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                                                    <div className="h-full bg-emerald-500" style={{ width: `${perc}%` }}></div>
                                                                                                 </div>
                                                                                             </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
                                                                             </div>
 
-                                                                            <div className="mt-4 p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/30 text-center">
-                                                                                <p className="text-[9px] font-black text-white uppercase tracking-widest">
-                                                                                    Media Q1: {q1AvgProfitPerItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} / item
-                                                                                </p>
+                                                                            <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                                                                <div className="grid grid-cols-2 gap-4">
+                                                                                    {salvadosBenchmark ? (
+                                                                                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
+                                                                                            <p className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1">Média SALVADOS</p>
+                                                                                            <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">R$ {salvadosBenchmark.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} / item</p>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                                                                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Média SALVADOS</p>
+                                                                                            <p className="text-[11px] font-black text-slate-400 italic">Não disponível</p>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl">
+                                                                                        <p className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-1">Média Estrela (Q1)</p>
+                                                                                        <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">R$ {(q1AvgProfitPerItem / (monthCount || 1)).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} / item</p>
+                                                                                    </div>
+                                                                                </div>
                                                                             </div>
 
                                                                             <div className="absolute -bottom-2 left-6 w-4 h-4 bg-white dark:bg-slate-900 border-r border-b border-slate-100 dark:border-slate-800 rotate-45"></div>
@@ -1099,33 +1220,11 @@ const ReportView = () => {
                 isOpen={isExclusionOpen}
                 onClose={() => setIsExclusionOpen(false)}
                 items={allProducts.filter(i => selectedSuppliers.includes(i.supplier || 'N/A') || selectedSuppliers.length === 0)}
-                excludedItems={reportConfig?.excludedItems || []}
-                onToggleItem={(name) => {
-                    setReportConfig(prev => {
-                        const current = prev?.excludedItems || [];
-                        const next = current.includes(name) ? current.filter(x => x !== name) : [...current, name];
-                        const nextConfig = { ...prev, excludedItems: next };
-                        
-                        // Debounced backend update
-                        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-                        debounceTimeout.current = setTimeout(() => {
-                            handleUpdateReport({ name: reportName, source: reportSource, config: nextConfig });
-                        }, 800);
-                        
-                        return nextConfig;
-                    });
-                }}
-                onToggleAll={(select) => {
-                    setReportConfig(prev => {
-                        const next = select ? [] : allProducts.map(r => r.product);
-                        const nextConfig = { ...prev, excludedItems: next };
-                        
-                        // Debounced update
-                        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-                        debounceTimeout.current = setTimeout(() => {
-                            handleUpdateReport({ name: reportName, source: reportSource, config: nextConfig });
-                        }, 800);
-                        
+                initialExcludedItems={reportConfig?.excludedItems || []}
+                onConfirm={(nextExcluded: string[]) => {
+                    setReportConfig((prev: any) => {
+                        const nextConfig = { ...prev, excludedItems: nextExcluded };
+                        handleUpdateReport({ name: reportName, source: reportSource, config: nextConfig });
                         return nextConfig;
                     });
                 }}

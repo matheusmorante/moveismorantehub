@@ -4,16 +4,31 @@ interface ItemExclusionModalProps {
     isOpen: boolean;
     onClose: () => void;
     items: any[];
-    excludedItems: string[];
-    onToggleItem: (productName: string) => void;
-    onToggleAll: (selected: boolean) => void;
+    initialExcludedItems: string[];
+    onConfirm: (excludedItems: string[]) => void;
 }
 
 const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({ 
-    isOpen, onClose, items, excludedItems, onToggleItem, onToggleAll 
+    isOpen, onClose, items, initialExcludedItems, onConfirm 
 }) => {
+    const [localExcludedItems, setLocalExcludedItems] = useState<string[]>(initialExcludedItems);
+    
+    // Sincronizar estado local quando o modal abrir
+    React.useEffect(() => {
+        if (isOpen) {
+            setLocalExcludedItems(initialExcludedItems);
+        }
+    }, [isOpen, initialExcludedItems]);
+
+    const onToggleItemLocal = (productName: string) => {
+        setLocalExcludedItems(prev => 
+            prev.includes(productName) ? prev.filter(i => i !== productName) : [...prev, productName]
+        );
+    };
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+    const [selectedQuadrant, setSelectedQuadrant] = useState<string>('');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'qty', direction: 'desc' });
 
     const uniqueSuppliers = useMemo(() => {
@@ -24,9 +39,13 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
     const filteredAndSortedItems = useMemo(() => {
         let result = items.filter(item => {
             const matchesSearch = item.product.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                  (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
+                                   (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
             const matchesSupplier = selectedSupplier ? item.supplier === selectedSupplier : true;
-            return matchesSearch && matchesSupplier;
+            
+            const itemQuadrant = item.quadrant;
+            const matchesQuadrant = selectedQuadrant ? String(itemQuadrant) === String(selectedQuadrant) : true;
+            
+            return matchesSearch && matchesSupplier && matchesQuadrant;
         });
 
         if (sortConfig.key) {
@@ -40,7 +59,7 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
         }
 
         return result;
-    }, [items, searchTerm, selectedSupplier, sortConfig]);
+    }, [items, searchTerm, selectedSupplier, selectedQuadrant, sortConfig]);
 
     const handleSort = (key: string) => {
         setSortConfig(prev => ({
@@ -50,6 +69,13 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
     };
 
     if (!isOpen) return null;
+
+    const quadrants = [
+        { id: 1, label: 'Q1: Estrelas', color: 'text-emerald-500' },
+        { id: 2, label: 'Q2: Potencial', color: 'text-blue-500' },
+        { id: 3, label: 'Q3: Volume', color: 'text-amber-500' },
+        { id: 4, label: 'Q4: Problemas', color: 'text-slate-500' },
+    ];
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -69,7 +95,7 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                 </div>
 
                 <div className="px-10 py-8 bg-slate-50 dark:bg-slate-955 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-6 items-center">
-                    <div className="flex-1 min-w-[400px] relative flex items-center">
+                    <div className="flex-1 min-w-[300px] relative flex items-center">
                         <div className="absolute left-5 text-slate-400 pointer-events-none">
                             <i className="bi bi-search text-base"></i>
                         </div>
@@ -83,16 +109,36 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                     </div>
 
                     <div className="w-full sm:w-64 relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-500 uppercase pointer-events-none">Filtro</div>
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-500 uppercase pointer-events-none">Fornecedor</div>
                         <select
                             value={selectedSupplier}
                             onChange={(e) => setSelectedSupplier(e.target.value)}
-                            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] pl-14 pr-4 py-4 text-xs font-black outline-none focus:border-indigo-500 transition-all text-slate-600 dark:text-slate-300 appearance-none cursor-pointer shadow-sm"
+                            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] pl-24 pr-4 py-4 text-xs font-black outline-none focus:border-indigo-500 transition-all text-slate-600 dark:text-slate-300 appearance-none cursor-pointer shadow-sm"
                         >
-                            <option value="">TODOS FORNECEDORES</option>
+                            <option value="">TODOS</option>
                             {uniqueSuppliers.map(s => (
                                 <option key={s as string} value={s as string}>{String(s).toUpperCase()}</option>
                             ))}
+                        </select>
+                        <i className="bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                    </div>
+
+                    <div className="w-full sm:w-64 relative">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-500 uppercase pointer-events-none">Quadrante</div>
+                        <select
+                            value={selectedQuadrant}
+                            onChange={(e) => setSelectedQuadrant(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] pl-24 pr-4 py-4 text-xs font-black outline-none focus:border-indigo-500 transition-all text-slate-600 dark:text-slate-300 appearance-none cursor-pointer shadow-sm"
+                        >
+                            <option value="">TODOS</option>
+                            {quadrants.map(q => {
+                                const count = items.filter(i => String(i.quadrant) === String(q.id)).length;
+                                return (
+                                    <option key={q.id} value={q.id}>
+                                        {q.label.toUpperCase()} ({count})
+                                    </option>
+                                );
+                            })}
                         </select>
                         <i className="bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     </div>
@@ -102,9 +148,7 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                             onClick={() => {
                                 const namesToSelect = filteredAndSortedItems.map(i => i.product);
                                 // Se estamos marcando todos os FILTRADOS, devemos removê-los da lista de excluídos
-                                namesToSelect.forEach(name => {
-                                    if (excludedItems.includes(name)) onToggleItem(name);
-                                });
+                                setLocalExcludedItems(prev => prev.filter(name => !namesToSelect.includes(name)));
                             }}
                             className="px-6 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2 whitespace-nowrap"
                         >
@@ -115,8 +159,12 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                             onClick={() => {
                                 const namesToExclude = filteredAndSortedItems.map(i => i.product);
                                 // Se estamos limpando os FILTRADOS, devemos adicioná-los à lista de excluídos
-                                namesToExclude.forEach(name => {
-                                    if (!excludedItems.includes(name)) onToggleItem(name);
+                                setLocalExcludedItems(prev => {
+                                    const next = [...prev];
+                                    namesToExclude.forEach(name => {
+                                        if (!next.includes(name)) next.push(name);
+                                    });
+                                    return next;
                                 });
                             }}
                             className="px-6 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm flex items-center gap-2 whitespace-nowrap"
@@ -141,18 +189,21 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                                 <th onClick={() => handleSort('qty')} className="px-4 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-right w-24">
                                     Qtd. <i className={`bi bi-sort-${sortConfig.key === 'qty' ? (sortConfig.direction === 'asc' ? 'down' : 'up') : 'down-up'} ml-1 opacity-40`}></i>
                                 </th>
-                                <th onClick={() => handleSort('profit')} className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-right w-32">
+                                <th onClick={() => handleSort('profit')} className="px-4 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-right w-32">
                                     Lucro <i className={`bi bi-sort-${sortConfig.key === 'profit' ? (sortConfig.direction === 'asc' ? 'down' : 'up') : 'down-up'} ml-1 opacity-40`}></i>
+                                </th>
+                                <th onClick={() => handleSort('quadrant')} className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-right w-24">
+                                    Matriz <i className={`bi bi-sort-${sortConfig.key === 'quadrant' ? (sortConfig.direction === 'asc' ? 'down' : 'up') : 'down-up'} ml-1 opacity-40`}></i>
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                             {filteredAndSortedItems.map((item, index) => {
-                                const isExcluded = excludedItems.includes(item.product);
+                                const isExcluded = localExcludedItems.includes(item.product);
                                 return (
                                     <tr 
                                         key={index}
-                                        onClick={() => onToggleItem(item.product)}
+                                        onClick={() => onToggleItemLocal(item.product)}
                                         className={`hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-all cursor-pointer ${isExcluded ? 'opacity-40 grayscale-[0.5]' : ''}`}
                                     >
                                         <td className="px-8 py-4">
@@ -172,6 +223,11 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
                                         <td className="px-8 py-4 text-right text-[11px] font-black text-emerald-600">
                                             {item.profit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </td>
+                                        <td className="px-8 py-4 text-right">
+                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${item.quadrant === 1 ? 'bg-emerald-50 text-emerald-600' : item.quadrant === 2 ? 'bg-blue-50 text-blue-600' : item.quadrant === 3 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400'}`}>
+                                                Q{item.quadrant}
+                                            </span>
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -181,10 +237,13 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
 
                 <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                     <button 
-                        onClick={onClose}
+                        onClick={() => {
+                            onConfirm(localExcludedItems);
+                            onClose();
+                        }}
                         className="w-full py-4 bg-slate-900 dark:bg-indigo-600 hover:opacity-90 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/10"
                     >
-                        Concluído ({items.length - excludedItems.length} itens inclusos)
+                        Concluído ({items.length - localExcludedItems.length} itens inclusos)
                     </button>
                 </div>
             </div>

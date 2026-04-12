@@ -74,8 +74,8 @@ export const useSalesReport = () => {
                 productStats[key] = { product: item.mappedName, supplier: item.supplier, qty: 0, rev: 0, profit: 0, totalCost: 0 };
             }
             
-            const qty = Number(item.quantity ?? item.qty ?? 0);
-            const rev = Number(item.salesValue ?? item.rev ?? 0);
+            const qty = Number(item.quantity ?? 0);
+            const rev = Number(item.salesValue ?? 0);
             const profit = Number(item.profit ?? 0);
             const cost = Number(item.cost ?? 0);
 
@@ -92,7 +92,7 @@ export const useSalesReport = () => {
 
         // Calcular diferença em meses calendário (mínimo 1)
         const diffMonths = forceMonthCount || ((minDate && maxDate) ? 
-            ((maxDate.getFullYear() - minDate.getFullYear()) * 12) + (maxDate.getMonth() - minDate.getMonth()) + 1 
+            (((maxDate as Date).getFullYear() - (minDate as Date).getFullYear()) * 12) + ((maxDate as Date).getMonth() - (minDate as Date).getMonth()) + 1 
             : 1);
         
         setMonthCount(diffMonths);
@@ -184,25 +184,36 @@ export const useSalesReport = () => {
             };
         });
 
+        // Return all unique products for the exclusion modal list
+        const allProductsList = Object.values(productStats).map(s => {
+            const mProfit = s.profit / (diffMonths || 1);
+            const mTurnover = s.qty / (diffMonths || 1);
+            
+            let q: 1 | 2 | 3 | 4 = 4;
+            if (mTurnover >= safeAvgT && mProfit >= safeAvgP) q = 1;
+            else if (mTurnover < safeAvgT && mProfit >= safeAvgP) q = 2;
+            else if (mTurnover >= safeAvgT && mProfit < safeAvgP) q = 3;
+            
+            return {
+                product: s.product,
+                supplier: s.supplier,
+                qty: s.qty,
+                rev: s.rev,
+                profit: s.profit,
+                cost: s.qty > 0 ? s.totalCost / s.qty : 0,
+                quadrant: q
+            };
+        });
+
         if (!returnRaw) {
             setResults(finalResults);
             setRawResults(finalResults);
-            setAllProducts(allProducts);
+            setAllProducts(allProductsList);
         }
         
-        // Return all unique products for the exclusion modal list
-        const allProducts = Object.values(productStats).map(s => ({
-            product: s.product,
-            supplier: s.supplier,
-            qty: s.qty,
-            rev: s.rev,
-            profit: s.profit,
-            cost: s.qty > 0 ? s.totalCost / s.qty : 0
-        }));
-
         return { 
             results: finalResults, 
-            allProducts,
+            allProducts: allProductsList,
             totalProfit: currentTotalProfit, 
             monthCount: diffMonths, 
             avgProfitPerItem: avgP, 
@@ -244,14 +255,14 @@ export const useSalesReport = () => {
         if (config?.profitThresholdMode === 'custom' && config.profitThreshold > 0) {
             finalAvgP = config.profitThreshold;
         } else if (filtered.length > 0) {
-            const sumP = filtered.reduce((acc, curr) => acc + curr.monthlyProfit, 0);
+            const sumP = filtered.reduce((acc, curr) => acc + (curr.monthlyProfit ?? (curr.totalProfit / (monthCount || 1))), 0);
             finalAvgP = sumP / filtered.length;
         }
 
         if (config?.turnoverThresholdMode === 'custom' && config.turnoverThreshold > 0) {
             finalAvgT = config.turnoverThreshold;
         } else if (filtered.length > 0) {
-            const sumT = filtered.reduce((acc, curr) => acc + (curr.monthlyTurnover || (curr.totalQuantity / (monthCount || 1))), 0);
+            const sumT = filtered.reduce((acc, curr) => acc + (curr.monthlyTurnover ?? (curr.totalQuantity / (monthCount || 1))), 0);
             finalAvgT = sumT / filtered.length;
         }
 
@@ -266,8 +277,8 @@ export const useSalesReport = () => {
         // 4. RE-CALCULAR QUADRANTES: Crucial para que as cores das bolinhas mudem ao alterar filtros/thresholds
         const updatedWithQuadrants = filtered.map(r => {
             let q: 1 | 2 | 3 | 4 = 4;
-            const turnover = r.monthlyTurnover || (r.totalQuantity / (monthCount || 1));
-            const profit = r.monthlyProfit;
+            const turnover = r.monthlyTurnover ?? (r.totalQuantity / (monthCount || 1));
+            const profit = r.monthlyProfit ?? (r.totalProfit / (monthCount || 1));
 
             if (turnover >= finalAvgT && profit >= finalAvgP) q = 1;
             else if (turnover < finalAvgT && profit >= finalAvgP) q = 2; // Nicho (Alto lucro mensal, baixo giro mensal)
