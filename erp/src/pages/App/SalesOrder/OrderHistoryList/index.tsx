@@ -12,6 +12,7 @@ type OrderHistoryListProps = {
     onToggleColumn: (column: keyof VisibilitySettings) => void;
     onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
     highlightOrderId?: string | null;
+    onFilterByOrderId?: (id: string) => void;
 };
 
 export interface OrderHistoryListRef {
@@ -19,7 +20,7 @@ export interface OrderHistoryListRef {
 }
 
 
-const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId }, ref) => {
+const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId, onFilterByOrderId }, ref) => {
     const [confirmModal, setConfirmModal] = React.useState<{
         isOpen: boolean;
         title: string;
@@ -235,6 +236,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onBulkPermanentDelete={handleBulkPermanentDelete}
                     onBlingUpdate={handleBlingUpdate}
                     highlightOrderId={highlightOrderId}
+                    onFilterByOrderId={onFilterByOrderId}
                 />
 
                 {/* Pagination Controls */}

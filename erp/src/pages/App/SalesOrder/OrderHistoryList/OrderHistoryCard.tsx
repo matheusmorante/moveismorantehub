@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import Order from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
@@ -16,9 +17,9 @@ interface OrderHistoryCardProps {
     showTrash?: boolean;
     isSelected?: boolean;
     onToggleSelection?: () => void;
-    onBlingUpdate?: (id: string, value: boolean) => void;
     isHighlighted?: boolean;
     id?: string;
+    onFilterByOrderId?: (id: string) => void;
 }
 
 const OrderHistoryCard = ({
@@ -31,16 +32,30 @@ const OrderHistoryCard = ({
     onStatusUpdate,
     showTrash,
     isSelected,
-    onToggleSelection,
     onBlingUpdate,
     isHighlighted,
-    id
+    id,
+    onFilterByOrderId
 }: OrderHistoryCardProps) => {
     const settings = getSettings();
     const [showMenu, setShowMenu] = React.useState(false);
     const [showPicker, setShowPicker] = React.useState(false);
     const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
+    const [menuPosition, setMenuPosition] = React.useState({ top: 'auto' as number | string, bottom: 'auto' as number | string, right: 0 });
+    const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+
+    React.useEffect(() => {
+        if (showMenu) {
+            const handleScroll = (e: Event) => {
+                // Ignore scroll events from the menu itself to avoid instant closing
+                if ((e.target as HTMLElement)?.closest?.('.portal-menu-container')) return;
+                setShowMenu(false);
+            }
+            window.addEventListener('scroll', handleScroll, true);
+            return () => window.removeEventListener('scroll', handleScroll, true);
+        }
+    }, [showMenu]);
 
     // Auto-dismiss the "Sim/Não" confirmation after 5 seconds with no action
     React.useEffect(() => {
@@ -143,6 +158,18 @@ const OrderHistoryCard = ({
                             );
                         })()}
                     </div>
+                    {order.orderType === 'assistance' && order.linkedOrderId && (
+                        <div className="flex items-center gap-1.5 ml-2">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
+                                className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md w-fit"
+                                title="Filtrar por pedido vinculado"
+                            >
+                                <i className="bi bi-link-45deg"></i>
+                                Vinc: {order.linkedOrderId.slice(-6).toUpperCase()}
+                            </button>
+                        </div>
+                    )}
                 </div>
                 
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -189,7 +216,7 @@ const OrderHistoryCard = ({
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
                 
-                {order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                {order.orderType !== 'assistance' && order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                         {!showBlingConfirm ? (
                             <button 
@@ -225,7 +252,7 @@ const OrderHistoryCard = ({
                 )}
 
                 {/* Bling Pending Flag */}
-                {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                {order.orderType !== 'assistance' && !order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                         {!showBlingConfirm ? (
                             <button 
@@ -298,7 +325,7 @@ const OrderHistoryCard = ({
                 )}
 
                 {/* Review Request Button */}
-                {order.status === 'fulfilled' && !order.reviewRequested && !showTrash && !(order.shipping?.deliveryMethod === 'pickup' && (order.customerData?.fullName === "Consumidor Final" || order.customerData?.fullName === "Ao Consumidor")) && (
+                {order.orderType !== 'assistance' && order.status === 'fulfilled' && !order.reviewRequested && !showTrash && !(order.shipping?.deliveryMethod === 'pickup' && (order.customerData?.fullName === "Consumidor Final" || order.customerData?.fullName === "Ao Consumidor")) && (
                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={() => onAction("sendCustomerReviews", order)}
@@ -311,7 +338,7 @@ const OrderHistoryCard = ({
                 )}
 
                 {/* Review Already Requested Label */}
-                {order.status === 'fulfilled' && order.reviewRequested && !showTrash && (
+                {order.orderType !== 'assistance' && order.status === 'fulfilled' && order.reviewRequested && !showTrash && (
                     <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-900/20 w-fit shadow-sm">
                         <i className="bi bi-star-half text-[10px]" />
                         <span className="text-[9px] font-black uppercase tracking-widest">Avaliação Solicitada</span>
@@ -326,9 +353,32 @@ const OrderHistoryCard = ({
                         <span>{formatToBRDate(order.date)}</span>
                     </div>
                     {order.shipping?.scheduling?.date && (
-                        <div className="flex items-center gap-1 text-[10px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-tighter">
-                            <i className="bi bi-truck" />
-                            <span>{formatToBRDate(order.shipping.scheduling.date)}</span>
+                        <div className="flex flex-col items-start gap-0.5">
+                            <div className="flex items-center gap-1 text-[10px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-tighter">
+                                <i className="bi bi-truck" />
+                                <span>{formatToBRDate(order.shipping.scheduling.date)}</span>
+                            </div>
+                            {(() => {
+                                const sched = order.shipping?.scheduling;
+                                let timeDisplay = "";
+                                if (sched) {
+                                    if (sched.notInformed) {
+                                        timeDisplay = "Não informado";
+                                    } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
+                                        timeDisplay = `${sched.startTime} às ${sched.endTime}`;
+                                    } else if (sched.startTime) {
+                                        timeDisplay = sched.startTime;
+                                    } else if (sched.time) {
+                                        timeDisplay = sched.time;
+                                    }
+                                }
+                                if (!timeDisplay) return null;
+                                return (
+                                    <span className="text-[9px] text-blue-400 dark:text-blue-500 font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded-md ml-4 border border-blue-100 dark:border-blue-900/30">
+                                        {timeDisplay}
+                                    </span>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -371,17 +421,34 @@ const OrderHistoryCard = ({
                             
                             <div className="relative">
                                 <button
-                                    onClick={() => setShowMenu(!showMenu)}
+                                    ref={menuButtonRef}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!showMenu && menuButtonRef.current) {
+                                            const rect = menuButtonRef.current.getBoundingClientRect();
+                                            const spaceBelow = window.innerHeight - rect.bottom;
+                                            if (spaceBelow < 280) {
+                                                setMenuPosition({ top: 'auto', bottom: window.innerHeight - rect.top + 8, right: window.innerWidth - rect.right });
+                                            } else {
+                                                setMenuPosition({ top: rect.bottom + 8, bottom: 'auto', right: window.innerWidth - rect.right });
+                                            }
+                                        }
+                                        setShowMenu(!showMenu);
+                                    }}
                                     className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-100 transition-colors"
                                 >
                                     <i className="bi bi-three-dots-vertical text-lg" />
                                 </button>
 
-                                {showMenu && (
-                                    <>
-                                        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                                        <div className="absolute bottom-full right-0 mb-2 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl z-[100] p-1.5 flex flex-col gap-1 animate-slide-up">
+                                {showMenu && typeof document !== 'undefined' && createPortal(
+                                    <div className="portal-menu-container">
+                                        <div className="fixed inset-0 z-[9990]" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }} />
+                                        <div className="fixed w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] z-[9999] p-1.5 flex flex-col gap-1 animate-slide-up"
+                                             style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
+                                             onClick={(e) => e.stopPropagation()}
+                                        >
                                                 {buttons.map((btn) => {
+                                                    if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return null;
                                                     const isPrintReceipt = btn.key === 'printReceipt';
                                                     const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
 
@@ -405,14 +472,18 @@ const OrderHistoryCard = ({
                                             })}
                                             <div className="border-t border-slate-50 dark:border-slate-800/50 my-1" />
                                             <button
-                                                onClick={() => onDelete(order.id!)}
+                                                onClick={() => {
+                                                    onDelete(order.id!);
+                                                    setShowMenu(false);
+                                                }}
                                                 className="flex items-center gap-3 w-full p-2.5 rounded-lg transition-all hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
                                             >
                                                 <i className="bi bi-trash-fill text-base" />
                                                 <span className="text-[9px] font-black uppercase tracking-widest">Lixeira</span>
                                             </button>
                                         </div>
-                                    </>
+                                    </div>,
+                                    document.body
                                 )}
                             </div>
                         </>

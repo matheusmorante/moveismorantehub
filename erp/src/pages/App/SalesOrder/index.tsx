@@ -9,12 +9,14 @@ import NewOrderDropdown from "./NewOrderDropdown";
 import Order, { VisibilitySettings } from "../../types/order.type";
 import OrderFilters, { Filters } from "./OrderFilters";
 import { OrderHistoryListRef } from "./OrderHistoryList";
+import PostOrderActionsModal from "./OrderActions/PostOrderActionsModal";
 
 const SalesOrder = () => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
     const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
     const [filters, setFilters] = useState<Filters>({
         dateRange: { start: "", end: "" },
         dateType: "personalizado" as "personalizado" | "hoje" | "esse_mes" | "mes_passado" | "ultimo_semestre" | "esse_ano",
@@ -26,7 +28,8 @@ const SalesOrder = () => {
         valueRange: { min: 0, max: 1000000 },
         sortBy: "date" as any, // Legacy field
         sortOrder: "desc" as any, // Legacy field
-        multiSort: [{ key: 'date', order: 'desc' }] as { key: string, order: 'asc' | 'desc' }[]
+        multiSort: [{ key: 'date', order: 'desc' }] as { key: string, order: 'asc' | 'desc' }[],
+        searchId: ""
     });
 
     React.useEffect(() => {
@@ -255,6 +258,7 @@ const SalesOrder = () => {
                             onSort={handleSort}
                             highlightOrderId={highlightOrderId}
                             ref={orderListRef}
+                            onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
                         />
                     </div>
                 </div>
@@ -302,6 +306,7 @@ const SalesOrder = () => {
                                     onSort={handleSort}
                                     highlightOrderId={highlightOrderId}
                                     ref={trashListRef}
+                                    onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
                                 />
                             </div>
                         </div>
@@ -351,6 +356,7 @@ const SalesOrder = () => {
                                     onSort={handleSort}
                                     highlightOrderId={highlightOrderId}
                                     ref={draftsListRef}
+                                    onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
                                 />
                             </div>
                         </div>
@@ -417,6 +423,13 @@ const SalesOrder = () => {
                     }}
                 />
             ) : null}
+
+            {postOrderDetails && (
+                <PostOrderActionsModal 
+                    order={postOrderDetails} 
+                    onClose={() => setPostOrderDetails(null)} 
+                />
+            )}
         </div>
     );
 };

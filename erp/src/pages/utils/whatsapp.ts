@@ -117,35 +117,34 @@ export const sendDirectCustomerMessage = async (order: Order) => {
 
 const buildAssistanceMessage = (order: Order) => {
     const customer = order.customerData;
-    const settings = getSettings();
 
-    const scheduledDate = (order as any).scheduledDate || '';
-    const scheduledTime = (order as any).scheduledTime || '';
-    const assistanceDescription = (order as any).assistanceDescription || 'Serviço técnico';
+    // Format date
+    const d = order.shipping?.scheduling?.date;
+    const formattedDate = d ? formatDate(d) : 'data a confirmar';
 
-    // Format date to BR format
-    let formattedDate = scheduledDate;
-    if (scheduledDate) {
-        try {
-            const [year, month, day] = scheduledDate.split('-');
-            formattedDate = `${day}/${month}/${year}`;
-        } catch { /* keep raw */ }
+    // Format time/period
+    const sched = order.shipping?.scheduling;
+    let scheduledTime = "";
+    if (sched) {
+        if (sched.notInformed) {
+            scheduledTime = "(horário a combinar)";
+        } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
+            scheduledTime = `das ${sched.startTime} às ${sched.endTime}`;
+        } else if (sched.startTime) {
+            scheduledTime = `às ${sched.startTime}`;
+        } else if (sched.time) {
+            scheduledTime = `às ${sched.time}`;
+        }
     }
 
-    let message = settings.whatsappTemplates?.assistanceConfirmation || 
-        `*Olá ${customer.fullName}!* 🔧\n\nSeu atendimento de assistência técnica foi confirmado!\n\n🗓️ *Data:* ${formattedDate || 'A confirmar'}\n🕒 *Horário:* ${scheduledTime || 'A confirmar'}\n\n📋 *Serviço:*\n${assistanceDescription}\n\nEm caso de dúvidas, entre em contato!`;
+    // Capture products
+    const produtos = order.items && order.items.length > 0 
+        ? order.items.map(i => i.productName || "Produto").join(', ') 
+        : "produto";
 
-    return message
-        .replace(/{{customerName}}/g, customer.fullName || 'Cliente')
-        .replace(/{{assistanceDate}}/g, formattedDate || 'A confirmar')
-        .replace(/{{assistanceTime}}/g, scheduledTime || 'A confirmar')
-        .replace(/{{phone}}/g, customer.phone || "Não informado")
-        .replace(/{{additionalContacts}}/g, stringifyAdditionalContacts(customer.additionalContacts))
-        .replace(/{{customerObservations}}/g, customer.observations || "")
-        .replace(/{{assistanceDescription}}/g, assistanceDescription)
-        .replace(/{{companyPhone}}/g, settings.companyPhone || '')
-        .replace(/{{seller}}/g, order.seller || "Não informado")
-        .replace(/{{observation}}/g, order.observation || '');
+    const firstName = customer.fullName?.split(' ')[0] || "Cliente";
+
+    return `Olá ${firstName}, a assistência do(s) ${produtos} foi agendada para dia ${formattedDate} ${scheduledTime}`.trim() + '.';
 };
 
 export const sendDirectAssistanceMessage = async (order: Order) => {
@@ -163,6 +162,85 @@ export const sendDirectAssistanceMessage = async (order: Order) => {
         console.error("Erro ao enviar mensagem direta de assistência:", error);
         toast.error("Erro na API. Abrindo link manual...");
         window.open(assistanceCustomerWhatsappUrl(order), "_blank");
+    }
+};
+
+const buildAssistanceOrderDetailsMessage = (order: Order) => {
+    const customer = order.customerData;
+    
+    // date
+    const d = order.shipping?.scheduling?.date;
+    const date = d ? formatDate(d) : 'A confirmar';
+
+    // time
+    const sched = order.shipping?.scheduling;
+    let time = "";
+    if (sched) {
+        if (sched.notInformed) {
+            time = "Não informado";
+        } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
+            time = `${sched.startTime} às ${sched.endTime}`;
+        } else if (sched.startTime) {
+            time = sched.startTime;
+        } else if (sched.time) {
+            time = sched.time;
+        }
+    }
+
+    let message = `*PEDIDO DE ASSISTÊNCIA TÉCNICA*\n\n`;
+    message += `*Cliente:* ${customer.fullName || 'Não informado'}\n`;
+    message += `*Endereço:* ${stringifyFullAddress(customer.fullAddress)}\n\n`;
+    
+    message += `*Data Agendada:* ${date}\n`;
+    message += `*Horário:* ${time || 'Não informado'}\n\n`;
+    
+    // Using stringifyItemsWithValues here or just basic items. 
+    // Usually standard order uses stringifyItemsWithValues which includes price, but if assistance has 0 value, it's fine.
+    // Let's do a custom items loop without values:
+    message += `*Itens da Assistência:*\n`;
+    if (order.items && order.items.length > 0) {
+        order.items.forEach((item) => {
+            message += `• ${item.quantity}x ${item.productName}\n`;
+        });
+    } else {
+        message += `• Nenhum item especificado\n`;
+    }
+    
+    if (order.observation) {
+        message += `\n*Observações:*\n${order.observation}\n`;
+    }
+    
+    message += `\n*Vendedor:* ${order.seller || 'Não informado'}`;
+    
+    return message;
+};
+
+export const assistanceOrderDetailsWhatsappUrl = (order: Order) => {
+    const customer = order.customerData;
+    const phone = customer.phone?.replace(/[^0-9]/g, '') || '';
+    const message = buildAssistanceOrderDetailsMessage(order);
+
+    if (phone) {
+        return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    }
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+};
+
+export const sendDirectAssistanceOrderDetailsMessage = async (order: Order) => {
+    const customer = order.customerData;
+    if (!customer?.phone) {
+        toast.error("Cliente sem telefone cadastrado.");
+        return;
+    }
+
+    try {
+        const message = buildAssistanceOrderDetailsMessage(order);
+        await whatsappGraphService.sendTextMessage(customer.phone, message);
+        toast.success("Pedido de Assistência enviado para o cliente com sucesso!");
+    } catch (error) {
+        console.error("Erro ao enviar pedido de assistência:", error);
+        toast.error("Erro na API. Abrindo link manual...");
+        window.open(assistanceOrderDetailsWhatsappUrl(order), "_blank");
     }
 };
 

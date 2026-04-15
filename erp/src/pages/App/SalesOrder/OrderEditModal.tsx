@@ -13,7 +13,7 @@ import PersonFormModal from "../Registrations/shared/PersonFormModal";
 interface OrderEditModalProps {
     order: Order;
     onClose: () => void;
-    onSaveSuccess: (id?: string) => void;
+    onSaveSuccess: (id?: string, order?: Order) => void;
 }
 
 const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) => {
@@ -57,7 +57,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
         try {
             await updateOrder(order.id!, updatedOrder, order);
             toast.success("Edição salva com sucesso!");
-            onSaveSuccess(order.id);
+            onSaveSuccess(order.id, updatedOrder);
             onClose();
             return order.id;
         } catch (error) {
@@ -65,17 +65,18 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
             toast.error("Falha ao atualizar pedido.");
             return false;
         }
-    }, [form.actions, form.state.currentOrder, order.id, onSaveSuccess, onClose]);
+    }, [form.actions, form.state.currentOrder, order.id, onSaveSuccess, onClose, order]);
 
     const handleFinalize = useCallback(async (e?: React.MouseEvent) => {
         const result = await form.actions.handleCompleteOrder(e);
         if (result) {
-            onSaveSuccess(String(result));
+            const updatedOrder = { ...form.state.currentOrder, id: form.state.currentOrder.id || order.id || String(result) };
+            onSaveSuccess(String(result), updatedOrder);
             onClose();
             return String(result);
         }
         return false;
-    }, [form.actions, onSaveSuccess, onClose]);
+    }, [form.actions, onSaveSuccess, onClose, form.state.currentOrder, order.id]);
 
     const mainAction = order.status === 'draft' ? handleFinalize : handleUpdate;
 

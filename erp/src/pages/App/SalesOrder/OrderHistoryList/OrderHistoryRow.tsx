@@ -26,6 +26,7 @@ interface OrderHistoryRowProps {
     onBlingUpdate?: (id: string, value: boolean) => void;
     isHighlighted?: boolean;
     id?: string;
+    onFilterByOrderId?: (id: string) => void;
 }
 
 const OrderHistoryRow = ({
@@ -43,7 +44,8 @@ const OrderHistoryRow = ({
     onToggleSelection,
     onBlingUpdate,
     isHighlighted,
-    id
+    id,
+    onFilterByOrderId
 }: OrderHistoryRowProps) => {
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
@@ -166,10 +168,22 @@ const OrderHistoryRow = ({
 
                 return (
                     <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
-                        <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                                {order.id?.slice(-8)}
-                            </span>
+                        <div className="flex flex-col gap-1 items-start">
+                            <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                                    {order.id?.slice(-8)}
+                                </span>
+                            </div>
+                            {order.orderType === 'assistance' && order.linkedOrderId && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
+                                    className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md mt-0.5 w-fit"
+                                    title="Filtrar por pedido vinculado"
+                                >
+                                    <i className="bi bi-link-45deg"></i>
+                                    Vinc: {order.linkedOrderId.slice(-8)}
+                                </button>
+                            )}
                         </div>
                     </td>
                 );
@@ -210,9 +224,26 @@ const OrderHistoryRow = ({
                                 <span className={`text-sm font-bold ${isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
                                     {formatToBRDate(deliveryDateStr)}
                                 </span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
-                                    {order.shipping?.scheduling?.time || "-"}
-                                </span>
+                                {(() => {
+                                    const sched = order.shipping?.scheduling;
+                                    let timeDisplay = "-";
+                                    if (sched) {
+                                        if (sched.notInformed) {
+                                            timeDisplay = "Não informado";
+                                        } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
+                                            timeDisplay = `${sched.startTime} às ${sched.endTime}`;
+                                        } else if (sched.startTime) {
+                                            timeDisplay = sched.startTime;
+                                        } else if (sched.time) {
+                                            timeDisplay = sched.time;
+                                        }
+                                    }
+                                    return (
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
+                                            {timeDisplay}
+                                        </span>
+                                    );
+                                })()}
                             </div>
 
                             {isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' && !showTrash && settings.showManualFulfillmentPrompt && (
@@ -384,7 +415,7 @@ const OrderHistoryRow = ({
                                 )}
 
                                 {/* Bling Status Badges */}
-                                {order.isRegisteredInBling && !showTrash && (
+                                {order.orderType !== 'assistance' && order.isRegisteredInBling && !showTrash && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                         {!showBlingConfirm ? (
                                             <button 
@@ -420,7 +451,7 @@ const OrderHistoryRow = ({
                                     </div>
                                 )}
 
-                                {!order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                                {order.orderType !== 'assistance' && !order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                         {!showBlingConfirm ? (
                                             <button 
@@ -608,6 +639,7 @@ const OrderHistoryRow = ({
                                                         <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
 
                                                         {buttons.filter(btn => {
+                                                            if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
                                                             return true;
                                                         }).map((btn) => {

@@ -28,6 +28,7 @@ interface OrderHistoryTableProps {
     onClearSelection: () => void;
     onBlingUpdate?: (id: string, value: boolean) => void;
     highlightOrderId?: string | null;
+    onFilterByOrderId?: (id: string) => void;
 }
 
 interface ColumnDef {
@@ -50,7 +51,8 @@ const OrderHistoryTable = ({
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection,
     onBlingUpdate,
-    highlightOrderId
+    highlightOrderId,
+    onFilterByOrderId
 }: OrderHistoryTableProps) => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
@@ -268,6 +270,7 @@ const OrderHistoryTable = ({
                                     onBlingUpdate={onBlingUpdate}
                                     isHighlighted={highlightOrderId === order.id}
                                     id={`order-row-${order.id}`}
+                                    onFilterByOrderId={onFilterByOrderId}
                                 />
                             ))}
                         </tbody>
@@ -297,6 +300,7 @@ const OrderHistoryTable = ({
                                 onBlingUpdate={onBlingUpdate}
                                 isHighlighted={highlightOrderId === order.id}
                                 id={`order-card-${order.id}`}
+                                onFilterByOrderId={onFilterByOrderId}
                             />
                         ))
                     )}

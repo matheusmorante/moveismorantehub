@@ -206,6 +206,9 @@ export const validateBase = (order: Order) => {
 
 export const validateAssistanceOrder = (order: Order): ValidationErrors => {
     const errors: ValidationErrors = {};
+
+    if (order.status === 'draft') return errors;
+
     const { requiredFields } = getSettings();
 
     if (!order.customerData?.fullName && requiredFields.assistanceOrder?.customer) {

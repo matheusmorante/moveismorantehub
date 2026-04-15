@@ -6,9 +6,11 @@ import {
     customerOrderWhatsappUrl, 
     customerReviewsWhatsappUrl, 
     assistanceCustomerWhatsappUrl,
+    assistanceOrderDetailsWhatsappUrl,
     sendDirectShippingMessage,
     sendDirectCustomerMessage,
-    sendDirectAssistanceMessage
+    sendDirectAssistanceMessage,
+    sendDirectAssistanceOrderDetailsMessage
 } from "../../../utils/whatsapp";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
@@ -39,6 +41,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     },
     'SEND_ASSISTANCE_CUSTOMER': (order) => {
         sendDirectAssistanceMessage(order);
+    },
+    'SEND_ASSISTANCE_ORDER_DETAILS': (order) => {
+        sendDirectAssistanceOrderDetailsMessage(order);
     },
     'SEND_CUSTOMER_REVIEWS': (order) => {
         window.open(customerReviewsWhatsappUrl(order), "_blank");
@@ -112,12 +117,21 @@ export const buttons: OrderButton[] = [
         orderTypes: ['sale']
     },
     {
-        key: "sendCustomerOrder",  // reuse key for assistance
-        icon: "bi-whatsapp",
+        key: "sendCustomerOrder",  // reuse key for assistance short confirmation
+        icon: "bi-check-circle-fill",
         action: "SEND_ASSISTANCE_CUSTOMER",
-        label: "Confirmar Assistência",
+        label: "Confirmar Agendamento",
         color: "text-green-600 hover:bg-green-50",
-        tooltip: "Enviar confirmação da assistência técnica ao cliente via WhatsApp",
+        tooltip: "Enviar confirmação curta da assistência técnica ao cliente",
+        orderTypes: ['assistance']
+    },
+    {
+        key: "sendCustomerOrderDetails",  // details message
+        icon: "bi-whatsapp",
+        action: "SEND_ASSISTANCE_ORDER_DETAILS",
+        label: "WhatsApp Cliente",
+        color: "text-green-600 hover:bg-green-50",
+        tooltip: "Enviar detalhes completos do pedido de assistência ao cliente",
         orderTypes: ['assistance']
     },
     {

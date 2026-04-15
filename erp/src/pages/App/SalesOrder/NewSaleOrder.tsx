@@ -8,7 +8,7 @@ import PersonFormModal from "../Registrations/shared/PersonFormModal";
 
 interface NewSaleOrderProps {
     onClose: () => void;
-    onSaveSuccess: (id?: string) => void;
+    onSaveSuccess: (id?: string, order?: Order) => void;
     initialDeliveryMethod?: 'delivery' | 'pickup';
     orderType?: Order['orderType'];
 }
@@ -39,21 +39,21 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
         if (e) e.preventDefault();
         const result = await form.actions.handleSaveOrder(e);
         if (result) {
-            onSaveSuccess(typeof result === 'string' ? result : undefined);
+            onSaveSuccess(typeof result === 'string' ? result : undefined, { ...form.state.currentOrder, id: typeof result === 'string' ? result : undefined });
             onClose();
         }
         return result;
-    }, [form.actions, onSaveSuccess, onClose]);
+    }, [form.actions, form.state.currentOrder, onSaveSuccess, onClose]);
 
     const handleComplete = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
         const result = await form.actions.handleCompleteOrder(e);
         if (result) {
-            onSaveSuccess(typeof result === 'string' ? result : undefined);
+            onSaveSuccess(typeof result === 'string' ? result : undefined, { ...form.state.currentOrder, id: typeof result === 'string' ? result : undefined });
             onClose();
         }
         return result;
-    }, [form.actions, onSaveSuccess, onClose]);
+    }, [form.actions, form.state.currentOrder, onSaveSuccess, onClose]);
 
     return (
         <div

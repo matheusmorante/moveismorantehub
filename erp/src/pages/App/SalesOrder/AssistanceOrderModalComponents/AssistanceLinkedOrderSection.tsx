@@ -1,7 +1,6 @@
 import React from "react";
 import Order, { AssistanceItem } from "../../../types/order.type";
 import { formatToBRDate } from "../../../utils/formatters";
-import { getSettings } from '../../../utils/settingsService';
 
 interface AssistanceLinkedOrderSectionProps {
     isLinked: boolean;
@@ -26,11 +25,6 @@ const AssistanceLinkedOrderSection = ({
     handleUpdateItemQty,
     handleUpdateItemHandling
 }: AssistanceLinkedOrderSectionProps) => {
-    const settings = getSettings();
-    const allOptions = [
-        ...(settings.deliveryHandlingOptions || []),
-        ...(settings.pickupHandlingOptions || [])
-    ];
 
     return (
         <div className="flex flex-col gap-4 p-5 rounded-[2.5rem] bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/20 transition-all">
@@ -143,26 +137,6 @@ const AssistanceLinkedOrderSection = ({
                                                     </div>
                                                 )}
                                             </div>
-
-                                            {isSelected && (
-                                                <div className="flex flex-col gap-2 pt-2 border-t border-slate-50 dark:border-slate-800" onClick={e => e.stopPropagation()}>
-                                                    <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Modalidade de Manuseio</label>
-                                                    <div className="flex items-center gap-2">
-                                                        <select
-                                                            value={selectedItem?.handlingType || ""}
-                                                            onChange={(e) => handleUpdateItemHandling(item.description, e.target.value)}
-                                                            className="text-[10px] font-black bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 flex-1 focus:ring-2 focus:ring-indigo-500 transition-all uppercase"
-                                                        >
-                                                            <option value="">(Nenhuma)</option>
-                                                            {allOptions.map((opt, i) => (
-                                                                <option key={i} value={opt.label}>
-                                                                    {opt.label}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })}

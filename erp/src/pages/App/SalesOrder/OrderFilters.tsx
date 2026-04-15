@@ -12,6 +12,7 @@ export interface Filters {
     sortBy: string;
     sortOrder: "asc" | "desc";
     multiSort: { key: string; order: "asc" | "desc" }[];
+    searchId?: string;
 }
 
 interface OrderFiltersProps {
@@ -94,7 +95,8 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
             valueRange: { min: 0, max: 1000000 },
             sortBy: "date",
             sortOrder: "desc",
-            multiSort: [{ key: 'date', order: 'desc' }]
+            multiSort: [{ key: 'date', order: 'desc' }],
+            searchId: ""
         });
     };
 
@@ -109,6 +111,21 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
             </div>
 
             <div className="p-4 md:p-8 flex flex-col gap-6">
+                {filters.searchId && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Filtrando por ID:</span>
+                            <span className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono">{filters.searchId.slice(-8)}</span>
+                        </div>
+                        <button
+                            onClick={() => setFilters(prev => ({ ...prev, searchId: "" }))}
+                            className="p-2 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50 rounded-lg transition-colors"
+                        >
+                            <i className="bi bi-x-lg text-lg"></i>
+                        </button>
+                    </div>
+                )}
+
                 {/* Search Inputs */}
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-col gap-2">

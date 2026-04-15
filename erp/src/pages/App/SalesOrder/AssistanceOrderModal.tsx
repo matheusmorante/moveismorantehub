@@ -17,8 +17,9 @@ import AssistanceCustomerSection from "./AssistanceOrderModalComponents/Assistan
 import AssistanceLinkedOrderSection from "./AssistanceOrderModalComponents/AssistanceLinkedOrderSection";
 import AssistanceDescriptionSection from "./AssistanceOrderModalComponents/AssistanceDescriptionSection";
 import AssistanceExtraItemsSection from "./AssistanceOrderModalComponents/AssistanceExtraItemsSection";
-import AssistanceSchedulingSection from "./AssistanceOrderModalComponents/AssistanceSchedulingSection";
+import Agendamento from "./ShippingComponents/Agendamento";
 import AssistanceActions from "./AssistanceOrderModalComponents/AssistanceActions";
+import Seller from "./Seller";
 
 interface AssistanceOrderModalProps {
     onClose: () => void;
@@ -66,10 +67,16 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     });
     const [description, setDescription] = useState(order?.assistanceDescription || initialData?.description || "");
     const [observation, setObservation] = useState(order?.observation || "");
-    const [scheduledDate, setScheduledDate] = useState(order?.scheduledDate || "");
-    const [scheduledTime, setScheduledTime] = useState(order?.scheduledTime || "");
+    const [scheduling, setScheduling] = useState<any>(order?.shipping?.scheduling || {
+        date: order?.scheduledDate || "",
+        startTime: order?.scheduledTime || "",
+        endTime: "",
+        type: 'fixed',
+        notInformed: false
+    });
     const [isLinked, setIsLinked] = useState(!!order?.linkedOrderId);
     const [linkedOrderId, setLinkedOrderId] = useState(order?.linkedOrderId || "");
+    const [seller, setSeller] = useState(order?.seller || "");
     const [selectedAssistanceItems, setSelectedAssistanceItems] = useState<AssistanceItem[]>(order?.assistanceItems || []);
     const [extraItems, setExtraItems] = useState<Item[]>(order?.items || []);
     const [assistanceCost, setAssistanceCost] = useState(order?.assistanceCost || 0); 
@@ -80,6 +87,8 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     const [isCustomerSearchOpen, setIsCustomerSearchOpen] = useState(false);
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const [currentOrderId, setCurrentOrderId] = useState(order?.id);
+    const [status, setStatus] = useState(order?.status || 'draft');
 
     const isEditing = !!order;
     const initialDataFetched = useRef(false);
@@ -90,14 +99,24 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
             setCustomerData(order.customerData || EMPTY_CUSTOMER);
             setDescription(order.assistanceDescription || "");
             setObservation(order.observation || "");
-            setScheduledDate(order.scheduledDate || "");
-            setScheduledTime(order.scheduledTime || "");
+            if (order.shipping?.scheduling) {
+                setScheduling(order.shipping.scheduling);
+            } else {
+                setScheduling({
+                    date: order.scheduledDate || "",
+                    startTime: order.scheduledTime || "",
+                    endTime: "",
+                    type: 'fixed',
+                    notInformed: false
+                });
+            }
             setIsLinked(!!order.linkedOrderId);
             setLinkedOrderId(order.linkedOrderId || "");
             setSelectedAssistanceItems(order.assistanceItems || []);
             setExtraItems(order.items || []);
             setAssistanceCost(order.assistanceCost || 0);
             setAssistanceServiceValue(order.assistanceServiceValue || 0);
+            setSeller(order.seller || "");
         }
     }, [order]);
 
@@ -111,6 +130,8 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                 if (sourceOrder) {
                     setLinkedOrderId(sourceOrder.id || "");
                     setIsLinked(true);
+                    setSeller(sourceOrder.seller || "");
+                    setCustomerData(sourceOrder.customerData || EMPTY_CUSTOMER);
                     const item = sourceOrder.items.find(i => i.productId === initialData.matchedProductId);
                     if (item) {
                         setSelectedAssistanceItems([{
@@ -132,6 +153,13 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
         saleOrders.find(o => o.id === linkedOrderId),
         [saleOrders, linkedOrderId]
     );
+
+    const handleChangeScheduling = (key: string, value: any) => {
+        setScheduling((prev: any) => ({
+            ...prev,
+            [key]: value
+        }));
+    };
 
     const handleToggleItem = (itemDescription: string, maxQty: number) => {
         const exists = selectedAssistanceItems.find(i => i.description === itemDescription);
@@ -170,68 +198,97 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
         setLinkedOrderId(selectedOrder.id || "");
         setSelectedAssistanceItems([]);
         setCustomerData(selectedOrder.customerData);
+        setSeller(selectedOrder.seller || "");
         setIsSelectionModalOpen(false);
         toast.info(`Pedido #${selectedOrder.id} selecionado.`);
     };
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const getOrderData = (isDraft: boolean): Order => {
+        const assistanceOrder: Order = {
+            ...(order || {}),
+            id: currentOrderId,
+            orderType: 'assistance',
+            status: isDraft ? 'draft' : ((status && status !== 'draft') ? status : (scheduling.date ? 'scheduled' : 'fulfilled')),
+            customerData: {
+                ...customerData,
+                fullName: customerData.fullName.trim(),
+                phone: customerData.phone.trim()
+            },
+            assistanceDescription: description.trim(),
+            observation: observation.trim(),
+            assistanceItems: isLinked ? selectedAssistanceItems : [],
+            items: extraItems,
+            itemsSummary: {
+                totalQuantity: extraItems.reduce((acc, i) => acc + i.quantity, 0),
+                itemsSubtotal: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0),
+                totalFixedDiscount: 0,
+                itemsTotalValue: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0),
+                totalItemsCost: extraItems.reduce((acc, i) => acc + (i.quantity * (i.costPrice || 0)), 0),
+            },
+            assistanceCost,
+            assistanceServiceValue,
+            payments: order?.payments || [],
+            paymentsSummary: order?.paymentsSummary || {
+                totalPaymentsFee: 0,
+                totalOrderValue: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0) + assistanceServiceValue,
+                totalAmountPaid: 0,
+                amountRemaining: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0) + assistanceServiceValue
+            },
+            shipping: {
+                ...(order?.shipping || DEFAULT_SHIPPING),
+                scheduling: scheduling
+            },
+            seller: seller.trim(),
+            date: order?.date || new Date().toISOString(),
+            scheduledDate: scheduling.date,
+            scheduledTime: scheduling.startTime || ""
+        };
+
+        if (isLinked) {
+            assistanceOrder.linkedOrderId = linkedOrderId;
+        } else {
+            assistanceOrder.linkedOrderId = undefined;
+        }
+
+        return assistanceOrder;
+    };
+
+    const autoSaveTimerRef = useRef<any>(null);
+
+    useEffect(() => {
+        if (!initialDataFetched.current && !isEditing) return;
+        if (status !== 'draft' && currentOrderId) return;
+        
+        const isDefaultState = !customerData.fullName && !description && !observation && extraItems.length === 0 && selectedAssistanceItems.length === 0;
+        if (isDefaultState) return;
+
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        
+        autoSaveTimerRef.current = setTimeout(async () => {
+            if (loading) return;
+            const draftOrder = getOrderData(true);
+            try {
+                const savedId = await saveOrder(draftOrder);
+                if (!currentOrderId && savedId) {
+                    setCurrentOrderId(savedId);
+                }
+            } catch (error) {
+                console.error("Auto-save failed", error);
+            }
+        }, 2000);
+        
+        return () => clearTimeout(autoSaveTimerRef.current);
+    }, [customerData, description, observation, scheduling, isLinked, linkedOrderId, seller, selectedAssistanceItems, extraItems, assistanceCost, assistanceServiceValue]);
+
+    const handleSaveBase = async (isDraft: boolean) => {
         setLoading(true);
         setValidationErrors({});
 
         try {
-            const assistanceOrder: Order = {
-                ...(order || {}),
-                orderType: 'assistance',
-                status: order?.status || (scheduledDate ? 'scheduled' : 'fulfilled'),
-                customerData: {
-                    ...customerData,
-                    fullName: customerData.fullName.trim(),
-                    phone: customerData.phone.trim()
-                },
-                assistanceDescription: description.trim(),
-                observation: observation.trim(),
-                assistanceItems: selectedAssistanceItems,
-                items: extraItems,
-                itemsSummary: {
-                    totalQuantity: extraItems.reduce((acc, i) => acc + i.quantity, 0),
-                    itemsSubtotal: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0),
-                    totalFixedDiscount: 0,
-                    itemsTotalValue: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0),
-                    totalItemsCost: extraItems.reduce((acc, i) => acc + (i.quantity * (i.costPrice || 0)), 0),
-                },
-                assistanceCost,
-                assistanceServiceValue,
-                payments: order?.payments || [],
-                paymentsSummary: order?.paymentsSummary || {
-                    totalPaymentsFee: 0,
-                    totalOrderValue: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0) + assistanceServiceValue,
-                    totalAmountPaid: 0,
-                    amountRemaining: extraItems.reduce((acc, i) => acc + (i.quantity * i.unitPrice), 0) + assistanceServiceValue
-                },
-                shipping: {
-                    ...(order?.shipping || DEFAULT_SHIPPING),
-                    scheduling: {
-                        ...(order?.shipping?.scheduling || DEFAULT_SHIPPING.scheduling),
-                        date: scheduledDate,
-                        time: scheduledTime,
-                        startTime: scheduledTime,
-                        type: 'fixed'
-                    }
-                },
-                seller: order?.seller || "",
-                date: order?.date || new Date().toISOString(),
-                scheduledDate,
-                scheduledTime
-            };
-
-            if (isLinked) {
-                assistanceOrder.linkedOrderId = linkedOrderId;
-                assistanceOrder.assistanceItems = selectedAssistanceItems;
-            }
+            const assistanceOrder = getOrderData(isDraft);
 
             const errors = validateAssistanceOrder(assistanceOrder);
-            if (Object.keys(errors).length > 0) {
+            if (!isDraft && Object.keys(errors).length > 0) {
                 setValidationErrors(errors);
                 const firstError = Object.values(errors)[0] as string;
                 toast.warning(`Campos obrigatórios: ${firstError}`);
@@ -240,7 +297,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
             }
 
             const savedId = await saveOrder(assistanceOrder);
-            toast.success(isEditing ? "Assistência atualizada!" : "Assistência criada!");
+            toast.success(isEditing ? "Assistência atualizada!" : "Assistência finalizada!");
             onSaveSuccess(savedId);
             onClose();
         } catch (error: any) {
@@ -248,6 +305,11 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
             toast.error(`Erro: ${error?.message || "Erro desconhecido"}`);
             setLoading(false);
         }
+    };
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleSaveBase(false);
     };
 
     return (
@@ -278,6 +340,18 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         isLinked={isLinked}
                     />
 
+                    <div className="flex flex-col gap-4">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                            <i className="bi bi-person-badge-fill text-amber-500" />
+                            Vendedor
+                        </h3>
+                        <Seller 
+                            seller={seller}
+                            setSeller={setSeller}
+                            errors={validationErrors}
+                        />
+                    </div>
+
                     <AssistanceDescriptionSection 
                         description={description}
                         setDescription={setDescription}
@@ -290,13 +364,14 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         errors={validationErrors}
                     />
 
-                    <AssistanceSchedulingSection 
-                        scheduledDate={scheduledDate}
-                        setScheduledDate={setScheduledDate}
-                        scheduledTime={scheduledTime}
-                        setScheduledTime={setScheduledTime}
-                        errors={validationErrors}
-                    />
+                    <div className="flex flex-col gap-4">
+                        <Agendamento 
+                            scheduling={scheduling}
+                            onChangeScheduling={handleChangeScheduling}
+                            errors={validationErrors}
+                            isPickup={false}
+                        />
+                    </div>
 
                     <AssistanceActions onClose={onClose} isLoading={loading} isEditing={isEditing} />
                 </form>
