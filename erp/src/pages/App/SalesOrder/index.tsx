@@ -370,11 +370,12 @@ const SalesOrder = () => {
                     initialDeliveryMethod={orderModalType === 'pickup' ? 'pickup' : 'delivery'}
                     orderType={orderModalType === 'budget' ? 'budget' : 'sale'}
                     onClose={() => setOrderModalType(null)}
-                    onSaveSuccess={(id) => {
+                    onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();
                             draftsListRef.current?.refresh();
+                            if (order) setPostOrderDetails(order);
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}
@@ -384,11 +385,12 @@ const SalesOrder = () => {
             {orderModalType === 'assistance' && (
                 <AssistanceOrderModal
                     onClose={() => setOrderModalType(null)}
-                    onSaveSuccess={(id) => {
+                    onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();
                             draftsListRef.current?.refresh();
+                            if (order) setPostOrderDetails(order);
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}
@@ -399,11 +401,12 @@ const SalesOrder = () => {
                 <AssistanceOrderModal
                     order={editingOrder}
                     onClose={() => setEditingOrder(null)}
-                    onSaveSuccess={(id) => {
+                    onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();
                             draftsListRef.current?.refresh();
+                            if (order) setPostOrderDetails(order);
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}
@@ -412,12 +415,13 @@ const SalesOrder = () => {
                 <OrderEditModal
                     order={editingOrder}
                     onClose={() => setEditingOrder(null)}
-                    onSaveSuccess={(id) => {
+                    onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();
                             trashListRef.current?.refresh();
                             draftsListRef.current?.refresh();
+                            if (order) setPostOrderDetails(order);
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}

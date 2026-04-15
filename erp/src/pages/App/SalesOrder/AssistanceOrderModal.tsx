@@ -23,7 +23,7 @@ import Seller from "./Seller";
 
 interface AssistanceOrderModalProps {
     onClose: () => void;
-    onSaveSuccess: (id?: string) => void;
+    onSaveSuccess: (id?: string, order?: Order) => void;
     order?: Order | null;
     initialData?: {
         customerName?: string;
@@ -298,7 +298,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
 
             const savedId = await saveOrder(assistanceOrder);
             toast.success(isEditing ? "Assistência atualizada!" : "Assistência finalizada!");
-            onSaveSuccess(savedId);
+            onSaveSuccess(savedId, assistanceOrder);
             onClose();
         } catch (error: any) {
             console.error("Erro ao salvar assistência:", error);

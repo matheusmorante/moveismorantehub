@@ -140,8 +140,8 @@ export const buttons: OrderButton[] = [
         action: "SEND_CUSTOMER_REVIEWS",
         label: "Enviar Avaliação",
         color: "text-yellow-500 hover:bg-yellow-50",
-        tooltip: "Enviar pedido de avaliação da loja no Google Maps"
-        // All order types
+        tooltip: "Enviar pedido de avaliação da loja no Google Maps",
+        orderTypes: ['sale']
     },
     {
         key: "printBudget",
