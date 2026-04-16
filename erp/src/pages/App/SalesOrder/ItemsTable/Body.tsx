@@ -11,9 +11,10 @@ interface Props {
     errors: ValidationErrors;
     isMobile?: boolean;
     onSelectProduct: (idx: number, product: any, variation?: any) => void;
+    isBudget?: boolean;
 }
 
-const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProduct }: Props) => {
+const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
     const toggleDiscountType = (idx: number) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
@@ -63,6 +64,7 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProdu
             errors={errors}
             isMobile={isMobile}
             onSelectProduct={onSelectProduct}
+            isBudget={isBudget}
         />
     ));
 

@@ -52,11 +52,13 @@ export type OrderAction =
     'SEND_CUSTOMER_ORDER' |
     'SEND_ASSISTANCE_CUSTOMER' |
     'SEND_ASSISTANCE_ORDER_DETAILS' |
+    'SEND_ASSISTANCE_OS' |
     'SEND_CUSTOMER_REVIEWS' |
     'PRINT_SHIPPING_LABEL' |
     'PRINT_PRODUCT_LABEL' |
     'GENERATE_PAYMENT_LINK' |
-    'PRINT_BUDGET'
+    'PRINT_BUDGET' |
+    'SEND_BUDGET'
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -71,7 +73,10 @@ export type IsButtonsClicked = {
     printShippingLabel: boolean,
     printProductLabel: boolean,
     generatePaymentLink: boolean,
-    printBudget: boolean
+    printBudget: boolean,
+    sendCustomerOrderDetails: boolean,
+    sendAssistanceOS: boolean,
+    sendBudget: boolean
 }
 
 export type VisibilitySettings = {

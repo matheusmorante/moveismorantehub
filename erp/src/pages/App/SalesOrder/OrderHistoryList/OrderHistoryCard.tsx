@@ -20,6 +20,7 @@ interface OrderHistoryCardProps {
     isHighlighted?: boolean;
     id?: string;
     onFilterByOrderId?: (id: string) => void;
+    onBlingUpdate?: (id: string, value: boolean) => void;
 }
 
 const OrderHistoryCard = ({
@@ -32,6 +33,7 @@ const OrderHistoryCard = ({
     onStatusUpdate,
     showTrash,
     isSelected,
+    onToggleSelection,
     onBlingUpdate,
     isHighlighted,
     id,
@@ -84,14 +86,38 @@ const OrderHistoryCard = ({
         ...(settings.pickupHandlingOptions || [])
     ];
 
-    const checkItems = (itemsList: any[]) => itemsList?.some(item => {
-        const hLabel = (item.handlingType || "").trim().toLowerCase();
-        if (!hLabel) return false;
-        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
-        return foundOpt?.includeInAssemblySchedule === true;
-    });
+    const normalize = (str: string) => (str || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    const getMatchingOption = (hLabel: string) => {
+        if (!hLabel) return null;
+        return allOptions.find(o => {
+            const sLabel = normalize(o?.label);
+            return sLabel === hLabel || (sLabel && (hLabel.includes(sLabel) || sLabel.includes(hLabel)));
+        });
+    };
 
-    const hasAssembly = checkItems(order.items) || checkItems(order.assistanceItems as any);
+    const isHandlingAssembly = (item: any) => {
+        const hLabel = normalize(item.handlingType);
+        const opt = getMatchingOption(hLabel);
+        return opt?.includeInAssemblySchedule || false;
+    };
+
+    const isHandlingOutside = (item: any) => {
+        const hLabel = normalize(item.handlingType);
+        const opt = getMatchingOption(hLabel);
+        return (opt?.includeInAssemblySchedule && opt?.isAssemblyOutside) || false;
+    };
+
+    const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
+    const hasAssemblyConfig = allOrderItems.some(isHandlingAssembly);
+    const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
+
+    // Marketing Origin Logic
+    const mOrigin1 = (order.marketingOrigin || "").toLowerCase();
+    const mOrigin2 = (((order as any).customerData?.marketingOrigin) || "").toLowerCase();
+    const isPaidTraffic = 
+        mOrigin1 === 'paid' || mOrigin1.includes('pago') || mOrigin1.includes('ads') || mOrigin1.includes('facebook') || mOrigin1.includes('insta') || mOrigin1.includes('trafego') || mOrigin1.includes('tráfego') || mOrigin1.includes('google') ||
+        mOrigin2 === 'paid' || mOrigin2.includes('pago') || mOrigin2.includes('ads') || mOrigin2.includes('facebook') || mOrigin2.includes('insta') || mOrigin2.includes('trafego') || mOrigin2.includes('tráfego') || mOrigin2.includes('google');
     
     // Delivery Date calculation
     const deliveryDateStr = order.shipping?.scheduling?.date;
@@ -114,13 +140,17 @@ const OrderHistoryCard = ({
     
     // Explicit colors to match legend and be visible
     const cardBgClass = 
-        (colorKey === 'green' 
-            ? 'bg-green-100 dark:bg-green-950/40' 
-            : (colorKey === 'purple' 
-                ? 'bg-purple-100 dark:bg-purple-900/50' 
-                : (colorKey === 'orange' 
-                    ? 'bg-orange-100/40 dark:bg-orange-900/40' 
-                    : cls.rowHover)));
+        (order.orderType === 'budget'
+            ? (isDraft ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : 'bg-indigo-100/80 dark:bg-indigo-900/40')
+            : (isDraft 
+                ? 'bg-slate-100/80 dark:bg-slate-900/40' 
+                : (colorKey === 'green' 
+                    ? 'bg-green-100 dark:bg-green-950/40' 
+                    : (colorKey === 'purple' 
+                        ? 'bg-purple-100 dark:bg-purple-900/50' 
+                        : (colorKey === 'orange' 
+                            ? 'bg-orange-100/40 dark:bg-orange-900/40' 
+                            : cls.rowHover)))));
 
     return (
         <div 
@@ -149,10 +179,29 @@ const OrderHistoryCard = ({
                             const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
                             const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-600');
                             return (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-white/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                                     <i className={`bi ${typeIcon} ${typeColor} text-[10px]`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />
-                                    {hasAssembly && (
-                                        <i className="bi bi-hammer text-red-600 dark:text-red-500 text-[10px] animate-pulse" title="Necessita de Montagem" />
+                                    
+                                    {isPaidTraffic && (
+                                        <i className="bi bi-megaphone-fill text-indigo-600 dark:text-indigo-400 text-[9px]" title="Tráfego Pago/Ads" />
+                                    )}
+
+                                    {order.orderType !== 'assistance' && !showTrash && (
+                                        <div className="flex items-center gap-0.5" title={order.isRegisteredInBling ? "Lançado no Bling" : "Falta Lançar Bling"}>
+                                            <span className={`text-[9px] font-black ${order.isRegisteredInBling ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-red-400 animate-pulse'}`}>B</span>
+                                            <i className={`bi ${order.isRegisteredInBling ? 'bi-patch-check-fill text-emerald-500' : 'bi-exclamation-circle-fill text-rose-500 animate-pulse'} text-[8px]`} />
+                                        </div>
+                                    )}
+
+                                    {order.stockProcessed && (
+                                        <i className="bi bi-box-seam-fill text-emerald-600 dark:text-emerald-400 text-[9px]" title="Saída de Estoque Procesada" />
+                                    )}
+
+                                    {hasAssemblyConfig && (
+                                        <div className={`flex items-center gap-0.5 ${isAssemblyOutside ? 'text-red-600 animate-pulse' : 'text-yellow-600'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem Depósito'}>
+                                            <i className="bi bi-hammer text-[10px]" />
+                                            {isAssemblyOutside && <i className="bi bi-house-door-fill text-[8px]" />}
+                                        </div>
                                     )}
                                 </div>
                             );
@@ -216,76 +265,7 @@ const OrderHistoryCard = ({
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
                 
-                {order.orderType !== 'assistance' && order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                        {!showBlingConfirm ? (
-                            <button 
-                                onClick={() => setShowBlingConfirm(true)}
-                                className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-900/20 w-fit shadow-sm hover:scale-105 transition-all"
-                            >
-                                <i className="bi bi-check-circle-fill text-[10px]" />
-                                <span className="text-[9px] font-black uppercase tracking-widest">Lançado no Bling</span>
-                            </button>
-                        ) : (
-                            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
-                                <span className="text-[9px] font-black uppercase text-slate-500 ml-1">Desfazer?</span>
-                                <div className="flex gap-1">
-                                    <button 
-                                        onClick={() => {
-                                            onBlingUpdate?.(order.id!, false);
-                                            setShowBlingConfirm(false);
-                                        }}
-                                        className="px-2.5 py-1 bg-red-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-red-700 transition-colors"
-                                    >
-                                        Sim
-                                    </button>
-                                    <button 
-                                        onClick={() => setShowBlingConfirm(false)}
-                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                    >
-                                        Não
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Bling Pending Flag */}
-                {order.orderType !== 'assistance' && !order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                        {!showBlingConfirm ? (
-                            <button 
-                                onClick={() => setShowBlingConfirm(true)}
-                                className="flex items-center gap-1.5 px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-900/30 animate-pulse hover:scale-105 transition-all w-fit shadow-sm"
-                            >
-                                <i className="bi bi-exclamation-triangle-fill text-[10px]" />
-                                <span className="text-[9px] font-black uppercase tracking-widest">Falta Lançar Bling</span>
-                            </button>
-                        ) : (
-                            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
-                                <span className="text-[9px] font-black uppercase text-slate-500 ml-1">Já lançou?</span>
-                                <div className="flex gap-1">
-                                    <button 
-                                        onClick={() => {
-                                            onBlingUpdate?.(order.id!, true);
-                                            setShowBlingConfirm(false);
-                                        }}
-                                        className="px-2.5 py-1 bg-emerald-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-emerald-700 transition-colors"
-                                    >
-                                        Sim
-                                    </button>
-                                    <button 
-                                        onClick={() => setShowBlingConfirm(false)}
-                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                    >
-                                        Não
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                {/* Redundância do Bling removida para privilegiar o ícone 'B' na barra de badges superior */}
 
                 {/* Manual Fulfillment Prompt */}
                 {isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' && !showTrash && settings.showManualFulfillmentPrompt && (
@@ -347,40 +327,44 @@ const OrderHistoryCard = ({
 
 
 
-                <div className="flex items-center gap-3 mt-1.5">
-                    <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                        <i className="bi bi-calendar3 opacity-70" />
-                        <span>{formatToBRDate(order.date)}</span>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/40">
+                    <div className="flex flex-col">
+                        <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">Pedido</span>
+                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-bold">
+                            <i className="bi bi-calendar3 text-[10px]" />
+                            <span className="text-[10px]">{formatToBRDate(order.date)}</span>
+                        </div>
                     </div>
+
                     {order.shipping?.scheduling?.date && (
-                        <div className="flex flex-col items-start gap-0.5">
-                            <div className="flex items-center gap-1 text-[10px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-tighter">
-                                <i className="bi bi-truck" />
-                                <span>{formatToBRDate(order.shipping.scheduling.date)}</span>
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">Entrega</span>
+                            <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 font-bold">
+                                <i className="bi bi-truck text-[11px]" />
+                                <span className="text-[10px]">{formatToBRDate(order.shipping.scheduling.date)}</span>
                             </div>
-                            {(() => {
-                                const sched = order.shipping?.scheduling;
-                                let timeDisplay = "";
-                                if (sched) {
-                                    if (sched.notInformed) {
-                                        timeDisplay = "Não informado";
-                                    } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
-                                        timeDisplay = `${sched.startTime} às ${sched.endTime}`;
-                                    } else if (sched.startTime) {
-                                        timeDisplay = sched.startTime;
-                                    } else if (sched.time) {
-                                        timeDisplay = sched.time;
-                                    }
-                                }
-                                if (!timeDisplay) return null;
-                                return (
-                                    <span className="text-[9px] text-blue-400 dark:text-blue-500 font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded-md ml-4 border border-blue-100 dark:border-blue-900/30">
-                                        {timeDisplay}
-                                    </span>
-                                );
-                            })()}
                         </div>
                     )}
+
+                    {(() => {
+                        const sched = order.shipping?.scheduling;
+                        let timeDisplay = "";
+                        if (sched) {
+                            if (sched.notInformed) timeDisplay = "Não informado";
+                            else if (sched.type === 'range' && sched.startTime && sched.endTime) timeDisplay = `${sched.startTime} às ${sched.endTime}`;
+                            else if (sched.startTime) timeDisplay = sched.startTime;
+                            else if (sched.time) timeDisplay = sched.time;
+                        }
+                        if (!timeDisplay) return null;
+                        return (
+                            <div className="col-span-2 mt-0.5">
+                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md border border-blue-100 dark:border-blue-900/30">
+                                    <i className="bi bi-clock-history text-[10px]" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">{timeDisplay}</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 
@@ -447,8 +431,11 @@ const OrderHistoryCard = ({
                                              style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
                                              onClick={(e) => e.stopPropagation()}
                                         >
-                                                {buttons.map((btn) => {
-                                                    if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return null;
+                                                {buttons.filter(btn => {
+                                                    if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
+                                                    if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
+                                                    return true;
+                                                }).map((btn) => {
                                                     const isPrintReceipt = btn.key === 'printReceipt';
                                                     const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
 
@@ -462,11 +449,16 @@ const OrderHistoryCard = ({
                                                         onAction(btn.key, order);
                                                         setShowMenu(false);
                                                     }}
-                                                        className={`flex items-center gap-3 w-full p-2.5 rounded-lg transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 ${btn.color}`}`}
+                                                        className={`flex items-center justify-between w-full p-2.5 rounded-lg transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 ${btn.color}`}`}
                                                         title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
                                                 >
-                                                    <i className={`bi ${btn.icon} text-base`} />
-                                                    <span className="text-[9px] font-black uppercase tracking-widest">{btn.label}</span>
+                                                    <div className="flex items-center gap-3">
+                                                        <i className={`bi ${btn.icon} text-base`} />
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">{btn.label}</span>
+                                                    </div>
+                                                    {order.isButtonsClicked?.[btn.key] && (
+                                                        <i className="bi bi-check-circle-fill text-emerald-500 animate-in zoom-in-50 duration-300" />
+                                                    )}
                                                 </button>
                                                 )
                                             })}

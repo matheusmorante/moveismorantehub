@@ -19,6 +19,16 @@ const OrderPage = () => {
     }
     const tags = allObs.filter((t: string) => t.trim() !== "");
 
+    const addr = order?.customerData?.fullAddress || {};
+    const hasAnyAddress = !!(addr.street || addr.neighborhood || addr.city);
+    // Hide shipping data column if budget AND no address OR any shipping value/distance info
+    const showShippingColumn = !isBudget || 
+                               hasAnyAddress || 
+                               !!order.shipping?.distance || 
+                               (order.shipping?.value ?? 0) > 0;
+
+    const hasPayments = order.payments && order.payments.length > 0;
+
     useEffect(() => {
         if (order) {
             const timer = setTimeout(() => window.print(), 500);
@@ -77,23 +87,27 @@ const OrderPage = () => {
                 <ItemsTable items={order.items} summary={order.itemsSummary} />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-1 pt-1 border-t border-slate-200">
-                <div className="space-y-0.5">
-                    <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">DETALHES DA ENTREGA</div>
-                    <div className="bg-white p-1 rounded-2xl border border-slate-50 shadow-sm">
-                        <ShippingData shipping={order.shipping} />
+            <div className={`grid ${showShippingColumn ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mt-1 pt-1 border-t border-slate-200`}>
+                {showShippingColumn && (
+                    <div className="space-y-0.5">
+                        <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">DETALHES DA ENTREGA</div>
+                        <div className="bg-white p-1 rounded-2xl border border-slate-50 shadow-sm">
+                            <ShippingData shipping={order.shipping} isBudget={isBudget} />
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div className="space-y-0.5">
-                    <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">RESUMO FINANCEIRO</div>
-                    <div className="bg-white p-1 rounded-2xl border border-slate-50 shadow-sm">
-                        <PaymentsTable
-                            payments={order.payments}
-                            summary={order.paymentsSummary}
-                        />
+                {hasPayments && (
+                    <div className="space-y-0.5">
+                        <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">PAGAMENTO</div>
+                        <div className="bg-white p-1 rounded-2xl border border-slate-50 shadow-sm">
+                            <PaymentsTable
+                                payments={order.payments}
+                                summary={order.paymentsSummary}
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Footer space */}

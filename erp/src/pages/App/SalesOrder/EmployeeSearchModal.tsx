@@ -48,7 +48,7 @@ const EmployeeSearchModal = ({ onSelect, onClose }: Props) => {
                         </div>
                         <div>
                             <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                                Selecionar Vendedor
+                                Selecionar Atendente Principal
                             </h2>
                             <p className="text-[10px] uppercase font-black text-blue-600 dark:text-blue-400 tracking-widest mt-0.5">
                                 Pesquise entre os funcionários

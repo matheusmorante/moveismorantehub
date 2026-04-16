@@ -19,6 +19,7 @@ interface FormHeaderProps {
     onMainAction?: (e?: React.MouseEvent) => void;
     isSaving?: boolean;
     status: string;
+    isBudget?: boolean;
 }
 
 const FormHeader = ({ 
@@ -35,7 +36,8 @@ const FormHeader = ({
     setDeliveryMethod,
     onMainAction,
     isSaving,
-    status
+    status,
+    isBudget
 }: FormHeaderProps) => {
     const [employeeNames, setEmployeeNames] = React.useState<string[]>([]);
     const [isEmployeeModalOpen, setIsEmployeeModalOpen] = React.useState(false);
@@ -69,28 +71,30 @@ const FormHeader = ({
                         </div>
                     )}
 
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-inner">
-                        <button
-                            type="button"
-                            onClick={() => setDeliveryMethod('delivery')}
-                            className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${deliveryMethod === 'delivery'
-                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 scale-105'
-                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                                }`}
-                        >
-                            <i className="bi bi-truck text-xs" /> Entrega
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setDeliveryMethod('pickup')}
-                            className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${deliveryMethod === 'pickup'
-                                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20 scale-105'
-                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                                }`}
-                        >
-                            <i className="bi bi-hand-index-thumb-fill text-xs" /> Retirada
-                        </button>
-                    </div>
+                    {!isBudget && (
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-inner">
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryMethod('delivery')}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${deliveryMethod === 'delivery'
+                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 scale-105'
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                    }`}
+                            >
+                                <i className="bi bi-truck text-xs" /> Entrega
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryMethod('pickup')}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${deliveryMethod === 'pickup'
+                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20 scale-105'
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                    }`}
+                            >
+                                <i className="bi bi-hand-index-thumb-fill text-xs" /> Retirada
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

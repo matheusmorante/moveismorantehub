@@ -19,6 +19,7 @@ interface Props {
     isPickup: boolean;
     marketingOrigin?: string;
     setMarketingOrigin?: (origin: string) => void;
+    isBudget?: boolean;
 }
 
 const EMPTY_ADDRESS = {
@@ -26,7 +27,7 @@ const EMPTY_ADDRESS = {
     complement: '', neighborhood: '', city: '', observation: ''
 };
 
-const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, marketingOrigin, setMarketingOrigin }: Props) => {
+const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, marketingOrigin, setMarketingOrigin, isBudget }: Props) => {
     const [customers, setCustomers] = useState<Person[]>([]);
     const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -259,8 +260,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                         </button>
                     )}
 
-                    {/* Consumidor Final - HIDE FOR DELIVERY */}
-                    {isPickup && (
+                    {/* Consumidor Final - HIDE FOR DELIVERY, SHOW FOR PICKUP OR BUDGET */}
+                    {(isPickup || isBudget) && (
                         <button type="button"
                             onClick={() => {
                                 setCustomerData({

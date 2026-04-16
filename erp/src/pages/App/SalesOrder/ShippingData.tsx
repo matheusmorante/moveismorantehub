@@ -30,9 +30,11 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
     const lastStreetSearchRef = React.useRef<string>("");
     const [isSearchingStreet, setIsSearchingStreet] = React.useState(false);
 
-    const activeAddress = (shipping.useCustomerAddress === false || orderType === 'budget') && shipping.deliveryAddress
-        ? shipping.deliveryAddress
-        : customerData.fullAddress;
+    const activeAddress = orderType === 'budget' 
+        ? customerData.fullAddress
+        : ((shipping.useCustomerAddress === false) && shipping.deliveryAddress
+            ? shipping.deliveryAddress
+            : customerData.fullAddress);
 
     const route = getShippingRouteUrl(activeAddress);
     const settings = getSettings();
@@ -185,10 +187,10 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             </div>
                         )}
 
-                        {(shipping.useCustomerAddress === false || orderType === 'budget') && (
+                        {orderType !== 'budget' && shipping.useCustomerAddress === false && (
                             <div className="mt-0 flex flex-col gap-4 animate-slide-up">
                                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
-                                    {orderType === 'budget' ? 'Localização da Entrega (Para Cálculo de Frete)' : 'Endereço de Entrega Alternativo'}
+                                    Endereço de Entrega Alternativo
                                 </h4>
 
                                 <div className="flex flex-col md:flex-row gap-4">
@@ -348,12 +350,14 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                         />
                     </div>
                 )}
-                <Agendamento
-                    scheduling={shipping.scheduling}
-                    onChangeScheduling={onChangeScheduling}
-                    errors={errors}
-                    isPickup={shipping.deliveryMethod === 'pickup'}
-                />
+                {orderType !== 'budget' && (
+                    <Agendamento
+                        scheduling={shipping.scheduling}
+                        onChangeScheduling={onChangeScheduling}
+                        errors={errors}
+                        isPickup={shipping.deliveryMethod === 'pickup'}
+                    />
+                )}
             </div>
 
             {shipping.destinationCoords && shipping.deliveryMethod !== 'pickup' && (

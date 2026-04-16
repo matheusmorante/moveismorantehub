@@ -8,7 +8,7 @@ import Order from "../types/order.type";
 
 export type ValidationErrors = Record<string, string>;
 
-export const validateItems = (items: Item[]): ValidationErrors => {
+export const validateItems = (items: Item[], isBudget: boolean = false): ValidationErrors => {
     const errors: ValidationErrors = {};
     if (!items || !Array.isArray(items)) return errors;
     items.forEach((item, idx) => {
@@ -17,7 +17,7 @@ export const validateItems = (items: Item[]): ValidationErrors => {
             errors[`item_${idx}_description`] = "A descrição do item é obrigatória.";
         }
         // No longer has default, must be explicitly selected
-        if (!item.handlingType || item.handlingType.trim() === "") {
+        if (!isBudget && (!item.handlingType || item.handlingType.trim() === "")) {
             errors[`item_${idx}_handlingType`] = "O manuseio do item é obrigatório.";
         }
     });
@@ -114,7 +114,7 @@ export const validateSeller = (seller: Order['seller']): ValidationErrors => {
     const errors: ValidationErrors = {};
     // Seller is always mandatory now, ignoring settings toggle as per request
     if (!seller) {
-        errors['seller'] = "Selecione o vendedor responsável.";
+        errors['seller'] = "Selecione o atendente responsável.";
     }
     return errors;
 }
@@ -148,7 +148,7 @@ export const validateOrder = (order: Order): ValidationErrors => {
 
     const isBudget = order.orderType === 'budget';
     const errors: ValidationErrors = {
-        ...validateItems(items),
+        ...validateItems(items, isBudget),
         ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
         ...validateSeller(order.seller)
     };

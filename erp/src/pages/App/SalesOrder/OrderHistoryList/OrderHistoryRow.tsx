@@ -139,15 +139,17 @@ const OrderHistoryRow = ({
     
     // Explicit colors to match legend and be visible on white background
     const cellBgClass = 
-        (isDraft 
-            ? 'bg-slate-100/80 dark:bg-slate-900/40' 
-            : (rowColorKey === 'green' 
-                ? 'bg-green-100 dark:bg-green-950/40' 
-                : (rowColorKey === 'purple' 
-                    ? 'bg-purple-100 dark:bg-purple-900/50' 
-                    : (rowColorKey === 'orange' 
-                        ? 'bg-orange-100/40 dark:bg-orange-900/40' 
-                        : cls.rowHover))));
+        (order.status === 'draft'
+            ? 'bg-slate-100/80 dark:bg-slate-900/40'
+            : (order.orderType === 'budget' || order.orderType === 'assistance'
+                ? 'bg-white dark:bg-slate-950'
+                : (rowColorKey === 'green' 
+                    ? 'bg-emerald-200/30 dark:bg-emerald-950/40' 
+                    : (rowColorKey === 'purple' 
+                        ? 'bg-purple-300/30 dark:bg-purple-900/40' 
+                        : (rowColorKey === 'orange' 
+                            ? 'bg-orange-100/40 dark:bg-orange-900/40' 
+                            : cls.rowHover)))));
 
     const baseTdClass = `px-1 py-1 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-middle`;
 
@@ -200,7 +202,6 @@ const OrderHistoryRow = ({
             case 'deliveryDate':
                 const deliveryDateStr = order.shipping?.scheduling?.date;
                 let isPastDelivery = false;
-                // ... same date logic ...
                 if (deliveryDateStr) {
                     try {
                         const dateParts = deliveryDateStr.includes('/') ? deliveryDateStr.split('/') : deliveryDateStr.split('-');
@@ -559,80 +560,85 @@ const OrderHistoryRow = ({
                                                 {/* Dropdown Menu - Continuous hover area bridged with pt-2 instead of mt-2 */}
                                                 <div className={`absolute top-full right-0 pt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                        
                                                         {/* Manual Stock Action - Moved to TOP for visibility */}
-                                                        {!showStockConfirm ? (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); setShowStockConfirm(true); }}
-                                                                className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all bg-emerald-50/30 dark:bg-emerald-950/20 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 group/stock ${order.stockProcessed ? 'text-red-600' : 'text-emerald-600'} ${(!(order.items?.some(i => i.productId && i.productId.trim() !== "")) || order.status === 'draft' || order.status === 'cancelled') ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
-                                                                disabled={isStockLoading || order.status === 'cancelled' || order.status === 'draft' || (!(order.stockProcessed) && !(order.items?.some(i => i.productId && i.productId.trim() !== "")))}
-                                                                title={order.status === 'draft' ? 'Salve o pedido para habilitar o controle de estoque' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Este pedido não contém produtos do catálogo' : (order.stockProcessed ? 'Reverter movimentações de estoque' : 'Registrar saída de estoque manualmente'))}
-                                                            >
-                                                                <i className={`bi ${order.stockProcessed ? 'bi-arrow-left-right' : 'bi-box-arrow-right'} text-lg min-w-[20px]`} />
-                                                                <div className="flex flex-col text-left">
-                                                                    <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                                                                        {order.stockProcessed ? 'Estornar Saída' : 'Lançar Saída'}
-                                                                    </span>
-                                                                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                                                        {order.status === 'draft' ? 'Pedido em Rascunho' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Sem produtos reais' : 'Controle de Estoque')}
-                                                                    </span>
-                                                                </div>
-                                                            </button>
-                                                        ) : (
-                                                            <div className="flex flex-col gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-200" onClick={(e) => e.stopPropagation()}>
-                                                                <span className="text-[10px] font-black uppercase tracking-tight text-center text-slate-600 dark:text-slate-400">Confirmar {order.stockProcessed ? 'estorno' : 'lançamento'}?</span>
-                                                                <div className="flex gap-1">
-                                                                    <button
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation();
-                                                                            setIsStockLoading(true);
-                                                                            try {
-                                                                                if (order.stockProcessed) {
-                                                                                    await manuallyReverseStock(order.id!);
-                                                                                    await updateOrder(order.id!, { stockProcessed: false }, order);
-                                                                                    toast.success("Saída estornada com sucesso!");
-                                                                                } else {
-                                                                                    const updated = await handleStockAndBusinessRules(order.id!, order, true);
-                                                                                    if (updated.stockProcessed) {
-                                                                                        await updateOrder(order.id!, { stockProcessed: true }, order);
-                                                                                        toast.success("Saída lançada com sucesso!");
+                                                        {(order.orderType === 'sale' || order.orderType === 'showroom') && (
+                                                            !showStockConfirm ? (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); setShowStockConfirm(true); }}
+                                                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all bg-emerald-50/30 dark:bg-emerald-950/20 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 group/stock ${order.stockProcessed ? 'text-red-600' : 'text-emerald-600'} ${(!(order.items?.some(i => i.productId && i.productId.trim() !== "")) || order.status === 'draft' || order.status === 'cancelled') ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                                                                    disabled={isStockLoading || order.status === 'cancelled' || order.status === 'draft' || (!(order.stockProcessed) && (!(order.items?.some(i => i.productId && i.productId.trim() !== ""))))}
+                                                                    title={order.status === 'draft' ? 'Salve o pedido para habilitar o controle de estoque' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Este pedido não contém produtos do catálogo' : (order.stockProcessed ? 'Reverter movimentações de estoque' : 'Registrar saída de estoque manualmente'))}
+                                                                >
+                                                                    <i className={`bi ${order.stockProcessed ? 'bi-arrow-left-right' : 'bi-box-arrow-right'} text-lg min-w-[20px]`} />
+                                                                    <div className="flex flex-col text-left">
+                                                                        <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                                                            {order.stockProcessed ? 'Estornar Saída' : 'Lançar Saída'}
+                                                                        </span>
+                                                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                                                            {order.status === 'draft' ? 'Pedido em Rascunho' : (!(order.items?.some(i => i.productId && i.productId.trim() !== "")) ? 'Sem produtos reais' : 'Controle de Estoque')}
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                            ) : (
+                                                                <div className="flex flex-col gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-200" onClick={(e) => e.stopPropagation()}>
+                                                                    <span className="text-[10px] font-black uppercase tracking-tight text-center text-slate-600 dark:text-slate-400">Confirmar {order.stockProcessed ? 'estorno' : 'lançamento'}?</span>
+                                                                    <div className="flex gap-1">
+                                                                        <button
+                                                                            onClick={async (e) => {
+                                                                                e.stopPropagation();
+                                                                                setIsStockLoading(true);
+                                                                                try {
+                                                                                    if (order.stockProcessed) {
+                                                                                        await manuallyReverseStock(order.id!);
+                                                                                        await updateOrder(order.id!, { stockProcessed: false }, order);
+                                                                                        toast.success("Saída estornada com sucesso!");
+                                                                                    } else {
+                                                                                        const updated = await handleStockAndBusinessRules(order.id!, order, true);
+                                                                                        if (updated.stockProcessed) {
+                                                                                            await updateOrder(order.id!, { stockProcessed: true }, order);
+                                                                                            toast.success("Saída lançada com sucesso!");
+                                                                                        }
                                                                                     }
+                                                                                } catch (err: any) {
+                                                                                    console.error("[ManualStockAction] Erro:", err);
+                                                                                    toast.error(`Erro: ${err.message || "Erro desconhecido ao processar estoque"}`);
+                                                                                } finally {
+                                                                                    setIsStockLoading(false);
+                                                                                    setShowStockConfirm(false);
+                                                                                    setShowMenu(false);
                                                                                 }
-                                                                            } catch (err: any) {
-                                                                                console.error("[ManualStockAction] Erro:", err);
-                                                                                toast.error(`Erro: ${err.message || "Erro desconhecido ao processar estoque"}`);
-                                                                            } finally {
-                                                                                setIsStockLoading(false);
-                                                                                setShowStockConfirm(false);
-                                                                                setShowMenu(false);
-                                                                            }
-                                                                        }}
-                                                                        className="flex-1 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-emerald-700 transition-colors"
-                                                                    >
-                                                                        Sim
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); setShowStockConfirm(false); }}
-                                                                        className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                                                                    >
-                                                                        Não
-                                                                    </button>
+                                                                            }}
+                                                                            className="flex-1 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-emerald-700 transition-colors"
+                                                                        >
+                                                                            Sim
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setShowStockConfirm(false); }}
+                                                                            className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                                                        >
+                                                                            Não
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
+                                                            )
                                                         )}
 
-                                                        <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
+                                                        {(order.orderType === 'sale' || order.orderType === 'showroom') && <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />}
 
                                                         {/* Edit Button moved below stock */}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
-                                                            className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item text-blue-600"
-                                                            title="Editar este pedido"
+                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : 'text-emerald-600'}`}
+                                                            title={`Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : 'a venda'}`}
                                                         >
                                                             <i className="bi bi-pencil-fill text-lg" />
                                                             <div className="flex flex-col text-left">
-                                                                <span className="text-xs font-black uppercase tracking-widest">Editar Pedido</span>
-                                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Alterar dados do pedido</span>
+                                                                <span className="text-xs font-black uppercase tracking-widest">
+                                                                    {order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : 'Editar Venda'}
+                                                                </span>
+                                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                                                    Alterar dados d{order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'o orçamento' : 'a venda'}
+                                                                </span>
                                                             </div>
                                                         </button>
 

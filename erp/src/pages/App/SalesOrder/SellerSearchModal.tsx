@@ -74,7 +74,7 @@ const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) =>
                             onAddNew();
                         }}
                         className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all shrink-0"
-                        title="Cadastrar Novo Vendedor"
+                        title="Cadastrar Novo Atendente"
                     >
                         <i className="bi bi-plus-lg text-lg" />
                     </button>
@@ -117,7 +117,7 @@ const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) =>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-8 gap-2">
                             <i className="bi bi-person-x text-slate-200 dark:text-slate-800 text-3xl" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Nenhum vendedor encontrado</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Nenhum atendente encontrado</span>
                         </div>
                     )}
                 </div>

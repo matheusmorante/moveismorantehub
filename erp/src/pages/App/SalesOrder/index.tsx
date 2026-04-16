@@ -6,10 +6,12 @@ import OrderEditModal from "./OrderEditModal";
 import NewSaleOrder from "./NewSaleOrder";
 import AssistanceOrderModal from "./AssistanceOrderModal";
 import NewOrderDropdown from "./NewOrderDropdown";
+import BudgetDropdown from "./BudgetDropdown";
 import Order, { VisibilitySettings } from "../../types/order.type";
 import OrderFilters, { Filters } from "./OrderFilters";
 import { OrderHistoryListRef } from "./OrderHistoryList";
 import PostOrderActionsModal from "./OrderActions/PostOrderActionsModal";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const SalesOrder = () => {
     const { width } = useWindowSize();
@@ -17,20 +19,40 @@ const SalesOrder = () => {
     const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const isBudgetRoute = location.pathname === '/budgets';
+    const isAssistanceRoute = location.pathname === '/assistance-orders';
+
     const [filters, setFilters] = useState<Filters>({
         dateRange: { start: "", end: "" },
         dateType: "personalizado" as "personalizado" | "hoje" | "esse_mes" | "mes_passado" | "ultimo_semestre" | "esse_ano",
         customerName: "",
         productName: "",
         status: "",
-        orderType: "",
+        orderType: isBudgetRoute ? "budget" : (isAssistanceRoute ? "assistance" : "sale"),
+        isBudgetView: isBudgetRoute,
+        isAssistanceView: isAssistanceRoute,
         seller: "",
         valueRange: { min: 0, max: 1000000 },
-        sortBy: "date" as any, // Legacy field
-        sortOrder: "desc" as any, // Legacy field
+        sortBy: "date" as any,
+        sortOrder: "desc" as any,
         multiSort: [{ key: 'date', order: 'desc' }] as { key: string, order: 'asc' | 'desc' }[],
         searchId: ""
     });
+
+    // Sincronizar filtro quando a rota mudar
+    React.useEffect(() => {
+        setFilters(prev => ({
+            ...prev,
+            orderType: isBudgetRoute ? "budget" : (isAssistanceRoute ? "assistance" : "sale"),
+            isBudgetView: isBudgetRoute,
+            isAssistanceView: isAssistanceRoute
+        }));
+        
+        const title = isBudgetRoute ? 'Orçamentos' : (isAssistanceRoute ? 'Assistências' : 'Pedidos de Venda');
+        document.title = `${title} | Móveis Morante`;
+    }, [isBudgetRoute, isAssistanceRoute]);
 
     React.useEffect(() => {
         const queryParams = new URLSearchParams(window.location.search);
@@ -118,11 +140,11 @@ const SalesOrder = () => {
             <div className="flex-1 flex flex-col min-w-0 p-4 lg:p-6">
                 <div className="flex justify-between items-center mb-4">
                     <div>
-                        <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all">
-                            Pedidos de Venda
+                        <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all text-center sm:text-left">
+                            {isBudgetRoute ? 'Lista de Orçamentos' : (isAssistanceRoute ? 'Solicitações de Assistência' : 'Pedidos de Venda')}
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 font-medium text-xs hidden sm:block">
-                            Gestão de Vendas e Fluxo de Pedidos
+                            {isBudgetRoute ? 'Gestão de Propostas e Orçamentos' : (isAssistanceRoute ? 'Atendimento Técnico e Manutenção' : 'Gestão de Vendas e Fluxo de Pedidos')}
                         </p>
                     </div>
 
@@ -134,16 +156,68 @@ const SalesOrder = () => {
                         >
                             <i className="bi bi-gear-fill text-lg" />
                         </Link>
-                        <button
-                            onClick={() => setFilters(prev => ({ ...prev, orderType: filters.orderType === 'budget' ? '' : 'budget' }))}
-                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg transition-all active:scale-95 ${filters.orderType === 'budget' 
-                                ? "bg-indigo-600 text-white shadow-indigo-200" 
-                                : "bg-slate-100 hover:bg-slate-200 text-slate-600 shadow-slate-200"}`}
-                        >
-                            <i className="bi bi-calculator-fill text-sm" />
-                            Orçamentos
-                        </button>
-                        <NewOrderDropdown onSelect={(type) => setOrderModalType(type)} />
+                        {/* Botões de Navegação entre Seções */}
+                        {!isBudgetRoute && (
+                            <button
+                                onClick={() => navigate('/budgets')}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-sm shadow-blue-100 dark:shadow-none transition-all active:scale-95 border border-blue-100 dark:border-blue-900/30"
+                                title="Ir para Orçamentos"
+                            >
+                                <i className="bi bi-calculator-fill text-sm" />
+                                Orçamentos
+                            </button>
+                        )}
+                        {!isAssistanceRoute && (
+                            <button
+                                onClick={() => navigate('/assistance-orders')}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-sm shadow-orange-100 dark:shadow-none transition-all active:scale-95 border border-orange-100 dark:border-orange-900/30"
+                                title="Ir para Assistências"
+                            >
+                                <i className="bi bi-tools text-sm" />
+                                Assistências
+                            </button>
+                        )}
+                        {(isBudgetRoute || isAssistanceRoute) && (
+                            <button
+                                onClick={() => navigate('/sales-order')}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-sm shadow-emerald-100 dark:shadow-none transition-all active:scale-95 border border-emerald-100 dark:border-emerald-900/30"
+                                title="Ir para Vendas"
+                            >
+                                <i className="bi bi-cart-check-fill text-sm" />
+                                Vendas
+                            </button>
+                        )}
+
+                        <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1 hidden min-[1100px]:block" />
+
+                        {/* Botão de Criação Principal - Sempre à Direita */}
+                        {isBudgetRoute && (
+                            <button
+                                onClick={() => setOrderModalType('budget')}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-44"
+                            >
+                                <i className="bi bi-plus-lg text-sm" />
+                                Novo Orçamento
+                            </button>
+                        )}
+                        {isAssistanceRoute && (
+                            <button
+                                onClick={() => setOrderModalType('assistance')}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-orange-200 dark:shadow-none transition-all active:scale-95 w-44"
+                            >
+                                <i className="bi bi-tools text-sm" />
+                                Nova Assistência
+                            </button>
+                        )}
+                        {!isBudgetRoute && !isAssistanceRoute && (
+                            <button
+                                onClick={() => setOrderModalType('sale')}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 w-44"
+                            >
+                                <i className="bi bi-plus-lg text-sm" />
+                                Nova Venda
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -183,18 +257,17 @@ const SalesOrder = () => {
                                 <span className="hidden sm:inline">Cronograma</span>
                             </Link>
 
-                            <div className="flex items-center gap-2 ml-0 sm:ml-4 border-l-0 sm:border-l border-slate-200 dark:border-slate-800 pl-0 sm:pl-4 flex-wrap mt-2 min-[1100px]:mt-0">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1 w-full min-[1100px]:w-auto mb-1 min-[1100px]:mb-0">Legenda:</span>
-                                <div className="flex items-center gap-2 px-2.5 py-1 bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 border-l-[4px] border-l-green-600 rounded-lg">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-400 opacity-80">Entrega</span>
+                            {!isBudgetRoute && !isAssistanceRoute && (
+                                <div className="flex items-center gap-2 ml-0 sm:ml-4 border-l-0 sm:border-l border-slate-200 dark:border-slate-800 pl-0 sm:pl-4 flex-wrap mt-2 min-[1100px]:mt-0">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1 w-full min-[1100px]:w-auto mb-1 min-[1100px]:mb-0">Legenda:</span>
+                                    <div className="flex items-center gap-2 px-2.5 py-1 bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 border-l-[4px] border-l-green-600 rounded-lg">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-400 opacity-80">Entrega</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-100/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/50 border-l-[4px] border-l-purple-700 rounded-lg shadow-sm">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-purple-800 dark:text-purple-300">Retirada</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-100/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/50 border-l-[4px] border-l-purple-700 rounded-lg shadow-sm">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-800 dark:text-purple-300">Retirada</span>
-                                </div>
-                                <div className="flex items-center gap-2 px-2.5 py-1 bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 border-l-[4px] border-l-orange-600 rounded-lg">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400 opacity-80">Assistência</span>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {!isMobile && (

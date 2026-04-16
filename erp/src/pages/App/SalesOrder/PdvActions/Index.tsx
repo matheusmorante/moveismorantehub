@@ -14,8 +14,12 @@ const OrderActions = ({ order }: { order: Order }) => {
     sendShippingOrder: false,
     sendCustomerOrder: false,
     sendCustomerReviews: false,
-    stockWithdrawal: false,
-    stockReversal: false
+    printShippingLabel: false,
+    printProductLabel: false,
+    generatePaymentLink: false,
+    printBudget: false,
+    sendCustomerOrderDetails: false,
+    sendAssistanceOS: false
   });
 
   function markClicked(key: keyof IsButtonsClicked) {

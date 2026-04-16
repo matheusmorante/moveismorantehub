@@ -12,10 +12,11 @@ interface Props {
     summary: ItemsSummary,
     deliveryMethod: 'delivery' | 'pickup',
     errors: ValidationErrors,
-    onSelectProduct: (idx: number, product: any, variation?: any) => void
+    onSelectProduct: (idx: number, product: any, variation?: any) => void,
+    isBudget?: boolean
 }
 
-const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct }: Props) => {
+const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct, isBudget }: Props) => {
     const addItem = () => {
         setItems((prev: Item[]) => {
             return ([
@@ -50,7 +51,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 overflow-y-auto custom-scrollbar pr-1">
-                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} />
+                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} />
                 </div>
 
                 <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -65,7 +66,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
             <thead className="bg-slate-50/50 dark:bg-slate-800/30">
                 <tr>
                     <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 min-w-[200px]">Descrição <span className="text-red-500">*</span></th>
-                    <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[130px]">Manuseio</th>
+                    {!isBudget && <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[130px]">Manuseio</th>}
                     <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd. <span className="text-red-500">*</span></th>
                     <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Preço Un. <span className="text-red-500">*</span></th>
                     <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">Desconto</th>
@@ -82,7 +83,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                     </th>
                 </tr>
             </thead>
-            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} />
+            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} />
             <Footer summary={summary} />
         </table>
     );

@@ -13,6 +13,8 @@ export interface Filters {
     sortOrder: "asc" | "desc";
     multiSort: { key: string; order: "asc" | "desc" }[];
     searchId?: string;
+    isBudgetView?: boolean;
+    isAssistanceView?: boolean;
 }
 
 interface OrderFiltersProps {
@@ -96,7 +98,9 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
             sortBy: "date",
             sortOrder: "desc",
             multiSort: [{ key: 'date', order: 'desc' }],
-            searchId: ""
+            searchId: "",
+            isBudgetView: filters.isBudgetView,
+            isAssistanceView: filters.isAssistanceView
         });
     };
 
@@ -177,22 +181,24 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
                         </select>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Pedido</label>
-                        <select
-                            name="orderType"
-                            value={filters.orderType}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300 min-w-[140px]"
-                        >
-                            <option value="">Todos os Tipos</option>
-                            <option value="sale">Venda</option>
-                            <option value="assistance">Assistência</option>
-                        </select>
-                    </div>
+                    {!filters.isBudgetView && !filters.isAssistanceView && (
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Pedido</label>
+                            <select
+                                name="orderType"
+                                value={filters.orderType}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300 min-w-[140px]"
+                            >
+                                <option value="">Todos os Tipos</option>
+                                <option value="sale">Venda</option>
+                                <option value="showroom">Showroom</option>
+                            </select>
+                        </div>
+                    )}
 
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Vendedor</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Atendente Principal</label>
                         <div className="relative">
                             <i className="bi bi-person-badge absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                             <input
@@ -200,7 +206,7 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
                                 name="seller"
                                 value={filters.seller}
                                 onChange={handleChange}
-                                placeholder="Nome do vendedor..."
+                                placeholder="Nome do atendente..."
                                 className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700 min-w-[160px]"
                             />
                         </div>

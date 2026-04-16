@@ -343,7 +343,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                     <div className="flex flex-col gap-4">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
                             <i className="bi bi-person-badge-fill text-amber-500" />
-                            Vendedor
+                            Atendente Principal
                         </h3>
                         <Seller 
                             seller={seller}

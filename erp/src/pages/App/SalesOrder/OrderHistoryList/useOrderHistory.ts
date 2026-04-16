@@ -116,8 +116,23 @@ export const useOrderHistory = (filters?: any) => {
                     (order.items?.some(item => item.description.toLowerCase().includes(filters.productName.toLowerCase()))) ||
                     (order.assistanceDescription?.toLowerCase().includes(filters.productName.toLowerCase()));
 
+                const isBudgetView = filters?.isBudgetView || false;
+                const isAssistanceView = filters?.isAssistanceView || false;
                 const statusMatch = !filters.status || order.status === filters.status;
-                const typeMatch = !filters.orderType || order.orderType === filters.orderType;
+                
+                // Strict Type Separation
+                let typeMatch = true;
+                if (isBudgetView) {
+                    typeMatch = order.orderType === 'budget';
+                } else if (isAssistanceView) {
+                    typeMatch = order.orderType === 'assistance';
+                } else {
+                    // Sales view: Only show sale or showroom, exclude budget and assistance
+                    typeMatch = filters.orderType 
+                        ? order.orderType === filters.orderType 
+                        : (order.orderType !== 'budget' && order.orderType !== 'assistance');
+                }
+
                 const sellerMatch = !filters.seller || order.seller?.toLowerCase().includes(filters.seller.toLowerCase());
 
                 const totalOrderValue = order.paymentsSummary?.totalOrderValue || 0;
@@ -289,7 +304,11 @@ export const useOrderHistory = (filters?: any) => {
                 sendCustomerReviews: false,
                 printShippingLabel: false,
                 printProductLabel: false,
-                generatePaymentLink: false
+                generatePaymentLink: false,
+                printBudget: false,
+                sendCustomerOrderDetails: false,
+                sendAssistanceOS: false,
+                sendBudget: false
             };
             const newClicks: IsButtonsClicked = { ...currentClicks, [actionKey]: true };
 

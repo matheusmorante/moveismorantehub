@@ -51,6 +51,7 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
                             <span className="text-lg font-bold text-slate-900 uppercase">
                                 {addr.street}{addr.number ? `, ${addr.number}` : ''}
                                 {addr.complement && <span className="text-slate-400 ml-2 font-medium text-sm">({addr.complement})</span>}
+                                {addr.observation && <span className="text-blue-600 block text-sm font-black mt-1 italic leading-tight border-l-2 border-blue-200 pl-2">Ref: {addr.observation}</span>}
                             </span>
                         </div>
                         

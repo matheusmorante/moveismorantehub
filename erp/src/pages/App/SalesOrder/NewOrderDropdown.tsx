@@ -12,6 +12,13 @@ const ORDER_OPTIONS: { type: OrderTypeOption; label: string; icon: string; descr
         label: 'Pedido de Venda',
         icon: 'bi-cart-check-fill',
         description: 'Venda de produtos/serviços para entrega ou retirada',
+        color: 'text-emerald-600',
+    },
+    {
+        type: 'budget',
+        label: 'Novo Orçamento',
+        icon: 'bi-calculator-fill',
+        description: 'Gerar proposta comercial sem compromisso de estoque',
         color: 'text-blue-600',
     },
     {
@@ -19,14 +26,7 @@ const ORDER_OPTIONS: { type: OrderTypeOption; label: string; icon: string; descr
         label: 'Pedido de Assistência',
         icon: 'bi-tools',
         description: 'Atendimento técnico local ou em loja',
-        color: 'text-amber-500',
-    },
-    {
-        type: 'budget',
-        label: 'Novo Orçamento',
-        icon: 'bi-calculator-fill',
-        description: 'Criação de orçamento para clientes',
-        color: 'text-indigo-600',
+        color: 'text-orange-500',
     },
 ];
 

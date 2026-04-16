@@ -4,10 +4,11 @@ import { NumericFormat as NumericFormatBase } from "react-number-format";
 const NumericFormat = NumericFormatBase as any;
 
 interface Props {
-    shipping: Shipping
+    shipping: Shipping;
+    isBudget?: boolean;
 }
 
-const ShippingData = ({ shipping }: Props) => {
+const ShippingData = ({ shipping, isBudget }: Props) => {
     const shippingDate = shipping.scheduling?.date;
 
     return (
@@ -24,12 +25,14 @@ const ShippingData = ({ shipping }: Props) => {
                             {shipping.distance ? `${shipping.distance} km` : '---'}
                         </span>
                     </div>
-                    <div className="bg-white p-1.5 rounded-xl border border-slate-100 flex flex-col">
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Tempo Est.</span>
-                        <span className="font-black text-slate-900 text-sm">
-                            {shipping.durationMinutes ? `${shipping.durationMinutes} min` : '---'}
-                        </span>
-                    </div>
+                    {!isBudget && (
+                        <div className="bg-white p-1.5 rounded-xl border border-slate-100 flex flex-col">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Tempo Est.</span>
+                            <span className="font-black text-slate-900 text-sm">
+                                {shipping.durationMinutes ? `${shipping.durationMinutes} min` : '---'}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex justify-between items-center bg-white p-1.5 rounded-xl border border-slate-100">
@@ -52,18 +55,20 @@ const ShippingData = ({ shipping }: Props) => {
                 </div>
             </div>
 
-            <div>
-                <div className="flex flex-col gap-1 bg-white p-1.5 rounded-xl border border-slate-100">
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Previsão de Entrega</span>
-                    <div className="flex items-center gap-3 text-slate-900 font-bold text-base">
-                        <i className="bi bi-calendar-event text-blue-500 text-sm"></i>
-                        <span>{formatDate(shippingDate)}</span>
-                        <span className="text-slate-200 mx-2">|</span>
-                        <i className="bi bi-clock text-blue-500 text-sm"></i>
-                        <span>{shipping.scheduling?.time || shipping.scheduling?.startTime}</span>
+            {!isBudget && (
+                <div>
+                    <div className="flex flex-col gap-1 bg-white p-1.5 rounded-xl border border-slate-100">
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Previsão de Entrega</span>
+                        <div className="flex items-center gap-3 text-slate-900 font-bold text-base">
+                            <i className="bi bi-calendar-event text-blue-500 text-sm"></i>
+                            <span>{formatDate(shippingDate)}</span>
+                            <span className="text-slate-200 mx-2">|</span>
+                            <i className="bi bi-clock text-blue-500 text-sm"></i>
+                            <span>{shipping.scheduling?.time || shipping.scheduling?.startTime}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </section>
     )
 }

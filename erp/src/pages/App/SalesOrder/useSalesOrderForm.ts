@@ -69,9 +69,11 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const { shipping, setShipping } = useShipping(initialDeliveryMethod);
     
     // When initializing as budget, we don't have customer data step, so we force manual address entry
+    // Budgets no longer force off customer address - they follow the same logic as sales, but skip logistics step
     useEffect(() => {
         if (initialOrderType === 'budget') {
-            setShipping(prev => ({ ...prev, useCustomerAddress: false }));
+            // We previously forced manual address, but user wants customer identification now.
+            // Leaving it as default (useCustomerAddress: true) is better.
         }
     }, [initialOrderType, setShipping]);
 
@@ -519,24 +521,15 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         validateOrder,
         setOrderDate,
         goToNextStep: () => {
-            setCurrentStep(prev => {
-                const next = prev + 1;
-                if (next === 2 && initialOrderType === 'budget') return 3;
-                return Math.min(next, 5);
-            });
+            setCurrentStep(prev => Math.min(prev + 1, 5));
         },
         goToPrevStep: () => {
-            setCurrentStep(prev => {
-                const next = prev - 1;
-                if (next === 2 && initialOrderType === 'budget') return 1;
-                return Math.max(next, 1);
-            });
+            setCurrentStep(prev => Math.max(prev - 1, 1));
         },
         jumpToStep: (step: number) => {
-            if (step === 2 && initialOrderType === 'budget') return;
             setCurrentStep(step);
         },
-    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, initialOrderType]);
+    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
 
     return { state, actions };
 };

@@ -8,7 +8,7 @@ import FormFooter from "./FormFooter";
 import SectionCard from "../../../components/SectionCard";
 import { useSalesOrderForm } from "./useSalesOrderForm";
 import NoticeInput from "../../../components/NoticeInput";
-import PaymentSimulator from "./PaymentSimulator";
+
 
 import { getSettings } from "../../../pages/utils/settingsService";
 
@@ -55,6 +55,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     isSaving={state.isSaving}
                     onMainAction={state.status === 'draft' ? actions.handleCompleteOrder : actions.handleSaveOrder}
                     currentOrderId={state.currentOrderId}
+                    isBudget={isBudget}
                 />
 
                 {/* Wizard Steps Content */}
@@ -76,6 +77,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                         deliveryMethod={state.shipping.deliveryMethod}
                                         errors={state.errors}
                                         onSelectProduct={actions.handleSelectProduct}
+                                        isBudget={isBudget}
                                     />
                                 </div>
                             </SectionCard>
@@ -83,7 +85,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     )}
 
                     {currentStep === 2 && (
-                        <div className="max-w-4xl mx-auto animate-fade-in">
+                        <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
                             <SectionCard
                                 icon="bi bi-person-badge"
                                 iconBg="bg-purple-600 shadow-purple-100 dark:shadow-purple-900/20"
@@ -98,8 +100,10 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     isPickup={isPickup}
                                     marketingOrigin={state.marketingOrigin}
                                     setMarketingOrigin={actions.setMarketingOrigin}
+                                    isBudget={isBudget}
                                 />
                             </SectionCard>
+
                         </div>
                     )}
 
@@ -108,7 +112,8 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                             <SectionCard
                                 icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
                                 iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
-                                title="Logística"
+                                title={isBudget ? "Frete e Entrega" : "Logística"}
+                                subtitle={isBudget ? "Cálculo de valores para entrega" : "Defina como o produto chegará ao cliente"}
                                 className="bg-white dark:bg-slate-900 transition-colors duration-300"
                             >
                                 <ShippingInputs
@@ -125,13 +130,13 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                             <SectionCard
                                 icon="bi bi-info-circle-fill"
                                 iconBg="bg-amber-600 shadow-amber-100 dark:shadow-amber-900/20"
-                                title={isPickup ? "Avisos sobre a Retirada" : "Avisos sobre a Entrega"}
+                                title={isBudget ? "Avisos sobre o Orçamento" : (isPickup ? "Avisos sobre a Retirada" : "Avisos sobre a Entrega")}
                                 className="bg-white dark:bg-slate-900"
                             >
                                 <NoticeInput
                                     value={state.observation}
                                     onChange={(val) => actions.setObservation(val)}
-                                    placeholder={isPickup ? "Instruções específicas para a retirada..." : "Instruções específicas para a entrega/montagem..."}
+                                    placeholder={isBudget ? "Observações gerais da proposta..." : (isPickup ? "Instruções específicas para a retirada..." : "Instruções específicas para a entrega/montagem...")}
                                 />
                             </SectionCard>
                         </div>
@@ -142,19 +147,30 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                             <SectionCard
                                 icon={isBudget ? "bi bi-calculator" : "bi bi-credit-card-2-front"}
                                 iconBg="bg-indigo-600 shadow-indigo-100 dark:shadow-indigo-900/20"
-                                title={isBudget ? "Simulação Financeira" : "Condição de Pagamento"}
-                                subtitle={isBudget ? "Opções de parcelamento por bandeira" : "Formas e prazos acordados"}
+                                title="Condição de Pagamento"
+                                subtitle={isBudget ? "Preenchimento opcional para propostas" : "Formas e prazos acordados"}
                             >
                                 <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
-                                    {isBudget ? (
-                                        <PaymentSimulator totalValue={state.paymentsSummary.totalOrderValue} />
-                                    ) : (
-                                        <PaymentsTable
-                                            payments={state.payments}
-                                            setPayments={actions.setPayments}
-                                            summary={state.paymentsSummary}
-                                        />
+                                    {isBudget && state.payments.length === 0 && (
+                                        <div className="p-8 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center gap-4 text-center">
+                                            <div className="flex flex-col gap-1">
+                                                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Apenas orçamento de valores?</p>
+                                                <p className="text-[11px] text-slate-400 font-medium">Você pode pular esta etapa se não precisar definir as formas de pagamento agora.</p>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={actions.goToNextStep}
+                                                className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-indigo-200 transition-all flex items-center gap-3 shadow-sm hover:shadow-md active:scale-95"
+                                            >
+                                                <i className="bi bi-fast-forward-fill text-sm" /> Não Informar Pagamento / Ir para Resumo
+                                            </button>
+                                        </div>
                                     )}
+                                    <PaymentsTable
+                                        payments={state.payments}
+                                        setPayments={actions.setPayments}
+                                        summary={state.paymentsSummary}
+                                    />
                                 </div>
                             </SectionCard>
                         </div>
@@ -234,26 +250,24 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     {/* Payments Table Compact / Simulator info */}
                                     <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-slate-100 dark:border-slate-800 p-3 flex-shrink-0">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <i className={`bi ${isBudget ? 'bi-calculator' : 'bi-credit-card-2-front'} text-indigo-500 text-xs`} />
+                                            <i className="bi bi-credit-card-2-front text-indigo-500 text-xs" />
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">
-                                                {isBudget ? 'Opções Financeiras Simuladas' : 'Condição de Pagamento'}
+                                                Condição de Pagamento
                                             </span>
                                         </div>
-                                        {isBudget ? (
-                                            <p className="text-[10px] text-slate-500 font-bold italic px-2">
-                                                Simulação baseada nas bandeiras: {settings.cardFlagRules?.map(r => r.flag).join(', ') || 'Nenhuma configurada'}
-                                            </p>
-                                        ) : (
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {state.payments.map((p, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-bold">
-                                                        <span className="text-slate-400 uppercase tracking-tighter">{p.method || 'Pagamento'}</span>
-                                                        <span className="text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.amount)}</span>
-                                                    </div>
-                                                ))}
-                                                {state.payments.length === 0 && <span className="text-[10px] text-slate-400 italic">Venda sem pagamentos informados</span>}
-                                            </div>
-                                        )}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {state.payments.map((p, idx) => (
+                                                <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-bold">
+                                                    <span className="text-slate-400 uppercase tracking-tighter">{p.method || 'Pagamento'}</span>
+                                                    <span className="text-blue-600 dark:text-blue-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.amount)}</span>
+                                                </div>
+                                            ))}
+                                            {state.payments.length === 0 && (
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic px-2">
+                                                   {isBudget ? 'DEFINIR NO FECHAMENTO' : 'PAGAMENTO NÃO INFORMADO'}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -266,7 +280,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                                 <i className="bi bi-person-check text-base" />
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Vendedor</span>
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Atendente Principal</span>
                                                 <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase">{state.seller || <span className="text-red-500 animate-pulse">NÃO INFORMADO</span>}</span>
                                             </div>
                                         </div>
@@ -297,58 +311,64 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 flex-1 flex flex-col overflow-hidden min-h-[220px]">
                                         <div className="flex items-center justify-between mb-3 flex-shrink-0">
                                             <div className="flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full ${isPickup ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Logística e {isPickup ? 'Retirada' : 'Entrega'}</span>
+                                                {!isBudget && <div className={`w-2 h-2 rounded-full ${isPickup ? 'bg-amber-500' : 'bg-emerald-500'}`} />}
+                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">
+                                                    {isBudget ? 'Informações Adicionais' : `Logística e ${isPickup ? 'Retirada' : 'Entrega'}`}
+                                                </span>
                                             </div>
-                                            <button type="button" onClick={() => actions.jumpToStep(3)} className={`p-1.5 rounded-lg transition-all ${isPickup ? 'hover:bg-amber-100 text-amber-500' : 'hover:bg-emerald-100 text-emerald-500'}`}>
-                                                <i className="bi bi-pencil-square" />
-                                            </button>
+                                            {!isBudget && (
+                                                <button type="button" onClick={() => actions.jumpToStep(3)} className={`p-1.5 rounded-lg transition-all ${isPickup ? 'hover:bg-amber-100 text-amber-500' : 'hover:bg-emerald-100 text-emerald-500'}`}>
+                                                    <i className="bi bi-pencil-square" />
+                                                </button>
+                                            )}
                                         </div>
 
                                         <div className="space-y-3 overflow-y-auto pr-1 flex-1 custom-scrollbar">
-
-
-                                            {/* Date/Time Row */}
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-center gap-3 shadow-inner">
-                                                <div className={`w-8 h-8 rounded-lg ${isPickup ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center shrink-0`}>
-                                                    <i className={`bi ${isPickup ? 'bi-calendar-check' : 'bi-truck'} text-sm`} />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Agendamento de {isPickup ? 'Retirada' : 'Entrega'}</span>
-                                                    <span className="text-[10px] font-black text-slate-800 dark:text-slate-100">
-                                                        {state.shipping.scheduling?.notInformed ? 'NÃO INFORMADO' : (
-                                                            `${new Date(state.shipping.scheduling?.date + 'T12:00:00').toLocaleDateString('pt-BR')} ${state.shipping.scheduling?.startTime ? `@ ${state.shipping.scheduling?.startTime} às ${state.shipping.scheduling?.endTime}` : ''}`
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Location Row */}
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex gap-3 shadow-inner">
-                                                <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-400/10 text-red-500 flex items-center justify-center shrink-0">
-                                                    <i className="bi bi-geo-alt text-sm" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Localização Selecionada</span>
-                                                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase leading-tight">
-                                                        {isPickup ? 'Loja Física - Móveis Morante' : (
-                                                            `${state.customerData.fullAddress.street || 'Endereço não informado'}, ${state.customerData.fullAddress.number || 'S/N'}`
-                                                        )}
-                                                    </span>
-                                                    {!isPickup && state.customerData.fullAddress.neighborhood && (
-                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
-                                                            {state.customerData.fullAddress.neighborhood} - {state.customerData.fullAddress.city}
+                                            {/* Date/Time Row - HIDE FOR BUDGET */}
+                                            {!isBudget && (
+                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-center gap-3 shadow-inner">
+                                                    <div className={`w-8 h-8 rounded-lg ${isPickup ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center shrink-0`}>
+                                                        <i className={`bi ${isPickup ? 'bi-calendar-check' : 'bi-truck'} text-sm`} />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Agendamento de {isPickup ? 'Retirada' : 'Entrega'}</span>
+                                                        <span className="text-[10px] font-black text-slate-800 dark:text-slate-100">
+                                                            {state.shipping.scheduling?.notInformed ? 'NÃO INFORMADO' : (
+                                                                `${new Date(state.shipping.scheduling?.date + 'T12:00:00').toLocaleDateString('pt-BR')} ${state.shipping.scheduling?.startTime ? `@ ${state.shipping.scheduling?.startTime} às ${state.shipping.scheduling?.endTime}` : ''}`
+                                                            )}
                                                         </span>
-                                                    )}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
+
+                                            {/* Location Row - HIDE FOR BUDGET */}
+                                            {!isBudget && (
+                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex gap-3 shadow-inner">
+                                                    <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-400/10 text-red-500 flex items-center justify-center shrink-0">
+                                                        <i className="bi bi-geo-alt text-sm" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5 leading-none">Localização Selecionada</span>
+                                                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase leading-tight">
+                                                            {isPickup ? 'Loja Física - Móveis Morante' : (
+                                                                `${state.customerData.fullAddress.street || 'Endereço não informado'}, ${state.customerData.fullAddress.number || 'S/N'}`
+                                                            )}
+                                                        </span>
+                                                        {!isPickup && state.customerData.fullAddress.neighborhood && (
+                                                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
+                                                                {state.customerData.fullAddress.neighborhood} - {state.customerData.fullAddress.city}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Final Note Row */}
                                             {state.observation && (
                                                 <div className="bg-blue-50/40 dark:bg-blue-900/10 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/20">
                                                     <div className="flex items-center gap-1.5 mb-1 text-[8px] font-black text-blue-500 uppercase tracking-widest">
                                                         <i className="bi bi-sticky-fill" /> Observações
-                                                     </div>
+                                                    </div>
                                                     <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 italic">"{state.observation}"</p>
                                                 </div>
                                             )}
@@ -359,7 +379,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                                     <div className={`p-4 rounded-3xl flex items-center justify-between shadow-xl transition-all ${isBudget ? 'bg-indigo-600 shadow-indigo-500/10' : isPickup ? 'bg-purple-600 shadow-purple-500/10' : 'bg-emerald-600 shadow-emerald-500/10'} text-white`}>
                                         <div className="flex flex-col">
                                              <span className="text-[9px] font-black uppercase tracking-widest opacity-80">{isBudget ? 'Total da Proposta' : 'Valor Geral do Pedido'}</span>
-                                             <span className="text-[9px] font-bold opacity-60">Status: {isBudget ? 'Em Simulação' : 'Aguardando Conferência'}</span>
+                                             <span className="text-[9px] font-bold opacity-60">Status: {isBudget ? 'Orçamento' : 'Aguardando Conferência'}</span>
                                         </div>
                                         <div className="flex items-end gap-1 font-black italic">
                                              <span className="text-[10px] tracking-widest mb-1 opacity-80">R$</span>

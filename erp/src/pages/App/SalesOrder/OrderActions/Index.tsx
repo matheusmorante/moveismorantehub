@@ -19,7 +19,9 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     printShippingLabel: false,
     printProductLabel: false,
     generatePaymentLink: false,
-    printBudget: false
+    printBudget: false,
+    sendCustomerOrderDetails: false,
+    sendAssistanceOS: false
   });
 
   async function markClicked(key: keyof IsButtonsClicked) {
@@ -100,7 +102,7 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
         error: errors.payments_summary
       },
       { 
-        label: 'Vendedor', 
+        label: 'Atendente Principal', 
         icon: 'bi-person-check',
         valid: !errors.seller,
         error: errors.seller
@@ -112,7 +114,7 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     <div className="flex flex-wrap items-center justify-center gap-6">
       {visibleButtons.map((btn: any) => {
         const isPrintAction = btn.action === 'PRINT_RECEIPT' || btn.action === 'PRINT_SHIPPING_ORDER';
-        const isSendAction = btn.action === 'SEND_SHIPPING_ORDER' || btn.action === 'SEND_CUSTOMER_ORDER' || btn.action === 'SEND_ASSISTANCE_CUSTOMER';
+        const isSendAction = btn.action === 'SEND_SHIPPING_ORDER' || btn.action === 'SEND_CUSTOMER_ORDER' || btn.action === 'SEND_ASSISTANCE_CUSTOMER' || btn.action === 'SEND_ASSISTANCE_ORDER_DETAILS' || btn.action === 'SEND_ASSISTANCE_OS';
         const orderErrors = (isPrintAction || isSendAction) ? validateOrder(order) : {};
         const hasErrors = Object.keys(orderErrors).length > 0;
 

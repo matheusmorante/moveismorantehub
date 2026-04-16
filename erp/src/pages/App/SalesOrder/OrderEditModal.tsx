@@ -127,7 +127,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                                     <i className="bi bi-person-badge-fill text-xs" />
                                 </div>
                                 <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
-                                    {form.state.seller || "Vendedor"}
+                                    {form.state.seller || "Atendente"}
                                 </span>
                             </button>
                         </div>
@@ -144,7 +144,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                                     <i className="bi bi-person-badge-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col text-left">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5 group-hover:text-blue-500 transition-colors">Vendedor</span>
+                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5 group-hover:text-blue-500 transition-colors">Atendente Principal</span>
                                     <span className={`text-xs font-black uppercase tracking-widest ${form.state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
                                         {form.state.seller || "Selecionar..."}
                                     </span>
@@ -200,7 +200,7 @@ const OrderEditModal = ({ order, onClose, onSaveSuccess }: OrderEditModalProps) 
                     isOpen={isSellerRegistrationOpen}
                     onClose={() => setIsSellerRegistrationOpen(false)}
                     collectionName="employees"
-                    title="Vendedor"
+                    title="Atendente Principal"
                     onSuccess={(newSeller) => {
                         form.actions.setSeller(newSeller.nickname || newSeller.fullName);
                         setIsSellerRegistrationOpen(false);

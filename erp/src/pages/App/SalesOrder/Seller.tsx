@@ -26,10 +26,10 @@ const Seller = ({ seller, setSeller, errors }: Props) => {
     return (
         <div className="flex flex-col relative w-full">
             <SmartInput
-                label="Vendedor Principal *"
+                label="Atendente Principal *"
                 value={seller}
                 onValueChange={setSeller}
-                placeholder="Nome do Vendedor"
+                placeholder="Nome do Atendente"
                 error={!!errors['seller']}
                 suggestions={employeeNames}
                 name="seller"

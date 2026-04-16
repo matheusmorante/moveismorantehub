@@ -21,9 +21,10 @@ interface Props {
     errors: ValidationErrors;
     isMobile?: boolean;
     onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
+    isBudget?: boolean;
 }
 
-const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct }: Props) => {
+const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
     const handlingErrorKey = `item_${idx}_handlingType`;
@@ -54,7 +55,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                 </div>
                             )}
                         </div>
-                        {!item.isComboItem && (
+                        {!item.isComboItem && !isBudget && (
                             <div className="flex-[2] min-w-0">
                                 <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Manuseio</label>
                                 <div className="relative group/sel">
@@ -189,7 +190,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                 )}
             </td>
             <td className="px-4 py-2">
-                {!item.isComboItem && (
+                {!item.isComboItem && !isBudget && (
                     <div className="relative group/hsel">
                         <select
                             className={`w-full min-w-[120px] bg-transparent border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}

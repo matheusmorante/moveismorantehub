@@ -7,16 +7,19 @@ import {
     customerReviewsWhatsappUrl, 
     assistanceCustomerWhatsappUrl,
     assistanceOrderDetailsWhatsappUrl,
+    assistanceServiceOrderWhatsappUrl,
     sendDirectShippingMessage,
     sendDirectCustomerMessage,
     sendDirectAssistanceMessage,
-    sendDirectAssistanceOrderDetailsMessage
+    sendDirectAssistanceOrderDetailsMessage,
+    budgetWhatsappUrl,
+    sendDirectBudgetMessage
 } from "../../../utils/whatsapp";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_RECEIPT': (order) => {
         if (!order.seller) {
-            toast.error("Vendedor obrigatório para imprimir recibo.");
+            toast.error("Atendente obrigatório para imprimir recibo.");
             return;
         }
         sessionStorage.setItem('order', JSON.stringify(order));
@@ -24,7 +27,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     },
     'PRINT_SHIPPING_ORDER': (order) => {
         if (!order.seller) {
-            toast.error("Vendedor obrigatório para imprimir o pedido.");
+            toast.error("Atendente obrigatório para imprimir o pedido.");
             return;
         }
         sessionStorage.setItem("order", JSON.stringify(order));
@@ -44,6 +47,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     },
     'SEND_ASSISTANCE_ORDER_DETAILS': (order) => {
         sendDirectAssistanceOrderDetailsMessage(order);
+    },
+    'SEND_ASSISTANCE_OS': (order) => {
+        window.open(assistanceServiceOrderWhatsappUrl(order), "_blank");
     },
     'SEND_CUSTOMER_REVIEWS': (order) => {
         window.open(customerReviewsWhatsappUrl(order), "_blank");
@@ -65,6 +71,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_BUDGET': (order) => {
         sessionStorage.setItem("order", JSON.stringify(order));
         window.open("/order?type=budget", "_blank");
+    },
+    'SEND_BUDGET': (order) => {
+        sendDirectBudgetMessage(order);
     }
 };
 
@@ -117,15 +126,6 @@ export const buttons: OrderButton[] = [
         orderTypes: ['sale']
     },
     {
-        key: "sendCustomerOrder",  // reuse key for assistance short confirmation
-        icon: "bi-check-circle-fill",
-        action: "SEND_ASSISTANCE_CUSTOMER",
-        label: "Confirmar Agendamento",
-        color: "text-green-600 hover:bg-green-50",
-        tooltip: "Enviar confirmação curta da assistência técnica ao cliente",
-        orderTypes: ['assistance']
-    },
-    {
         key: "sendCustomerOrderDetails",  // details message
         icon: "bi-whatsapp",
         action: "SEND_ASSISTANCE_ORDER_DETAILS",
@@ -144,12 +144,30 @@ export const buttons: OrderButton[] = [
         orderTypes: ['sale']
     },
     {
+        key: "sendAssistanceOS",
+        icon: "bi-send-fill",
+        action: "SEND_ASSISTANCE_OS",
+        label: "Enviar OS",
+        color: "text-blue-600 hover:bg-blue-50",
+        tooltip: "Enviar Ordem de Serviço de assistência para o grupo da equipe",
+        orderTypes: ['assistance']
+    },
+    {
         key: "printBudget",
         icon: "bi-printer-fill",
         action: "PRINT_BUDGET",
         label: "Imprimir Orçamento",
         color: "text-indigo-600 hover:bg-indigo-50",
         tooltip: "Imprimir Proposta Comercial (Orçamento)",
+        orderTypes: ['budget']
+    },
+    {
+        key: "sendBudget",
+        icon: "bi-whatsapp",
+        action: "SEND_BUDGET",
+        label: "WhatsApp Orçamento",
+        color: "text-green-600 hover:bg-green-50",
+        tooltip: "Enviar orçamento para o cliente via WhatsApp",
         orderTypes: ['budget']
     },
 ];
