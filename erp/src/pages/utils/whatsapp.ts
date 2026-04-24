@@ -33,19 +33,19 @@ const buildDeliveryMessage = (order: Order) => {
     }
 
     return message
-        .replace(/{{customerName}}/g, customer.fullName || "Cliente")
-        .replace(/{{deliveryDate}}/g, date)
-        .replace(/{{deliveryTime}}/g, time)
-        .replace(/{{phone}}/g, customer.phone || "Não informado")
-        .replace(/{{additionalContacts}}/g, stringifyAdditionalContacts(customer.additionalContacts))
-        .replace(/{{customerObservations}}/g, customer.observations || "")
-        .replace(/{{address}}/g, stringifyFullAddressWithObservation(customer.fullAddress))
-        .replace(/{{items}}/g, itemsBlock)
-        .replace(/{{payments}}/g, stringifyPayments(order.payments || []))
-        .replace(/{{totalValue}}/g, formatCurrency(order.paymentsSummary.totalOrderValue || 0))
-        .replace(/{{observation}}/g, order.observation || "Sem observações")
-        .replace(/{{seller}}/g, order.seller || "Não informado")
-        .replace(/{{routeUrl}}/g, customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");
+        .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
+        .replace(/{{deliveryDate}}/g, () => date)
+        .replace(/{{deliveryTime}}/g, () => time)
+        .replace(/{{phone}}/g, () => customer.phone || "Não informado")
+        .replace(/{{additionalContacts}}/g, () => stringifyAdditionalContacts(customer.additionalContacts))
+        .replace(/{{customerObservations}}/g, () => customer.observations || "")
+        .replace(/{{address}}/g, () => stringifyFullAddressWithObservation(customer.fullAddress))
+        .replace(/{{items}}/g, () => itemsBlock)
+        .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []))
+        .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
+        .replace(/{{observation}}/g, () => order.observation || "Sem observações")
+        .replace(/{{seller}}/g, () => order.seller || "Não informado")
+        .replace(/{{routeUrl}}/g, () => customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");
 };
 
 const buildCustomerOrderMessage = (order: Order) => {
@@ -64,14 +64,14 @@ const buildCustomerOrderMessage = (order: Order) => {
     }
     
     return message
-        .replace(/{{customerName}}/g, customer.fullName || "Cliente")
-        .replace(/{{deliveryDate}}/g, date)
-        .replace(/{{deliveryTime}}/g, time)
-        .replace(/{{address}}/g, stringifyFullAddressWithObservation(customer.fullAddress))
-        .replace(/{{items}}/g, itemsBlock)
-        .replace(/{{totalValue}}/g, formatCurrency(order.paymentsSummary.totalOrderValue || 0))
-        .replace(/{{seller}}/g, order.seller || "Não informado")
-        .replace(/{{payments}}/g, stringifyPayments(order.payments || []));
+        .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
+        .replace(/{{deliveryDate}}/g, () => date)
+        .replace(/{{deliveryTime}}/g, () => time)
+        .replace(/{{address}}/g, () => stringifyFullAddressWithObservation(customer.fullAddress))
+        .replace(/{{items}}/g, () => itemsBlock)
+        .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
+        .replace(/{{seller}}/g, () => order.seller || "Não informado")
+        .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []));
 };
 
 export const shippingOrderWhatsappUrl = (order: Order) => {
@@ -152,8 +152,9 @@ const buildAssistanceMessage = (order: Order) => {
     }
 
     // Capture products
-    const produtos = order.items && order.items.length > 0 
-        ? order.items.map(i => i.description || "Produto").join(', ') 
+    const itemsToUse = (order.assistanceItems && order.assistanceItems.length > 0) ? order.assistanceItems : order.items;
+    const produtos = itemsToUse && itemsToUse.length > 0 
+        ? itemsToUse.map(i => i.description || "Produto").join(', ') 
         : "produto";
 
     const firstName = customer.fullName?.split(' ')[0] || "Cliente";
@@ -209,8 +210,9 @@ const buildAssistanceOrderDetailsMessage = (order: Order) => {
     message += `*Horário:* ${time || 'Não informado'}\n\n`;
     
     message += `*Itens da Assistência:*\n`;
-    if (order.items && order.items.length > 0) {
-        order.items.forEach((item) => {
+    const itemsToUse = (order.assistanceItems && order.assistanceItems.length > 0) ? order.assistanceItems : order.items;
+    if (itemsToUse && itemsToUse.length > 0) {
+        itemsToUse.forEach((item) => {
             message += `• ${item.quantity}x ${item.description}\n`;
         });
     } else {
