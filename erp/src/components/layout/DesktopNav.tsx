@@ -87,8 +87,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'registrations' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/customers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Clientes</Link>
-                        <Link to="/registrations/suppliers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Fornecedores</Link>
+                        <Link to="/registrations/customers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Clientes e Fornecedores</Link>
                         <Link to="/registrations/employees" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Funcionários</Link>
                     </div>
                 )}
@@ -115,7 +114,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/assistance-orders" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Assistências</Link>
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
                         <Link to="/sales-order/reports" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-bar-chart-fill mr-2"></i> Relatórios de Vendas
+                            <i className="bi bi-bar-chart-fill mr-2"></i> Relatório de Vendas CSV
                         </Link>
                         <Link to="/sales-order/reports-bling" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-clouds-fill mr-2 text-indigo-500"></i> Relatórios de Vendas (Bling)

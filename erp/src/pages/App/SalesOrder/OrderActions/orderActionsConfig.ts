@@ -13,7 +13,8 @@ import {
     sendDirectAssistanceMessage,
     sendDirectAssistanceOrderDetailsMessage,
     budgetWhatsappUrl,
-    sendDirectBudgetMessage
+    sendDirectBudgetMessage,
+    sendDirectGroupInviteMessage
 } from "../../../utils/whatsapp";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
@@ -74,6 +75,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     },
     'SEND_BUDGET': (order) => {
         sendDirectBudgetMessage(order);
+    },
+    'SEND_GROUP_INVITE': (order) => {
+        sendDirectGroupInviteMessage(order);
     }
 };
 
@@ -169,5 +173,14 @@ export const buttons: OrderButton[] = [
         color: "text-green-600 hover:bg-green-50",
         tooltip: "Enviar orçamento para o cliente via WhatsApp",
         orderTypes: ['budget']
+    },
+    {
+        key: "sendGroupInvite",
+        icon: "bi-people-fill",
+        action: "SEND_GROUP_INVITE",
+        label: "Enviar Convite VIP",
+        color: "text-indigo-600 hover:bg-indigo-50",
+        tooltip: "Enviar convite do grupo VIP para o WhatsApp do cliente",
+        orderTypes: ['sale']
     },
 ];

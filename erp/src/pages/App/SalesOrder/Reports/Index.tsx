@@ -126,7 +126,7 @@ const SalesOrderReports = () => {
         <div className="flex flex-col gap-8 p-4 md:p-10 bg-slate-50 dark:bg-slate-950 min-h-screen">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter">Relatórios de Vendas</h1>
+                    <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter">Relatório de Vendas CSV</h1>
                     <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Gestão de Inteligência Strategic Business</p>
                 </div>
 

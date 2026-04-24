@@ -20,6 +20,16 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **Limpeza de Campos:** Remoção de campos financeiros redundantes (Custo Interno, Valor de Serviço no corpo da descrição) para simplificar a criação.
 - **Lógica de Dados:** Ocultação automática do campo de telefone quando há um pedido de venda vinculado (evita redundância).
 
+## ✅ Concluído Recentemente (Abril 2026)
+
+### 📊 Relatórios e BI
+- **Menu de Relatórios:** O submenu "Relatórios de Venda" foi renomeado para **"Relatório de Vendas CSV"** em todas as interfaces (Desktop, Mobile e título da página). Isso visa diferenciar claramente os relatórios baseados em importação de dados manuais (CSV) dos relatórios integrados via API (Bling).
+- **Relatório de Estoque (Giro e Reservas):** Adicionado novo botão de relatório na gestão de estoque que exibe de forma consolidada os produtos vendidos (finalizados) e a quantidade de pedidos/unidades em rascunho ou agendados, permitindo uma visão clara do comprometimento do estoque.
+- **Ajuste de Layout no Cronograma:** Implementada largura mínima para as colunas e cards de pedidos na visualização de tabela do cronograma logístico. Isso garante que as informações permaneçam legíveis e bem estruturadas, evitando o esmagamento das colunas em dias com muitos horários.
+
+
+
+
 ---
 
 ## 🚀 Planos e Ideias Futuras

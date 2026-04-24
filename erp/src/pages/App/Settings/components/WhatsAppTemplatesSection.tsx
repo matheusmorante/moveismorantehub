@@ -43,6 +43,15 @@ const WhatsAppTemplatesSection: React.FC<Props> = ({ settings, onChange }) => {
             icon: 'bi-tools',
             color: 'text-orange-500',
             bg: 'bg-orange-50 dark:bg-orange-900/10'
+        },
+        {
+            id: 'groupInviteMessage',
+            label: 'Convite para Grupo VIP',
+            description: 'Enviado ao cliente para convidar para o grupo de WhatsApp de ofertas.',
+            variables: ['{{customerName}}', '{{groupLink}}'],
+            icon: 'bi-people-fill',
+            color: 'text-indigo-500',
+            bg: 'bg-indigo-50 dark:bg-indigo-900/10'
         }
     ];
 
@@ -96,6 +105,22 @@ const WhatsAppTemplatesSection: React.FC<Props> = ({ settings, onChange }) => {
                                     </button>
                                 ))}
                             </div>
+                            
+                            {tpl.id === 'groupInviteMessage' && (
+                                <div className="mt-2 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
+                                    <label className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block mb-2">
+                                        🔗 Link do Grupo
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.whatsappTemplates?.groupInviteLink || ''}
+                                        onChange={(e) => onChange('whatsappTemplates.groupInviteLink', e.target.value)}
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 focus:border-indigo-500 dark:text-slate-200 transition-all font-medium"
+                                        placeholder="https://chat.whatsapp.com/..."
+                                    />
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">Este link substituirá a tag {`{{groupLink}}`} na mensagem acima.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}

@@ -4,6 +4,7 @@ import StockList from "./components/StockList";
 import StockLaunchModal from "./components/StockLaunchModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
 import InventoryAudit from "./components/InventoryAudit";
+import StockReportModal from "./components/StockReportModal";
 import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
 import QRScannerModal from "@/components/shared/QRScannerModal";
@@ -19,6 +20,7 @@ const StockPage = () => {
         (searchParams.get('tab') as any) || 'balance'
     );
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
     useEffect(() => {
         const tab = searchParams.get('tab');
@@ -89,6 +91,14 @@ const StockPage = () => {
                             <i className="bi bi-printer-fill" />
                             Etiquetas
                         </Link>
+
+                        <button
+                            onClick={() => setIsReportModalOpen(true)}
+                            className="flex items-center justify-center gap-2 xl:gap-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:text-orange-600 transition-all active:scale-95 w-full sm:w-auto"
+                        >
+                            <i className="bi bi-bar-chart-fill" />
+                            Relatório
+                        </button>
                         
                         <button
                             onClick={() => handleLaunch()}
@@ -141,6 +151,12 @@ const StockPage = () => {
                     title="Escanear Inventário"
                 />
             )}
+
+            {/* Stock Report Modal */}
+            <StockReportModal 
+                isOpen={isReportModalOpen} 
+                onClose={() => setIsReportModalOpen(false)} 
+            />
         </div>
     );
 };

@@ -252,16 +252,16 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                             willChange: 'transform'
                         }}
                     >
-                         <table className="w-full border-collapse table-fixed">
+                         <table className="w-full min-w-full border-collapse table-auto">
                              <thead>
                                  <tr className="bg-slate-900 dark:bg-slate-950 text-white">
-                                     <th className="manual-sticky p-4 w-[80px] sm:w-[120px] text-[10px] font-black uppercase tracking-widest border-r border-slate-800 dark:border-slate-900 z-20 bg-slate-900 text-center">
+                                     <th className="manual-sticky p-4 w-[120px] min-w-[120px] text-[10px] font-black uppercase tracking-widest border-r border-slate-800 dark:border-slate-900 z-20 bg-slate-900 text-center">
                                          Data
                                      </th>
                                      {HOURS.map((h) => (
                                          <th 
                                              key={h} 
-                                             className={`p-3 text-[10px] sm:text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center`}
+                                             className={`p-3 text-[10px] sm:text-xs font-black border-r border-slate-800 dark:border-slate-900 last:border-0 opacity-80 tracking-widest text-center min-w-[280px]`}
                                          >
                                              {String(h).padStart(2, '0')}:00
                                          </th>
@@ -284,7 +284,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                                                  {laneIdx === 0 && (
                                                      <td
                                                          rowSpan={lanes.length}
-                                                         className="manual-sticky p-2 font-black text-center bg-slate-50 dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 align-middle z-10 w-[120px]"
+                                                         className="manual-sticky p-2 font-black text-center bg-slate-50 dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 align-middle z-10 w-[120px] min-w-[120px]"
                                                      >
                                                          <div className="flex flex-col items-center">
                                                              <span className="text-2xl text-slate-800 dark:text-slate-100 tracking-tighter">

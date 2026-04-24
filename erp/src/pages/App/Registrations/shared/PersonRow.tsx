@@ -168,6 +168,19 @@ const PersonRow = ({
                                         )}
 
                                     <button
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
+                                                sendDirectPersonGroupInviteMessage(person);
+                                            });
+                                        }}
+                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
+                                        title="Enviar Convite Grupo VIP"
+                                    >
+                                        <i className="bi bi-person-lines-fill text-sm" />
+                                    </button>
+
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); onDelete(person.id!); }}
                                         className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
                                         title="Mover para Lixeira"

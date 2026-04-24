@@ -58,7 +58,8 @@ export type OrderAction =
     'PRINT_PRODUCT_LABEL' |
     'GENERATE_PAYMENT_LINK' |
     'PRINT_BUDGET' |
-    'SEND_BUDGET'
+    'SEND_BUDGET' |
+    'SEND_GROUP_INVITE'
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -76,7 +77,8 @@ export type IsButtonsClicked = {
     printBudget: boolean,
     sendCustomerOrderDetails: boolean,
     sendAssistanceOS: boolean,
-    sendBudget: boolean
+    sendBudget: boolean,
+    sendGroupInvite: boolean
 }
 
 export type VisibilitySettings = {

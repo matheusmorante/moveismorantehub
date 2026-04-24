@@ -267,6 +267,93 @@ export const assistanceCustomerWhatsappUrl = (order: Order) => {
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 }
 
+const buildGroupInviteMessage = (order: Order) => {
+    const customer = order.customerData;
+    const settings = getSettings();
+    const defaults = {
+        groupInviteMessage: 'Se quiser ficar por dentro de novas ofertas e promoções, clique nesse grupo, estarei sempre enviando por lá: {{groupLink}}',
+        groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
+    };
+    
+    let message = settings.whatsappTemplates?.groupInviteMessage || defaults.groupInviteMessage;
+    const link = settings.whatsappTemplates?.groupInviteLink || defaults.groupInviteLink;
+    
+    return message
+        .replace(/{{customerName}}/g, customer.fullName?.split(' ')[0] || "Cliente")
+        .replace(/{{groupLink}}/g, link);
+};
+
+const buildPersonGroupInviteMessage = (person: any) => {
+    const settings = getSettings();
+    const defaults = {
+        groupInviteMessage: 'Se quiser ficar por dentro de novas ofertas e promoções, clique nesse grupo, estarei sempre enviando por lá: {{groupLink}}',
+        groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
+    };
+    
+    let message = settings.whatsappTemplates?.groupInviteMessage || defaults.groupInviteMessage;
+    const link = settings.whatsappTemplates?.groupInviteLink || defaults.groupInviteLink;
+    
+    return message
+        .replace(/{{customerName}}/g, person.fullName?.split(' ')[0] || "Cliente")
+        .replace(/{{groupLink}}/g, link);
+};
+
+export const groupInviteWhatsappUrl = (order: Order) => {
+    const customer = order.customerData;
+    const phone = customer.phone?.replace(/[^0-9]/g, '') || '';
+    const message = buildGroupInviteMessage(order);
+
+    if (phone) {
+        return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    }
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+};
+
+export const sendDirectGroupInviteMessage = async (order: Order) => {
+    const customer = order.customerData;
+    if (!customer?.phone) {
+        toast.error("Cliente sem telefone cadastrado.");
+        return;
+    }
+
+    try {
+        const message = buildGroupInviteMessage(order);
+        await whatsappGraphService.sendTextMessage(customer.phone, message);
+        toast.success("Convite VIP enviado para o cliente com sucesso!");
+    } catch (error) {
+        console.error("Erro ao enviar convite VIP:", error);
+        toast.error("Erro na API. Abrindo link manual...");
+        window.open(groupInviteWhatsappUrl(order), "_blank");
+    }
+};
+
+export const personGroupInviteWhatsappUrl = (person: any) => {
+    const phone = person.phone?.replace(/[^0-9]/g, '') || '';
+    const message = buildPersonGroupInviteMessage(person);
+
+    if (phone) {
+        return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    }
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+};
+
+export const sendDirectPersonGroupInviteMessage = async (person: any) => {
+    if (!person?.phone) {
+        toast.error("Pessoa sem telefone cadastrado.");
+        return;
+    }
+
+    try {
+        const message = buildPersonGroupInviteMessage(person);
+        await whatsappGraphService.sendTextMessage(person.phone, message);
+        toast.success("Convite VIP enviado com sucesso!");
+    } catch (error) {
+        console.error("Erro ao enviar convite VIP:", error);
+        toast.error("Erro na API. Abrindo link manual...");
+        window.open(personGroupInviteWhatsappUrl(person), "_blank");
+    }
+};
+
 const buildAssistanceServiceOrderMessage = (order: Order) => {
     const customer = order.customerData;
     

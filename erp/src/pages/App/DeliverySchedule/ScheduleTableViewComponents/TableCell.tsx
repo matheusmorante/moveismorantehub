@@ -62,7 +62,7 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
         >
             <div
                 onClick={() => onOrderClick(order)}
-                className={`w-full min-h-[190px] h-auto mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-visible flex flex-col gap-2 cursor-pointer relative ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''} ${order.status === 'draft' ? 'border-dashed opacity-80' : ''}`}
+                className={`w-full min-w-[250px] min-h-[190px] h-auto mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-visible flex flex-col gap-2 cursor-pointer relative ${cls.cardBg} ${cls.cardBorder} ${order.status === 'cancelled' ? 'opacity-50 grayscale' : ''} ${order.status === 'draft' ? 'border-dashed opacity-80' : ''}`}
             >
                 {/* Hammer Button Overlay */}
                 {hasLinkedAssembly && (
