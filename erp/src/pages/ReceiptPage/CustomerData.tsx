@@ -32,6 +32,18 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
                         <span className="text-sm font-black text-slate-800">{customerData.cpfCnpj}</span>
                     </div>
                 )}
+
+                {customerData.additionalContacts && customerData.additionalContacts.length > 0 && customerData.additionalContacts.map((contact, idx) => (
+                    contact.name || contact.phone ? (
+                        <div key={idx} className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider text-nowrap">Contato Adic. {idx + 1}</span>
+                            <span className="text-sm font-black text-slate-800 text-nowrap">
+                                {contact.name ? `${contact.name} ` : ''}
+                                {contact.phone ? `(${contact.phone})` : ''}
+                            </span>
+                        </div>
+                    ) : null
+                ))}
             </div>
 
             {showAddress && (

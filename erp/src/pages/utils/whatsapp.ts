@@ -25,6 +25,13 @@ const buildDeliveryMessage = (order: Order) => {
         message = `Novo Pedido para ${customer.fullName || "Cliente"}...`; 
     }
 
+    const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+    let itemsBlock = stringifyItemsWithValues(order.items || []);
+    if (order.shipping?.value && order.shipping.value > 0) {
+        itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
+    }
+
     return message
         .replace(/{{customerName}}/g, customer.fullName || "Cliente")
         .replace(/{{deliveryDate}}/g, date)
@@ -33,9 +40,9 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{additionalContacts}}/g, stringifyAdditionalContacts(customer.additionalContacts))
         .replace(/{{customerObservations}}/g, customer.observations || "")
         .replace(/{{address}}/g, stringifyFullAddressWithObservation(customer.fullAddress))
-        .replace(/{{items}}/g, stringifyItemsWithValues(order.items || []))
+        .replace(/{{items}}/g, itemsBlock)
         .replace(/{{payments}}/g, stringifyPayments(order.payments || []))
-        .replace(/{{totalValue}}/g, (order.paymentsSummary.totalOrderValue || 0).toString())
+        .replace(/{{totalValue}}/g, formatCurrency(order.paymentsSummary.totalOrderValue || 0))
         .replace(/{{observation}}/g, order.observation || "Sem observações")
         .replace(/{{seller}}/g, order.seller || "Não informado")
         .replace(/{{routeUrl}}/g, customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");
@@ -49,13 +56,20 @@ const buildCustomerOrderMessage = (order: Order) => {
     
     let message = settings.whatsappTemplates?.orderConfirmation || "";
     
+    const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+    let itemsBlock = stringifyItemsWithValues(order.items || []);
+    if (order.shipping?.value && order.shipping.value > 0) {
+        itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
+    }
+    
     return message
         .replace(/{{customerName}}/g, customer.fullName || "Cliente")
         .replace(/{{deliveryDate}}/g, date)
         .replace(/{{deliveryTime}}/g, time)
         .replace(/{{address}}/g, stringifyFullAddressWithObservation(customer.fullAddress))
-        .replace(/{{items}}/g, stringifyItemsWithValues(order.items || []))
-        .replace(/{{totalValue}}/g, (order.paymentsSummary.totalOrderValue || 0).toString())
+        .replace(/{{items}}/g, itemsBlock)
+        .replace(/{{totalValue}}/g, formatCurrency(order.paymentsSummary.totalOrderValue || 0))
         .replace(/{{seller}}/g, order.seller || "Não informado")
         .replace(/{{payments}}/g, stringifyPayments(order.payments || []));
 };

@@ -66,7 +66,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
     }, []);
 
     const clearCustomer = () => {
-        setCustomerData({ id: undefined, fullName: '', phone: '', noPhone: false, fullAddress: EMPTY_ADDRESS });
+        setCustomerData({ id: undefined, fullName: '', phone: '', noPhone: false, fullAddress: EMPTY_ADDRESS, additionalContacts: [] });
         setSearchTerm('');
     };
 
@@ -76,7 +76,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
             fullName: customer.fullName || customer.tradeName || '',
             phone: customer.phone || '',
             noPhone: customer.noPhone || false,
-            fullAddress: customer.fullAddress || EMPTY_ADDRESS
+            fullAddress: customer.fullAddress || EMPTY_ADDRESS,
+            additionalContacts: customer.additionalContacts || [],
         });
         setSearchTerm(customer.fullName || customer.tradeName || '');
         if (customer.marketingOrigin && setMarketingOrigin) {
@@ -194,7 +195,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
             personType: 'PF', // Fallback
             type: 'customers',
             marketingOrigin: marketingOrigin === 'Tráfego Pago' ? 'paid' : 'organic',
-            active: true
+            active: true,
+            additionalContacts: customerData.additionalContacts || []
         } as Person;
     }, [isEditCustomerModalOpen, customerData, customers, marketingOrigin]);
 
@@ -268,7 +270,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                                     fullName: 'Consumidor Final',
                                     phone: '',
                                     noPhone: true,
-                                    fullAddress: EMPTY_ADDRESS
+                                    fullAddress: EMPTY_ADDRESS,
+                                    additionalContacts: []
                                 });
                                 setSearchTerm('Consumidor Final');
                                 setIsDropdownOpen(false);
@@ -538,8 +541,9 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                 <CustomerSearchModal
                     onSelect={(selected: any) => {
                         setCustomerData({
-                            ...selected,
-                            fullAddress: selected.fullAddress || selected.address || EMPTY_ADDRESS
+                        ...selected,
+                        fullAddress: selected.fullAddress || selected.address || EMPTY_ADDRESS,
+                        additionalContacts: selected.additionalContacts || []
                         });
                         setSearchTerm(selected.fullName || '');
                     }}

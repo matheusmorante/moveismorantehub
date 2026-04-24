@@ -27,13 +27,20 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     if (p.marketingOrigin !== undefined) dbObj.marketing_origin = p.marketingOrigin;
 
     // Special handling for address
-    if (p.fullAddress || p.address) {
-        let addressVal = p.fullAddress || p.address;
+    if (p.fullAddress || p.address || p.additionalContacts !== undefined) {
+        let addressVal: any = p.fullAddress || p.address || {};
         if (typeof addressVal === 'string' && addressVal.trim().startsWith('{')) {
             try {
                 addressVal = JSON.parse(addressVal);
             } catch (e) {
                 // keep as string
+            }
+        }
+        
+        if (typeof addressVal === 'object' && addressVal !== null) {
+            addressVal = { ...addressVal };
+            if (p.additionalContacts !== undefined) {
+                addressVal.additionalContacts = p.additionalContacts;
             }
         }
         dbObj.address = addressVal;
@@ -94,6 +101,7 @@ const mapFromDB = (data: any): Person => {
         type: data.person_type as any,
         leadTime: data.lead_time || 0,
         marketingOrigin: data.marketing_origin || '',
+        additionalContacts: data.additional_contacts || (typeof parsedAddress === 'object' && parsedAddress !== null ? parsedAddress.additionalContacts : []) || [],
         defaultIpiPercent: data.default_ipi_percent,
         defaultFreightCost: data.default_freight_cost,
         defaultFreightType: data.default_freight_type || 'none',
