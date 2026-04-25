@@ -70,7 +70,9 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                                     className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1 hover:shadow-lg relative min-h-[100px] ${baseColor} ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                                 >
                                     <i className={`bi ${btn.icon} text-2xl mb-2`}></i>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-center">{btn.label}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-center">
+                                        {typeof btn.label === 'function' ? btn.label(order) : btn.label}
+                                    </span>
                                     
                                     {isClicked && (
                                         <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">

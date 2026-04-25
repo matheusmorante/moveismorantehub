@@ -103,10 +103,10 @@ const ReceiptPage = () => {
                     
                     <div className="flex-1 z-10 relative">
                         <div className="relative">
-                            <p className="text-blue-900 font-black italic text-[13px] leading-tight tracking-tight mb-0.5">
+                            <p className="text-blue-900 font-black italic text-[16px] leading-tight tracking-tight mb-0.5">
                                 "Ah, que alegria! Ficamos muito felizes em fazer parte do seu lar."
                             </p>
-                            <p className="text-[9px] text-blue-400 font-black uppercase tracking-[0.2em]">
+                            <p className="text-[11px] text-blue-400 font-black uppercase tracking-[0.2em]">
                                Muito obrigado pela preferência!
                             </p>
                         </div>

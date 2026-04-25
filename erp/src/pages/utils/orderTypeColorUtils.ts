@@ -123,6 +123,17 @@ const COLOR_MAP: Record<OrderTypeColor, OrderTypeColorClasses> = {
         rowHover:    'bg-pink-50/20 dark:bg-pink-900/5 hover:bg-pink-50/40 dark:hover:bg-pink-900/10',
         rowActive:   'ring-2 ring-pink-500',
     },
+    red: {
+        badge:       'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/30',
+        cardBg:      'bg-red-50/20 dark:bg-red-900/5',
+        cardBorder:  'border-red-600 dark:border-red-500 hover:border-red-700 dark:hover:border-red-400',
+        headerBg:    'bg-red-50/80 dark:bg-red-900/10 group-hover:bg-red-100/50 dark:group-hover:bg-red-900/20',
+        timeText:    'text-red-600 dark:text-red-400',
+        dotBg:       'bg-red-600 dark:bg-red-500 text-white',
+        handleHover: 'hover:text-red-600 dark:hover:text-red-400',
+        rowHover:    'bg-red-50/20 dark:bg-red-900/10 hover:bg-red-100/30 dark:hover:bg-red-900/20',
+        rowActive:   'ring-2 ring-red-600',
+    },
 };
 
 export const getOrderTypeClasses = (color: OrderTypeColor): OrderTypeColorClasses => {
@@ -135,6 +146,7 @@ export const resolveOrderColor = (
     deliveryMethod: string | undefined,
     colors: { delivery: OrderTypeColor; pickup: OrderTypeColor; assistance: OrderTypeColor }
 ): OrderTypeColor => {
+    if (orderType === 'return') return 'amber';
     if (orderType === 'showroom') return 'rose';
     if (orderType === 'budget') return 'indigo';
     if (orderType === 'assistance') return colors.assistance;

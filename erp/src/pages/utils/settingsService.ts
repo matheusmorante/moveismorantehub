@@ -8,7 +8,7 @@ export interface OrderStatusConfig {
     isCore?: boolean;
 }
 
-export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 'rose' | 'indigo' | 'emerald' | 'cyan' | 'pink';
+export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 'rose' | 'indigo' | 'emerald' | 'cyan' | 'pink' | 'red';
 
 export interface HandlingOption {
     label: string;
@@ -43,12 +43,14 @@ export interface AppSettings {
         pickup: string;
         assistance: string;
         budget: string;
+        return: string;
     };
     orderTypeColors: {
         delivery: OrderTypeColor;
         pickup: OrderTypeColor;
         assistance: OrderTypeColor;
         budget: OrderTypeColor;
+        return: OrderTypeColor;
     };
     deliveryHandlingOptions: HandlingOption[];
     pickupHandlingOptions: HandlingOption[];
@@ -284,13 +286,15 @@ export const getDefaultSettings = (): AppSettings => ({
         delivery: 'Entrega/Serviço',
         pickup: 'Retirada',
         assistance: 'Assistência',
-        budget: 'Orçamento'
+        budget: 'Orçamento',
+        return: 'Devolução'
     },
     orderTypeColors: {
         delivery: 'green',
         pickup: 'purple',
         assistance: 'orange',
-        budget: 'blue'
+        budget: 'blue',
+        return: 'amber'
     },
     deliveryHandlingOptions: [
         { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false, isAssemblyOutside: false },

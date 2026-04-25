@@ -11,18 +11,21 @@ import Order, { VisibilitySettings } from "../../types/order.type";
 import OrderFilters, { Filters } from "./OrderFilters";
 import { OrderHistoryListRef } from "./OrderHistoryList";
 import PostOrderActionsModal from "./OrderActions/PostOrderActionsModal";
+import ReturnOrderModal from "./OrderActions/ReturnOrderModal";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const SalesOrder = () => {
     const { width } = useWindowSize();
     const isMobile = width <= 900;
-    const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | null>(null);
+    const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | 'return' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
+    const [returningOrder, setReturningOrder] = useState<Order | null>(null);
     const location = useLocation();
     const navigate = useNavigate();
     const isBudgetRoute = location.pathname === '/budgets';
     const isAssistanceRoute = location.pathname === '/assistance-orders';
+    const isReturnRoute = location.pathname === '/returns';
 
     const [filters, setFilters] = useState<Filters>({
         dateRange: { start: "", end: "" },
@@ -30,9 +33,10 @@ const SalesOrder = () => {
         customerName: "",
         productName: "",
         status: "",
-        orderType: isBudgetRoute ? "budget" : (isAssistanceRoute ? "assistance" : "sale"),
+        orderType: isBudgetRoute ? "budget" : (isAssistanceRoute ? "assistance" : (isReturnRoute ? "return" : "sale")),
         isBudgetView: isBudgetRoute,
         isAssistanceView: isAssistanceRoute,
+        isReturnView: isReturnRoute,
         seller: "",
         valueRange: { min: 0, max: 1000000 },
         sortBy: "date" as any,
@@ -45,14 +49,15 @@ const SalesOrder = () => {
     React.useEffect(() => {
         setFilters(prev => ({
             ...prev,
-            orderType: isBudgetRoute ? "budget" : (isAssistanceRoute ? "assistance" : "sale"),
+            orderType: isBudgetRoute ? "budget" : (isAssistanceRoute ? "assistance" : (isReturnRoute ? "return" : "sale")),
             isBudgetView: isBudgetRoute,
-            isAssistanceView: isAssistanceRoute
+            isAssistanceView: isAssistanceRoute,
+            isReturnView: isReturnRoute
         }));
         
-        const title = isBudgetRoute ? 'Orçamentos' : (isAssistanceRoute ? 'Assistências' : 'Pedidos de Venda');
+        const title = isBudgetRoute ? 'Orçamentos' : (isAssistanceRoute ? 'Assistências' : (isReturnRoute ? 'Devoluções' : 'Pedidos de Venda'));
         document.title = `${title} | Móveis Morante`;
-    }, [isBudgetRoute, isAssistanceRoute]);
+    }, [isBudgetRoute, isAssistanceRoute, isReturnRoute]);
 
     React.useEffect(() => {
         const queryParams = new URLSearchParams(window.location.search);
@@ -138,86 +143,112 @@ const SalesOrder = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 p-4 lg:p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <div>
-                        <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all text-center sm:text-left">
-                            {isBudgetRoute ? 'Lista de Orçamentos' : (isAssistanceRoute ? 'Solicitações de Assistência' : 'Pedidos de Venda')}
-                        </h1>
-                        <p className="text-slate-500 dark:text-slate-400 font-medium text-xs hidden sm:block">
-                            {isBudgetRoute ? 'Gestão de Propostas e Orçamentos' : (isAssistanceRoute ? 'Atendimento Técnico e Manutenção' : 'Gestão de Vendas e Fluxo de Pedidos')}
-                        </p>
+                <div className="flex flex-col gap-6 mb-6">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h1 className="text-2xl xl:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all">
+                                {isBudgetRoute ? 'Lista de Orçamentos' : (isAssistanceRoute ? 'Solicitações de Assistência' : (isReturnRoute ? 'Registro de Devoluções' : 'Pedidos de Venda'))}
+                            </h1>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1">
+                                {isBudgetRoute ? 'Gestão de Propostas e Orçamentos' : (isAssistanceRoute ? 'Atendimento Técnico e Manutenção' : (isReturnRoute ? 'Controle de Devoluções e Estornos' : 'Gestão de Vendas e Fluxo de Pedidos'))}
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Link
+                                to="/settings"
+                                className="flex items-center justify-center p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:text-slate-500 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
+                                title="Configurações do Sistema"
+                            >
+                                <i className="bi bi-gear-fill text-xl" />
+                            </Link>
+
+                            <div className="w-[1px] h-8 bg-slate-200 dark:bg-slate-700 mx-2" />
+
+                            {isBudgetRoute && (
+                                <button
+                                    onClick={() => setOrderModalType('budget')}
+                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                                >
+                                    <i className="bi bi-plus-lg text-lg" />
+                                    Novo Orçamento
+                                </button>
+                            )}
+                            {isAssistanceRoute && (
+                                <button
+                                    onClick={() => setOrderModalType('assistance')}
+                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/20 transition-all active:scale-95"
+                                >
+                                    <i className="bi bi-tools text-lg" />
+                                    Nova Assistência
+                                </button>
+                            )}
+                            {isReturnRoute && (
+                                <button
+                                    onClick={() => setOrderModalType('return')}
+                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-amber-500/20 transition-all active:scale-95"
+                                >
+                                    <i className="bi bi-arrow-return-left text-lg" />
+                                    Nova Devolução
+                                </button>
+                            )}
+                            {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
+                                <button
+                                    onClick={() => setOrderModalType('sale')}
+                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                >
+                                    <i className="bi bi-plus-lg text-lg" />
+                                    Nova Venda
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex gap-2">
-                        <Link
-                            to="/settings"
-                            className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
-                            title="Configurações do Sistema"
+                    {/* Integrated Tab Navigation */}
+                    <div className="flex p-1.5 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[2rem] border border-white dark:border-slate-700/50 w-fit">
+                        <button
+                            onClick={() => navigate('/sales-order')}
+                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute
+                                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-premium-sm' 
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
                         >
-                            <i className="bi bi-gear-fill text-lg" />
-                        </Link>
-                        {/* Botões de Navegação entre Seções */}
-                        {!isBudgetRoute && (
-                            <button
-                                onClick={() => navigate('/budgets')}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-sm shadow-blue-100 dark:shadow-none transition-all active:scale-95 border border-blue-100 dark:border-blue-900/30"
-                                title="Ir para Orçamentos"
-                            >
-                                <i className="bi bi-calculator-fill text-sm" />
-                                Orçamentos
-                            </button>
-                        )}
-                        {!isAssistanceRoute && (
-                            <button
-                                onClick={() => navigate('/assistance-orders')}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-sm shadow-orange-100 dark:shadow-none transition-all active:scale-95 border border-orange-100 dark:border-orange-900/30"
-                                title="Ir para Assistências"
-                            >
-                                <i className="bi bi-tools text-sm" />
-                                Assistências
-                            </button>
-                        )}
-                        {(isBudgetRoute || isAssistanceRoute) && (
-                            <button
-                                onClick={() => navigate('/sales-order')}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-sm shadow-emerald-100 dark:shadow-none transition-all active:scale-95 border border-emerald-100 dark:border-emerald-900/30"
-                                title="Ir para Vendas"
-                            >
-                                <i className="bi bi-cart-check-fill text-sm" />
-                                Vendas
-                            </button>
-                        )}
+                            <i className={`bi ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute ? 'bi-cart-check-fill' : 'bi-cart-check'} text-lg`} />
+                            Vendas
+                        </button>
+                        
+                        <button
+                            onClick={() => navigate('/budgets')}
+                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${isBudgetRoute
+                                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-premium-sm' 
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                        >
+                            <i className={`bi ${isBudgetRoute ? 'bi-calculator-fill' : 'bi-calculator'} text-lg`} />
+                            Orçamentos
+                        </button>
 
-                        <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1 hidden min-[1100px]:block" />
+                        <button
+                            onClick={() => navigate('/assistance-orders')}
+                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${isAssistanceRoute
+                                ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-premium-sm' 
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                        >
+                            <i className={`bi ${isAssistanceRoute ? 'bi-tools' : 'bi-wrench'} text-lg`} />
+                            Assistências
+                        </button>
 
-                        {/* Botão de Criação Principal - Sempre à Direita */}
-                        {isBudgetRoute && (
-                            <button
-                                onClick={() => setOrderModalType('budget')}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-44"
-                            >
-                                <i className="bi bi-plus-lg text-sm" />
-                                Novo Orçamento
-                            </button>
-                        )}
-                        {isAssistanceRoute && (
-                            <button
-                                onClick={() => setOrderModalType('assistance')}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-orange-200 dark:shadow-none transition-all active:scale-95 w-44"
-                            >
-                                <i className="bi bi-tools text-sm" />
-                                Nova Assistência
-                            </button>
-                        )}
-                        {!isBudgetRoute && !isAssistanceRoute && (
-                            <button
-                                onClick={() => setOrderModalType('sale')}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 w-44"
-                            >
-                                <i className="bi bi-plus-lg text-sm" />
-                                Nova Venda
-                            </button>
-                        )}
+                        <button
+                            onClick={() => navigate('/returns')}
+                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${isReturnRoute
+                                ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-premium-sm' 
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                        >
+                            <i className={`bi ${isReturnRoute ? 'bi-arrow-return-left' : 'bi-arrow-return-left'} text-lg font-black`} />
+                            Devoluções
+                        </button>
                     </div>
                 </div>
 
@@ -265,6 +296,9 @@ const SalesOrder = () => {
                                     </div>
                                     <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-100/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/50 border-l-[4px] border-l-purple-700 rounded-lg shadow-sm">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-purple-800 dark:text-purple-300">Retirada</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 border-l-[4px] border-l-amber-500 rounded-lg shadow-sm">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Devolução</span>
                                     </div>
                                 </div>
                             )}
@@ -332,6 +366,11 @@ const SalesOrder = () => {
                             highlightOrderId={highlightOrderId}
                             ref={orderListRef}
                             onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
+                            onAction={(key, order) => {
+                                if (key === 'generateReturn') {
+                                    setReturningOrder(order);
+                                }
+                            }}
                         />
                     </div>
                 </div>
@@ -380,6 +419,11 @@ const SalesOrder = () => {
                                     highlightOrderId={highlightOrderId}
                                     ref={trashListRef}
                                     onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
+                                    onAction={(key, order) => {
+                                        if (key === 'generateReturn') {
+                                            setReturningOrder(order);
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>
@@ -438,10 +482,10 @@ const SalesOrder = () => {
             )}
 
 
-            {(orderModalType === 'sale' || orderModalType === 'pickup' || orderModalType === 'budget') && (
+            {(orderModalType === 'sale' || orderModalType === 'pickup' || orderModalType === 'budget' || orderModalType === 'return') && (
                 <NewSaleOrder
                     initialDeliveryMethod={orderModalType === 'pickup' ? 'pickup' : 'delivery'}
-                    orderType={orderModalType === 'budget' ? 'budget' : 'sale'}
+                    orderType={orderModalType === 'budget' ? 'budget' : (orderModalType === 'return' ? 'return' : 'sale')}
                     onClose={() => setOrderModalType(null)}
                     onSaveSuccess={(id, order) => {
                         if (id) {
@@ -505,6 +549,19 @@ const SalesOrder = () => {
                 <PostOrderActionsModal 
                     order={postOrderDetails} 
                     onClose={() => setPostOrderDetails(null)} 
+                />
+            )}
+
+            {returningOrder && (
+                <ReturnOrderModal
+                    order={returningOrder}
+                    onClose={() => setReturningOrder(null)}
+                    onSuccess={(newId) => {
+                        setReturningOrder(null);
+                        orderListRef.current?.refresh();
+                        // Redirect or show return OS? 
+                        // For now just refresh
+                    }}
                 />
             )}
         </div>

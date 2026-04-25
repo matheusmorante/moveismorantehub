@@ -454,7 +454,9 @@ const OrderHistoryCard = ({
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <i className={`bi ${btn.icon} text-base`} />
-                                                        <span className="text-[9px] font-black uppercase tracking-widest">{btn.label}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">
+                                                            {typeof btn.label === 'function' ? btn.label(order) : btn.label}
+                                                        </span>
                                                     </div>
                                                     {order.isButtonsClicked?.[btn.key] && (
                                                         <i className="bi bi-check-circle-fill text-emerald-500 animate-in zoom-in-50 duration-300" />

@@ -164,9 +164,10 @@ const OrderHistoryRow = ({
         switch (key) {
             case 'id':
                 const isAssistance = order.orderType === 'assistance';
+                const isReturn = order.orderType === 'return';
                 const isPickup = order.shipping?.deliveryMethod === 'pickup';
-                const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
-                const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-600');
+                const typeIcon = isAssistance ? 'bi-tools' : (isReturn ? 'bi-arrow-return-left' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'));
+                const typeColor = isAssistance ? 'text-orange-500' : (isReturn ? 'text-amber-500' : (isPickup ? 'text-purple-500' : 'text-green-600'));
 
                 return (
                     <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
@@ -310,9 +311,10 @@ const OrderHistoryRow = ({
                 );
             case 'customer':
                 const isAssis = order.orderType === 'assistance';
+                const isRet = order.orderType === 'return';
                 const isPick = order.shipping?.deliveryMethod === 'pickup';
-                const tIcon = isAssis ? 'bi-tools' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck');
-                const tColor = isAssis ? 'text-orange-600' : (isPick ? 'text-purple-600' : 'text-green-600');
+                const tIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck'));
+                const tColor = isAssis ? 'text-orange-600' : (isRet ? 'text-amber-600' : (isPick ? 'text-purple-600' : 'text-green-600'));
 
                 const sIcons: Record<string, string> = {
                     draft: 'bi-clock',
@@ -353,7 +355,7 @@ const OrderHistoryRow = ({
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
                                         className={`flex items-center justify-center w-6 h-6 rounded-md ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 hover:brightness-95 dark:hover:brightness-125 transition-all shadow-sm border border-white/50 dark:border-slate-800/20`}
-                                        title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}`}
+                                        title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isRet ? 'Devolução' : (isPick ? 'Retirada' : 'Entrega'))}`}
                                     >
                                         <i className={`bi ${sIcon} ${currentStatus.text} text-[10px]`} />
                                     </button>
@@ -628,16 +630,16 @@ const OrderHistoryRow = ({
                                                         {/* Edit Button moved below stock */}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
-                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : 'text-emerald-600'}`}
-                                                            title={`Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : 'a venda'}`}
+                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}
+                                                            title={`Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
                                                         >
                                                             <i className="bi bi-pencil-fill text-lg" />
                                                             <div className="flex flex-col text-left">
                                                                 <span className="text-xs font-black uppercase tracking-widest">
-                                                                    {order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : 'Editar Venda'}
+                                                                    {order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : order.orderType === 'return' ? 'Editar Devolução' : 'Editar Venda'}
                                                                 </span>
                                                                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                                                    Alterar dados d{order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'o orçamento' : 'a venda'}
+                                                                    Alterar dados d{order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'o orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}
                                                                 </span>
                                                             </div>
                                                         </button>
@@ -668,7 +670,9 @@ const OrderHistoryRow = ({
                                                             >
                                                                 <div className="flex items-center gap-3 text-left">
                                                                     <i className={`bi ${btn.icon} text-lg`} />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest">{btn.label}</span>
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                                                        {typeof btn.label === 'function' ? btn.label(order) : btn.label}
+                                                                    </span>
                                                                 </div>
                                                                 {isClicked && (
                                                                     <i className="bi bi-check-circle-fill text-emerald-500 animate-in zoom-in-50 duration-300" />

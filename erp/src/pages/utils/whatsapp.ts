@@ -22,7 +22,9 @@ const buildDeliveryMessage = (order: Order) => {
     let message = settings.whatsappTemplates?.deliveryInfo || "";
     
     if (!message) {
-        message = `Novo Pedido para ${customer.fullName || "Cliente"}...`; 
+        message = order.shipping?.deliveryMethod === 'pickup' 
+            ? `*REIRA: Novo Pedido para Retirada de ${customer.fullName || "Cliente"}*` 
+            : `Novo Pedido para ${customer.fullName || "Cliente"}...`; 
     }
 
     const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -32,7 +34,7 @@ const buildDeliveryMessage = (order: Order) => {
         itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
     }
 
-    return message
+    let finalMessage = message
         .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
         .replace(/{{deliveryDate}}/g, () => date)
         .replace(/{{deliveryTime}}/g, () => time)
@@ -46,6 +48,15 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{observation}}/g, () => order.observation || "Sem observações")
         .replace(/{{seller}}/g, () => order.seller || "Não informado")
         .replace(/{{routeUrl}}/g, () => customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");
+
+    if (order.shipping?.deliveryMethod === 'pickup') {
+        finalMessage = finalMessage
+            .replace(/Entrega/g, 'Retirada')
+            .replace(/entrega/g, 'retirada')
+            .replace(/ENTREGA/g, 'RETIRADA');
+    }
+
+    return finalMessage;
 };
 
 const buildCustomerOrderMessage = (order: Order) => {
@@ -63,7 +74,7 @@ const buildCustomerOrderMessage = (order: Order) => {
         itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
     }
     
-    return message
+    let finalMessage = message
         .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
         .replace(/{{deliveryDate}}/g, () => date)
         .replace(/{{deliveryTime}}/g, () => time)
@@ -72,6 +83,15 @@ const buildCustomerOrderMessage = (order: Order) => {
         .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
         .replace(/{{seller}}/g, () => order.seller || "Não informado")
         .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []));
+
+    if (order.shipping?.deliveryMethod === 'pickup') {
+        finalMessage = finalMessage
+            .replace(/Entrega/g, 'Retirada')
+            .replace(/entrega/g, 'retirada')
+            .replace(/ENTREGA/g, 'RETIRADA');
+    }
+
+    return finalMessage;
 };
 
 export const shippingOrderWhatsappUrl = (order: Order) => {

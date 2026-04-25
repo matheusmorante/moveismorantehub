@@ -16,6 +16,7 @@ interface NewSaleOrderProps {
 const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType = 'sale' }: NewSaleOrderProps) => {
     const form = useSalesOrderForm(initialDeliveryMethod, orderType);
     const isBudget = orderType === 'budget';
+    const isReturn = orderType === 'return';
     const isPickup = form.state.shipping.deliveryMethod === 'pickup';
     const isEditing = false;
     const [isSellerSearchOpen, setIsSellerSearchOpen] = React.useState(false);
@@ -65,17 +66,17 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-wrap justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isPickup ? 'px-12 py-7 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
+                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-wrap justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'px-12 py-7 bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'px-12 py-7 bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'px-12 py-7 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
                     <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setIsScrolled(false)}>
-                        <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
-                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
+                        <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
+                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
                         </div>
                         <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95 overflow-hidden' : 'opacity-100 scale-100'}`}>
-                            <h2 className={`text-2xl font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
-                                {isBudget ? 'Novo Orçamento' : 'Novo Pedido de Venda'}
+                            <h2 className={`text-2xl font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
+                                {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova Devolução' : 'Novo Pedido de Venda'}
                             </h2>
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-blue-500 transition-colors">
-                                {isBudget ? 'Simulação de Venda' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
+                                {isBudget ? 'Simulação de Venda' : isReturn ? 'Devolução de Itens' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
                             </p>
                         </div>
                     </div>
@@ -113,7 +114,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
                                 onClick={() => setIsSellerSearchOpen(true)}
                                 className="group flex items-center gap-4 px-5 py-2 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
                             >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
                                     <i className="bi bi-person-badge-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col text-left">
@@ -128,7 +129,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
 
                             {/* Date Selection */}
                             <div className="group flex items-center gap-4 px-5 py-2">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
                                     <i className="bi bi-calendar-event-fill text-lg" />
                                 </div>
                                 <div className="flex flex-col">
@@ -151,7 +152,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
                                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
                             >
                                 {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
-                                {isBudget ? 'Salvar Orçamento' : 'Cadastrar Venda'}
+                                {isBudget ? 'Salvar Orçamento' : isReturn ? 'Salvar Devolução' : 'Cadastrar Venda'}
                             </button>
                         </div>
 

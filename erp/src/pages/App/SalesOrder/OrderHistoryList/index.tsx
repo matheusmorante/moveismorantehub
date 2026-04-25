@@ -13,6 +13,7 @@ type OrderHistoryListProps = {
     onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
     highlightOrderId?: string | null;
     onFilterByOrderId?: (id: string) => void;
+    onAction?: (actionKey: string, order: Order) => void;
 };
 
 export interface OrderHistoryListRef {
@@ -20,7 +21,7 @@ export interface OrderHistoryListRef {
 }
 
 
-const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId, onFilterByOrderId }, ref) => {
+const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId, onFilterByOrderId, onAction: onActionProp }, ref) => {
     const [confirmModal, setConfirmModal] = React.useState<{
         isOpen: boolean;
         title: string;
@@ -109,6 +110,11 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     const [stockModal, setStockModal] = React.useState<{ order: Order, type: 'withdrawal' | 'entry' } | null>(null);
 
     const onAction = (actionKey: string, order: Order) => {
+        // External listener first
+        if (onActionProp) {
+            onActionProp(actionKey, order);
+        }
+
         if (actionKey === 'stockWithdrawal') {
             setStockModal({ order, type: 'withdrawal' });
             return;

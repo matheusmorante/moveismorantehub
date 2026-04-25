@@ -109,6 +109,7 @@ function Router() {
             <Route path='/sales-order' element={<SalesOrder />} />
             <Route path='/budgets' element={<SalesOrder />} />
             <Route path='/assistance-orders' element={<SalesOrder />} />
+            <Route path='/returns' element={<SalesOrder />} />
             <Route path='/sales-order/reports' element={<SalesOrderReports />} />
             <Route path='/sales-order/reports/:id' element={<Suspense fallback={null}><SalesOrderReportView /></Suspense>} />
             <Route path='/sales-order/reports-bling' element={<Suspense fallback={null}><SalesOrderReportsBling /></Suspense>} />

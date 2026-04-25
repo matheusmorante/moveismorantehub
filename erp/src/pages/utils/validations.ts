@@ -61,7 +61,7 @@ export const validateCustomerData = (customer: CustomerData, isPickup: boolean =
         errors['customer_fullName'] = "Nome completo é obrigatório.";
     }
 
-    if (!customer.noPhone && (!customer.phone || !customer.phone.trim())) {
+    if (!customer.noPhone && !isPickup && (!customer.phone || !customer.phone.trim())) {
         errors['customer_phone'] = "Telefone/Celular é obrigatório.";
     }
 

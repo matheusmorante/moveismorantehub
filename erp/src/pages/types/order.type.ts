@@ -3,7 +3,7 @@ import CustomerData from "./customerData.type";
 import { Payment, PaymentsSummary } from "./payments.type";
 import Shipping from "./Shipping.type";
 
-export type OrderType = 'sale' | 'assistance' | 'showroom' | 'budget';
+export type OrderType = 'sale' | 'assistance' | 'showroom' | 'budget' | 'return';
 
 export type AssistanceItem = {
     id: string; // ID for internal keying
@@ -59,7 +59,10 @@ export type OrderAction =
     'GENERATE_PAYMENT_LINK' |
     'PRINT_BUDGET' |
     'SEND_BUDGET' |
-    'SEND_GROUP_INVITE'
+    'SEND_GROUP_INVITE' |
+    'PRINT_ASSISTANCE_OS' |
+    'GENERATE_RETURN' |
+    'PRINT_RETURN_OS'
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -78,7 +81,10 @@ export type IsButtonsClicked = {
     sendCustomerOrderDetails: boolean,
     sendAssistanceOS: boolean,
     sendBudget: boolean,
-    sendGroupInvite: boolean
+    sendGroupInvite: boolean,
+    printAssistanceOS: boolean,
+    generateReturn: boolean,
+    printReturnOS: boolean
 }
 
 export type VisibilitySettings = {

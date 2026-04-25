@@ -118,6 +118,7 @@ export const useOrderHistory = (filters?: any) => {
 
                 const isBudgetView = filters?.isBudgetView || false;
                 const isAssistanceView = filters?.isAssistanceView || false;
+                const isReturnView = filters?.isReturnView || false;
                 const statusMatch = !filters.status || order.status === filters.status;
                 
                 // Strict Type Separation
@@ -126,11 +127,13 @@ export const useOrderHistory = (filters?: any) => {
                     typeMatch = order.orderType === 'budget';
                 } else if (isAssistanceView) {
                     typeMatch = order.orderType === 'assistance';
+                } else if (isReturnView) {
+                    typeMatch = order.orderType === 'return';
                 } else {
-                    // Sales view: Only show sale or showroom, exclude budget and assistance
+                    // Sales view: Only show sale or showroom, exclude budget, assistance and return
                     typeMatch = filters.orderType 
                         ? order.orderType === filters.orderType 
-                        : (order.orderType !== 'budget' && order.orderType !== 'assistance');
+                        : (order.orderType !== 'budget' && order.orderType !== 'assistance' && order.orderType !== 'return');
                 }
 
                 const sellerMatch = !filters.seller || order.seller?.toLowerCase().includes(filters.seller.toLowerCase());
