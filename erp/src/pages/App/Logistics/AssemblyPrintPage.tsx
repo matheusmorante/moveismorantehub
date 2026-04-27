@@ -76,8 +76,8 @@ const AssemblyPrintPage = () => {
             const unified = [...orderTasks, ...showcaseTasks]
                 .filter(item => !item.date || item.date >= yesterdayStr)
                 .sort((a, b) => {
-                    if (a.date !== b.date) return b.date.localeCompare(a.date);
-                    return (b.id || "").localeCompare(a.id || "");
+                    if (a.date !== b.date) return a.date.localeCompare(b.date);
+                    return (a.id || "").localeCompare(b.id || "");
                 });
 
             setItems(unified);
@@ -104,7 +104,7 @@ const AssemblyPrintPage = () => {
         return acc;
     }, {});
 
-    const sortedDates = Object.keys(groupedItems).sort((a, b) => b.localeCompare(a));
+    const sortedDates = Object.keys(groupedItems).sort((a, b) => a.localeCompare(b));
 
     return (
         <div className="p-8 bg-white text-slate-900 min-h-screen font-sans printable-area">

@@ -60,7 +60,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
         if (method === 'Dinheiro') return 'bi-cash-coin text-emerald-500';
         if (method === 'Cartão de Débito') return 'bi-credit-card text-blue-500';
         if (method.includes('Crédito')) return 'bi-credit-card-2-front text-indigo-500';
-        if (method === 'WhatsApp') return 'bi-whatsapp text-green-500';
+        if (method.includes('Promissória')) return 'bi-journal-text text-amber-500';
         return 'bi-question-circle text-slate-400';
     };
 
@@ -68,7 +68,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
         const icon = getPaymentIcon(method);
         let detail = "";
 
-        if (method.includes('Crédito') && payment.amount > 0) {
+        if ((method.includes('Crédito') || method.includes('Promissória')) && payment.amount > 0) {
             const match = method.match(/(\d+)x/);
             if (match) {
                 const n = parseInt(match[1]);

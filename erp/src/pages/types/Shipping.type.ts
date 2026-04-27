@@ -6,6 +6,8 @@ type Shipping = {
     orderType: string,
     scheduling: {
         date: string,
+        endDate?: string,   // final do período se dateType for 'range'
+        dateType?: 'fixed' | 'range',
         time: string, // legacy/display
         startTime?: string, // HH:mm
         endTime?: string,   // HH:mm

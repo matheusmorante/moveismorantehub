@@ -15,7 +15,7 @@ const ShippingData = ({ shipping, isBudget }: Props) => {
         <section className='flex flex-col gap-2 w-full text-xs bg-slate-50/50 p-3 rounded-2xl border border-slate-50'>
             <div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-1 flex items-center gap-2">
-                    <i className="bi bi-truck text-base"></i> ENTREGA E FRETE
+                    <i className={`bi ${shipping.deliveryMethod === 'pickup' ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-base`}></i> {shipping.deliveryMethod === 'pickup' ? 'RETIRADA' : 'ENTREGA E FRETE'}
                 </h3>
                 
                 <div className="grid grid-cols-2 gap-1 mb-1">
@@ -58,10 +58,14 @@ const ShippingData = ({ shipping, isBudget }: Props) => {
             {!isBudget && (
                 <div>
                     <div className="flex flex-col gap-1 bg-white p-1.5 rounded-xl border border-slate-100">
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Previsão de Entrega</span>
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Previsão de {shipping.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}</span>
                         <div className="flex items-center gap-3 text-slate-900 font-bold text-base">
                             <i className="bi bi-calendar-event text-blue-500 text-sm"></i>
-                            <span>{formatDate(shippingDate)}</span>
+                            <span>
+                                {shipping.scheduling?.dateType === 'range' && shipping.scheduling?.endDate
+                                    ? `${formatDate(shipping.scheduling.date)} até ${formatDate(shipping.scheduling.endDate)}`
+                                    : formatDate(shipping.scheduling?.date)}
+                            </span>
                             <span className="text-slate-200 mx-2">|</span>
                             <i className="bi bi-clock text-blue-500 text-sm"></i>
                             <span>{shipping.scheduling?.time || shipping.scheduling?.startTime}</span>

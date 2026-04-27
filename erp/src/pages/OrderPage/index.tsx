@@ -36,12 +36,16 @@ const OrderPage = () => {
         }
     }, [order]);
 
+    const isAssistance = order.orderType === 'assistance';
+    const isPickup = order.shipping?.deliveryMethod === 'pickup';
+    const headerColor = isAssistance ? 'bg-orange-500' : (isPickup ? 'bg-purple-700' : 'bg-emerald-700');
+
     if (!order) return null;
 
     return (
         <div className="flex flex-col gap-2 text-slate-900 bg-white min-h-screen px-4 py-2 font-sans transition-colors duration-300">
             {/* Professional Header */}
-            <div className={`flex justify-between items-center p-4 rounded-3xl mb-2 ${order.shipping?.deliveryMethod === 'pickup' ? 'bg-purple-700 text-white' : 'bg-emerald-700 text-white'} print-exact-bg shadow-lg`}>
+            <div className={`flex justify-between items-center p-4 rounded-3xl mb-2 ${headerColor} text-white print-exact-bg shadow-lg`}>
                 <div className="flex gap-4 items-center">
                     <img src={logoMorante} alt="Móveis Morante" className="w-14 h-14 rounded-full object-cover border-4 border-white/20 shadow-md" />
                     <div>
@@ -51,9 +55,11 @@ const OrderPage = () => {
                 </div>
                 <div className="text-right">
                     <div className="text-xl font-black uppercase tracking-tighter leading-none">
-                        {order.shipping?.deliveryMethod === 'pickup' 
-                            ? 'PEDIDO DE RETIRADA' 
-                            : (isBudget ? 'ORÇAMENTO / PROPOSTA COMERCIAL' : 'PEDIDO DE ENTREGA')}
+                        {isAssistance 
+                            ? 'ORDEM DE SERVIÇO (ASSISTÊNCIA)'
+                            : (isPickup 
+                                ? 'PEDIDO DE RETIRADA' 
+                                : (isBudget ? 'ORÇAMENTO / PROPOSTA COMERCIAL' : 'PEDIDO DE ENTREGA'))}
                     </div>
                     <div className="text-[11px] font-bold opacity-90 mt-2 uppercase tracking-tight flex items-center justify-end gap-2">
                         <i className="bi bi-calendar-check"></i>

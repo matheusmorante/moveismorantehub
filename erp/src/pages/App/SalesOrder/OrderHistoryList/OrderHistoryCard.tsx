@@ -341,7 +341,11 @@ const OrderHistoryCard = ({
                             <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">Entrega</span>
                             <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 font-bold">
                                 <i className="bi bi-truck text-[11px]" />
-                                <span className="text-[10px]">{formatToBRDate(order.shipping.scheduling.date)}</span>
+                                <span className="text-[10px]">
+                                    {order.shipping.scheduling.dateType === 'range' && order.shipping.scheduling.endDate 
+                                        ? `${formatToBRDate(order.shipping.scheduling.date)} até ${formatToBRDate(order.shipping.scheduling.endDate)}`
+                                        : formatToBRDate(order.shipping.scheduling.date)}
+                                </span>
                             </div>
                         </div>
                     )}

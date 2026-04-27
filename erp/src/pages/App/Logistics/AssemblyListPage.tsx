@@ -121,8 +121,8 @@ const AssemblyListPage = () => {
             const unified = [...(currentOrderTasks || orderTasks), ...showcaseTasks]
                 .filter(item => !item.date || item.date >= yesterdayStr)
                 .sort((a, b) => {
-                    if (a.date !== b.date) return b.date.localeCompare(a.date);
-                    return (b.id || "").localeCompare(a.id || "");
+                    if (a.date !== b.date) return a.date.localeCompare(b.date);
+                    return (a.id || "").localeCompare(b.id || "");
                 });
 
             setAssemblies(unified);
@@ -231,7 +231,7 @@ const AssemblyListPage = () => {
             return acc;
         }, {} as Record<string, any[]>);
 
-        const sortedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+        const sortedKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
 
         if (loading) {
             return (
@@ -369,7 +369,7 @@ const AssemblyListPage = () => {
                                             return acc;
                                         }, {} as Record<string, any[]>);
 
-                                        const sortedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+                                        const sortedKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
 
                                         return sortedKeys.map(dateKey => (
                                             <React.Fragment key={dateKey}>

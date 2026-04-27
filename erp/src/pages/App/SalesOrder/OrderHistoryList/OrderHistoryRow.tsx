@@ -224,7 +224,9 @@ const OrderHistoryRow = ({
                         <div className="flex flex-col gap-0.5 relative">
                             <div className="flex flex-col">
                                 <span className={`text-sm font-bold ${isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                    {formatToBRDate(deliveryDateStr)}
+                                    {order.shipping?.scheduling?.dateType === 'range' && order.shipping?.scheduling?.endDate 
+                                       ? `${formatToBRDate(deliveryDateStr)} até ${formatToBRDate(order.shipping.scheduling.endDate)}` 
+                                       : formatToBRDate(deliveryDateStr)}
                                 </span>
                                 {(() => {
                                     const sched = order.shipping?.scheduling;

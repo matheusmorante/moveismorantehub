@@ -214,6 +214,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         setItems(order.items || []);
         const defaultScheduling = {
             date: "",
+            endDate: "",
+            dateType: "fixed" as const,
             time: "",
             startTime: "",
             endTime: "",

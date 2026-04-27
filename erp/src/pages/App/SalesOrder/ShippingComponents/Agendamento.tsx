@@ -19,138 +19,142 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                 {isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega'}
             </label>
             <div className={`bg-white dark:bg-slate-900 border p-4 sm:p-5 lg:p-6 rounded-3xl sm:rounded-[2rem] shadow-sm w-full transition-all ${hasError ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800'}`}>
-                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 relative group w-full">
-                    {/* Date */}
-                    {isPickup && (
-                        <div className="absolute -top-10 right-0 flex items-center gap-2">
-                             <button
-                                type="button"
-                                onClick={() => {
-                                    const now = new Date();
-                                    const date = now.toISOString().split('T')[0];
-                                    const hours = String(now.getHours()).padStart(2, '0');
-                                    const mins = String(now.getMinutes()).padStart(2, '0');
-                                    const time = `${hours}:${mins}`;
-                                    
-                                    onChangeScheduling("notInformed", false);
-                                    onChangeScheduling("date", date);
-                                    onChangeScheduling("type", "fixed");
-                                    onChangeScheduling("startTime", time);
-                                    onChangeScheduling("endTime", "");
-                                }}
-                                className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border bg-emerald-500 border-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-95"
-                                title="Define a data e hora como o momento atual (Já retirado pelo cliente)"
-                            >
-                                <i className="bi bi-lightning-fill mr-1" /> Retirada Imediata
-                            </button>
+                
+                {/* Top Action Buttons (Pickup only) */}
+                {isPickup && (
+                    <div className="flex justify-end mb-4">
+                            <button
+                            type="button"
+                            onClick={() => {
+                                const now = new Date();
+                                const date = now.toISOString().split('T')[0];
+                                const hours = String(now.getHours()).padStart(2, '0');
+                                const mins = String(now.getMinutes()).padStart(2, '0');
+                                const time = `${hours}:${mins}`;
+                                
+                                onChangeScheduling("notInformed", false);
+                                onChangeScheduling("date", date);
+                                onChangeScheduling("endDate", "");
+                                onChangeScheduling("dateType", "fixed");
+                                onChangeScheduling("type", "fixed");
+                                onChangeScheduling("startTime", time);
+                                onChangeScheduling("endTime", "");
+                            }}
+                            className="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border bg-emerald-500 border-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-95 flex items-center gap-2"
+                            title="Define a data e hora como o momento atual (Já retirado pelo cliente)"
+                        >
+                            <i className="bi bi-lightning-fill" /> Retirada Imediata
+                        </button>
+                    </div>
+                )}
 
-                             {/* Delivery scheduling is now mandatory, no "notInformed" option for delivery */}
-                             {isPickup && false && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const newValue = !scheduling.notInformed;
-                                        onChangeScheduling("notInformed", newValue);
-                                        if (newValue) {
-                                            onChangeScheduling("date", "");
-                                            onChangeScheduling("startTime", "");
-                                            onChangeScheduling("endTime", "");
-                                        }
-                                    }}
-                                    className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border ${
-                                        scheduling.notInformed 
-                                            ? 'bg-amber-500 border-amber-500 text-white shadow-sm' 
-                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-amber-500 hover:text-amber-500'
-                                    }`}
-                                >
-                                    {scheduling.notInformed ? '📅 Informar Agendamento' : '🚫 Não informar'}
-                                </button>
-                             )}
-                        </div>
-                    )}
+                {!scheduling.notInformed ? (
+                    <div className="flex flex-col gap-6 w-full">
+                        {/* Section 1: DATE */}
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
+                                <div className="w-full sm:w-auto min-w-[140px]">
+                                    <select
+                                        className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
+                                        value={scheduling.dateType || 'fixed'}
+                                        onChange={(e) => onChangeScheduling("dateType", e.target.value as any)}
+                                    >
+                                        <option value="fixed" className="dark:bg-slate-900">Data Fixa</option>
+                                        <option value="range" className="dark:bg-slate-900">Período de Datas</option>
+                                    </select>
+                                </div>
 
-                    {!scheduling.notInformed ? (
-                        <>
-                            <div className="flex-1 min-w-[140px] w-full relative">
-                                <input
-                                    type="date"
-                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
-                                    value={scheduling.date}
-                                    onChange={(e) => onChangeScheduling("date", e.target.value)}
-                                />
-                                {errors['shipping_date'] && (
-                                    <div className="absolute left-0 -top-10 hidden group-hover:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
-                                        {errors['shipping_date']}
-                                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                <div className="flex-1 flex flex-row items-center gap-3 relative group w-full">
+                                    <div className="flex-1 relative">
+                                        <input
+                                            type="date"
+                                            className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                            value={scheduling.date}
+                                            onChange={(e) => onChangeScheduling("date", e.target.value)}
+                                        />
+                                        {errors['shipping_date'] && (
+                                            <div className="absolute left-0 -top-10 hidden group-hover:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
+                                                {errors['shipping_date']}
+                                                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+
+                                    {scheduling.dateType === 'range' && (
+                                        <>
+                                            <span className="text-[10px] font-black uppercase text-slate-300 dark:text-slate-500 tracking-widest shrink-0 px-1">Até</span>
+                                            <div className="flex-1 relative">
+                                                <input
+                                                    type="date"
+                                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                                    value={scheduling.endDate || ''}
+                                                    onChange={(e) => onChangeScheduling("endDate", e.target.value)}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                        </>
-                    ) : (
-                        <div className="flex-1 bg-amber-50/50 dark:bg-amber-900/10 border border-dashed border-amber-200 dark:border-amber-900/30 rounded-xl px-4 py-2 flex items-center gap-3">
-                            <span className="text-amber-600 dark:text-amber-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                            </span>
-                            <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                        </div>
+
+                        {/* Section 2: TIME */}
+                        <div className="flex flex-col gap-3 py-4 border-t border-slate-100 dark:border-slate-800/50">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full py-2">
+                                <div className="w-full sm:w-auto min-w-[140px]">
+                                    <select
+                                        className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
+                                        value={scheduling.type || 'fixed'}
+                                        onChange={(e) => onChangeScheduling("type", e.target.value as any)}
+                                    >
+                                        <option value="fixed" className="dark:bg-slate-900">Horário Fixo</option>
+                                        <option value="range" className="dark:bg-slate-900">Intervalo de Horas</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex-1 flex flex-row items-center gap-3 relative group w-full">
+                                    <div className="flex-1 relative group/time">
+                                        <input
+                                            type="time"
+                                            className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                            value={scheduling.startTime || ''}
+                                            onChange={(e) => onChangeScheduling("startTime", e.target.value)}
+                                        />
+                                        {errors['shipping_time'] && (
+                                            <div className="absolute left-0 -top-10 hidden group-hover/time:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
+                                                {errors['shipping_time']}
+                                                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {scheduling.type === 'range' && (
+                                        <>
+                                            <span className="text-[10px] font-black uppercase text-slate-300 dark:text-slate-500 tracking-widest shrink-0 px-1">Até</span>
+                                            <div className="flex-1 relative group/time">
+                                                <input
+                                                    type="time"
+                                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                                    value={scheduling.endTime || ''}
+                                                    onChange={(e) => onChangeScheduling("endTime", e.target.value)}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1 bg-amber-50/50 dark:bg-amber-900/10 border border-dashed border-amber-200 dark:border-amber-900/30 rounded-2xl px-6 py-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-500 grow-0 shrink-0">
+                            <i className="bi bi-exclamation-triangle-fill text-xl" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Aviso de Agendamento</span>
+                            <span className="text-[11px] font-medium text-amber-600/80 dark:text-amber-500/80 uppercase tracking-tight">
                                 Data e horário não serão informados para esta {isPickup ? 'retirada' : 'entrega'}
                             </span>
                         </div>
-                    )}
-                </div>
-
-                {!scheduling.notInformed && (
-                    <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 mt-4 w-full">
-                        {/* Type Select */}
-                        <div className="w-full sm:w-auto min-w-[120px]">
-                            <select
-                                className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
-                                value={scheduling.type || 'fixed'}
-                                onChange={(e) => onChangeScheduling("type", e.target.value as any)}
-                            >
-                                <option value="fixed" className="dark:bg-slate-900">Horário Fixo</option>
-                                <option value="range" className="dark:bg-slate-900">Intervalo</option>
-                            </select>
-                        </div>
-
-                        {/* Time Inputs */}
-                        {scheduling.type === 'range' ? (
-                            <div className="flex flex-1 flex-row items-center gap-3 relative group/time min-w-[200px] w-full">
-                                <input
-                                    type="time"
-                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
-                                    value={scheduling.startTime || ''}
-                                    onChange={(e) => onChangeScheduling("startTime", e.target.value)}
-                                />
-                                <span className="text-[10px] font-black uppercase text-slate-300 dark:text-slate-500 tracking-widest shrink-0">Até</span>
-                                <input
-                                    type="time"
-                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
-                                    value={scheduling.endTime || ''}
-                                    onChange={(e) => onChangeScheduling("endTime", e.target.value)}
-                                />
-                                {errors['shipping_time'] && (
-                                    <div className="absolute left-0 -top-10 hidden group-hover/time:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
-                                        {errors['shipping_time']}
-                                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex-1 min-w-[120px] w-full relative group/time">
-                                <input
-                                    type="time"
-                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
-                                    value={scheduling.startTime || ''}
-                                    onChange={(e) => onChangeScheduling("startTime", e.target.value)}
-                                />
-                                {errors['shipping_time'] && (
-                                    <div className="absolute left-0 -top-10 hidden group-hover/time:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
-                                        {errors['shipping_time']}
-                                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                 )}
             </div>

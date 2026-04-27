@@ -27,6 +27,14 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **Relatório de Estoque (Giro e Reservas):** Adicionado novo botão de relatório na gestão de estoque que exibe de forma consolidada os produtos vendidos (finalizados) e a quantidade de pedidos/unidades em rascunho ou agendados, permitindo uma visão clara do comprometimento do estoque.
 - **Ajuste de Layout no Cronograma:** Implementada largura mínima para as colunas e cards de pedidos na visualização de tabela do cronograma logístico. Isso garante que as informações permaneçam legíveis e bem estruturadas, evitando o esmagamento das colunas em dias com muitos horários.
 
+### 🔄 Módulo de Devoluções e Reorganização de UI
+- **CRUD de Devoluções:** Implementado sistema completo de gestão de devoluções (Criar, Listar, Editar, Excluir).
+- **Interface por Abas:** Transformação da navegação principal de pedidos em um sistema de abas (Vendas, Orçamentos, Assistências e Devoluções) com visual moderno e glassmorphism.
+- **Identidade Âmbar:** Padronização visual do módulo de devoluções com a cor **Âmbar (#d97706)** para fácil distinção.
+- **Geração Vinculada:** Adicionada funcionalidade para gerar devoluções a partir de vendas ou showrooms existentes, permitindo a seleção seletiva de itens.
+- **Formas de Pagamento:** Removida a opção "WhatsApp" e adicionada a modalidade **"Promissória"** permitindo parcelamento em até 10x detalhado no resumo do pedido.
+- **Cartão de Crédito:** Expandido o parcelamento padrão para até 12x.
+
 
 
 

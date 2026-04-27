@@ -324,7 +324,7 @@ export const buttons: OrderButton[] = [
         key: "sendCustomerOrderDetails",  // details message
         icon: "bi-whatsapp",
         action: "SEND_ASSISTANCE_ORDER_DETAILS",
-        label: "WhatsApp Cliente",
+        label: "Enviar assistência para o cliente",
         color: "text-green-600 hover:bg-green-50",
         tooltip: "Enviar detalhes completos do pedido de assistência ao cliente",
         orderTypes: ['assistance']
@@ -333,7 +333,7 @@ export const buttons: OrderButton[] = [
         key: "sendCustomerReviews",
         icon: "bi-star-fill",
         action: "SEND_CUSTOMER_REVIEWS",
-        label: "Enviar Avaliação",
+        label: "Enviar pedido de avaliação",
         color: "text-yellow-500 hover:bg-yellow-50",
         tooltip: "Enviar pedido de avaliação da loja no Google Maps",
         orderTypes: ['sale']
@@ -387,7 +387,7 @@ export const buttons: OrderButton[] = [
         key: "sendBudget",
         icon: "bi-whatsapp",
         action: "SEND_BUDGET",
-        label: "WhatsApp Orçamento",
+        label: "Enviar orçamento para o cliente",
         color: "text-green-600 hover:bg-green-50",
         tooltip: "Enviar orçamento para o cliente via WhatsApp",
         orderTypes: ['budget']

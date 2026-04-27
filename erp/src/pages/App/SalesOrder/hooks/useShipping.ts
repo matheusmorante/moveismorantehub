@@ -15,6 +15,8 @@ const useShipping = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') 
                 orderType: defaultHandling,
                 scheduling: {
                     date: "",
+                    endDate: "",
+                    dateType: "fixed",
                     time: "",
                     startTime: "",
                     endTime: "",
