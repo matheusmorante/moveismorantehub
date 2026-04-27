@@ -146,21 +146,22 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
             const mobile = width < 1024;
             setIsMobile(mobile);
             
-            if (mobile) {
-                const TABLE_WIDTH = 5000;
-                const scaleW = (width - 10) / TABLE_WIDTH;
-                zoomState.current.scale = scaleW;
-                applyTransform();
-            } else {
-                zoomState.current.scale = 1;
-                applyTransform();
-            }
+            // Cálculo dinâmico da largura real da tabela:
+            // Coluna de data (120px) + (Número de horas * largura da coluna 280px)
+            const actualTableWidth = 120 + (HOURS.length * 280);
+            
+            // Calcula a escala exata para ocupar 100% da largura da tela (com um pequeno respiro de 10px)
+            const scaleW = (width - 10) / actualTableWidth;
+            
+            // Aplica a escala para que a tabela preencha a tela horizontalmente
+            zoomState.current.scale = scaleW;
+            applyTransform();
         };
 
         handleLayout();
         window.addEventListener('resize', handleLayout);
         return () => window.removeEventListener('resize', handleLayout);
-    }, [schedule]);
+    }, [schedule, HOURS]);
 
     const dragRef = useRef({
         isDragging: false,

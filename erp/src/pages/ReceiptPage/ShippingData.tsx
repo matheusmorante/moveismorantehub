@@ -36,7 +36,13 @@ const ShippingData = ({ shipping }: Props) => {
                 <div className="flex flex-col">
                     <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Agendamento</span>
                     <span className="text-sm font-bold text-slate-800 lowercase">
-                        {formatDate(shippingDate)} <span className="text-slate-400 px-1">entre</span> {shipping.scheduling.time}
+                        {shipping.scheduling?.dateType === 'range' && shipping.scheduling?.endDate
+                            ? `de ${formatDate(shipping.scheduling.date)} até ${formatDate(shipping.scheduling.endDate)}`
+                            : formatDate(shipping.scheduling?.date)}
+                        <span className="text-slate-400 px-1">|</span>
+                        {shipping.scheduling?.type === 'range' && shipping.scheduling?.startTime && shipping.scheduling?.endTime
+                            ? `${shipping.scheduling.startTime} às ${shipping.scheduling.endTime}`
+                            : (shipping.scheduling?.startTime || shipping.scheduling?.time || 'A combinar')}
                     </span>
                 </div>
              </div>

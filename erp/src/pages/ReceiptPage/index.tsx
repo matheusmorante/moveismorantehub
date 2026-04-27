@@ -57,7 +57,11 @@ const ReceiptPage = () => {
     return (
         <div className="flex flex-col gap-1 text-slate-900 bg-white p-4 min-h-screen">
             <Header seller={order.seller} />
-            <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
+            <CustomerData 
+                customerData={order.customerData} 
+                isPickup={order.shipping?.deliveryMethod === 'pickup'} 
+                noAddress={order.shipping?.noAddress}
+            />
             
             <ItemsTable items={order.items} summary={order.itemsSummary} />
 

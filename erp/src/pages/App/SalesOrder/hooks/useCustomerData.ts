@@ -6,6 +6,7 @@ export function useCustomerData() {
         fullName: '',
         phone: '',
         noPhone: false,
+        noAddress: false,
         fullAddress: {
             cep: '',
             street: '',

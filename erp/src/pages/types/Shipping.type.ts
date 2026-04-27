@@ -3,6 +3,7 @@ type Shipping = {
     distance?: number,
     durationMinutes?: number,
     deliveryMethod: 'delivery' | 'pickup',
+    noAddress?: boolean,
     orderType: string,
     scheduling: {
         date: string,

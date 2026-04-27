@@ -91,7 +91,9 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
         }
     }
 
-    if (shipping.deliveryMethod === 'delivery') {
+    const noAddressRequired = shipping.noAddress || (shipping.useCustomerAddress !== false && customer?.noAddress);
+    
+    if (shipping.deliveryMethod === 'delivery' && !noAddressRequired) {
         if (shipping.useCustomerAddress !== false) {
             // Using customer address
             const addr = customer?.fullAddress;

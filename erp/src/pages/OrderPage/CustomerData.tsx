@@ -3,14 +3,15 @@ import CustomerData from "../types/customerData.type"
 interface Props {
     customerData: CustomerData;
     isPickup?: boolean;
+    noAddress?: boolean;
 }
 
-const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
+const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
     const addr = customerData.fullAddress || {};
     const hasAnyAddress = !!(addr.street || addr.neighborhood || addr.city);
 
-    // If it's a pickup or COMPLETELY missing address fields, hide the address section.
-    const showAddress = !isPickup && hasAnyAddress;
+    // If it's a pickup, explicitly marked as noAddress, or COMPLETELY missing address fields, hide the address section.
+    const showAddress = !isPickup && !noAddress && hasAnyAddress;
 
     return (
         <div className="flex flex-col my-1 gap-1 font-sans border-2 border-slate-200 rounded-2xl overflow-hidden shadow-md bg-white">

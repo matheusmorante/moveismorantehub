@@ -15,8 +15,18 @@ const stringifyAdditionalContacts = (contacts?: { name: string, phone: string }[
 
 const buildDeliveryMessage = (order: Order) => {
     const settings = getSettings();
-    const date = formatDate(order.shipping.scheduling.date);
-    const time = order.shipping.scheduling.time || "Não informado";
+    const sched = order.shipping?.scheduling;
+    const date = (sched?.dateType === 'range' && sched?.endDate)
+        ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
+        : formatDate(order.shipping.scheduling.date);
+
+    let time = "Não informado";
+    if (sched) {
+        if (sched.notInformed) time = "Não informado";
+        else if (sched.type === 'range' && sched.startTime && sched.endTime) time = `${sched.startTime} às ${sched.endTime}`;
+        else if (sched.startTime) time = sched.startTime;
+        else if (sched.time) time = sched.time;
+    }
     const customer = order.customerData;
     
     let message = settings.whatsappTemplates?.deliveryInfo || "";
@@ -41,7 +51,10 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{phone}}/g, () => customer.phone || "Não informado")
         .replace(/{{additionalContacts}}/g, () => stringifyAdditionalContacts(customer.additionalContacts))
         .replace(/{{customerObservations}}/g, () => customer.observations || "")
-        .replace(/{{address}}/g, () => stringifyFullAddressWithObservation(customer.fullAddress))
+        .replace(/{{address}}/g, () => {
+            if (order.shipping?.noAddress) return order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado";
+            return stringifyFullAddressWithObservation(customer.fullAddress);
+        })
         .replace(/{{items}}/g, () => itemsBlock)
         .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []))
         .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
@@ -61,8 +74,18 @@ const buildDeliveryMessage = (order: Order) => {
 
 const buildCustomerOrderMessage = (order: Order) => {
     const settings = getSettings();
-    const date = formatDate(order.shipping.scheduling.date);
-    const time = order.shipping.scheduling.time || "Não informado";
+    const sched = order.shipping?.scheduling;
+    const date = (sched?.dateType === 'range' && sched?.endDate)
+        ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
+        : formatDate(order.shipping.scheduling.date);
+
+    let time = "Não informado";
+    if (sched) {
+        if (sched.notInformed) time = "Não informado";
+        else if (sched.type === 'range' && sched.startTime && sched.endTime) time = `${sched.startTime} às ${sched.endTime}`;
+        else if (sched.startTime) time = sched.startTime;
+        else if (sched.time) time = sched.time;
+    }
     const customer = order.customerData;
     
     let message = settings.whatsappTemplates?.orderConfirmation || "";
@@ -78,7 +101,10 @@ const buildCustomerOrderMessage = (order: Order) => {
         .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
         .replace(/{{deliveryDate}}/g, () => date)
         .replace(/{{deliveryTime}}/g, () => time)
-        .replace(/{{address}}/g, () => stringifyFullAddressWithObservation(customer.fullAddress))
+        .replace(/{{address}}/g, () => {
+            if (order.shipping?.noAddress) return order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado";
+            return stringifyFullAddressWithObservation(customer.fullAddress);
+        })
         .replace(/{{items}}/g, () => itemsBlock)
         .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
         .replace(/{{seller}}/g, () => order.seller || "Não informado")
@@ -153,11 +179,12 @@ const buildAssistanceMessage = (order: Order) => {
     const customer = order.customerData;
 
     // Format date
-    const d = order.shipping?.scheduling?.date;
-    const formattedDate = d ? formatDate(d) : 'data a confirmar';
+    const sched = order.shipping?.scheduling;
+    const formattedDate = (sched?.dateType === 'range' && sched?.endDate)
+        ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
+        : (sched?.date ? formatDate(sched.date) : 'data a confirmar');
 
     // Format time/period
-    const sched = order.shipping?.scheduling;
     let scheduledTime = "";
     if (sched) {
         if (sched.notInformed) {
@@ -204,11 +231,12 @@ const buildAssistanceOrderDetailsMessage = (order: Order) => {
     const customer = order.customerData;
     
     // date
-    const d = order.shipping?.scheduling?.date;
-    const date = d ? formatDate(d) : 'A confirmar';
+    const sched = order.shipping?.scheduling;
+    const date = (sched?.dateType === 'range' && sched?.endDate)
+        ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
+        : (sched?.date ? formatDate(sched.date) : 'A confirmar');
 
     // time
-    const sched = order.shipping?.scheduling;
     let time = "";
     if (sched) {
         if (sched.notInformed) {
@@ -224,7 +252,10 @@ const buildAssistanceOrderDetailsMessage = (order: Order) => {
 
     let message = `*PEDIDO DE ASSISTÊNCIA TÉCNICA*\n\n`;
     message += `*Cliente:* ${customer.fullName || 'Não informado'}\n`;
-    message += `*Endereço:* ${stringifyFullAddressWithObservation(customer.fullAddress)}\n\n`;
+    const address = order.shipping?.noAddress 
+        ? (order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado")
+        : stringifyFullAddressWithObservation(customer.fullAddress);
+    message += `*Endereço:* ${address}\n\n`;
     
     message += `*Data Agendada:* ${date}\n`;
     message += `*Horário:* ${time || 'Não informado'}\n\n`;
@@ -394,11 +425,12 @@ const buildAssistanceServiceOrderMessage = (order: Order) => {
     const customer = order.customerData;
     
     // date
-    const d = order.scheduledDate || order.shipping?.scheduling?.date;
-    const date = d ? formatDate(d) : 'A confirmar';
+    const sched = order.shipping?.scheduling;
+    const date = (sched?.dateType === 'range' && sched?.endDate)
+        ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
+        : (sched?.date ? formatDate(sched.date) : 'A confirmar');
 
     // time
-    const sched = order.shipping?.scheduling;
     let time = "";
     if (sched) {
         if (sched.notInformed) {
@@ -415,7 +447,10 @@ const buildAssistanceServiceOrderMessage = (order: Order) => {
     let message = `🛠️ *ORDEM DE SERVIÇO - ASSISTÊNCIA*\n____________________\n\n`;
     message += `👤 *Cliente:* ${customer.fullName || 'Não informado'}\n`;
     message += `📞 *Fone:* ${customer.phone || 'Não informado'}\n`;
-    message += `🏠 *Endereço:* ${stringifyFullAddressWithObservation(customer.fullAddress)}\n\n`;
+    const address = order.shipping?.noAddress 
+        ? (order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado")
+        : stringifyFullAddressWithObservation(customer.fullAddress);
+    message += `🏠 *Endereço:* ${address}\n\n`;
     
     message += `🗓️ *Agendamento:* ${date}\n`;
     message += `🕒 *Janela:* ${time || 'A combinar'}\n\n`;

@@ -92,7 +92,11 @@ const OrderPage = () => {
                 </div>
             )}
 
-            <CustomerData customerData={order.customerData} isPickup={order.shipping?.deliveryMethod === 'pickup'} />
+            <CustomerData 
+                customerData={order.customerData} 
+                isPickup={order.shipping?.deliveryMethod === 'pickup'} 
+                noAddress={order.shipping?.noAddress}
+            />
             
             <div className="mt-1">
                 <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5 ml-1">ITENS DO PEDIDO</div>

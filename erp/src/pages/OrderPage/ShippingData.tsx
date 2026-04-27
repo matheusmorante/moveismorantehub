@@ -63,12 +63,16 @@ const ShippingData = ({ shipping, isBudget }: Props) => {
                             <i className="bi bi-calendar-event text-blue-500 text-sm"></i>
                             <span>
                                 {shipping.scheduling?.dateType === 'range' && shipping.scheduling?.endDate
-                                    ? `${formatDate(shipping.scheduling.date)} até ${formatDate(shipping.scheduling.endDate)}`
+                                    ? `de ${formatDate(shipping.scheduling.date)} até ${formatDate(shipping.scheduling.endDate)}`
                                     : formatDate(shipping.scheduling?.date)}
                             </span>
                             <span className="text-slate-200 mx-2">|</span>
                             <i className="bi bi-clock text-blue-500 text-sm"></i>
-                            <span>{shipping.scheduling?.time || shipping.scheduling?.startTime}</span>
+                            <span>
+                                {shipping.scheduling?.type === 'range' && shipping.scheduling?.startTime && shipping.scheduling?.endTime
+                                    ? `${shipping.scheduling.startTime} às ${shipping.scheduling.endTime}`
+                                    : (shipping.scheduling?.startTime || shipping.scheduling?.time || 'A combinar')}
+                            </span>
                         </div>
                     </div>
                 </div>

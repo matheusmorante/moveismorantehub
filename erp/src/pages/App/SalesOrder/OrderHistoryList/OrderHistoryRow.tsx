@@ -7,7 +7,7 @@ import { isOrderIncomplete } from "../../../utils/validations";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
-import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder } from "@/pages/utils/orderHistoryService";
+import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoReturn } from "@/pages/utils/orderHistoryService";
 import { toast } from "react-toastify";
 
 interface OrderHistoryRowProps {
@@ -419,6 +419,16 @@ const OrderHistoryRow = ({
                                     </div>
                                 )}
 
+                                {/* Return Status Badge */}
+                                {order.returnOrderId && (
+                                    <div 
+                                        className="flex items-center justify-center w-6 h-6 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md border border-amber-100 dark:border-amber-900/20 shadow-sm" 
+                                        title="Este pedido possui uma devolução vinculada"
+                                    >
+                                        <i className="bi bi-arrow-return-left text-[10px]" />
+                                    </div>
+                                )}
+
                                 {/* Bling Status Badges */}
                                 {order.orderType !== 'assistance' && order.isRegisteredInBling && !showTrash && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
@@ -651,6 +661,11 @@ const OrderHistoryRow = ({
                                                         {buttons.filter(btn => {
                                                             if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
+                                                            
+                                                            // Logic for switching between Generate and Undo return
+                                                            if (btn.key === 'generateReturn' && (order.returnOrderId || order.orderType === 'return')) return false;
+                                                            if (btn.key === 'undoReturn' && !order.returnOrderId && order.orderType !== 'return') return false;
+                                                            
                                                             return true;
                                                         }).map((btn) => {
                                                             const isPrintReceipt = btn.key === 'printReceipt';
@@ -661,12 +676,25 @@ const OrderHistoryRow = ({
                                                             <button
                                                                 key={btn.key}
                                                                     disabled={disablePrintReceipt}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (disablePrintReceipt) return;
-                                                                    onAction(btn.key, order);
-                                                                    setShowMenu(false);
-                                                                }}
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        if (disablePrintReceipt) return;
+                                                                        
+                                                                        if (btn.action === 'UNDO_RETURN') {
+                                                                            if (window.confirm("Deseja realmente desfazer a devolução deste pedido? Todos os itens serão retornados ao pedido original e o registro de devolução será excluído.")) {
+                                                                                try {
+                                                                                    await undoReturn(order);
+                                                                                    toast.success("Devolução desfeita com sucesso!");
+                                                                                    // Refresh happens via subscription or parent refresh
+                                                                                } catch (err: any) {
+                                                                                    toast.error("Erro ao desfazer devolução: " + err.message);
+                                                                                }
+                                                                            }
+                                                                        } else {
+                                                                            onAction(btn.key, order);
+                                                                        }
+                                                                        setShowMenu(false);
+                                                                    }}
                                                                     className={`flex items-center justify-between w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${btn.color}`}`}
                                                                     title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
                                                             >
@@ -683,7 +711,7 @@ const OrderHistoryRow = ({
                                                             )
                                                         })}
 
-                                                        {canPerform('deleteOrders', profile?.role) && (
+                                                        {canPerform('deleteOrders', profile?.role) && order.orderType !== 'return' && (
                                                             <>
                                                                 <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
                                                                 <button

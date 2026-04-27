@@ -29,6 +29,16 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
     const streetWrapperRef = React.useRef<HTMLDivElement>(null);
     const lastStreetSearchRef = React.useRef<string>("");
     const [isSearchingStreet, setIsSearchingStreet] = React.useState(false);
+    
+    // Auto-enable noAddress for "Consumidor Final" or if it is a Pickup
+    React.useEffect(() => {
+        const isFinalConsumer = customerData.fullName?.toLowerCase().trim() === 'consumidor final';
+        const isPickup = shipping.deliveryMethod === 'pickup';
+        
+        if ((isFinalConsumer || isPickup) && !shipping.noAddress) {
+            setShipping(prev => ({ ...prev, noAddress: true }));
+        }
+    }, [customerData.fullName, shipping.deliveryMethod]);
 
     const activeAddress = orderType === 'budget' 
         ? customerData.fullAddress
@@ -158,8 +168,39 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
     return (
         <div className="flex flex-col gap-8 w-full">
             <div className="flex flex-col gap-10 w-full lg:gap-12">
-                {shipping.deliveryMethod !== 'pickup' && (
-                    <div className="flex flex-col gap-10">
+                <div className="flex flex-col gap-10">
+                        {/* Address Type Selector (Informar / Não Informar) */}
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                    {shipping.deliveryMethod === 'pickup' ? 'Local de Retirada / Endereço' : 'Endereço de Entrega'}
+                                </h4>
+                                <button
+                                    type="button"
+                                    onClick={() => setShipping(prev => ({ ...prev, noAddress: !prev.noAddress }))}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        shipping.noAddress 
+                                            ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' 
+                                            : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    <i className={`bi ${shipping.noAddress ? 'bi-geo-fill text-amber-500' : 'bi-geo-alt'}`}></i>
+                                    {shipping.noAddress ? 'Endereço não informado' : 'Não informar endereço'}
+                                </button>
+                            </div>
+                            
+                            {shipping.noAddress && (
+                                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl p-4 animate-fade-in">
+                                    <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed flex items-center gap-2">
+                                        <i className="bi bi-info-circle-fill"></i>
+                                        O endereço de entrega foi marcado como não informado. O sistema permitirá prosseguir sem preencher os campos de rua e número.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {!shipping.noAddress && (
+                            <div className="flex flex-col gap-10 animate-slide-up">
                         {/* Custom Delivery Address Toggle */}
                         {orderType !== 'budget' && (
                             <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
@@ -348,8 +389,9 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             isCalculatingDistance={isCalculatingDistance}
                             errors={errors}
                         />
+                            </div>
+                        )}
                     </div>
-                )}
                 {orderType !== 'budget' && (
                     <Agendamento
                         scheduling={shipping.scheduling}

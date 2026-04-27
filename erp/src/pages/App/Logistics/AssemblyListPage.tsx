@@ -69,7 +69,9 @@ const AssemblyListPage = () => {
                     type: order.shipping.scheduling?.type,
                     startTime: order.shipping.scheduling?.startTime,
                     endTime: order.shipping.scheduling?.endTime,
-                    time: order.shipping.scheduling?.time
+                    time: order.shipping.scheduling?.time,
+                    dateType: order.shipping.scheduling?.dateType,
+                    endDate: order.shipping.scheduling?.endDate
                 } : null,
                 items: order.items.filter(i => {
                     const isPickup = order.shipping?.deliveryMethod === 'pickup';
@@ -79,6 +81,8 @@ const AssemblyListPage = () => {
                     return opt?.includeInAssemblySchedule && !opt?.isAssemblyOutside;
                 }).map(i => ({ description: i.description, quantity: i.quantity })),
                 status: order.status,
+                deliveryMethod: order.shipping?.deliveryMethod,
+                observation: order.shipping?.deliveryAddress?.observation || order.observation || "",
                 fullData: order
             }));
 
@@ -109,6 +113,7 @@ const AssemblyListPage = () => {
                 date: as.date,
                 items: [{ description: as.description, quantity: as.quantity }],
                 status: as.status === 'completed' ? 'fulfilled' : 'scheduled',
+                observation: as.observation || "",
                 fullData: as
             }));
 
@@ -255,11 +260,18 @@ const AssemblyListPage = () => {
                         <div className="flex items-center gap-4 px-2">
                              <div className="w-1.5 h-6 bg-blue-600 rounded-full shadow-sm shadow-blue-200"></div>
                              <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
-                                {dateKey === 'sem-data' ? 'Data não definida' : new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR", {
-                                    weekday: 'long',
-                                    day: '2-digit',
-                                    month: 'long'
-                                })}
+                                {dateKey === 'sem-data' ? 'Data não definida' : (() => {
+                                    const firstItem = grouped[dateKey][0];
+                                    const isRange = firstItem?.timeInfo?.dateType === 'range' && firstItem?.timeInfo?.endDate;
+                                    if (isRange) {
+                                        return `De ${new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR")} até ${new Date(firstItem.timeInfo.endDate + "T00:00:00").toLocaleDateString("pt-BR")}`;
+                                    }
+                                    return new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR", {
+                                        weekday: 'long',
+                                        day: '2-digit',
+                                        month: 'long'
+                                    });
+                                })()}
                              </h2>
                         </div>
 
@@ -268,26 +280,46 @@ const AssemblyListPage = () => {
                                 <div key={item.id + idx} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 p-6 shadow-sm space-y-4">
                                     <div className="flex justify-between items-start border-b border-slate-50 dark:border-slate-800 pb-4">
                                         <div className="flex flex-col gap-1.5 flex-1">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
                                                     item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
                                                 }`}>
                                                     {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
                                                 </span>
-                                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Serviço Técnico</span>
+                                                {item.origin === 'order' && (
+                                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
+                                                        item.deliveryMethod === 'pickup' ? 'text-purple-600 border-purple-200 bg-purple-50/50' : 'text-cyan-600 border-cyan-200 bg-cyan-50/50'
+                                                    }`}>
+                                                        {item.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
+                                                    </span>
+                                                )}
+                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${
+                                                    item.status === 'fulfilled' ? 'text-emerald-600 border-emerald-200 bg-emerald-50/50' : 
+                                                    item.status === 'scheduled' ? 'text-amber-600 border-amber-200 bg-amber-50/50' : 'text-slate-600 border-slate-200 bg-slate-50/50'
+                                                }`}>
+                                                    {item.status === 'fulfilled' ? 'Finalizado' : 'Agendado'}
+                                                </span>
                                             </div>
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col mt-2">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Período / Horário</span>
                                                 {item.timeInfo && (
-                                                    <span className="text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-wide mt-1">
+                                                    <span className="text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-wide">
                                                         <i className="bi bi-clock-fill mr-2 opacity-70"></i>
-                                                        {item.timeInfo.type === 'range' 
-                                                            ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
-                                                            : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'Horário Livre'))}
+                                                        {item.timeInfo.type === 'range' && item.timeInfo.startTime && item.timeInfo.endTime
+                                                            ? `${item.timeInfo.startTime} até ${item.timeInfo.endTime}` 
+                                                            : (item.timeInfo.startTime || item.timeInfo.time || 'Horário Livre')}
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
+
+                                    {item.observation && (
+                                        <div className="bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-800/30 p-3 rounded-2xl">
+                                            <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest block mb-1">Observações da Montagem:</span>
+                                            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 italic">"{item.observation}"</p>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-3">
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">O que montar:</span>
@@ -325,7 +357,7 @@ const AssemblyListPage = () => {
     };
 
     return (
-        <div className="p-4 md:p-10 space-y-8 animate-fade-in pb-20">
+        <div className="p-2 md:p-6 space-y-8 animate-fade-in pb-20 w-full">
             {renderHeader()}
 
             <style dangerouslySetInnerHTML={{ __html: `
@@ -379,11 +411,18 @@ const AssemblyListPage = () => {
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-1.5 h-6 bg-blue-600 rounded-full shadow-sm shadow-blue-200"></div>
                                                             <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
-                                                                {dateKey === 'sem-data' ? 'Data não definida' : new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR", {
-                                                                    weekday: 'long',
-                                                                    day: '2-digit',
-                                                                    month: 'long'
-                                                                })}
+                                                                {dateKey === 'sem-data' ? 'Data não definida' : (() => {
+                                                                    const firstItem = grouped[dateKey][0];
+                                                                    const isRange = firstItem?.timeInfo?.dateType === 'range' && firstItem?.timeInfo?.endDate;
+                                                                    if (isRange) {
+                                                                        return `De ${new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR")} até ${new Date(firstItem.timeInfo.endDate + "T00:00:00").toLocaleDateString("pt-BR")}`;
+                                                                    }
+                                                                    return new Date(dateKey + "T00:00:00").toLocaleDateString("pt-BR", {
+                                                                        weekday: 'long',
+                                                                        day: '2-digit',
+                                                                        month: 'long'
+                                                                    });
+                                                                })()}
                                                             </span>
                                                         </div>
                                                     </td>
@@ -395,9 +434,9 @@ const AssemblyListPage = () => {
                                                                 {item.timeInfo && (
                                                                     <span className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wide">
                                                                         <i className="bi bi-clock-fill mr-2 opacity-70"></i>
-                                                                        {item.timeInfo.type === 'range' 
-                                                                            ? `${item.timeInfo.startTime} → ${item.timeInfo.endTime}` 
-                                                                            : (item.timeInfo.time || (item.timeInfo.startTime ? `${item.timeInfo.startTime}` : 'Horário Livre'))
+                                                                        {item.timeInfo.type === 'range' && item.timeInfo.startTime && item.timeInfo.endTime
+                                                                            ? `${item.timeInfo.startTime} até ${item.timeInfo.endTime}` 
+                                                                            : (item.timeInfo.startTime || item.timeInfo.time || 'Horário Livre')
                                                                         }
                                                                     </span>
                                                                 )}
@@ -415,15 +454,35 @@ const AssemblyListPage = () => {
                                                         </td>
                                                         <td className="px-8 py-6">
                                                             <div className="flex flex-col">
-                                                                <div className="flex items-center gap-2 mb-1">
+                                                                <div className="flex flex-wrap items-center gap-2 mb-2">
                                                                     <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border ${
                                                                         item.origin === 'order' ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-amber-600 border-amber-200 bg-amber-50/50'
                                                                     }`}>
                                                                         {item.origin === 'order' ? 'Pedido' : 'Mostruário'}
                                                                     </span>
-                                                                    <span className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">{item.title}</span>
+                                                                    {item.origin === 'order' && (
+                                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border ${
+                                                                            item.deliveryMethod === 'pickup' ? 'text-purple-600 border-purple-200 bg-purple-50/50' : 'text-cyan-600 border-cyan-200 bg-cyan-50/50'
+                                                                        }`}>
+                                                                            {item.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
+                                                                        </span>
+                                                                    )}
+                                                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest border ${
+                                                                        item.status === 'fulfilled' ? 'text-emerald-600 border-emerald-200 bg-emerald-50/50' : 
+                                                                        item.status === 'scheduled' ? 'text-amber-600 border-amber-200 bg-amber-50/50' : 'text-slate-600 border-slate-200 bg-slate-50/50'
+                                                                    }`}>
+                                                                        {item.status === 'fulfilled' ? 'Finalizado' : 'Agendado'}
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.subtitle}</span>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">{item.title}</span>
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.subtitle}</span>
+                                                                </div>
+                                                                {item.observation && (
+                                                                    <div className="mt-2 text-[11px] font-medium text-amber-600 bg-amber-50/30 px-2 py-1 rounded-lg border border-amber-100/50 max-w-[250px] italic">
+                                                                        Obs: {item.observation}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         {!isStandalone && (

@@ -60,7 +60,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                         onChange={(e) => onChangeScheduling("dateType", e.target.value as any)}
                                     >
                                         <option value="fixed" className="dark:bg-slate-900">Data Fixa</option>
-                                        <option value="range" className="dark:bg-slate-900">Período de Datas</option>
+                                        <option value="range" className="dark:bg-slate-900">Período de Data</option>
                                     </select>
                                 </div>
 
@@ -107,7 +107,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                         onChange={(e) => onChangeScheduling("type", e.target.value as any)}
                                     >
                                         <option value="fixed" className="dark:bg-slate-900">Horário Fixo</option>
-                                        <option value="range" className="dark:bg-slate-900">Intervalo de Horas</option>
+                                        <option value="range" className="dark:bg-slate-900">Período de Horário</option>
                                     </select>
                                 </div>
 

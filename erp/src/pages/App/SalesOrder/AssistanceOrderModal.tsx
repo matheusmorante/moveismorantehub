@@ -54,7 +54,10 @@ const DEFAULT_SHIPPING: any = {
     orderType: 'Standard',
     scheduling: {
         date: "",
-        time: "",
+        endDate: "",
+        dateType: 'fixed',
+        startTime: "",
+        endTime: "",
         type: 'fixed'
     }
 };
@@ -68,11 +71,13 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     const [description, setDescription] = useState(order?.assistanceDescription || initialData?.description || "");
     const [observation, setObservation] = useState(order?.observation || "");
     const [scheduling, setScheduling] = useState<any>(order?.shipping?.scheduling || {
-        date: order?.scheduledDate || "",
-        startTime: order?.scheduledTime || "",
-        endTime: "",
-        type: 'fixed',
-        notInformed: false
+        date: order?.shipping?.scheduling?.date || order?.scheduledDate || "",
+        endDate: order?.shipping?.scheduling?.endDate || "",
+        dateType: order?.shipping?.scheduling?.dateType || 'fixed',
+        startTime: order?.shipping?.scheduling?.startTime || order?.scheduledTime || "",
+        endTime: order?.shipping?.scheduling?.endTime || "",
+        type: order?.shipping?.scheduling?.type || 'fixed',
+        notInformed: order?.shipping?.scheduling?.notInformed || false
     });
     const [isLinked, setIsLinked] = useState(!!order?.linkedOrderId);
     const [linkedOrderId, setLinkedOrderId] = useState(order?.linkedOrderId || "");
@@ -155,10 +160,17 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     );
 
     const handleChangeScheduling = (key: string, value: any) => {
-        setScheduling((prev: any) => ({
-            ...prev,
-            [key]: value
-        }));
+        setScheduling((prev: any) => {
+            const newScheduling = { ...prev, [key]: value };
+
+            if (newScheduling.type === 'fixed') {
+                newScheduling.time = newScheduling.startTime || '';
+            } else {
+                newScheduling.time = `${newScheduling.startTime || ''} às ${newScheduling.endTime || ''}`;
+            }
+
+            return newScheduling;
+        });
     };
 
     const handleToggleItem = (itemDescription: string, maxQty: number) => {

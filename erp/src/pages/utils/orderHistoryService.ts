@@ -453,6 +453,133 @@ export const permanentDeleteOrder = async (id: string): Promise<void> => {
     }
 };
 
+/**
+ * Desfaz uma devolução, retornando os itens ao pedido original e deletando o pedido de devolução.
+ */
+export const undoReturn = async (order: Order): Promise<void> => {
+    if (!order.id) return;
+    
+    try {
+        let originalOrder: Order;
+        let returnOrder: Order;
+
+        if (order.orderType === 'return') {
+            // Context: The user clicked "Undo" on the Return order itself
+            returnOrder = order;
+            if (!order.linkedOrderId) {
+                throw new Error("Este pedido de devolução não possui um pedido original vinculado.");
+            }
+
+            // Fetch the original order
+            const { data: origRow, error: origError } = await supabase
+                .from(TABLE_NAME)
+                .select('*')
+                .eq('id', order.linkedOrderId)
+                .single();
+            
+            if (origError || !origRow) {
+                throw new Error("Pedido original não encontrado.");
+            }
+            originalOrder = { ...origRow.order_data, id: String(origRow.id) } as Order;
+        } else {
+            // Context: The user clicked "Undo" on the original Sale order
+            originalOrder = order;
+            let returnId = originalOrder.returnOrderId;
+            
+            if (!returnId) {
+                const { data: linkedReturns } = await supabase
+                    .from(TABLE_NAME)
+                    .select('id')
+                    .eq('order_data->>linkedOrderId', originalOrder.id)
+                    .eq('order_data->>orderType', 'return')
+                    .limit(1);
+                
+                if (linkedReturns && linkedReturns.length > 0) {
+                    returnId = String(linkedReturns[0].id);
+                }
+            }
+
+            if (!returnId) {
+                throw new Error("Nenhum pedido de devolução vinculado encontrado.");
+            }
+
+            // Fetch return order
+            const { data: returnRow, error: fetchError } = await supabase
+                .from(TABLE_NAME)
+                .select('*')
+                .eq('id', returnId)
+                .single();
+                
+            if (fetchError || !returnRow) {
+                throw new Error("Pedido de devolução não encontrado.");
+            }
+            returnOrder = { ...returnRow.order_data, id: String(returnRow.id) } as Order;
+        }
+
+        // 1. Merge items back
+        const restoredItems = [...originalOrder.items];
+        returnOrder.items.forEach(retItem => {
+            const index = restoredItems.findIndex(i => i.id === retItem.id);
+            if (index !== -1) {
+                // Se o item já existir no original (devolução parcial), somamos a quantidade
+                restoredItems[index] = {
+                    ...restoredItems[index],
+                    quantity: restoredItems[index].quantity + retItem.quantity,
+                    totalValue: (restoredItems[index].quantity + retItem.quantity) * restoredItems[index].unitPrice
+                };
+            } else {
+                // Se o item não existir (devolução total anterior), adicionamos de volta
+                restoredItems.push(retItem);
+            }
+        });
+
+        // 2. Prepare original order update
+        const totalItemsValue = restoredItems.reduce((acc, i) => acc + (i.totalValue || 0), 0);
+        const subtotal = totalItemsValue + (originalOrder.shipping?.value || 0);
+        const totalDiscount = (originalOrder.paymentsSummary?.discount || 0);
+        const totalOrderValue = subtotal - totalDiscount;
+
+        const originalUpdate: Partial<Order> = {
+            items: restoredItems,
+            returnOrderId: undefined as any, // Limpa o vínculo
+            paymentsSummary: {
+                ...originalOrder.paymentsSummary,
+                totalItemsValue,
+                subtotal,
+                totalOrderValue
+            },
+            itemsSummary: {
+                totalItems: restoredItems.length,
+                totalQuantity: restoredItems.reduce((acc, i) => acc + i.quantity, 0),
+                totalValue: totalItemsValue
+            }
+        };
+
+        // Clear return note patterns
+        if (originalOrder.observation) {
+            originalUpdate.observation = originalOrder.observation
+                .replace(/\[DEVOLUÇÃO GERADA EM .*?\]/g, '')
+                .replace(/\[CANCELADO POR DEVOLUÇÃO TOTAL\]/g, '')
+                .trim();
+        }
+
+        // Restore status if it was cancelled due to full return
+        if (originalOrder.status === 'cancelled') {
+            originalUpdate.status = 'scheduled'; 
+        }
+
+        // 3. Update Original Order in DB
+        await updateOrder(originalOrder.id!, originalUpdate, originalOrder);
+
+        // 4. Permanently delete the return order
+        await permanentDeleteOrder(returnOrder.id!);
+
+    } catch (error) {
+        console.error("Erro ao desfazer devolução:", error);
+        throw error;
+    }
+};
+
 /** @deprecated Use moveToTrash instead */
 export const deleteOrder = moveToTrash;
 

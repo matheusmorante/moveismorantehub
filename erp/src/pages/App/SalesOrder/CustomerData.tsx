@@ -66,7 +66,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
     }, []);
 
     const clearCustomer = () => {
-        setCustomerData({ id: undefined, fullName: '', phone: '', noPhone: false, fullAddress: EMPTY_ADDRESS, additionalContacts: [] });
+        setCustomerData({ id: undefined, fullName: '', phone: '', noPhone: false, noAddress: false, fullAddress: EMPTY_ADDRESS, additionalContacts: [] });
         setSearchTerm('');
     };
 
@@ -164,6 +164,17 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
             } catch { /* ignore */ }
         }
     };
+
+    // Auto-enable noAddress for "Consumidor Final" or when name changes
+    useEffect(() => {
+        if (!customerData.fullName) return;
+        const isFinalConsumer = customerData.fullName.toLowerCase().trim() === 'consumidor final';
+        
+        // If it's a final consumer and noAddress is not yet true, auto-enable it
+        if (isFinalConsumer && !customerData.noAddress) {
+            setCustomerData(prev => ({ ...prev, noAddress: true }));
+        }
+    }, [customerData.fullName]);
 
     const filteredCustomers = customers.filter(c => {
         const s = searchTerm.toLowerCase();
@@ -266,10 +277,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                     {(isPickup || isBudget) && (
                         <button type="button"
                             onClick={() => {
-                                setCustomerData({
+                                onCustomerChange({
                                     fullName: 'Consumidor Final',
                                     phone: '',
                                     noPhone: true,
+                                    noAddress: true,
                                     fullAddress: EMPTY_ADDRESS,
                                     additionalContacts: []
                                 });
@@ -404,12 +416,22 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
 
                     {/* Address */}
                     <div className="space-y-3">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                            <i className="bi bi-geo-alt-fill text-blue-500" /> Endereço de Entrega
-                        </p>
+                        <div className="flex items-center justify-between pr-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                <i className="bi bi-geo-alt-fill text-blue-500" /> Endereço de Entrega
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setCustomerData(prev => ({ ...prev, noAddress: !prev.noAddress }))}
+                                disabled={isReadOnly}
+                                className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noAddress ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'} ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                {customerData.noAddress ? <><i className="bi bi-geo-alt-fill mr-1 text-[10px]"></i> S/ Endereço</> : 'Não informar'}
+                            </button>
+                        </div>
 
                         {/* CEP + Rua + Número */}
-                        <div className="flex flex-col md:flex-row gap-3">
+                        <div className={`flex flex-col md:flex-row gap-3 transition-all ${customerData.noAddress ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
                             <div className="md:w-36">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">CEP</label>
                                 <input type="text" className={field()} placeholder="00000-000" maxLength={9}
@@ -474,7 +496,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                         </div>
 
                         {/* Complemento + Bairro + Cidade */}
-                        <div className="flex flex-col md:flex-row gap-3">
+                        <div className={`flex flex-col md:flex-row gap-3 transition-all ${customerData.noAddress ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
                             <div className="flex-1">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Complemento</label>
                                 <input type="text" className={field()} placeholder="Apto, Bloco..."
@@ -513,16 +535,16 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                                 Ponto de Referência / Observação
                             </label>
                             <input type="text"
-                                className={`w-full border px-3 py-2 rounded-xl text-sm font-bold outline-none transition-all ${isReadOnly ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent text-slate-700 dark:text-slate-300' : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 text-slate-700 dark:text-amber-100 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder:text-amber-300 dark:placeholder:text-amber-700/50'}`}
+                                className={`w-full border px-3 py-2 rounded-xl text-sm font-bold outline-none transition-all ${isReadOnly || customerData.noAddress ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent text-slate-700 dark:text-slate-300' : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 text-slate-700 dark:text-amber-100 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder:text-amber-300 dark:placeholder:text-amber-700/50'}`}
                                 placeholder="Ex: Casa verde em frente à padaria..."
                                 value={customerData.fullAddress?.observation || ''}
                                 onChange={e => updateAddress('observation', e.target.value)}
-                                readOnly={isReadOnly}
+                                readOnly={isReadOnly || customerData.noAddress}
                             />
                         </div>
 
                         {/* Map Verification */}
-                        <div className="pt-2 animate-fade-in">
+                        <div className={`pt-2 animate-fade-in ${customerData.noAddress ? 'opacity-30 grayscale' : ''}`}>
                             <AddressVerificationMap
                                 address={{
                                     street: customerData.fullAddress.street,

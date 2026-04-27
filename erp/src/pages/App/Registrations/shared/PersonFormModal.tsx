@@ -135,6 +135,15 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             };
         });
     };
+    
+    // Auto-enable noAddress for "Consumidor Final" in registration
+    useEffect(() => {
+        if (!formData.fullName) return;
+        const isFinalConsumer = formData.fullName.toLowerCase().trim() === 'consumidor final';
+        if (isFinalConsumer && !formData.noAddress) {
+            setFormData(prev => ({ ...prev, noAddress: true }));
+        }
+    }, [formData.fullName]);
 
     const handleStreetChange = async (val: string) => {
         handleAddressChange('street', val);

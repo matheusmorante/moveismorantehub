@@ -11,6 +11,12 @@
 - **Geração Vinculada:**
   - Botão "Gerar Devolução" (Âmbar) disponível no menu de ações de Vendas e Showroom.
   - Modal de geração permite selecionar itens e quantidades para devolução.
+  - **Novo:** Armazenamento de `returnOrderId` no pedido original para rastreabilidade bidirecional.
+- **Reversão (Desfazer):**
+  - Implementada a ação "Desfazer Devolução" que alterna com o botão de gerar.
+  - A reversão mescla os itens de volta ao pedido original, restaura totais, limpa observações e exclui o registro de devolução e seus movimentos de estoque.
+- **Visual:**
+  - Badge de devolução (ícone âmbar) adicionado à linha do pedido original quando uma devolução está vinculada.
 - **Impressão:** Template de OS de Devolução padronizado com cabeçalho âmbar e layout informativo.
 
 ## 📌 Ideias e Planos Pendentes

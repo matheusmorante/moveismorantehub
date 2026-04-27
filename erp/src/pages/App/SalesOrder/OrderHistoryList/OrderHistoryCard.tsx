@@ -338,7 +338,9 @@ const OrderHistoryCard = ({
 
                     {order.shipping?.scheduling?.date && (
                         <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">Entrega</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
+                                {order.shipping?.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
+                            </span>
                             <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 font-bold">
                                 <i className="bi bi-truck text-[11px]" />
                                 <span className="text-[10px]">

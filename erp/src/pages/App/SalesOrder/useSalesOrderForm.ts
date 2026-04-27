@@ -368,6 +368,13 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     // Note: Implicit auto-update when switching delivery method was removed as requested
     // Since there's no default handling anymore, items retain their manually selected handling type.
+    // Synchronize noAddress flag between customerData and shipping
+    useEffect(() => {
+        if (shipping.useCustomerAddress && customerData.noAddress !== shipping.noAddress) {
+            setShipping(prev => ({ ...prev, noAddress: !!customerData.noAddress }));
+        }
+    }, [customerData.noAddress, shipping.useCustomerAddress]);
+
     useEffect(() => {
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
     }, [shipping.deliveryMethod]);

@@ -45,6 +45,13 @@ const AssemblyPrintPage = () => {
                 type: 'PEDIDO',
                 title: order.customerData.fullName,
                 date: order.shipping?.scheduling?.date || "",
+                endDate: order.shipping?.scheduling?.dateType === 'range' ? order.shipping?.scheduling?.endDate : null,
+                time: (() => {
+                    const s = order.shipping?.scheduling;
+                    if (!s) return "";
+                    if (s.type === 'range' && s.startTime && s.endTime) return `${s.startTime} às ${s.endTime}`;
+                    return s.startTime || s.time || "";
+                })(),
                 items: order.items.filter(i => {
                     const isPickup = order.shipping?.deliveryMethod === 'pickup';
                     const modalityOptions = isPickup ? (settings.pickupHandlingOptions || []) : (settings.deliveryHandlingOptions || []);
@@ -125,7 +132,13 @@ const AssemblyPrintPage = () => {
                     <div key={dateKey} className="space-y-4">
                         <div className="bg-slate-900 text-white px-4 py-2 rounded-lg flex justify-between items-center">
                             <h2 className="text-sm font-black uppercase tracking-widest">
-                                Prazo: {dateKey === 'sem-prazu' ? 'SEM DATA DEFINIDA' : formatToBRDate(dateKey)}
+                                Prazo: {dateKey === 'sem-prazu' ? 'SEM DATA DEFINIDA' : (() => {
+                                    const firstItem = groupedItems[dateKey][0];
+                                    if (firstItem?.endDate) {
+                                        return `De ${formatToBRDate(dateKey)} até ${formatToBRDate(firstItem.endDate)}`;
+                                    }
+                                    return formatToBRDate(dateKey);
+                                })()}
                             </h2>
                             <span className="text-[10px] font-bold opacity-70">{groupedItems[dateKey].length} montagem(ns)</span>
                         </div>
@@ -151,7 +164,10 @@ const AssemblyPrintPage = () => {
                                         <td className="py-4 pr-6">
                                             <div className="flex flex-col">
                                                 <span className="text-xs font-bold tracking-tight uppercase">{item.title}</span>
-                                                {item.type === 'PEDIDO' && <span className="text-[8px] font-black text-slate-400 mt-0.5">#{item.id.slice(-8).toUpperCase()}</span>}
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {item.type === 'PEDIDO' && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">#{item.id.slice(-8).toUpperCase()}</span>}
+                                                    {item.time && <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1 rounded border border-blue-100 uppercase tracking-tighter italic">Janela: {item.time}</span>}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="py-4 pr-6">

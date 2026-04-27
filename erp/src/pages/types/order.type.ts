@@ -41,7 +41,8 @@ export type Order = {
     marketingOrigin?: string,
     stockProcessed?: boolean,
     isRegisteredInBling?: boolean,
-    isButtonsClicked?: IsButtonsClicked
+    isButtonsClicked?: IsButtonsClicked,
+    returnOrderId?: string
 }
 
 export type OrderAction =
@@ -62,6 +63,7 @@ export type OrderAction =
     'SEND_GROUP_INVITE' |
     'PRINT_ASSISTANCE_OS' |
     'GENERATE_RETURN' |
+    'UNDO_RETURN' |
     'PRINT_RETURN_OS'
 
 /** @deprecated Use OrderAction instead */
@@ -84,6 +86,7 @@ export type IsButtonsClicked = {
     sendGroupInvite: boolean,
     printAssistanceOS: boolean,
     generateReturn: boolean,
+    undoReturn: boolean,
     printReturnOS: boolean
 }
 

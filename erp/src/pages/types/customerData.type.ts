@@ -7,6 +7,7 @@ type CustomerData = {
     email?: string,
     cpfCnpj?: string,
     noPhone?: boolean,
+    noAddress?: boolean,
     fullAddress: FullAddress,
     additionalContacts?: { name: string; phone: string }[],
     observations?: string

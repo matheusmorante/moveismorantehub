@@ -24,6 +24,7 @@ const useShipping = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') 
                 },
                 autoCalculateValue: false,
                 useCustomerAddress: true,
+                noAddress: false,
                 deliveryAddress: {
                     cep: '',
                     street: '',

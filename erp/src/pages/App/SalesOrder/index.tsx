@@ -268,14 +268,16 @@ const SalesOrder = () => {
                                 <span className="hidden sm:inline">Filtros</span>
                             </button>
 
-                            <button
-                                onClick={() => setIsTrashOpen(true)}
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
-                                title="Lixeira"
-                            >
-                                <i className="bi bi-trash3 text-sm"></i>
-                                <span className="hidden sm:inline">Lixeira</span>
-                            </button>
+                            {!isReturnRoute && (
+                                <button
+                                    onClick={() => setIsTrashOpen(true)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
+                                    title="Lixeira"
+                                >
+                                    <i className="bi bi-trash3 text-sm"></i>
+                                    <span className="hidden sm:inline">Lixeira</span>
+                                </button>
+                            )}
 
 
 

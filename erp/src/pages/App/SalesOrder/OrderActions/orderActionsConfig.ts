@@ -132,6 +132,24 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                         <p><strong>Telefone:</strong> ${order.customerData?.phone}</p>
                         <p><strong>Vendedor:</strong> ${order.seller}</p>
                         
+                        <div style="margin-top: 10px; padding: 10px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">Agendamento</div>
+                            <div style="display: flex; gap: 20px; align-items: center;">
+                                <div style="font-size: 14px; font-weight: 700; color: #1e293b;">
+                                    <span style="opacity: 0.5; font-size: 11px;">Data:</span> 
+                                    ${order.shipping?.scheduling?.dateType === 'range' && order.shipping?.scheduling?.endDate
+                                        ? `de ${new Date(order.shipping.scheduling.date).toLocaleDateString('pt-BR')} até ${new Date(order.shipping.scheduling.endDate).toLocaleDateString('pt-BR')}`
+                                        : (order.shipping?.scheduling?.date ? new Date(order.shipping.scheduling.date).toLocaleDateString('pt-BR') : 'A confirmar')}
+                                </div>
+                                <div style="font-size: 14px; font-weight: 700; color: #1e293b;">
+                                    <span style="opacity: 0.5; font-size: 11px;">Janela:</span> 
+                                    ${order.shipping?.scheduling?.type === 'range' && order.shipping?.scheduling?.startTime && order.shipping?.scheduling?.endTime
+                                        ? `${order.shipping.scheduling.startTime} às ${order.shipping.scheduling.endTime}`
+                                        : (order.shipping?.scheduling?.startTime || order.shipping?.scheduling?.time || 'A combinar')}
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div style="margin-top: 20px; padding: 10px; border: 1px solid #eee; background: #fafafa;">
                             <strong>Descrição do Problema:</strong><br/>
                             ${order.assistanceDescription || 'Nenhuma descrição informada.'}
@@ -269,6 +287,11 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
             </html>
         `);
         printWindow.document.close();
+    },
+    'UNDO_RETURN': async (order) => {
+        // This is complex and might need a refresh of the list, 
+        // so we'll likely handle the logic in the component or passing a callback
+        console.log("Desfazendo devolução para o pedido:", order.id);
     }
 };
 
@@ -346,6 +369,15 @@ export const buttons: OrderButton[] = [
         color: "text-amber-600 hover:bg-amber-50",
         tooltip: "Criar uma devolução baseada neste pedido",
         orderTypes: ['sale', 'showroom'] 
+    },
+    {
+        key: "undoReturn",
+        icon: "bi-arrow-counterclockwise",
+        action: "UNDO_RETURN",
+        label: "Desfazer Devolução",
+        color: "text-red-600 hover:bg-red-50",
+        tooltip: "Reverter a devolução e retornar os itens ao pedido original",
+        orderTypes: ['sale', 'showroom', 'return']
     },
     {
         key: "printReturnOS",
