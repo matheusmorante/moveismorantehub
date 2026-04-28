@@ -9,6 +9,7 @@ import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
 import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoReturn } from "@/pages/utils/orderHistoryService";
 import { toast } from "react-toastify";
+import StockCheckModal from "./StockCheckModal";
 
 interface OrderHistoryRowProps {
     order: Order;
@@ -24,6 +25,7 @@ interface OrderHistoryRowProps {
     isSelected?: boolean;
     onToggleSelection?: () => void;
     onBlingUpdate?: (id: string, value: boolean) => void;
+    onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
     isHighlighted?: boolean;
     id?: string;
     onFilterByOrderId?: (id: string) => void;
@@ -43,6 +45,7 @@ const OrderHistoryRow = ({
     isSelected,
     onToggleSelection,
     onBlingUpdate,
+    onStockCheckUpdate,
     isHighlighted,
     id,
     onFilterByOrderId
@@ -53,6 +56,7 @@ const OrderHistoryRow = ({
     const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
     const [showStockConfirm, setShowStockConfirm] = React.useState(false);
     const [isStockLoading, setIsStockLoading] = React.useState(false);
+    const [isStockCheckModalOpen, setIsStockCheckModalOpen] = React.useState(false);
     const { profile } = useAuth();
     const settings = getSettings();
     const isIncomplete = isOrderIncomplete(order);
@@ -498,6 +502,33 @@ const OrderHistoryRow = ({
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* Stock Check Badge */}
+                                {!showTrash && (
+                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                                        <button 
+                                            onClick={() => setIsStockCheckModalOpen(true)}
+                                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border transition-all w-fit shadow-sm hover:scale-105 ${
+                                                order.isStockChecked 
+                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/20' 
+                                                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 animate-pulse'
+                                            }`}
+                                            title={order.isStockChecked ? "Estoque Checado" : "Falta Checar Estoque"}
+                                        >
+                                            <i className={`bi ${order.isStockChecked ? 'bi-check2-circle' : 'bi-exclamation-circle-fill'} text-[8px]`} />
+                                            <span className="text-[8px] font-black uppercase tracking-tight">
+                                                {order.isStockChecked ? "Checou Estoque" : "Falta Estoque"}
+                                            </span>
+                                        </button>
+
+                                        <StockCheckModal
+                                            isOpen={isStockCheckModalOpen}
+                                            onClose={() => setIsStockCheckModalOpen(false)}
+                                            order={order}
+                                            onStockCheckUpdate={onStockCheckUpdate!}
+                                        />
                                     </div>
                                 )}
 

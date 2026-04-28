@@ -203,7 +203,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         }
 
                         // Catalogo Item
-                        const displayName = v ? `${p!.description} (${v.name})` : p!.description;
+                        const displayName = v ? v.name : p!.description;
                         const displayCode = v?.sku || p!.code || 'S/REF';
                         const displayPrice = v ? v.unitPrice : p!.unitPrice;
                         const displayStock = v ? v.stock : p!.stock;

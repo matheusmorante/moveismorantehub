@@ -351,6 +351,38 @@ export const useOrderHistory = (filters?: any) => {
         }
     };
 
+    const handleStockCheckUpdate = async (
+        id: string, 
+        value: boolean, 
+        updatedItems?: any[], 
+        updatedAssistanceItems?: any[]
+    ) => {
+        const currentOrder = orders.find(o => o.id === id);
+        if (!currentOrder) return;
+
+        const updatePayload: any = { isStockChecked: value };
+        if (updatedItems) updatePayload.items = updatedItems;
+        if (updatedAssistanceItems) updatePayload.assistanceItems = updatedAssistanceItems;
+
+        // Optimistic update
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updatePayload } : o));
+        
+        try {
+            await updateOrder(id, updatePayload, currentOrder);
+            toast.success(value ? "Estoque checado com sucesso!" : "Checagem parcial salva!");
+        } catch (error) {
+            // Rollback
+            setOrders(prev => prev.map(o => o.id === id ? { 
+                ...o, 
+                isStockChecked: currentOrder.isStockChecked,
+                items: currentOrder.items,
+                assistanceItems: currentOrder.assistanceItems
+            } : o));
+            console.error("Erro ao atualizar status do estoque:", error);
+            toast.error("Erro ao atualizar status do estoque.");
+        }
+    };
+
     return {
         orders: paginatedOrders,
         totalItems,
@@ -374,6 +406,7 @@ export const useOrderHistory = (filters?: any) => {
         handleBulkPermanentDelete,
         handleDeleteDrafts: handleBulkPermanentDelete, // Alias for drafts modal
         handleBlingUpdate,
+        handleStockCheckUpdate,
         refresh
     };
 };

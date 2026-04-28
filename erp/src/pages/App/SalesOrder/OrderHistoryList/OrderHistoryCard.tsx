@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import Order from "../../../types/order.type";
+import StockCheckModal from "./StockCheckModal";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
@@ -21,6 +22,7 @@ interface OrderHistoryCardProps {
     id?: string;
     onFilterByOrderId?: (id: string) => void;
     onBlingUpdate?: (id: string, value: boolean) => void;
+    onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
 }
 
 const OrderHistoryCard = ({
@@ -35,6 +37,7 @@ const OrderHistoryCard = ({
     isSelected,
     onToggleSelection,
     onBlingUpdate,
+    onStockCheckUpdate,
     isHighlighted,
     id,
     onFilterByOrderId
@@ -44,6 +47,7 @@ const OrderHistoryCard = ({
     const [showPicker, setShowPicker] = React.useState(false);
     const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
+    const [isStockCheckModalOpen, setIsStockCheckModalOpen] = React.useState(false);
     const [menuPosition, setMenuPosition] = React.useState({ top: 'auto' as number | string, bottom: 'auto' as number | string, right: 0 });
     const menuButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -184,6 +188,30 @@ const OrderHistoryCard = ({
                                     
                                     {isPaidTraffic && (
                                         <i className="bi bi-megaphone-fill text-indigo-600 dark:text-indigo-400 text-[9px]" title="Tráfego Pago/Ads" />
+                                    )}
+
+                                    {!showTrash && (
+                                        <div className="flex items-center gap-1 border-r border-slate-200 dark:border-slate-700 pr-1.5 mr-1">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setIsStockCheckModalOpen(true); }}
+                                                className={`flex items-center gap-0.5 px-1 py-0.5 rounded border transition-all text-[8px] font-black uppercase tracking-tight ${
+                                                    order.isStockChecked 
+                                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/20' 
+                                                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 animate-pulse'
+                                                }`}
+                                                title={order.isStockChecked ? "Estoque Checado" : "Falta Checar Estoque"}
+                                            >
+                                                <i className={`bi ${order.isStockChecked ? 'bi-check2-circle' : 'bi-exclamation-circle-fill'} text-[7px]`} />
+                                                <span>{order.isStockChecked ? "Estoque" : "Falta"}</span>
+                                            </button>
+
+                                            <StockCheckModal
+                                                isOpen={isStockCheckModalOpen}
+                                                onClose={() => setIsStockCheckModalOpen(false)}
+                                                order={order}
+                                                onStockCheckUpdate={onStockCheckUpdate!}
+                                            />
+                                        </div>
                                     )}
 
                                     {order.orderType !== 'assistance' && !showTrash && (

@@ -10,9 +10,11 @@ interface PostOrderActionsModalProps {
 const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, onClose }) => {
     // Filter the buttons exactly like OrderHistoryCard does: buttons that match the order type.
     // REMOVED 'sendCustomerReviews' from post-sale modal as per user request (only for fulfilled orders)
+    // REMOVED return/devolution buttons from post-sale modal (generateReturn, undoReturn, printReturnOS)
+    const excludedKeys = ['sendCustomerReviews', 'generateReturn', 'undoReturn', 'printReturnOS'];
     const availableActions = buttons.filter(btn => 
         btn.orderTypes && (btn.orderTypes.includes(order.orderType || 'sale') || btn.orderTypes.includes('all')) &&
-        btn.key !== 'sendCustomerReviews'
+        !excludedKeys.includes(btn.key)
     );
 
     const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(order.isButtonsClicked || {});

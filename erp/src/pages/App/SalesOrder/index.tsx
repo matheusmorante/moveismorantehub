@@ -143,112 +143,114 @@ const SalesOrder = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 p-4 lg:p-6">
-                <div className="flex flex-col gap-6 mb-6">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h1 className="text-2xl xl:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all">
-                                {isBudgetRoute ? 'Lista de Orçamentos' : (isAssistanceRoute ? 'Solicitações de Assistência' : (isReturnRoute ? 'Registro de Devoluções' : 'Pedidos de Venda'))}
+                <div className="flex flex-col gap-4 mb-4">
+                    <div className="flex justify-between items-center flex-wrap gap-3">
+                        {/* Title */}
+                        <div className="min-w-0">
+                            <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all leading-tight">
+                                {isBudgetRoute ? 'Orçamentos' : (isAssistanceRoute ? 'Assistências' : (isReturnRoute ? 'Devoluções' : 'Pedidos de Venda'))}
                             </h1>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1">
+                            <p className="text-slate-500 dark:text-slate-400 font-medium text-[10px] mt-0.5 hidden lg:block">
                                 {isBudgetRoute ? 'Gestão de Propostas e Orçamentos' : (isAssistanceRoute ? 'Atendimento Técnico e Manutenção' : (isReturnRoute ? 'Controle de Devoluções e Estornos' : 'Gestão de Vendas e Fluxo de Pedidos'))}
                             </p>
                         </div>
 
+                        {/* Inline Tab Navigation */}
+                        <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-white dark:border-slate-700/50 order-3 lg:order-none">
+                            <button
+                                onClick={() => navigate('/sales-order')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute
+                                    ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-premium-sm' 
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                            >
+                                <i className={`bi ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute ? 'bi-cart-check-fill' : 'bi-cart-check'} text-sm`} />
+                                Vendas
+                            </button>
+                            
+                            <button
+                                onClick={() => navigate('/budgets')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${isBudgetRoute
+                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-premium-sm' 
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                            >
+                                <i className={`bi ${isBudgetRoute ? 'bi-calculator-fill' : 'bi-calculator'} text-sm`} />
+                                Orçamentos
+                            </button>
+
+                            <button
+                                onClick={() => navigate('/assistance-orders')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${isAssistanceRoute
+                                    ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-premium-sm' 
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                            >
+                                <i className={`bi ${isAssistanceRoute ? 'bi-tools' : 'bi-wrench'} text-sm`} />
+                                Assistências
+                            </button>
+
+                            <button
+                                onClick={() => navigate('/returns')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${isReturnRoute
+                                    ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-premium-sm' 
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                            >
+                                <i className="bi bi-arrow-return-left text-sm font-black" />
+                                Devoluções
+                            </button>
+                        </div>
+
+                        {/* Action Buttons */}
                         <div className="flex items-center gap-2">
                             <Link
                                 to="/settings"
-                                className="flex items-center justify-center p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:text-slate-500 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
+                                className="flex items-center justify-center p-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:text-slate-500 rounded-xl transition-all border border-slate-200 dark:border-slate-800"
                                 title="Configurações do Sistema"
                             >
-                                <i className="bi bi-gear-fill text-xl" />
+                                <i className="bi bi-gear-fill text-lg" />
                             </Link>
 
-                            <div className="w-[1px] h-8 bg-slate-200 dark:bg-slate-700 mx-2" />
+                            <div className="w-[1px] h-7 bg-slate-200 dark:bg-slate-700 mx-1" />
 
                             {isBudgetRoute && (
                                 <button
                                     onClick={() => setOrderModalType('budget')}
-                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 transition-all active:scale-95"
                                 >
-                                    <i className="bi bi-plus-lg text-lg" />
+                                    <i className="bi bi-plus-lg text-base" />
                                     Novo Orçamento
                                 </button>
                             )}
                             {isAssistanceRoute && (
                                 <button
                                     onClick={() => setOrderModalType('assistance')}
-                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/20 transition-all active:scale-95"
+                                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-500/20 transition-all active:scale-95"
                                 >
-                                    <i className="bi bi-tools text-lg" />
+                                    <i className="bi bi-tools text-base" />
                                     Nova Assistência
                                 </button>
                             )}
                             {isReturnRoute && (
                                 <button
                                     onClick={() => setOrderModalType('return')}
-                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-amber-500/20 transition-all active:scale-95"
+                                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-amber-500/20 transition-all active:scale-95"
                                 >
-                                    <i className="bi bi-arrow-return-left text-lg" />
+                                    <i className="bi bi-arrow-return-left text-base" />
                                     Nova Devolução
                                 </button>
                             )}
                             {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
                                 <button
                                     onClick={() => setOrderModalType('sale')}
-                                    className="flex items-center justify-center gap-3 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                 >
-                                    <i className="bi bi-plus-lg text-lg" />
+                                    <i className="bi bi-plus-lg text-base" />
                                     Nova Venda
                                 </button>
                             )}
                         </div>
-                    </div>
-
-                    {/* Integrated Tab Navigation */}
-                    <div className="flex p-1.5 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[2rem] border border-white dark:border-slate-700/50 w-fit">
-                        <button
-                            onClick={() => navigate('/sales-order')}
-                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute
-                                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-premium-sm' 
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        >
-                            <i className={`bi ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute ? 'bi-cart-check-fill' : 'bi-cart-check'} text-lg`} />
-                            Vendas
-                        </button>
-                        
-                        <button
-                            onClick={() => navigate('/budgets')}
-                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${isBudgetRoute
-                                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-premium-sm' 
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        >
-                            <i className={`bi ${isBudgetRoute ? 'bi-calculator-fill' : 'bi-calculator'} text-lg`} />
-                            Orçamentos
-                        </button>
-
-                        <button
-                            onClick={() => navigate('/assistance-orders')}
-                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${isAssistanceRoute
-                                ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-premium-sm' 
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        >
-                            <i className={`bi ${isAssistanceRoute ? 'bi-tools' : 'bi-wrench'} text-lg`} />
-                            Assistências
-                        </button>
-
-                        <button
-                            onClick={() => navigate('/returns')}
-                            className={`flex items-center gap-3 px-8 py-3 rounded-[1.5rem] transition-all duration-300 font-black uppercase tracking-widest text-[11px] ${isReturnRoute
-                                ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-premium-sm' 
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        >
-                            <i className={`bi ${isReturnRoute ? 'bi-arrow-return-left' : 'bi-arrow-return-left'} text-lg font-black`} />
-                            Devoluções
-                        </button>
                     </div>
                 </div>
 

@@ -27,6 +27,7 @@ interface OrderHistoryTableProps {
     onBulkPermanentDelete: () => void;
     onClearSelection: () => void;
     onBlingUpdate?: (id: string, value: boolean) => void;
+    onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
     highlightOrderId?: string | null;
     onFilterByOrderId?: (id: string) => void;
 }
@@ -51,6 +52,7 @@ const OrderHistoryTable = ({
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection,
     onBlingUpdate,
+    onStockCheckUpdate,
     highlightOrderId,
     onFilterByOrderId
 }: OrderHistoryTableProps) => {
@@ -268,6 +270,7 @@ const OrderHistoryTable = ({
                                     isSelected={selectedOrders.includes(order.id!)}
                                     onToggleSelection={() => onToggleSelection(order.id!)}
                                     onBlingUpdate={onBlingUpdate}
+                                    onStockCheckUpdate={onStockCheckUpdate}
                                     isHighlighted={highlightOrderId === order.id}
                                     id={`order-row-${order.id}`}
                                     onFilterByOrderId={onFilterByOrderId}
@@ -298,6 +301,7 @@ const OrderHistoryTable = ({
                                 isSelected={selectedOrders.includes(order.id!)}
                                 onToggleSelection={() => onToggleSelection(order.id!)}
                                 onBlingUpdate={onBlingUpdate}
+                                onStockCheckUpdate={onStockCheckUpdate}
                                 isHighlighted={highlightOrderId === order.id}
                                 id={`order-card-${order.id}`}
                                 onFilterByOrderId={onFilterByOrderId}

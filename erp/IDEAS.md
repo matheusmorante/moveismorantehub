@@ -35,6 +35,10 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **Formas de Pagamento:** Removida a opção "WhatsApp" e adicionada a modalidade **"Promissória"** permitindo parcelamento em até 10x detalhado no resumo do pedido.
 - **Cartão de Crédito:** Expandido o parcelamento padrão para até 12x.
 
+### 📦 Módulo de Pedidos de Venda - Checagem de Estoque
+- **Novo Botão "Checou Estoque":** Implementado fluxo de checagem individual de itens do pedido de venda através de um modal interativo com checklists de produtos. 
+- **Carga Automatizada Retroativa:** Atualização em massa marcando pedidos efetuados até 26/04/2026 como estoque checado de forma retroativa.
+
 
 
 
