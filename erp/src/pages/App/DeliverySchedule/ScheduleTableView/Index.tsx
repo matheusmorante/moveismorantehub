@@ -12,8 +12,8 @@ interface Props {
     hasInitialScrolled?: React.MutableRefObject<boolean>;
 }
 
-const BASE_START_HOUR = 9;
-const BASE_END_HOUR = 18;
+const BASE_START_HOUR = 8;
+const BASE_END_HOUR = 20;
 
 const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled }: Props) => {
     const settings = getSettings();
@@ -142,26 +142,40 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
 
     useEffect(() => {
         const handleLayout = () => {
-            const width = window.innerWidth;
-            const mobile = width < 1024;
+            const parent = scrollParentRef.current;
+            const container = containerRef.current;
+            if (!parent || !container) return;
+
+            const width = parent.offsetWidth;
+            const height = parent.offsetHeight;
+            const mobile = window.innerWidth < 1024;
             setIsMobile(mobile);
             
-            // Cálculo dinâmico da largura real da tabela:
-            // Coluna de data (120px) + (Número de horas * largura da coluna 280px)
-            const actualTableWidth = 120 + (HOURS.length * 280);
+            // Resetar transform temporariamente para medir o tamanho real se necessário
+            // ou confiar que scrollWidth/scrollHeight retornam o tamanho intrínseco.
+            const contentWidth = container.scrollWidth;
             
-            // Calcula a escala exata para ocupar 100% da largura da tela (com um pequeno respiro de 10px)
-            const scaleW = (width - 10) / actualTableWidth;
+            // Para tabelas, priorizamos que ela ocupe a largura total disponível.
+            // Não queremos que ela encolha para caber na altura, pois tabelas devem ser roladas verticalmente.
+            let scale = (width - 10) / contentWidth;
+
+            // No desktop, não queremos escala > 1.0 se o conteúdo for pequeno
+            if (!mobile && scale > 1) scale = 1;
             
-            // Aplica a escala para que a tabela preencha a tela horizontalmente
-            zoomState.current.scale = scaleW;
+            // No mobile, garantimos um limite mínimo de escala para legibilidade
+            if (mobile) scale = Math.max(scale, 0.4);
+
+            zoomState.current.scale = scale;
             applyTransform();
         };
 
-        handleLayout();
+        const timer = setTimeout(handleLayout, 100);
         window.addEventListener('resize', handleLayout);
-        return () => window.removeEventListener('resize', handleLayout);
-    }, [schedule, HOURS]);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('resize', handleLayout);
+        };
+    }, [schedule, HOURS, tableHeight]);
 
     const dragRef = useRef({
         isDragging: false,
@@ -205,6 +219,27 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
     };
 
     useEffect(() => {
+        if (hasInitialScrolled?.current) return;
+        
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        // Find the closest date (today or future)
+        const availableDates = Object.keys(schedule).sort();
+        const targetDate = availableDates.find(d => d >= todayStr) || availableDates[0];
+
+        if (!targetDate) return;
+
+        setTimeout(() => {
+            const element = document.getElementById(`table-date-${targetDate}`);
+            if (element && scrollParentRef.current) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (hasInitialScrolled) hasInitialScrolled.current = true;
+            }
+        }, 500); // Give it a bit more time for the zoom/layout to settle
+    }, [schedule, hasInitialScrolled]);
+
+    useEffect(() => {
         const el = scrollParentRef.current;
         if (!el) return;
 
@@ -228,7 +263,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
     }, []);
 
     return (
-        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-0 w-full h-[calc(100vh-130px)]'}`}>
+        <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-0 w-full h-[calc(100vh-280px)]'}`}>
             <div 
                 ref={scrollParentRef}
                 onMouseDown={handleMouseDown}
@@ -241,15 +276,14 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                 <div 
                     style={{ 
                         width: '100%',
-                        height: isMobile ? `calc(${tableHeight}px * var(--zoom, 1))` : 'auto',
+                        height: `calc(${tableHeight}px * var(--zoom, 1))`,
                         position: 'relative',
                     }}
                 >
                     <div 
                         ref={containerRef}
-                        className={`${isMobile ? 'absolute top-0 left-0 origin-top-left' : 'w-full'}`}
+                        className="absolute top-0 left-0 origin-top-left w-full"
                         style={{ 
-                            width: '100%',
                             willChange: 'transform'
                         }}
                     >
@@ -280,6 +314,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                                          return (
                                              <tr 
                                                  key={`${date}-${laneIdx}`} 
+                                                 id={laneIdx === 0 ? `table-date-${date}` : undefined}
                                                  className={`h-52 group hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors border-b border-slate-100 dark:border-slate-800 ${isLastLaneOfDay ? 'border-b-4 border-slate-200 dark:border-slate-800' : ''}`}
                                              >
                                                  {laneIdx === 0 && (

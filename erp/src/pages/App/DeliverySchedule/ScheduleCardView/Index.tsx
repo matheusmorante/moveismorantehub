@@ -402,20 +402,22 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
         if (hasInitialScrolled?.current) return;
 
         const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-        // Wait a bit for the layout to settle
+        // Find the closest date (today or future)
+        const availableDates = Object.keys(schedule).sort();
+        const targetDate = availableDates.find(d => d >= todayStr) || availableDates[0];
+
+        if (!targetDate) return;
+
         setTimeout(() => {
-            const element = document.getElementById(`date-${todayStr}`);
+            const element = document.getElementById(`date-${targetDate}`);
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 if (hasInitialScrolled) hasInitialScrolled.current = true;
             }
-        }, 100);
-    }, [schedule]);
+        }, 300);
+    }, [schedule, hasInitialScrolled]);
 
     return (
         <div ref={scrollContainerRef} className="flex flex-col gap-12 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">

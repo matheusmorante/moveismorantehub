@@ -198,11 +198,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
         ));
     };
 
-    const handleUpdateItemHandling = (description: string, handling: string) => {
-        setSelectedAssistanceItems(prev => prev.map(i =>
-            i.description === description ? { ...i, handlingType: handling } : i
-        ));
-    };
+
 
 
 
@@ -341,7 +337,6 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
                         selectedAssistanceItems={selectedAssistanceItems}
                         handleToggleItem={handleToggleItem}
                         handleUpdateItemQty={handleUpdateItemQty}
-                        handleUpdateItemHandling={handleUpdateItemHandling}
                     />
 
                     <AssistanceCustomerSection 

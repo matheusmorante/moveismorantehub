@@ -71,26 +71,7 @@ const AssistanceExtraItemsSection = ({
                                         </button>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                                    <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Modalidade</label>
-                                    <div className="flex items-center gap-2">
-                                        <select
-                                            value={item.handlingType || ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setExtraItems(prev => prev.map((it, i) => i === idx ? { ...it, handlingType: val } : it));
-                                            }}
-                                            className="text-[10px] font-black bg-white dark:bg-slate-950 border-none rounded-lg p-1.5 flex-1 focus:ring-1 focus:ring-indigo-500 transition-all uppercase"
-                                        >
-                                            <option value="">(Nenhuma)</option>
-                                            {allOptions.map((opt, i) => (
-                                                <option key={i} value={opt.label}>
-                                                    {opt.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
+
                             </div>
                         ))}
                         <div className="flex justify-end px-4 py-2 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100/50 dark:border-indigo-900/30">

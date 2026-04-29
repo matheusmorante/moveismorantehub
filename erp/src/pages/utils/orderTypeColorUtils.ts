@@ -220,3 +220,18 @@ export const getPrimaryHandlingInfo = (order: any, settings: any) => {
         label: items[0]?.handlingType || order.shipping?.orderType
     };
 };
+
+/**
+ * Traduz o status técnico do pedido para uma linguagem amigável em português.
+ */
+export const translateStatus = (status: string | undefined): string => {
+    if (!status) return 'Pendente';
+    const s = status.toLowerCase();
+    switch (s) {
+        case 'draft': return 'Rascunho';
+        case 'scheduled': return 'Agendado';
+        case 'fulfilled': return 'Atendido';
+        case 'cancelled': return 'Cancelado';
+        default: return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+};

@@ -319,7 +319,7 @@ export const useOrderHistory = (filters?: any) => {
             setOrders(prev => prev.map(o => o.id === order.id ? { ...o, isButtonsClicked: newClicks } : o));
 
             try {
-                await updateOrder(order.id!, { isButtonsClicked: newClicks });
+                await updateOrder(order.id!, { isButtonsClicked: newClicks }, order);
                 
                 // Special case: reviewRequested is also updated for the reviews button
                 if (actionKey === "sendCustomerReviews" && !order.reviewRequested) {

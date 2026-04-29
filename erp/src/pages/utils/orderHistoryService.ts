@@ -300,7 +300,7 @@ export const updateOrder = async (
 
         if (currentOrder) {
             // Temos o pedido completo em memória — skip do SELECT no banco
-            const { id: _id, ...rest } = { ...(currentOrder || {}), ...orderToUpdate, id: undefined } as any;
+            const { id: _id, ...rest } = { ...currentOrder, ...orderToUpdate } as any;
             merged = rest;
         } else {
             // Fallback: busca o pedido completo no banco antes de mesclar
@@ -310,16 +310,17 @@ export const updateOrder = async (
                 .eq('id', id)
                 .single();
 
-            if (fetchError) {
-                // Se o fetch falhar mas tivermos a atualização parcial, tenta mesmo assim
-                console.warn('Pré-fetch falhou, aplicando atualização parcial:', fetchError);
-                const { id: _id, ...rest } = orderToUpdate as any;
-                merged = rest;
-            } else {
-                const { id: _id, ...rest } = { ...(current?.order_data || {}), ...orderToUpdate, id: undefined } as any;
-                merged = rest;
+            if (fetchError || !current) {
+                console.error('[OrderUpdate] Erro crítico: Não foi possível obter o pedido original para atualização segura.', fetchError);
+                throw new Error("Não foi possível encontrar o pedido original para realizar a atualização. A operação foi cancelada para evitar perda de dados.");
             }
+
+            const { id: _id, ...rest } = { ...(current.order_data || {}), ...orderToUpdate } as any;
+            merged = rest;
         }
+        
+        // Ensure ID is removed from the JSONB data to avoid redundancy and potential issues
+        if (merged.id) delete merged.id;
 
         if ((merged as any).shipping?.orderType) {
             console.log(`[OrderUpdate] Salvando modalidade global: ${(merged as any).shipping.orderType}`);

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useDeliverySchedule, ScheduleFilter, OrderTypeFilter } from "./useDeliverySchedule";
 import OrderDetailsModal from "./OrderDetailsModal";
-import DeliveryMap from "./DeliveryMap";
 import ScheduleCardView from "./ScheduleCardView/Index";
 import ScheduleTableView from "./ScheduleTableView/Index";
+import ScheduleTimelineView from "./TimelineView/Index";
 import ShowroomAssemblyModal from "./ShowroomAssemblyModal";
 import OrderEditModal from "../SalesOrder/OrderEditModal";
 
@@ -30,15 +30,17 @@ const DeliverySchedule = () => {
         setEndDate,
     } = useDeliverySchedule();
 
-    const [viewMode, setViewMode] = useState<"card" | "table" | "map">("table");
+    const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("table");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<any>(null);
-    const hasInitialScrolled = React.useRef(false);
+    const hasInitialScrolledCard = React.useRef(false);
+    const hasInitialScrolledTable = React.useRef(false);
+    const hasInitialScrolledTimeline = React.useRef(false);
     const { state } = useLocation();
 
     useEffect(() => {
-        if (state?.view === 'map') {
-            setViewMode('map');
+        if (state?.view === 'timeline') {
+            setViewMode('timeline');
         }
     }, [state]);
 
@@ -180,14 +182,14 @@ const DeliverySchedule = () => {
                         <button
                             onClick={() => {
                                 if (viewMode === 'table') setViewMode('card');
-                                else if (viewMode === 'card') setViewMode('map');
+                                else if (viewMode === 'card') setViewMode('timeline');
                                 else setViewMode('table');
                             }}
                             className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
                         >
                             <div className="flex items-center gap-3">
-                                <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-map-fill'} text-blue-600 dark:text-blue-400 text-lg`} />
-                                <span>{viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Mapa'}</span>
+                                <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-activity'} text-blue-600 dark:text-blue-400 text-lg`} />
+                                <span>{viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Linha Tempo'}</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-400">
                                 <span className="text-[9px] uppercase tracking-widest font-bold">Alternar</span>
@@ -235,13 +237,13 @@ const DeliverySchedule = () => {
                     <button
                         onClick={() => {
                             if (viewMode === 'table') setViewMode('card');
-                            else if (viewMode === 'card') setViewMode('map');
+                            else if (viewMode === 'card') setViewMode('timeline');
                             else setViewMode('table');
                         }}
                         className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-blue-600 dark:text-blue-400 shadow-sm active:scale-95 transition-all"
                         title="Alternar Visualização"
                     >
-                        <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-map-fill'} text-lg`} />
+                        <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-activity'} text-lg`} />
                     </button>
 
                     <button
@@ -299,13 +301,13 @@ const DeliverySchedule = () => {
                 <button
                     onClick={() => {
                         if (viewMode === 'table') setViewMode('card');
-                        else if (viewMode === 'card') setViewMode('map');
+                        else if (viewMode === 'card') setViewMode('timeline');
                         else setViewMode('table');
                     }}
                     className="flex items-center gap-3 px-6 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:shadow-premium-sm transition-all group"
                 >
-                    <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-map-fill'} text-blue-600 dark:text-blue-400 text-base group-hover:rotate-12 transition-transform`} />
-                    Vista: {viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Mapa'}
+                    <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-activity'} text-blue-600 dark:text-blue-400 text-base group-hover:rotate-12 transition-transform`} />
+                    Vista: {viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Linha Tempo'}
                     <i className="bi bi-chevron-right text-slate-400 ml-1" />
                 </button>
 
@@ -345,8 +347,8 @@ const DeliverySchedule = () => {
                     <i className="bi bi-funnel-fill" /> {typeFilter.length} Tipos
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                    <i className={`bi ${viewMode === 'card' ? 'bi-grid-fill' : viewMode === 'table' ? 'bi-table' : 'bi-map-fill'}`} /> 
-                    {viewMode === 'card' ? 'Cards' : viewMode === 'table' ? 'Tabela' : 'Mapa'}
+                    <i className={`bi ${viewMode === 'card' ? 'bi-grid-fill' : viewMode === 'table' ? 'bi-table' : 'bi-activity'}`} /> 
+                    {viewMode === 'card' ? 'Cards' : viewMode === 'table' ? 'Tabela' : 'Linha Tempo'}
                 </span>
                 {!isStandalone && (
                     <div className="flex items-center gap-2 ml-auto w-full sm:w-auto mt-2 sm:mt-0">
@@ -410,20 +412,21 @@ const DeliverySchedule = () => {
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
-                        hasInitialScrolled={hasInitialScrolled}
+                        hasInitialScrolled={hasInitialScrolledCard}
                     />
                 ) : viewMode === "table" ? (
                     <ScheduleTableView
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
-                        hasInitialScrolled={hasInitialScrolled}
+                        hasInitialScrolled={hasInitialScrolledTable}
                     />
                 ) : (
-                    <DeliveryMap 
-                        orders={Object.values(schedule).flat()} 
-                        onOrderClick={openOrderDetails} 
-                        onOrderEdit={isStandalone ? undefined : setOrderToEdit}
+                    <ScheduleTimelineView
+                        schedule={schedule}
+                        onOrderClick={openOrderDetails}
+                        isReadOnly={isStandalone}
+                        hasInitialScrolled={hasInitialScrolledTimeline}
                     />
                 )}
             </div>
