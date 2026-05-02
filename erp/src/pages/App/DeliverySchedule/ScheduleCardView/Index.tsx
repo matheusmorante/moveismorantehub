@@ -91,7 +91,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
-        return foundOpt?.includeInAssemblySchedule === true && foundOpt?.isAssemblyOutside === true;
+        return foundOpt?.isAssemblyOutside === true;
     });
 
     const isOnlyInternalAssembly = allItems.some(item => {
@@ -303,6 +303,29 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                 )}
 
                 <div className="flex flex-col gap-2">
+                    {isOnlyInternalAssembly && (
+                        <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-4 rounded-[1.5rem] border-2 border-orange-100 dark:border-orange-900/30 animate-pulse shadow-lg">
+                            <i className="bi bi-hammer text-orange-500 text-xl shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
+                                    Montagem no Depósito
+                                </span>
+                                <span className="text-[9px] font-bold opacity-70 uppercase">Agendado para o depósito</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {isAssemblyOutside && (
+                        <div className="flex items-start gap-3 bg-red-600 text-white p-4 rounded-[1.5rem] border-2 border-red-700 animate-pulse shadow-lg">
+                            <i className="bi bi-hammer text-white text-xl shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
+                                    Montagem FORA
+                                </span>
+                                <span className="text-[9px] font-bold opacity-80 uppercase">Realizada no cliente</span>
+                            </div>
+                        </div>
+                    )}
                     {!isPickupTask && !isAssemblyTask && (
                         <>
                             <div className="flex items-start gap-4 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group/addr hover:bg-white dark:hover:bg-slate-950 transition-all duration-300">

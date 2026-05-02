@@ -34,6 +34,27 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
 
     const typeLabel = isAssemblyTask ? 'Montagem' : (isAssistance ? 'Assistência' : (isPickupTask ? 'Retirada' : 'Entrega'));
 
+    const allOptions = [
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || [])
+    ];
+
+    const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
+    
+    const isAssemblyOutside = allItems.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.isAssemblyOutside === true;
+    });
+
+    const isOnlyInternalAssembly = allItems.some(item => {
+        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        if (!hLabel) return false;
+        const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
+        return foundOpt?.includeInAssemblySchedule === true && !foundOpt?.isAssemblyOutside;
+    });
+
     return (
         <div className="relative pl-16 pb-16 group last:pb-8" onClick={() => onOrderClick(order)}>
             {/* The Dot on the timeline - Centered with the first row of the card */}
@@ -71,6 +92,33 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
                         <i className="bi bi-geo-alt-fill text-red-500" />
                         {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
                     </p>
+                </div>
+
+                {/* Assembly Badges */}
+                <div className="flex flex-col gap-2 mt-4">
+                    {isOnlyInternalAssembly && (
+                        <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-4 rounded-[1.5rem] border-2 border-orange-100 dark:border-orange-900/30 animate-pulse shadow-lg w-fit">
+                            <i className="bi bi-hammer text-orange-500 text-xl shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
+                                    Montagem no Depósito
+                                </span>
+                                <span className="text-[9px] font-bold opacity-70 uppercase">Agendado para o depósito</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {isAssemblyOutside && (
+                        <div className="flex items-start gap-3 bg-red-600 text-white p-4 rounded-[1.5rem] border-2 border-red-700 animate-pulse shadow-lg w-fit">
+                            <i className="bi bi-hammer text-white text-xl shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
+                                    Montagem FORA
+                                </span>
+                                <span className="text-[9px] font-bold opacity-80 uppercase">Realizada no cliente</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Items Summary */}

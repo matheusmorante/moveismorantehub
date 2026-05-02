@@ -109,7 +109,7 @@ const OrderHistoryCard = ({
     const isHandlingOutside = (item: any) => {
         const hLabel = normalize(item.handlingType);
         const opt = getMatchingOption(hLabel);
-        return (opt?.includeInAssemblySchedule && opt?.isAssemblyOutside) || false;
+        return opt?.isAssemblyOutside || false;
     };
 
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
@@ -292,6 +292,24 @@ const OrderHistoryCard = ({
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
+                
+                {isOnlyInternalAssembly && (
+                    <div className="mt-2 flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-2 rounded-lg border border-orange-100 dark:border-orange-900/30 animate-pulse shadow-sm">
+                        <i className="bi bi-hammer text-[10px]" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                            MONTAGEM NO DEPÓSITO
+                        </span>
+                    </div>
+                )}
+                
+                {isAssemblyOutside && (
+                    <div className="mt-2 flex items-center gap-2 bg-red-600 text-white p-2 rounded-lg border border-red-700 animate-pulse shadow-sm">
+                        <i className="bi bi-hammer text-white text-[10px]" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                            MONTAGEM FORA
+                        </span>
+                    </div>
+                )}
                 
                 {/* Redundância do Bling removida para privilegiar o ícone 'B' na barra de badges superior */}
 

@@ -30,7 +30,7 @@ const DeliverySchedule = () => {
         setEndDate,
     } = useDeliverySchedule();
 
-    const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("table");
+    const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("timeline");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<any>(null);
     const hasInitialScrolledCard = React.useRef(false);

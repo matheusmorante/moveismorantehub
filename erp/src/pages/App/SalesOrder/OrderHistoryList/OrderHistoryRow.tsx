@@ -133,7 +133,7 @@ const OrderHistoryRow = ({
     const isHandlingOutside = (item: any) => {
         const hLabel = normalize(item.handlingType);
         const opt = getMatchingOption(hLabel);
-        return (opt?.includeInAssemblySchedule && opt?.isAssemblyOutside) || false;
+        return opt?.isAssemblyOutside || false;
     };
 
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
@@ -402,16 +402,26 @@ const OrderHistoryRow = ({
                                     <i className={`bi ${tIcon} ${tColor} text-[10px]`} />
                                 </div>
 
-                                {/* Assembly Icons */}
-                                {hasAssemblyConfig && (
-                                    <div 
-                                        className={`flex items-center justify-center gap-0.5 w-fit min-w-[1.5rem] h-6 px-1 rounded-md border animate-blink ${isAssemblyOutside ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20 font-bold' : 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-100 dark:border-yellow-900/20'}`}
-                                        title={isAssemblyOutside ? 'Montagem FORA' : 'Montagem no Depósito'}
-                                    >
-                                        <i className={`bi bi-hammer ${isAssemblyOutside ? 'text-red-500' : 'text-yellow-600'} text-[9px]`} />
-                                        {isAssemblyOutside && <i className="bi bi-house-door-fill text-red-500 text-[8px]" />}
-                                    </div>
-                                )}
+                                {/* Assembly Badges */}
+                                {isOnlyInternalAssembly && (
+                                     <div 
+                                         className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md border border-orange-100 dark:border-orange-900/30 shadow-sm animate-pulse" 
+                                         title="MONTAGEM NO DEPÓSITO"
+                                     >
+                                         <i className="bi bi-hammer text-[10px]" />
+                                         <span className="text-[9px] font-black uppercase tracking-widest">Montagem no Depósito</span>
+                                     </div>
+                                 )}
+
+                                 {isAssemblyOutside && (
+                                     <div 
+                                         className="flex items-center gap-1.5 px-2 py-0.5 bg-red-600 text-white rounded-md border border-red-700 shadow-sm animate-pulse" 
+                                         title="MONTAGEM FORA (NA CASA DO CLIENTE)"
+                                     >
+                                         <i className="bi bi-hammer text-[10px]" />
+                                         <span className="text-[9px] font-black uppercase tracking-widest">Montagem Fora</span>
+                                     </div>
+                                 )}
 
                                 {/* Stock Processed Indicator */}
                                 {order.stockProcessed && order.items?.some(i => i.productId && i.productId.trim() !== "") && (

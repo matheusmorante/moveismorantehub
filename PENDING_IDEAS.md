@@ -19,6 +19,11 @@ Este arquivo documenta o progresso atual e os próximos passos para o refatorame
     -   Renomeado "Tipo de Móveis" para "Categorias" em todo o sistema (Categorias/Index.tsx, ProductFilters.tsx, ProductGeneralTab.tsx, ProductMaterialsSection.tsx)
     -   Refatoração de labels e mensagens de sucesso/erro para manter a consistência com "Categorias".
     -   Correção de bug no campo SKU (variável indefinida no input manual)
+-   **Cronograma Logístico:**
+    -   Alterado o modo de visualização padrão de "Tabela" para "Linha do Tempo" (Timeline).
+-   **Visualização de Pedidos:**
+    -   Adicionado rótulo vermelho "MONTAGEM FORA" proeminente para pedidos com montagem externa em todas as visualizações (Cronograma e Lista de Pedidos).
+
 
 ## 📌 Pendente / Próximos Passos
 
