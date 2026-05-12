@@ -22,7 +22,6 @@ interface Props {
 
 
 const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, isMobile }: Props) => {
-    const [newStatus, setNewStatus] = useState(payment.status);
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -42,18 +41,6 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
         };
     }, [isDropdownOpen]);
 
-    const onBlur = () => {
-        if (payment.status === newStatus) return;
-
-        const result = window.confirm(
-            `Tem certeza que quer alterar o status para "${newStatus}"`
-        );
-        if (result) {
-            onChange(idx, 'status', newStatus)
-        } else {
-            setNewStatus(payment.status)
-        }
-    }
 
     const getPaymentIcon = (method: string) => {
         if (method === 'Pix') return 'bi-qr-code text-teal-500';
@@ -174,13 +161,28 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                     {/* Status & Pix */}
                     <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase text-slate-400">Status</label>
-                        <input
-                            className="w-full bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 focus:border-indigo-500 px-3 py-2 rounded-xl outline-none transition-all text-sm font-medium"
-                            placeholder="Status do pagamento..."
-                            value={newStatus}
-                            onChange={e => setNewStatus(e.target.value)}
-                            onBlur={onBlur}
-                        />
+                        <div className="relative">
+                            <select
+                                className="w-full bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 focus:border-indigo-500 px-3 py-2 rounded-xl outline-none transition-all text-sm font-medium appearance-none"
+                                value={payment.status}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (val && window.confirm(`Tem certeza que quer alterar o status para "${val}"?`)) {
+                                        onChange(idx, 'status', val);
+                                    }
+                                }}
+                                required
+                            >
+                                <option value="" disabled>Selecionar status...</option>
+                                <option value="Pago">Pago</option>
+                                <option value="Pendente">Pendente</option>
+                                <option value="Verificar">Verificar</option>
+                                {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
+                                    <option value={payment.status}>{payment.status}</option>
+                                )}
+                            </select>
+                            <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
 
                         {payment.method === 'Pix' && (
                             <button
@@ -317,13 +319,28 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                 </div>
             </td>
             <td className="px-4 py-2">
-                <input
-                    className="w-full bg-transparent border border-slate-100 dark:border-slate-800 focus:border-indigo-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-200 min-w-[120px]"
-                    placeholder="Status..."
-                    value={newStatus}
-                    onChange={e => setNewStatus(e.target.value)}
-                    onBlur={onBlur}
-                />
+                <div className="relative group/status min-w-[140px]">
+                    <select
+                        className="w-full bg-transparent border border-slate-100 dark:border-slate-800 group-hover/status:border-indigo-300 dark:group-hover/status:border-indigo-600 focus:border-indigo-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm dark:text-slate-200 appearance-none"
+                        value={payment.status}
+                        onChange={e => {
+                            const val = e.target.value;
+                            if (val && window.confirm(`Tem certeza que quer alterar o status para "${val}"?`)) {
+                                onChange(idx, 'status', val);
+                            }
+                        }}
+                        required
+                    >
+                        <option value="" disabled className="text-slate-400">Status...</option>
+                        <option value="Pago">Pago</option>
+                        <option value="Pendente">Pendente</option>
+                        <option value="Verificar">Verificar</option>
+                        {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
+                            <option value={payment.status}>{payment.status}</option>
+                        )}
+                    </select>
+                    <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]" />
+                </div>
             </td>
             <td className="px-4 py-2 text-center border-none">
                 <button

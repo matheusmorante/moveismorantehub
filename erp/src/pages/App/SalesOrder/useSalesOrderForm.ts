@@ -81,7 +81,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const { customerData, setCustomerData } = useCustomerData();
     const [observation, setObservation] = useState("");
     const [seller, setSeller] = useState("");
-    const [marketingOrigin, setMarketingOrigin] = useState("Direto na Loja");
+    const [marketingOrigin, setMarketingOrigin] = useState("organic");
     const [orderDate, setOrderDate] = useState(() => getCurrentDatetimeLocal());
     const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
     const [status, setStatus] = useState<string>('draft');
@@ -171,7 +171,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             if (payments.length > 1) return false;
             if (payments.length === 1 && payments[0].amount !== 0) return false;
             // Check Observation and Seller
-            if (observation !== '' || seller !== '' || marketingOrigin !== 'Direto na Loja') return false;
+            if (observation !== '' || seller !== '' || (marketingOrigin !== 'organic' && marketingOrigin !== 'Direto na Loja')) return false;
 
             return true;
         })();
@@ -274,7 +274,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         });
         setObservation(order.observation || "");
         setSeller((order.seller as string) || "");
-        setMarketingOrigin(order.marketingOrigin || 'Direto na Loja');
+        setMarketingOrigin(order.marketingOrigin === 'Tráfego Pago' ? 'paid' : (order.marketingOrigin === 'Direto na Loja' ? 'organic' : (order.marketingOrigin || 'organic')));
         setOrderDate(parseStorageDateToLocal(order.date));
         setCurrentOrderId(order.id);
         setOrderType(order.orderType || 'sale');

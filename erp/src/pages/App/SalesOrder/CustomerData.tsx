@@ -81,7 +81,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
         });
         setSearchTerm(customer.fullName || customer.tradeName || '');
         if (customer.marketingOrigin && setMarketingOrigin) {
-            setMarketingOrigin(customer.marketingOrigin === 'paid' ? 'Tráfego Pago' : 'Direto na Loja');
+            setMarketingOrigin(customer.marketingOrigin);
         }
         setIsDropdownOpen(false);
     };
@@ -211,10 +211,10 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
         } as Person;
     }, [isEditCustomerModalOpen, customerData, customers, marketingOrigin]);
 
-    const field = (hasError?: boolean) =>
-        `w-full border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${isReadOnly
+    const field = (hasError?: boolean, forceReadOnly?: boolean) =>
+        `w-full border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${forceReadOnly
             ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent focus:ring-0'
-            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'} ${hasError && !isReadOnly ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : ''}`;
+            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'} ${hasError && !forceReadOnly ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : ''}`;
 
     return (
         <div className="space-y-6" ref={wrapperRef}>
@@ -354,7 +354,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">
                                 Nome do Cliente <span className="text-red-500">*</span>
                             </label>
-                            <input type="text" className={field(isNameError)}
+                            <input type="text" className={field(isNameError, isReadOnly)}
                                 placeholder="Nome Completo"
                                 value={customerData.fullName}
                                 onChange={e => setCustomerData(prev => ({ ...prev, fullName: e.target.value }))}
@@ -385,11 +385,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             <div className="flex gap-2">
                                 <PatternFormat
                                     format="(##) #####-####"
-                                    className={`${field(isPhoneError && !customerData.noPhone)} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
+                                    className={`${field(isPhoneError && !customerData.noPhone, false)} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
                                     placeholder={customerData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
                                     value={customerData.phone}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                                    disabled={customerData.noPhone || isReadOnly}
+                                    disabled={customerData.noPhone}
                                 />
                                 <button type="button"
                                     onClick={() => {
@@ -414,6 +414,29 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                         </div>
                     </div>
 
+                    {/* Origem de Marketing (Tráfego Pago) */}
+                    <div className="flex flex-col gap-3 bg-white dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                            <i className="bi bi-megaphone-fill text-orange-500" /> Cliente por tráfego pago?
+                        </label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setMarketingOrigin?.('paid')}
+                                className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${marketingOrigin === 'paid' ? 'bg-orange-600 text-white border-orange-600 shadow-lg shadow-orange-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-100'}`}
+                            >
+                                <i className="bi bi-bullseye mr-2" /> Sim (Pago)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMarketingOrigin?.('organic')}
+                                className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${marketingOrigin === 'organic' || marketingOrigin === 'Direto na Loja' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-100'}`}
+                            >
+                                <i className="bi bi-shop mr-2" /> Não (Loja)
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Address */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between pr-2">
@@ -434,7 +457,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                         <div className={`flex flex-col md:flex-row gap-3 transition-all ${customerData.noAddress ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
                             <div className="md:w-36">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">CEP</label>
-                                <input type="text" className={field()} placeholder="00000-000" maxLength={9}
+                                <input type="text" className={field(false, isReadOnly)} placeholder="00000-000" maxLength={9}
                                     value={customerData.fullAddress?.cep || ''}
                                     onChange={e => updateAddress('cep', e.target.value)}
                                     onBlur={handleCepBlur}
@@ -443,7 +466,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             </div>
                             <div className="flex-1 relative group/field" ref={streetWrapperRef}>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Rua / Avenida</label>
-                                <input type="text" className={field(isStreetError)} placeholder="Nome da rua"
+                                <input type="text" className={field(isStreetError, isReadOnly)} placeholder="Nome da rua"
                                     value={customerData.fullAddress?.street || ''}
                                     onChange={e => handleStreetChange(e.target.value)}
                                     onFocus={() => { if (streetSuggestions.length > 0 && !isReadOnly) setIsStreetSuggestionsOpen(true); }}
@@ -481,7 +504,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             </div>
                             <div className="md:w-28 relative group/field">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Número</label>
-                                <input type="text" className={field(isNumberError)} placeholder="123"
+                                <input type="text" className={field(isNumberError, isReadOnly)} placeholder="123"
                                     value={customerData.fullAddress?.number || ''}
                                     onChange={e => updateAddress('number', e.target.value)}
                                     readOnly={isReadOnly}
@@ -499,7 +522,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                         <div className={`flex flex-col md:flex-row gap-3 transition-all ${customerData.noAddress ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
                             <div className="flex-1">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Complemento</label>
-                                <input type="text" className={field()} placeholder="Apto, Bloco..."
+                                <input type="text" className={field(false, isReadOnly)} placeholder="Apto, Bloco..."
                                     value={customerData.fullAddress?.complement || ''}
                                     onChange={e => updateAddress('complement', e.target.value)}
                                     readOnly={isReadOnly}
@@ -507,7 +530,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             </div>
                             <div className="flex-1">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Bairro</label>
-                                <input type="text" className={field()} placeholder="Seu bairro"
+                                <input type="text" className={field(false, isReadOnly)} placeholder="Seu bairro"
                                     value={customerData.fullAddress?.neighborhood || ''}
                                     onChange={e => updateAddress('neighborhood', e.target.value)}
                                     readOnly={isReadOnly}
@@ -515,7 +538,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             </div>
                             <div className="flex-1 relative group/field">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Cidade</label>
-                                <input type="text" className={field(isCityError)} placeholder="Nome da cidade"
+                                <input type="text" className={field(isCityError, isReadOnly)} placeholder="Nome da cidade"
                                     value={customerData.fullAddress?.city || ''}
                                     onChange={e => updateAddress('city', e.target.value)}
                                     readOnly={isReadOnly}

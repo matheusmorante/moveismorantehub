@@ -39,6 +39,12 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **Novo Botão "Checou Estoque":** Implementado fluxo de checagem individual de itens do pedido de venda através de um modal interativo com checklists de produtos. 
 - **Carga Automatizada Retroativa:** Atualização em massa marcando pedidos efetuados até 26/04/2026 como estoque checado de forma retroativa.
 
+## ✅ Concluído Recentemente (Maio 2026)
+
+### 💳 Gestão de Pagamentos
+- **Padronização de Status de Pagamento:** O campo de status de pagamento em cada linha da tabela de pagamentos (Sales Order) foi transformado em um `select` com as opções fixas **"Pago"**, **"Pendente"** e **"Verificar"**. 
+- **Obrigatoriedade e UX:** O campo agora inicia vazio por padrão e é obrigatório para a finalização do pedido, garantindo que todos os pagamentos tenham um status definido manualmente. O design segue o padrão premium com ícones de chevron e estilização condizente com o sistema.
+
 
 
 

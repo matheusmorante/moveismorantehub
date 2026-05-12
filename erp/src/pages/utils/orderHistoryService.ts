@@ -64,12 +64,14 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                         }
                         
                         if (legacyMarketingOrig === 'paid') {
-                            // Automatically override if CRM says they are paid
                             rawData.marketingOrigin = 'paid';
-                        } else if (legacyMarketingOrig && (!rawData.marketingOrigin || rawData.marketingOrigin === 'Direto na Loja')) {
-                            // Only set organic/others if order doesn't have a valid one
+                        } else if (legacyMarketingOrig && (!rawData.marketingOrigin || rawData.marketingOrigin === 'organic' || rawData.marketingOrigin === 'Direto na Loja')) {
                             rawData.marketingOrigin = legacyMarketingOrig;
                         }
+                        
+                        // Handle legacy "Direto na Loja" string
+                        if (rawData.marketingOrigin === 'Direto na Loja') rawData.marketingOrigin = 'organic';
+                        if (rawData.marketingOrigin === 'Tráfego Pago') rawData.marketingOrigin = 'paid';
                         
                         return capitalizeOrder(rawData);
                     } catch (_e) {
@@ -152,6 +154,19 @@ export const saveOrder = async (order: Order): Promise<string> => {
         const updatedOrder = await handleStockAndBusinessRules(rowId, orderToSave);
         if (updatedOrder.stockProcessed) {
             await updateOrder(String(rowId), { stockProcessed: true });
+        }
+
+        // Sync customer data back to CRM if applicable
+        if (orderToSave.customerData?.id) {
+            try {
+                const { updatePerson } = await import("./personService");
+                await updatePerson('customers', orderToSave.customerData.id, {
+                    phone: orderToSave.customerData.phone,
+                    marketingOrigin: orderToSave.marketingOrigin
+                });
+            } catch (syncErr) {
+                console.error("[OrderCreate] Error syncing customer data to CRM:", syncErr);
+            }
         }
 
         return String(rowId);
@@ -405,6 +420,18 @@ export const updateOrder = async (
                 }
             } catch (stockErr) {
                 console.error("[OrderUpdate] Erro ao processar estoque (manutenção):", stockErr);
+            }
+        }
+        // Sync customer data back to CRM if applicable
+        if (merged.customerData?.id) {
+            try {
+                const { updatePerson } = await import("./personService");
+                await updatePerson('customers', merged.customerData.id, {
+                    phone: merged.customerData.phone,
+                    marketingOrigin: merged.marketingOrigin
+                });
+            } catch (syncErr) {
+                console.error("[OrderUpdate] Error syncing customer data to CRM:", syncErr);
             }
         }
     } catch (error) {

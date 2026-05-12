@@ -10,3 +10,4 @@ Estas são as regras globais definidas pelo usuário para o desenvolvimento dest
 6. **Esclarecimento de Dúvidas**: Pergunte sempre que houver dúvida sobre ambiguidade ou entendimento do que foi dito ou mostrado.
 7. **Documentação de Regras**: Salve as regras sempre em um arquivo do projeto (este arquivo).
 8. **Idioma**: Comunique-se apenas em Português Brasileiro.
+9. **Status de Pagamento**: O status de pagamento nos itens de pagamento de um pedido deve ser sempre um `select` com as opções: "Pago", "Pendente" e "Verificar". O campo deve ser obrigatório e iniciar vazio por padrão.

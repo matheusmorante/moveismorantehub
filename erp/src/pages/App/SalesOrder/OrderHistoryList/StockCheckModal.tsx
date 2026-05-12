@@ -72,7 +72,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
                             <i className="bi bi-box-seam text-2xl" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black tracking-tight">Checar Estoque dos Itens</h2>
+                            <h2 className="text-xl font-black tracking-tight">Etiquetar Itens</h2>
                             <p className="text-[10px] uppercase font-bold opacity-70 tracking-widest mt-0.5">Pedido #{order.id?.slice(-8).toUpperCase()}</p>
                         </div>
                     </div>
@@ -144,7 +144,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
                         className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-200 dark:shadow-none flex items-center gap-2"
                     >
                         <i className="bi bi-check2-circle text-sm" />
-                        Concluir Checagem
+                        Concluir Etiquetagem
                     </button>
                 </div>
             </div>

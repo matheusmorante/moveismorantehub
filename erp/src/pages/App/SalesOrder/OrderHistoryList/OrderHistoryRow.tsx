@@ -525,11 +525,11 @@ const OrderHistoryRow = ({
                                                 ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/20' 
                                                 : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 animate-pulse'
                                             }`}
-                                            title={order.isStockChecked ? "Estoque Checado" : "Falta Checar Estoque"}
+                                            title={order.isStockChecked ? "Etiquetado" : "Não Etiquetado"}
                                         >
                                             <i className={`bi ${order.isStockChecked ? 'bi-check2-circle' : 'bi-exclamation-circle-fill'} text-[8px]`} />
                                             <span className="text-[8px] font-black uppercase tracking-tight">
-                                                {order.isStockChecked ? "Checou Estoque" : "Falta Estoque"}
+                                                {order.isStockChecked ? "Etiquetado: Sim" : "Etiquetado: Não"}
                                             </span>
                                         </button>
 
