@@ -15,15 +15,35 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
 
     return (
         <div className="flex-1 flex flex-col min-w-0">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 ml-1">
-                {isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega'}
-            </label>
-            <div className={`bg-white dark:bg-slate-900 border p-4 sm:p-5 lg:p-6 rounded-3xl sm:rounded-[2rem] shadow-sm w-full transition-all ${hasError ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800'}`}>
+            <div className="flex items-center justify-between mb-4 ml-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    {isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega'}
+                </label>
                 
-                {/* Top Action Buttons (Pickup only) */}
-                {isPickup && (
-                    <div className="flex justify-end mb-4">
-                            <button
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const isPending = !scheduling.pendingScheduling;
+                            onChangeScheduling("pendingScheduling", isPending);
+                            if (isPending) {
+                                onChangeScheduling("date", "");
+                                onChangeScheduling("startTime", "");
+                                onChangeScheduling("notInformed", false);
+                            }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
+                            scheduling.pendingScheduling 
+                                ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-200 dark:shadow-none' 
+                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-orange-300'
+                        }`}
+                    >
+                        <i className={`bi ${scheduling.pendingScheduling ? 'bi-clock-history' : 'bi-clock-fill'}`} />
+                        {scheduling.pendingScheduling ? 'Agendamento Pendente' : 'Marcar p/ Agendar Depois'}
+                    </button>
+
+                    {isPickup && (
+                        <button
                             type="button"
                             onClick={() => {
                                 const now = new Date();
@@ -32,6 +52,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                 const mins = String(now.getMinutes()).padStart(2, '0');
                                 const time = `${hours}:${mins}`;
                                 
+                                onChangeScheduling("pendingScheduling", false);
                                 onChangeScheduling("notInformed", false);
                                 onChangeScheduling("date", date);
                                 onChangeScheduling("endDate", "");
@@ -40,21 +61,38 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                 onChangeScheduling("startTime", time);
                                 onChangeScheduling("endTime", "");
                             }}
-                            className="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-tight transition-all border bg-emerald-500 border-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-95 flex items-center gap-2"
-                            title="Define a data e hora como o momento atual (Já retirado pelo cliente)"
+                            className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border bg-emerald-500 border-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-95 flex items-center gap-2"
                         >
                             <i className="bi bi-lightning-fill" /> Retirada Imediata
                         </button>
+                    )}
+                </div>
+            </div>
+
+            <div className={`bg-white dark:bg-slate-900 border p-4 sm:p-5 lg:p-6 rounded-3xl sm:rounded-[2rem] shadow-sm w-full transition-all ${scheduling.pendingScheduling ? 'border-orange-200 bg-orange-50/20 ring-4 ring-orange-500/5' : (hasError ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800')}`}>
+                
+                {scheduling.pendingScheduling && (
+                    <div className="flex items-center gap-4 py-4 px-4 bg-orange-50/50 dark:bg-orange-900/10 border border-dashed border-orange-200 dark:border-orange-800 rounded-2xl mb-6 animate-fade-in">
+                        <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
+                            <i className="bi bi-clock-history text-xl" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h4 className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest leading-none mb-1">Agendamento em Aberto</h4>
+                            <p className="text-[9px] font-bold text-orange-600/70 dark:text-orange-500/70 uppercase leading-tight">
+                                Este pedido será agendado em breve.
+                            </p>
+                        </div>
                     </div>
                 )}
 
                 {!scheduling.notInformed ? (
-                    <div className="flex flex-col gap-6 w-full">
+                    <div className={`flex flex-col gap-6 w-full transition-all duration-300 ${scheduling.pendingScheduling ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
                         {/* Section 1: DATE */}
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
                                 <div className="w-full sm:w-auto min-w-[140px]">
                                     <select
+                                        disabled={scheduling.pendingScheduling}
                                         className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
                                         value={scheduling.dateType || 'fixed'}
                                         onChange={(e) => onChangeScheduling("dateType", e.target.value as any)}
@@ -68,16 +106,11 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                     <div className="flex-1 relative">
                                         <input
                                             type="date"
+                                            disabled={scheduling.pendingScheduling}
                                             className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
-                                            value={scheduling.date}
+                                            value={scheduling.date || ''}
                                             onChange={(e) => onChangeScheduling("date", e.target.value)}
                                         />
-                                        {errors['shipping_date'] && (
-                                            <div className="absolute left-0 -top-10 hidden group-hover:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
-                                                {errors['shipping_date']}
-                                                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                                            </div>
-                                        )}
                                     </div>
 
                                     {scheduling.dateType === 'range' && (
@@ -86,6 +119,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                             <div className="flex-1 relative">
                                                 <input
                                                     type="date"
+                                                    disabled={scheduling.pendingScheduling}
                                                     className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                                     value={scheduling.endDate || ''}
                                                     onChange={(e) => onChangeScheduling("endDate", e.target.value)}
@@ -102,6 +136,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full py-2">
                                 <div className="w-full sm:w-auto min-w-[140px]">
                                     <select
+                                        disabled={scheduling.pendingScheduling}
                                         className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
                                         value={scheduling.type || 'fixed'}
                                         onChange={(e) => onChangeScheduling("type", e.target.value as any)}
@@ -115,16 +150,11 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                     <div className="flex-1 relative group/time">
                                         <input
                                             type="time"
+                                            disabled={scheduling.pendingScheduling}
                                             className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                             value={scheduling.startTime || ''}
                                             onChange={(e) => onChangeScheduling("startTime", e.target.value)}
                                         />
-                                        {errors['shipping_time'] && (
-                                            <div className="absolute left-0 -top-10 hidden group-hover/time:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
-                                                {errors['shipping_time']}
-                                                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                                            </div>
-                                        )}
                                     </div>
 
                                     {scheduling.type === 'range' && (
@@ -133,6 +163,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                                             <div className="flex-1 relative group/time">
                                                 <input
                                                     type="time"
+                                                    disabled={scheduling.pendingScheduling}
                                                     className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                                     value={scheduling.endTime || ''}
                                                     onChange={(e) => onChangeScheduling("endTime", e.target.value)}

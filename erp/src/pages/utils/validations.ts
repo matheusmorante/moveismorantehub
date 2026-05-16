@@ -72,20 +72,22 @@ export const validateCustomerData = (customer: CustomerData, isPickup: boolean =
     return errors;
 }
 
-export const validateShipping = (shipping: Shipping, customer: CustomerData): ValidationErrors => {
+export const validateShipping = (shipping: Shipping, customer: CustomerData, isBudget: boolean = false): ValidationErrors => {
     const errors: ValidationErrors = {};
     if (!shipping) return { shipping: "Dados de entrega ausentes." };
 
     const scheduling = shipping.scheduling;
-    if (!scheduling) {
+    if (!scheduling && !isBudget) {
         errors['shipping_scheduling'] = "Agendamento é obrigatório.";
-    } else {
+    } else if (scheduling) {
         // Date and time are always required for delivery.
         // For pickup, it's optional ONLY if notInformed is true (which means immediate pickup in the UX)
+        // For budgets, it's ALWAYS optional
         const isDelivery = shipping.deliveryMethod === 'delivery';
         const isOptionalPickup = !isDelivery && scheduling.notInformed;
+        const isPending = scheduling.pendingScheduling;
         
-        if (!isOptionalPickup) {
+        if (!isOptionalPickup && !isBudget && !isPending) {
             if (!scheduling.date) errors['shipping_date'] = "Data é obrigatória.";
             if (!scheduling.startTime) errors['shipping_time'] = "Horário/Período é obrigatório.";
         }
@@ -93,7 +95,7 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData): Va
 
     const noAddressRequired = shipping.noAddress || (shipping.useCustomerAddress !== false && customer?.noAddress);
     
-    if (shipping.deliveryMethod === 'delivery' && !noAddressRequired) {
+    if (shipping.deliveryMethod === 'delivery' && !noAddressRequired && !isBudget) {
         if (shipping.useCustomerAddress !== false) {
             // Using customer address
             const addr = customer?.fullAddress;
@@ -127,6 +129,7 @@ export const validateOrder = (order: Order): ValidationErrors => {
     const isDraft = order.status === 'draft';
     const isAssistance = order.orderType === 'assistance' || (order.assistanceItems && order.assistanceItems.length > 0);
     const isPickup = order.shipping?.deliveryMethod === 'pickup';
+    const isBudget = order.orderType === 'budget';
 
     // Filter out genuinely empty items (no productId and no description)
     const validItems = (order.items || []).filter(item => item.productId || item.description);
@@ -148,7 +151,6 @@ export const validateOrder = (order: Order): ValidationErrors => {
         shippingValue
     );
 
-    const isBudget = order.orderType === 'budget';
     const errors: ValidationErrors = {
         ...validateItems(items, isBudget),
         ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
@@ -158,8 +160,12 @@ export const validateOrder = (order: Order): ValidationErrors => {
     // If it's not a draft and not a budget, we require full validation
     if (!isDraft && !isBudget) {
         Object.assign(errors, {
-            ...validateShipping(order.shipping, order.customerData),
+            ...validateShipping(order.shipping, order.customerData, isBudget),
             ...validatePayments(payments, amountRemaining)
+        });
+    } else if (!isDraft && isBudget) {
+        Object.assign(errors, {
+            ...validateShipping(order.shipping, order.customerData, isBudget)
         });
     }
 
@@ -177,18 +183,8 @@ export const validateOrder = (order: Order): ValidationErrors => {
         }
     }
 
-    // For budgets, we still want to validate shipping but without date/time requirements
     if (isBudget && order.shipping?.deliveryMethod === 'delivery') {
-        const s = order.shipping;
-        if (s.useCustomerAddress !== false) {
-            const addr = order.customerData?.fullAddress;
-            if (!addr?.street) errors['customer_street'] = "Rua é obrigatória (para frete).";
-            if (!addr?.city) errors['customer_city'] = "Cidade é obrigatória (para frete).";
-        } else {
-            const dAddr = s.deliveryAddress;
-            if (!dAddr?.street) errors['deliveryAddress_street'] = "Rua é obrigatória (para frete).";
-            if (!dAddr?.city) errors['deliveryAddress_city'] = "Cidade é obrigatória (para frete).";
-        }
+        // Address requirements removed for budgets
     }
 
     // Order Date is always important but for draft we could potentially skip it if we auto-fill, 

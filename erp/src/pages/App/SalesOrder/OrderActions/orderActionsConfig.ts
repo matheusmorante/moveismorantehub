@@ -16,6 +16,7 @@ import {
     sendDirectBudgetMessage,
     sendDirectGroupInviteMessage
 } from "../../../utils/whatsapp";
+import { getSettings } from "../../../utils/settingsService";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_RECEIPT': (order) => {
@@ -85,6 +86,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        const settings = getSettings();
+        const allHandlingOptions = [...(settings.deliveryHandlingOptions || []), ...(settings.pickupHandlingOptions || [])];
+
         const assistanceItemsHtml = (order.assistanceItems || []).map(item => `
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}</td>
@@ -92,13 +96,20 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
             </tr>
         `).join('');
 
-        const extraItemsHtml = (order.items || []).map(item => `
-            <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-            </tr>
-        `).join('');
+        const extraItemsHtml = (order.items || []).map(item => {
+            const opt = allHandlingOptions.find(o => o.label === (item.handlingType || "").trim());
+            const bgColor = opt?.color ? `${opt.color}20` : 'transparent';
+            const textColor = opt?.color || '#64748b';
+            
+            return `
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700; background-color: ${bgColor}; color: ${textColor}; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10px;">${item.handlingType || '-'}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                </tr>
+            `;
+        }).join('');
 
         printWindow.document.write(`
             <html>
@@ -193,7 +204,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                         ${order.items?.length ? `
                             <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e293b; border-left: 4px solid #ea580c; padding-left: 10px; margin-top: 20px; margin-bottom: 10px;">Peças e Materiais Extras</h3>
                             <table>
-                                <thead><tr><th style="width: 60%;">Item</th><th style="text-align: center;">Qtd</th><th style="text-align: right;">Preço</th></tr></thead>
+                                <thead><tr><th style="width: 50%;">Item</th><th style="text-align: center;">Manuseio</th><th style="text-align: center;">Qtd</th><th style="text-align: right;">Preço</th></tr></thead>
                                 <tbody>${extraItemsHtml}</tbody>
                             </table>
                         ` : ''}

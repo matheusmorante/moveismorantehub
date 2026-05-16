@@ -14,6 +14,7 @@ interface Props {
     onOrderClick: (order: Order) => void;
     isReadOnly?: boolean;
     hasInitialScrolled?: React.MutableRefObject<boolean>;
+    pendingOrders?: Order[];
 }
 
 /**
@@ -418,11 +419,15 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
 /**
  * Main component for the Card Visualization of the Delivery Schedule
  */
-const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled }: Props) => {
+const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled, pendingOrders = [] }: Props) => {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (hasInitialScrolled?.current) return;
+        if (pendingOrders.length > 0) {
+            if (hasInitialScrolled) hasInitialScrolled.current = true;
+            return;
+        }
 
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -444,6 +449,36 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
 
     return (
         <div ref={scrollContainerRef} className="flex flex-col gap-12 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+            {pendingOrders.length > 0 && (
+                <div className="w-full scroll-mt-4">
+                    {/* Pending Section Header */}
+                    <div className="flex items-center gap-6 mb-8">
+                        <div className="h-0.5 flex-1 bg-gradient-to-r from-transparent to-orange-200 dark:to-orange-800"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-400 dark:text-orange-600 mb-2">
+                                Aguardando Definição
+                            </span>
+                            <h3 className="text-sm font-black uppercase text-orange-600 dark:text-orange-400 tracking-widest bg-orange-50 dark:bg-orange-900/20 px-6 py-2 rounded-2xl border-2 border-orange-100 dark:border-orange-900/30 shadow-sm shadow-orange-50 dark:shadow-none transition-colors">
+                                Entregas a Agendar
+                            </h3>
+                        </div>
+                        <div className="h-0.5 flex-1 bg-gradient-to-l from-transparent to-orange-200 dark:to-orange-800"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {pendingOrders.map((order, index) => (
+                            <DeliveryOrderCard
+                                key={order.id || `pending-${index}`}
+                                order={order}
+                                index={index}
+                                onOrderClick={onOrderClick}
+                                isReadOnly={isReadOnly}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {Object.entries(schedule).map(([date, orders]) => (
                 <div key={date} id={`date-${date}`} className="w-full scroll-mt-4">
                     {/* Date Divider */}

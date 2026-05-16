@@ -1366,7 +1366,7 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
     if (!query || query.length < 2) return [];
 
     try {
-        const queryLower = query.toLowerCase();
+        const words = query.trim().toLowerCase().split(/\s+/).filter(w => w.length > 0);
 
         // 1. Buscar em Pedidos de Venda
         const { data: salesData } = await supabase
@@ -1390,7 +1390,9 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
             const items = row.order_data?.items || [];
             items.forEach((item: any) => {
                 const desc = item.description || "";
-                if (desc.toLowerCase().includes(queryLower)) {
+                const descLower = desc.toLowerCase();
+                const matchesAll = words.every(word => descLower.includes(word));
+                if (matchesAll) {
                     descriptions.add(desc);
                 }
             });
@@ -1401,7 +1403,9 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
             const items = row.items || [];
             items.forEach((item: any) => {
                 const desc = item.description || "";
-                if (desc.toLowerCase().includes(queryLower)) {
+                const descLower = desc.toLowerCase();
+                const matchesAll = words.every(word => descLower.includes(word));
+                if (matchesAll) {
                     descriptions.add(desc);
                 }
             });

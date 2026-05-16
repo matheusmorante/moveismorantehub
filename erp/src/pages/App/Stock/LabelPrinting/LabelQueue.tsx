@@ -124,14 +124,25 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                             {/* Escala (Zoom) */}
                             <div>
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block px-1">Escala</label>
-                                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-1.5">
-                                    <i className="bi bi-zoom-in text-[10px] text-slate-400" />
+                                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-2 py-1.5">
+                                    <button 
+                                        onClick={() => updateItem(idx, { scale: Math.max(0.1, Number((item.scale || 1) - 0.05).toFixed(2)) })}
+                                        className="w-6 h-6 rounded-lg bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
+                                    >
+                                        <i className="bi bi-dash text-xs" />
+                                    </button>
                                     <input 
-                                        type="number" step="0.1" min="0.1" max="5"
+                                        type="number" step="0.01" min="0.1" max="20"
                                         value={item.scale || 1}
                                         onChange={e => updateItem(idx, { scale: parseFloat(e.target.value) || 1 })}
-                                        className="w-full bg-transparent text-[10px] font-black outline-none"
+                                        className="w-full bg-transparent text-[10px] font-black outline-none text-center"
                                     />
+                                    <button 
+                                        onClick={() => updateItem(idx, { scale: Math.min(20, Number((item.scale || 1) + 0.05).toFixed(2)) })}
+                                        className="w-6 h-6 rounded-lg bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
+                                    >
+                                        <i className="bi bi-plus text-xs" />
+                                    </button>
                                 </div>
                             </div>
 

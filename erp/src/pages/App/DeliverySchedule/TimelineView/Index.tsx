@@ -9,6 +9,7 @@ interface Props {
     onOrderClick: (order: Order) => void;
     isReadOnly?: boolean;
     hasInitialScrolled?: React.MutableRefObject<boolean>;
+    pendingOrders?: Order[];
 }
 
 const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (order: Order) => void }) => {
@@ -142,9 +143,13 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
     );
 };
 
-const ScheduleTimelineView = ({ schedule, onOrderClick, hasInitialScrolled }: Props) => {
+const ScheduleTimelineView = ({ schedule, onOrderClick, hasInitialScrolled, pendingOrders = [] }: Props) => {
     React.useEffect(() => {
         if (hasInitialScrolled?.current) return;
+        if (pendingOrders.length > 0) {
+            if (hasInitialScrolled) hasInitialScrolled.current = true;
+            return;
+        }
         
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -162,11 +167,40 @@ const ScheduleTimelineView = ({ schedule, onOrderClick, hasInitialScrolled }: Pr
                 if (hasInitialScrolled) hasInitialScrolled.current = true;
             }
         }, 300);
-    }, [schedule, hasInitialScrolled]);
+    }, [schedule, hasInitialScrolled, pendingOrders]);
 
     return (
         <div className="max-h-[80vh] overflow-y-auto pr-4 custom-scrollbar py-12">
             <div className="max-w-[95%] mx-auto px-4 sm:px-10">
+                {pendingOrders.length > 0 && (
+                    <div className="mb-24">
+                        <div className="sticky top-0 z-20 flex items-center gap-6 mb-12 bg-orange-50/90 dark:bg-orange-900/90 backdrop-blur-xl px-8 py-6 rounded-[2rem] border border-orange-100 dark:border-orange-800 shadow-premium-sm">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-[0.3em]">
+                                    Aguardando Definição
+                                </span>
+                                <h3 className="text-3xl font-black text-orange-800 dark:text-orange-100 uppercase tracking-tight">
+                                    Entregas a Agendar
+                                </h3>
+                            </div>
+                            <div className="h-px flex-1 bg-gradient-to-r from-orange-200 to-transparent dark:from-orange-800"></div>
+                            <div className="px-6 py-3 bg-orange-100 dark:bg-orange-800 rounded-2xl border border-orange-200 dark:border-orange-700 text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                {pendingOrders.length} {pendingOrders.length === 1 ? 'Pedido' : 'Pedidos'}
+                            </div>
+                        </div>
+
+                        <div className="relative border-l-2 border-orange-100 dark:border-orange-800 ml-3">
+                            {pendingOrders.map((order, i) => (
+                                <TimelineNode 
+                                    key={order.id || i} 
+                                    order={order} 
+                                    onOrderClick={onOrderClick} 
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {Object.entries(schedule).map(([date, orders]) => (
                     <div key={date} id={`timeline-date-${date}`} className="mb-24">
                         {/* Date Header */}

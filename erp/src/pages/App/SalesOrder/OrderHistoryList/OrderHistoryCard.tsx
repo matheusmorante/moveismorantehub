@@ -225,6 +225,10 @@ const OrderHistoryCard = ({
                                         <i className="bi bi-box-seam-fill text-emerald-600 dark:text-emerald-400 text-[9px]" title="Saída de Estoque Procesada" />
                                     )}
 
+                                    {order.shipping?.scheduling?.pendingScheduling && (
+                                        <i className="bi bi-clock-history text-orange-500 text-[9px] animate-pulse" title="Agendamento Pendente" />
+                                    )}
+
                                     {hasAssemblyConfig && (
                                         <div className={`flex items-center gap-0.5 ${isAssemblyOutside ? 'text-red-600 animate-pulse' : 'text-yellow-600'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem Depósito'}>
                                             <i className="bi bi-hammer text-[10px]" />
@@ -292,6 +296,15 @@ const OrderHistoryCard = ({
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
+                
+                {order.shipping?.scheduling?.pendingScheduling && (
+                    <div className="mt-2 flex items-center gap-2 bg-orange-500 text-white p-2 rounded-lg border border-orange-600 animate-pulse shadow-sm">
+                        <i className="bi bi-clock-history text-[10px]" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                            AGENDAMENTO PENDENTE
+                        </span>
+                    </div>
+                )}
                 
                 {isOnlyInternalAssembly && (
                     <div className="mt-2 flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-2 rounded-lg border border-orange-100 dark:border-orange-900/30 animate-pulse shadow-sm">
@@ -382,17 +395,19 @@ const OrderHistoryCard = ({
                         </div>
                     </div>
 
-                    {order.shipping?.scheduling?.date && (
+                    { (order.shipping?.scheduling?.date || order.shipping?.scheduling?.pendingScheduling) && (
                         <div className="flex flex-col">
                             <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
                                 {order.shipping?.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
                             </span>
-                            <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 font-bold">
-                                <i className="bi bi-truck text-[11px]" />
+                            <div className={`flex items-center gap-1.5 font-bold ${order.shipping?.scheduling?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-blue-500 dark:text-blue-400'}`}>
+                                <i className={`bi ${order.shipping?.scheduling?.pendingScheduling ? 'bi-clock-history text-orange-500' : 'bi-truck'} text-[11px]`} />
                                 <span className="text-[10px]">
-                                    {order.shipping.scheduling.dateType === 'range' && order.shipping.scheduling.endDate 
-                                        ? `${formatToBRDate(order.shipping.scheduling.date)} até ${formatToBRDate(order.shipping.scheduling.endDate)}`
-                                        : formatToBRDate(order.shipping.scheduling.date)}
+                                    {order.shipping?.scheduling?.pendingScheduling 
+                                        ? 'PENDENTE'
+                                        : (order.shipping.scheduling.dateType === 'range' && order.shipping.scheduling.endDate 
+                                            ? `${formatToBRDate(order.shipping.scheduling.date)} até ${formatToBRDate(order.shipping.scheduling.endDate)}`
+                                            : formatToBRDate(order.shipping.scheduling.date))}
                                 </span>
                             </div>
                         </div>

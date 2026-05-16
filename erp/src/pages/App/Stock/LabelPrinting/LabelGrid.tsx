@@ -102,17 +102,7 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
         zIndex: 1
     };
 
-    // Layer for overflowing bleed borders
-    const bleedOverlayStyle: React.CSSProperties = {
-        ...sheetStyle,
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        backgroundColor: 'transparent',
-        overflow: 'visible',
-        zIndex: 10,
-        pointerEvents: 'none'
-    };
+
 
     return (
         <div 
@@ -143,8 +133,8 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                         <div 
                             key={`content-${i}-${currentPage}`} 
                             onClick={() => onCellClick?.(i)}
-                            className={`flex items-center justify-center overflow-hidden transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
-                            style={{ width: '100%', height: '100%', position: 'relative' }}
+                            className={`flex items-center justify-center transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
+                            style={{ width: '100%', height: '100%', position: 'relative', overflow: 'visible' }}
                         >
                             {item ? (
                                 <LabelItem 
@@ -159,7 +149,7 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                                     }} 
                                     image={item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image))} 
                                     index={i} 
-                                    scale={item.scale || config.imageScale}
+                                    scale={item.scale ?? config.imageScale}
                                     rotation={item.rotation || 0}
                                     hideBleedBorder={true} // Oculta a borda aqui para ela não ser cortada pela folha
                                 />
@@ -174,29 +164,7 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                     );
                 })}
 
-                {/* Camada 2: Bordas de Sangria (Vazam a folha para visualização) */}
-                <div style={bleedOverlayStyle}>
-                    {Array.from({ length: totalCells }).map((_, i) => {
-                        const item = finalItems[i];
-                        return (
-                            <div 
-                                key={`bleed-${i}-${currentPage}`} 
-                                className="flex items-center justify-center overflow-visible" 
-                                style={{ width: '100%', height: '100%', position: 'relative' }}
-                            >
-                                {(item || config.preset === 'custom') ? (
-                                    <LabelItem 
-                                        config={{ ...config }} 
-                                        image={null}
-                                        index={i}
-                                        hideContent={true} // Esconde textos e imagens nesta camada
-                                        hidePhysicalBorder={true} // Esconde a borda de corte
-                                    />
-                                ) : null}
-                            </div>
-                        );
-                    })}
-                </div>
+
             </div>
             
             <style dangerouslySetInnerHTML={{ __html: `

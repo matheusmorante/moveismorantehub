@@ -14,12 +14,13 @@ const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
     const showAddress = !isPickup && !noAddress && hasAnyAddress;
 
     return (
-        <div className="flex flex-col my-1 gap-1 font-sans border-2 border-slate-200 rounded-2xl overflow-hidden shadow-md bg-white">
-            <div className="bg-slate-900 px-4 py-0.5">
-                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white/70">Dados do Destinatário</span>
+        <div className="flex flex-col my-2 gap-2 font-sans border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm bg-white print-exact-bg">
+            <div className="bg-slate-50 border-b border-slate-100 px-6 py-2 flex items-center gap-2">
+                <i className="bi bi-person-circle text-slate-400"></i>
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Informações do Cliente / Destinatário</span>
             </div>
             
-            <div className="px-4 pb-1 pt-0">
+            <div className="px-6 pb-4 pt-2">
                 <div className="flex flex-wrap gap-x-6 gap-y-1">
                     <div className="flex flex-col flex-grow min-w-[200px]">
                         <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">Nome Completo</span>
@@ -35,24 +36,23 @@ const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
                         )}
 
                         {(customerData.additionalContacts || []).map((contact, idx) => (
-                            <div key={idx} className="flex flex-col border-l border-slate-100 pl-4 min-w-[150px]">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none truncate max-w-[140px]">
+                            <div key={idx} className="flex flex-col">
+                                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-0.5">
                                     {contact.name || 'Contato Extra'}
                                 </span>
-                                <span className="text-lg font-bold text-slate-900">{contact.phone}</span>
+                                <span className="text-base font-medium text-slate-800">{contact.phone}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {showAddress && (
-                    <div className="mt-1 pt-1 border-t border-slate-100 flex flex-wrap gap-x-6 gap-y-1">
-                        <div className="flex flex-col flex-grow min-w-[250px]">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">Logradouro</span>
-                            <span className="text-lg font-bold text-slate-900 uppercase">
+                    <div className="pt-4 border-t border-slate-50 flex flex-wrap gap-x-8 gap-y-4">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-0.5">Endereço</span>
+                            <span className="text-base font-medium text-slate-800">
                                 {addr.street}{addr.number ? `, ${addr.number}` : ''}
-                                {addr.complement && <span className="text-slate-400 ml-2 font-medium text-sm">({addr.complement})</span>}
-                                {addr.observation && <span className="text-blue-600 block text-sm font-black mt-1 italic leading-tight border-l-2 border-blue-200 pl-2">Ref: {addr.observation}</span>}
+                                {addr.complement && <span className="text-slate-400 ml-2 font-normal">({addr.complement})</span>}
                             </span>
                         </div>
                         

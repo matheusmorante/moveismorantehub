@@ -102,7 +102,7 @@ export interface GridModel {
     extraFields?: any[];
     extraFieldsPromo?: any[];
     fontFamily?: string;
-    safetyMargin?: number;
+    imageScale?: number;
     previewImage?: string | null;
 }
 
@@ -139,7 +139,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
     const [gapH, setGapH] = useState(2);
     const [gapV, setGapV] = useState(2);
     const [layoutType, setLayoutType] = useState<'round' | 'rect'>(currentType || 'rect');
-    const [safetyMargin, setSafetyMargin] = useState(0);
+
+    const [imageScale, setImageScale] = useState(1);
     const [customPreviewImage, setCustomPreviewImage] = useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -548,7 +549,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 if (editingModel.extraFieldsPromo) setExtraFieldsPromo(editingModel.extraFieldsPromo);
                 if (editingModel.fontFamily) setFontFamily(editingModel.fontFamily);
                 if (editingModel.priceFormat) setPriceFormat(editingModel.priceFormat);
-                if (editingModel.safetyMargin !== undefined) setSafetyMargin(editingModel.safetyMargin);
+
+                if (editingModel.imageScale !== undefined) setImageScale(editingModel.imageScale);
                 if (editingModel.previewImage) setCustomPreviewImage(editingModel.previewImage);
 
                 // Carregar Split Price Promoção
@@ -695,7 +697,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 promoPriceDecimalsFontSize: promoPriceDecimalsFontSize, 
                 promoPriceDecimalsColor: promoPriceDecimalsColor,
                 promoPriceDecimalsBold: promoPriceDecimalsBold,
-                safetyMargin: safetyMargin,
+
+                imageScale: imageScale,
                 previewImage: customPreviewImage
             };
             await onSave(newModel);
@@ -1080,9 +1083,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                         {Array.from({ length: columns * rows }).map((_, i) => (
                             <div key={i} className="relative flex items-center justify-center overflow-visible">
                                 <div style={{ 
-                                    position: 'absolute',
-                                    width: `calc(100% + ${(safetyMargin / (w / previewW)) * 2}px)`,
-                                    height: `calc(100% + ${(safetyMargin / (w / previewW)) * 2}px)`,
+                                    width: '100%',
+                                    height: '100%',
                                     backgroundColor: bgColor || 'white',
                                     zIndex: 0
                                 }}>
@@ -1092,10 +1094,12 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                             alt="" 
                                             style={{ 
                                                 position: 'absolute', 
-                                                inset: 0, 
+                                                top: '50%', 
+                                                left: '50%', 
                                                 width: '100%', 
                                                 height: '100%', 
                                                 objectFit: 'cover', 
+                                                transform: `translate(-50%, -50%) scale(${imageScale})`,
                                                 opacity: 1 // Amostra com 100% de opacidade na prévia da folha
                                             }} 
                                         />
@@ -1117,15 +1121,14 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                         }}
                     >
                         {Array.from({ length: columns * rows }).map((_, i) => {
-                            const safetyPx = (safetyMargin / (w / previewW));
+
                             return (
                                 <div key={i} className="relative flex items-center justify-center overflow-visible">
                                     {/* Borda de Sangria (Azul) - Desenha por cima de tudo */}
                                     <div style={{ 
                                         position: 'absolute',
-                                        width: `calc(100% + ${safetyPx * 2}px)`,
-                                        height: `calc(100% + ${safetyPx * 2}px)`,
-                                        border: safetyMargin > 0 ? '0.8px dashed #3b82f6' : 'none',
+                                        width: '100%',
+                                        height: '100%',
                                         zIndex: 10
                                     }} />
                                     
@@ -1207,13 +1210,12 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                             {/* Área de Sangria Interativa (Azul) - Prioridade Visual para a Imagem */}
                                             <div style={{
                                                 position: 'absolute',
-                                                width: `${500 + ((safetyMargin * 500) / labelW) * 2}px`,
-                                                height: `${(500 / (aspectRatio || 1)) + ((safetyMargin * (500 / aspectRatio)) / labelH) * 2}px`,
-                                                border: safetyMargin > 0 ? '2px dashed #3b82f6' : 'none',
+                                                width: '500px',
+                                                height: `${500 / (aspectRatio || 1)}px`,
                                                 backgroundColor: bgColor || 'white',
                                                 zIndex: 0,
                                                 borderRadius: '8px',
-                                                overflow: 'hidden' // Importante para a imagem respeitar a área de sangria
+                                                overflow: 'visible' // Permitir ver o transbordo no designer
                                             }}>
                                                 {effectivePreviewImage && (
                                                     <img 
@@ -1221,10 +1223,13 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                                         alt="" 
                                                         style={{ 
                                                             position: 'absolute', 
-                                                            inset: 0, 
+                                                            top: '50%', 
+                                                            left: '50%', 
                                                             width: '100%', 
                                                             height: '100%', 
-                                                            objectFit: 'cover' 
+                                                            objectFit: 'cover',
+                                                            transform: `translate(-50%, -50%) scale(${imageScale})`,
+                                                            transition: 'transform 0.1s ease-out'
                                                         }} 
                                                     />
                                                 )}
@@ -1401,6 +1406,38 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                 </div>
                             </div>
 
+                            {/* Escala da Imagem */}
+                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Escala da Imagem (Zoom)</p>
+                                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">x{Number(imageScale).toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={() => setImageScale(prev => Math.max(0.1, Number(prev - 0.01).toFixed(2)))}
+                                        className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
+                                    >
+                                        <i className="bi bi-dash-lg" />
+                                    </button>
+                                    <input 
+                                        type="range" 
+                                        min="0.1" 
+                                        max="10" 
+                                        step="0.01" 
+                                        value={imageScale} 
+                                        onChange={e => setImageScale(parseFloat(e.target.value))} 
+                                        className="flex-1 accent-blue-600 cursor-pointer h-2 bg-slate-100 rounded-lg appearance-none"
+                                    />
+                                    <button 
+                                        onClick={() => setImageScale(prev => Math.min(10, Number(prev + 0.01).toFixed(2)))}
+                                        className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
+                                    >
+                                        <i className="bi bi-plus-lg" />
+                                    </button>
+                                </div>
+                                <p className="text-[7px] text-slate-400 italic">Ajuste o zoom com precisão. Clique nos botões para ajuste fino (0.01) ou deslize para mudanças rápidas.</p>
+                            </div>
+
                             {/* Espaçamento (Gaps) */}
                             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Distância entre Etiquetas (Gaps mm)</p>
@@ -1410,25 +1447,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                 </div>
                             </div>
 
-                            {/* Margem de Segurança (Sangria) */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Margem de Segurança (Sangria)</p>
-                                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">+{safetyMargin}mm</span>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <input 
-                                        type="range" 
-                                        min="0" 
-                                        max="10" 
-                                        step="0.1" 
-                                        value={safetyMargin} 
-                                        onChange={e => setSafetyMargin(parseFloat(e.target.value))} 
-                                        className="flex-1 accent-blue-600 cursor-pointer h-2 bg-slate-100 rounded-lg appearance-none"
-                                    />
-                                </div>
-                                <p className="text-[7px] text-slate-400 italic">Aumenta o tamanho da imagem da etiqueta para evitar bordas brancas se a impressora estiver desalinhada.</p>
-                            </div>
+
 
                             {/* Margens do Papel */}
                             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4 lg:col-span-3">
@@ -1456,8 +1475,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
 
                         </div>
 
-                        {/* Botão de Edição de Design (Oculto no Modo Logos) */}
-                        {currentCategory !== 'logos' && (
+                        {/* Botão de Edição de Design (Oculto em categorias de imagem) */}
+                        {currentCategory !== 'logos' && currentCategory !== 'posts' && (
                             <div className="relative group shrink-0">
                                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000" />
                                 <button onClick={() => setIsDesignMode(true)} className="relative px-12 py-6 bg-white dark:bg-slate-900 border-2 border-blue-500/20 rounded-[2rem] flex items-center gap-6 shadow-2xl hover:scale-105 transition-all">

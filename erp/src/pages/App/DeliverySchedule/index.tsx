@@ -28,6 +28,7 @@ const DeliverySchedule = () => {
         setStartDate,
         endDate,
         setEndDate,
+        pendingOrders
     } = useDeliverySchedule();
 
     const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("timeline");
@@ -230,6 +231,17 @@ const DeliverySchedule = () => {
                     </p>
                 </div>
 
+                {pendingOrders.length > 0 && (
+                    <div className="flex items-center gap-3 bg-orange-50 dark:bg-orange-900/20 px-4 py-2 rounded-2xl border border-orange-100 dark:border-orange-800 animate-pulse">
+                        <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-black">
+                            {pendingOrders.length}
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400">
+                            Pedidos p/ Agendar
+                        </span>
+                    </div>
+                )}
+
 
 
                 {/* Mobile: Filter button */}
@@ -413,6 +425,7 @@ const DeliverySchedule = () => {
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
                         hasInitialScrolled={hasInitialScrolledCard}
+                        pendingOrders={pendingOrders}
                     />
                 ) : viewMode === "table" ? (
                     <ScheduleTableView
@@ -420,6 +433,7 @@ const DeliverySchedule = () => {
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
                         hasInitialScrolled={hasInitialScrolledTable}
+                        pendingOrders={pendingOrders}
                     />
                 ) : (
                     <ScheduleTimelineView
@@ -427,6 +441,7 @@ const DeliverySchedule = () => {
                         onOrderClick={openOrderDetails}
                         isReadOnly={isStandalone}
                         hasInitialScrolled={hasInitialScrolledTimeline}
+                        pendingOrders={pendingOrders}
                     />
                 )}
             </div>

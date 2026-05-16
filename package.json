@@ -5,14 +5,10 @@
   "private": true,
   "scripts": {
     "install:erp": "npm install --prefix erp",
-    "install:ecommerce": "npm install --prefix ecommerce",
     "install:api": "npm install --prefix api",
-    "install:automation": "npm install --prefix automation",
-    "install:all": "npm run install:erp && npm run install:ecommerce && npm run install:api && npm run install:automation",
+    "install:all": "npm run install:erp && npm run install:api",
     "dev:erp": "npm run dev --prefix erp",
-    "dev:ecommerce": "npm run dev --prefix ecommerce",
     "dev:api": "npm run start --prefix api",
-    "dev:automation": "npm run start --prefix automation",
     "dev": "npx concurrently -n \"ERP,API\" -c \"blue,yellow\" \"npm run dev:erp\" \"npm run dev:api\""
   },
   "devDependencies": {

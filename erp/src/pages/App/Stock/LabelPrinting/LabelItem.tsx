@@ -51,7 +51,6 @@ const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 1
 const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hideBleedBorder, hideContent, hidePhysicalBorder }) => {
     const activeScale = scale ?? config.imageScale ?? 1;
     const isRound = config.type === 'round';
-    const safety = config.safetyMargin || 0;
     
     // Formatação de Preço
     const formatPrice = (price?: string | number) => {
@@ -73,24 +72,21 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
     const getAlignment = (align?: string) => align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
     const getVAlignment = (valign?: string) => valign === 'middle' ? 'center' : valign === 'bottom' ? 'flex-end' : 'flex-start';
 
-    // 1. Estilo da Área de Sangria (Bleed area) - Ocupa o tamanho final da imagem (Célula + Margens de Segurança)
+    // 1. Estilo da Área Base - Ocupa o tamanho da célula
     const bleedStyle: React.CSSProperties = {
-        width: `calc(100% + ${safety * 2}mm)`,
-        height: `calc(100% + ${safety * 2}mm)`,
+        width: '100%',
+        height: '100%',
         backgroundColor: hideContent ? 'transparent' : (config.bg_color || 'white'),
         boxSizing: 'border-box',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        // Borda Azul para indicação de Sangria no Preview (Apenas se safety > 0)
-        outline: (safety > 0 && !hideBleedBorder) ? '0.2mm dashed #3b82f6' : 'none',
-        outlineOffset: (safety > 0 && !hideBleedBorder) ? '-0.2mm' : '0',
         // Centralização é feita pelo pai (flex no LabelGrid), então não precisamos de margens negativas
         transform: `rotate(${rotation || 0}deg)`,
         transformOrigin: 'center center',
         zIndex: 5,
-        overflow: 'visible'
+        overflow: 'visible' // Permite transbordo da imagem se escalonada
     };
 
     // 2. Estilo da Etiqueta Física (Physical Area) - Onde o conteúdo é alinhado
@@ -249,9 +245,15 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
                     src={image} 
                     alt="" 
                     style={{ 
-                        position: 'absolute', inset: 0, width: '100%', height: '100%', 
-                        objectFit: (config.imageFit as any) || 'cover', zIndex: 1, 
-                        transform: `scale(${activeScale})`,
+                        position: 'absolute', 
+                        top: '50%', 
+                        left: '50%', 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: (config.imageFit as any) || 'cover', 
+                        zIndex: 1, 
+                        transform: `translate(-50%, -50%) scale(${activeScale})`,
+                        transition: 'transform 0.2s ease-out',
                         opacity: 1 
                     }} 
                 />

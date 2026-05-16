@@ -22,7 +22,11 @@ Este arquivo documenta o progresso atual e os próximos passos para o refatorame
 -   **Cronograma Logístico:**
     -   Alterado o modo de visualização padrão de "Tabela" para "Linha do Tempo" (Timeline).
 -   **Visualização de Pedidos:**
-    -   Adicionado rótulo vermelho "MONTAGEM FORA" proeminente para pedidos com montagem externa em todas as visualizações (Cronograma e Lista de Pedidos).
+-   **Limpeza do Ecossistema:**
+-   Remoção dos módulos `ecommerce` e `automation` (não serão utilizados).
+-   Atualização do `package.json` raiz para remover scripts vinculados.
+-   Deleção física das pastas (obs: `ecommerce/node_modules` pode exigir reinicialização se estiver travado por processo node).
+
 
 
 ## 📌 Pendente / Próximos Passos

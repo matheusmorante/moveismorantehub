@@ -43,7 +43,6 @@ export interface LabelConfig {
     paperWidth?: number;
     paperHeight?: number;
     category: string;
-    safetyMargin?: number;
     previewImage?: string | null;
     id?: string;
     // Design e Interatividade

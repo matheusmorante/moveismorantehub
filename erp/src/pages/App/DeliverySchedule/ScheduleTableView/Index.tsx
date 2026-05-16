@@ -10,12 +10,13 @@ interface Props {
     onOrderClick: (order: Order) => void;
     isReadOnly?: boolean;
     hasInitialScrolled?: React.MutableRefObject<boolean>;
+    pendingOrders?: Order[];
 }
 
 const BASE_START_HOUR = 8;
 const BASE_END_HOUR = 20;
 
-const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled }: Props) => {
+const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled, pendingOrders = [] }: Props) => {
     const settings = getSettings();
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollParentRef = useRef<HTMLDivElement>(null);
@@ -220,6 +221,10 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
 
     useEffect(() => {
         if (hasInitialScrolled?.current) return;
+        if (pendingOrders.length > 0) {
+            if (hasInitialScrolled) hasInitialScrolled.current = true;
+            return;
+        }
         
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -237,7 +242,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                 if (hasInitialScrolled) hasInitialScrolled.current = true;
             }
         }, 500); // Give it a bit more time for the zoom/layout to settle
-    }, [schedule, hasInitialScrolled]);
+    }, [schedule, hasInitialScrolled, pendingOrders]);
 
     useEffect(() => {
         const el = scrollParentRef.current;
@@ -264,6 +269,41 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
 
     return (
         <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-0 w-full h-[calc(100vh-280px)]'}`}>
+            {pendingOrders.length > 0 && (
+                <div className="px-4 py-6 border-b border-orange-100 dark:border-orange-900/30 bg-orange-50/20">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                            <i className="bi bi-clock-history text-lg" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">Entregas a Agendar</h3>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Aguardando definição de data e horário</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                        {pendingOrders.map(order => (
+                            <button
+                                key={order.id}
+                                onClick={() => onOrderClick(order)}
+                                className="flex-none w-64 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-orange-100 dark:border-orange-800/50 shadow-sm hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700 transition-all text-left group"
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-[9px] font-black text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-lg border border-orange-100 dark:border-orange-800">
+                                        #{order.id?.slice(-6).toUpperCase()}
+                                    </span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        {new Date(order.date).toLocaleDateString('pt-BR')}
+                                    </span>
+                                </div>
+                                <h4 className="text-[11px] font-black text-slate-800 dark:text-slate-100 group-hover:text-orange-600 transition-colors uppercase truncate">
+                                    {order.customerData?.fullName || "Cliente não informado"}
+                                </h4>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
             <div 
                 ref={scrollParentRef}
                 onMouseDown={handleMouseDown}

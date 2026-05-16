@@ -61,15 +61,19 @@ const processOrders = (
             ? (o as any).scheduledDate || o.shipping?.scheduling?.date
             : o.shipping?.scheduling?.date;
 
-        if (!rawDateStr) return;
-        const orderDateStr = toISO(rawDateStr);
+        const isPending = !!o.shipping?.scheduling?.pendingScheduling;
 
-        // Apply period filter
-        if (filter === 'default' && orderDateStr < yesterdayStr) return;
-        if (filter === 'week' && (orderDateStr < getLocalISODate(startOfWeek) || orderDateStr > getLocalISODate(endOfWeek))) return;
-        if (filter === 'month' && !orderDateStr.startsWith(todayStr.substring(0, 7))) return;
-        if (filter === 'year' && !orderDateStr.startsWith(todayStr.substring(0, 4))) return;
-        if (filter === 'custom' && customRange && (orderDateStr < customRange.start || orderDateStr > customRange.end)) return;
+        if (!rawDateStr && !isPending) return;
+        const orderDateStr = rawDateStr ? toISO(rawDateStr) : "";
+
+        // Apply period filter (only for scheduled orders)
+        if (!isPending) {
+            if (filter === 'default' && orderDateStr < yesterdayStr) return;
+            if (filter === 'week' && (orderDateStr < getLocalISODate(startOfWeek) || orderDateStr > getLocalISODate(endOfWeek))) return;
+            if (filter === 'month' && !orderDateStr.startsWith(todayStr.substring(0, 7))) return;
+            if (filter === 'year' && !orderDateStr.startsWith(todayStr.substring(0, 4))) return;
+            if (filter === 'custom' && customRange && (orderDateStr < customRange.start || orderDateStr > customRange.end)) return;
+        }
 
         const isPickup = o.shipping?.deliveryMethod === 'pickup';
         const isDelivery = !isPickup && !isAssistance && !isShowroom;
@@ -137,6 +141,8 @@ const processOrders = (
 
     const grouped: Record<string, any[]> = {};
     tasks.forEach((t) => {
+        if (t.shipping?.scheduling?.pendingScheduling) return; // Will be returned in 'pending' list
+
         const isAssistance = t.orderType === 'assistance';
         const dateStr = isAssistance
             ? (t as any).scheduledDate || t.shipping?.scheduling?.date
@@ -168,7 +174,10 @@ const processOrders = (
             sortedGroups[date] = grouped[date];
         });
 
-    return sortedGroups;
+    return { 
+        scheduled: sortedGroups,
+        pending: tasks.filter(t => t.shipping?.scheduling?.pendingScheduling)
+    };
 };
 
 
@@ -190,6 +199,7 @@ export const useDeliverySchedule = () => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [showroomAssemblies, setShowroomAssemblies] = useState<any[]>([]);
     const [schedule, setSchedule] = useState<Record<string, Order[]>>({});
+    const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("timeline");
     const [filter, setFilter] = useState<ScheduleFilter>('default');
@@ -212,8 +222,9 @@ export const useDeliverySchedule = () => {
         const unsubscribe = subscribeToOrders((orders) => {
             setAllOrders(orders);
             const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
-            const processed = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate });
-            setSchedule(processed);
+            const { scheduled, pending } = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate });
+            setSchedule(scheduled);
+            setPendingOrders(pending);
             setLoading(false);
         });
 
@@ -240,7 +251,9 @@ export const useDeliverySchedule = () => {
     useEffect(() => {
         if (!loading) {
             const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
-            setSchedule(processOrders([...allOrders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate }));
+            const { scheduled, pending } = processOrders([...allOrders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate });
+            setSchedule(scheduled);
+            setPendingOrders(pending);
         }
     }, [filter, typeFilter, scheduleType, startDate, endDate, allOrders, showroomAssemblies, loading, settings]);
 
@@ -262,6 +275,7 @@ export const useDeliverySchedule = () => {
 
     return {
         schedule,
+        pendingOrders,
         loading,
         viewMode,
         setViewMode,

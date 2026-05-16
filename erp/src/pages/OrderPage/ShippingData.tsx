@@ -19,12 +19,14 @@ const ShippingData = ({ shipping, isBudget }: Props) => {
                 </h3>
                 
                 <div className="grid grid-cols-2 gap-1 mb-1">
-                    <div className="bg-white p-1.5 rounded-xl border border-slate-100 flex flex-col">
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Distância</span>
-                        <span className="font-black text-slate-900 text-sm">
-                            {shipping.distance ? `${shipping.distance} km` : '---'}
-                        </span>
-                    </div>
+                    {!isBudget && (
+                        <div className="bg-white p-1.5 rounded-xl border border-slate-100 flex flex-col">
+                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Distância</span>
+                            <span className="font-black text-slate-900 text-sm">
+                                {shipping.distance ? `${shipping.distance} km` : '---'}
+                            </span>
+                        </div>
+                    )}
                     {!isBudget && (
                         <div className="bg-white p-1.5 rounded-xl border border-slate-100 flex flex-col">
                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Tempo Est.</span>

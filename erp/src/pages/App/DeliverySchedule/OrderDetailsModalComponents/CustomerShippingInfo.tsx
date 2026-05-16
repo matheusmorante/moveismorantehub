@@ -118,20 +118,32 @@ export const SchedulingSection = ({ scheduling, isPickup }: { scheduling: any, i
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
             <i className="bi bi-clock-fill" /> {isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega'}
         </h3>
-        <div className="bg-blue-50/30 dark:bg-blue-900/10 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 flex flex-col gap-3 transition-colors duration-300">
-            <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">Data</span>
-                <span className="text-sm font-black text-blue-700 dark:text-blue-400">
-                    {formatToBRDate(scheduling?.date)}
-                </span>
-            </div>
-            <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">Horário</span>
-                <span className="text-sm font-black text-blue-700 dark:text-blue-400">
-                    {scheduling?.startTime || scheduling?.time}
-                    {scheduling?.type === 'range' && ` → ${scheduling.endTime}`}
-                </span>
-            </div>
+        <div className={`p-6 rounded-3xl border transition-colors duration-300 flex flex-col gap-3 ${scheduling?.pendingScheduling ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-900/30' : 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30'}`}>
+            {scheduling?.pendingScheduling ? (
+                <div className="flex items-center gap-3 py-2 animate-pulse">
+                    <i className="bi bi-clock-history text-2xl text-orange-600 dark:text-orange-400" />
+                    <div>
+                        <p className="text-sm font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest leading-none mb-1">Aguardando Agendamento</p>
+                        <p className="text-[10px] font-bold text-orange-600/70 dark:text-orange-500/70 uppercase">Data e hora serão definidos em breve</p>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">Data</span>
+                        <span className="text-sm font-black text-blue-700 dark:text-blue-400">
+                            {formatToBRDate(scheduling?.date)}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">Horário</span>
+                        <span className="text-sm font-black text-blue-700 dark:text-blue-400">
+                            {scheduling?.startTime || scheduling?.time || "Não informado"}
+                            {scheduling?.type === 'range' && scheduling.endTime && ` → ${scheduling.endTime}`}
+                        </span>
+                    </div>
+                </>
+            )}
         </div>
     </section>
 );

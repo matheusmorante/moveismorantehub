@@ -53,15 +53,15 @@ const LabelPrinting: React.FC = () => {
 
     const setSelectedCategory = (cat: CategoryType | null) => {
         setSelectedCategoryState(cat);
-        // Logos e Rótulos são sempre modo simples (apenas imagem)
-        if (cat === 'logos') {
+        // Logos e Posts são sempre modo simples (apenas imagem)
+        if (cat === 'logos' || cat === 'posts') {
             setPrintingMode('simple');
         }
         
         if (cat) {
             setSearchParams(prev => { prev.set('cat', cat); return prev; }, { replace: true });
             
-            if (cat !== 'logos') {
+            if (cat !== 'logos' && cat !== 'posts') {
                 setPrintingMode('advanced');
             }
         } else {
@@ -83,7 +83,7 @@ const LabelPrinting: React.FC = () => {
 
         if (finalCat && finalCat !== selectedCategory) {
             setSelectedCategoryState(finalCat);
-            if (finalCat === 'logos') setPrintingMode('simple');
+            if (finalCat === 'logos' || finalCat === 'posts') setPrintingMode('simple');
             else setPrintingMode('advanced');
         }
     }, [searchParams, selectedCategory]);
@@ -340,6 +340,7 @@ const LabelPrinting: React.FC = () => {
             showPrice: model.category === 'precos',
             showBarcode: model.category !== 'precos',
             showStoreLogo: model.category !== 'precos',
+            imageScale: model.imageScale || 1,
         }));
     };
 

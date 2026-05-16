@@ -227,10 +227,12 @@ const OrderHistoryRow = ({
                     <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
                         <div className="flex flex-col gap-0.5 relative">
                             <div className="flex flex-col">
-                                <span className={`text-sm font-bold ${isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                    {order.shipping?.scheduling?.dateType === 'range' && order.shipping?.scheduling?.endDate 
-                                       ? `${formatToBRDate(deliveryDateStr)} até ${formatToBRDate(order.shipping.scheduling.endDate)}` 
-                                       : formatToBRDate(deliveryDateStr)}
+                                <span className={`text-sm font-bold ${order.shipping?.scheduling?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : (isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200')}`}>
+                                    {order.shipping?.scheduling?.pendingScheduling 
+                                        ? 'AGENDAMENTO PENDENTE'
+                                        : (order.shipping?.scheduling?.dateType === 'range' && order.shipping?.scheduling?.endDate 
+                                           ? `${formatToBRDate(deliveryDateStr)} até ${formatToBRDate(order.shipping.scheduling.endDate)}` 
+                                           : formatToBRDate(deliveryDateStr))}
                                 </span>
                                 {(() => {
                                     const sched = order.shipping?.scheduling;
@@ -440,6 +442,17 @@ const OrderHistoryRow = ({
                                         title="Este pedido possui uma devolução vinculada"
                                     >
                                         <i className="bi bi-arrow-return-left text-[10px]" />
+                                    </div>
+                                )}
+
+                                {/* Pending Scheduling Badge */}
+                                {order.shipping?.scheduling?.pendingScheduling && (
+                                    <div 
+                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm animate-pulse" 
+                                        title="AGENDAMENTO PENDENTE"
+                                    >
+                                        <i className="bi bi-clock-history text-[10px]" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Agendamento Pendente</span>
                                     </div>
                                 )}
 

@@ -253,13 +253,23 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
             <td className="px-4 py-2">
                 {!item.isComboItem && (
                     <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-lg pr-2 border border-slate-100/50 dark:border-slate-800/50 group-focus-within:border-blue-200 dark:group-focus-within:border-blue-500/30 transition-all">
-                        <CurrencyOrPercentInput
-                            prefix={item.discountType === "fixed" ? "R$ " : ""}
-                            suffix={item.discountType === "fixed" ? "" : " %"}
-                            value={item.unitDiscount}
-                            onChange={(value: number) => onChange(idx, 'unitDiscount', value)}
-                        />
-                        <ToggleValueTypeBtn onClick={onToggleDiscountType}>
+                        <div className="relative group/discinput">
+                            <CurrencyOrPercentInput
+                                prefix={item.discountType === "fixed" ? "R$ " : ""}
+                                suffix={item.discountType === "fixed" ? "" : " %"}
+                                value={item.unitDiscount}
+                                onChange={(value: number) => onChange(idx, 'unitDiscount', value)}
+                            />
+                            {item.discountType === 'percentage' && item.unitDiscount > 0 && (
+                                <div className="absolute -top-6 right-0 text-[9px] font-black text-indigo-600 animate-fade-in bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-500/20">
+                                    = R$ {((item.unitPrice || 0) * (item.unitDiscount || 0) / 100).toFixed(2).replace('.', ',')}
+                                </div>
+                            )}
+                        </div>
+                        <ToggleValueTypeBtn 
+                            onClick={onToggleDiscountType}
+                            title="Clique para converter % em R$ ou vice-versa"
+                        >
                             {item.discountType === 'fixed' ? 'R$' : '%'}
                         </ToggleValueTypeBtn>
                     </div>

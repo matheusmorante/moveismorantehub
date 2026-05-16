@@ -277,7 +277,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                     {(isPickup || isBudget) && (
                         <button type="button"
                             onClick={() => {
-                                onCustomerChange({
+                                setCustomerData({
                                     fullName: 'Consumidor Final',
                                     phone: '',
                                     noPhone: true,
@@ -352,9 +352,9 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="flex-1 relative group/field">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">
-                                Nome do Cliente <span className="text-red-500">*</span>
+                                Nome do Cliente {!isBudget && <span className="text-red-500">*</span>}
                             </label>
-                            <input type="text" className={field(isNameError, isReadOnly)}
+                            <input type="text" className={field(isNameError && !isBudget, isReadOnly)}
                                 placeholder="Nome Completo"
                                 value={customerData.fullName}
                                 onChange={e => setCustomerData(prev => ({ ...prev, fullName: e.target.value }))}
@@ -371,7 +371,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                         <div className="flex-1 relative group/field">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 flex items-center justify-between pr-2">
                                 <span>
-                                    Telefone / Celular {!customerData.noPhone && <span className="text-red-500">*</span>}
+                                    Telefone / Celular {!customerData.noPhone && !isBudget && <span className="text-red-500">*</span>}
                                 </span>
                                 <button
                                     type="button"
@@ -385,7 +385,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             <div className="flex gap-2">
                                 <PatternFormat
                                     format="(##) #####-####"
-                                    className={`${field(isPhoneError && !customerData.noPhone, false)} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
+                                    className={`${field(isPhoneError && !customerData.noPhone && !isBudget, false)} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
                                     placeholder={customerData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
                                     value={customerData.phone}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}

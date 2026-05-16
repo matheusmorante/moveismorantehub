@@ -149,7 +149,7 @@ export const mapModelToDb = (model: GridModel) => ({
     extra_fields: model.extraFields || [],
     extra_fields_promo: model.extraFieldsPromo || [],
     image_fit: model.imageFit || 'contain',
-    safety_margin: model.safetyMargin || 0,
+    safety_margin: model.imageScale || 1,
     preview_image: model.previewImage || null,
     base_model_id: model.baseModelId || null
 });
@@ -259,7 +259,7 @@ export const mapDbToModel = (m: any): GridModel => ({
     extraFieldsPromo: m.extra_fields_promo || [],
     fontFamily: m.font_family,
     imageFit: m.image_fit || 'contain',
-    safetyMargin: m.safety_margin || 0,
+    imageScale: m.safety_margin || 1,
     previewImage: m.preview_image || null,
     baseModelId: m.base_model_id || null
 });

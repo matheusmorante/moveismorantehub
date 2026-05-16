@@ -23,6 +23,24 @@ type SuggestionItem = {
     description?: string;
 };
 
+const renderHighlightedText = (text: string, query: string) => {
+    if (!query.trim()) return <span>{text}</span>;
+    
+    const words = query.trim().split(/\s+/).filter(w => w.length > 0);
+    const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+    const parts = text.split(pattern);
+
+    return (
+        <span>
+            {parts.map((part, i) => (
+                pattern.test(part) ? 
+                <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-yellow-900 dark:text-yellow-200 rounded-sm px-0.5">{part}</span> : 
+                <span key={i}>{part}</span>
+            ))}
+        </span>
+    );
+};
+
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onSelect,
     onSelectDescription,
@@ -64,12 +82,24 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             setIsLoading(true);
             try {
                 // 1. Buscar no Catálogo de Produtos
-                const { data: productsData, error: productsError } = await supabase
+                const words = query.trim().split(/\s+/).filter(w => w.length > 0);
+                
+                let dbQuery = supabase
                     .from('products')
                     .select('*')
-                    .or(`description.ilike.%${query}%,code.ilike.%${query}%`)
-                    .eq('deleted', false)
-                    .limit(10);
+                    .eq('deleted', false);
+
+                // Se houver apenas uma palavra, busca por código OU descrição
+                if (words.length === 1) {
+                    dbQuery = dbQuery.or(`description.ilike.%${words[0]}%,code.ilike.%${words[0]}%`);
+                } else {
+                    // Se houver múltiplas palavras, todas devem estar na descrição (AND)
+                    words.forEach(word => {
+                        dbQuery = dbQuery.ilike('description', `%${word}%`);
+                    });
+                }
+
+                const { data: productsData, error: productsError } = await dbQuery.limit(10);
 
                 if (productsError) throw productsError;
                 
@@ -105,12 +135,14 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 if (items.length < 10) {
                     const historicalDescriptions = await searchHistoricalItems(query);
                     historicalDescriptions.forEach(desc => {
-                        // Evitar duplicados se já existir no catálogo com o mesmo nome
+                        // Evitar duplicados se já existir no catálogo ou se for idêntico ao que o usuário já digitou
+                        const isQueryIdentical = desc.toLowerCase() === query.toLowerCase();
                         const alreadyExists = items.some(it => 
                             it.product?.description.toLowerCase() === desc.toLowerCase() ||
                             (it.variation && `${it.product?.description} (${it.variation.name})`.toLowerCase() === desc.toLowerCase())
                         );
-                        if (!alreadyExists) {
+                        
+                        if (!alreadyExists && !isQueryIdentical) {
                             items.push({ type: 'historical', description: desc });
                         }
                     });
@@ -134,6 +166,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 <div className="relative flex-1">
                     <input
                         type="text"
+                        autoComplete="off"
                         value={query || ''}
                         onChange={(e) => {
                             const val = e.target.value;
@@ -193,7 +226,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                     }}
                                     className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex flex-col gap-0.5"
                                 >
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{histDesc}</span>
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                        {renderHighlightedText(histDesc!, query)}
+                                    </span>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 rounded">HISTÓRICO</span>
                                         <span className="text-[10px] text-slate-400">Item de pedido anterior</span>
@@ -219,7 +254,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 }}
                                 className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex flex-col gap-0.5"
                             >
-                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{displayName}</span>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    {renderHighlightedText(displayName, query)}
+                                </span>
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{displayCode}</span>
                                     <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
