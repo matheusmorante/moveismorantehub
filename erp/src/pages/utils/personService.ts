@@ -125,26 +125,22 @@ const mapProfileToPerson = (prof: any): Person => {
 };
 
 export const subscribeToPeople = (collectionName: string, callback: (people: Person[]) => void, includeDeleted = false) => {
+    let currentPeople: Person[] = [];
+
     const fetchAll = async () => {
         let peopleQuery = supabase.from(TABLE_NAME).select('*');
 
         if (!includeDeleted) {
-            // Show everything (active, inactive, drafts) except deleted
-            // Note: or(deleted.eq.false,deleted.is.null) is safer for items migrated without this flag
             peopleQuery = peopleQuery.or('deleted.eq.false,deleted.is.null');
         } else {
-            // For trash view: show only deleted records
             peopleQuery = peopleQuery.eq('deleted', true);
         }
 
         if (collectionName === 'employees') {
             peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},and(position.not.is.null,position.neq."")`);
         } else if (collectionName === 'customers') {
-            // "fornecedores podem ser clientes"
             peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.suppliers`);
         } else {
-            // "clientes nao podem ser fornecedores" (this is for 'suppliers')
-            // Using ilike for case-insensitivity and or for singular/plural support
             peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},person_type.ilike.supplier`);
         }
 
@@ -152,26 +148,20 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
         let employees: Person[] = (peopleData || []).map(mapFromDB);
 
         if (collectionName === 'employees') {
-            // Also fetch from profiles
             const { data: profilesData } = await supabase.from('profiles').select('*').not('position', 'is', null).neq('position', '');
             if (profilesData) {
                 const profileEmployees = profilesData.map(mapProfileToPerson);
-
-                // Fetch ALL emails from 'people' table (including those in lixeira) to prevent duplicates and prevent showing deleted logins
                 const { data: allPeopleEmails } = await supabase.from(TABLE_NAME).select('email, deleted');
                 const emailsToExclude = new Set<string>();
                 
                 if (allPeopleEmails) {
                     (allPeopleEmails as any[]).forEach(row => {
                         if (row.email) {
-                            // If we are showing active list (includeDeleted=false), we exclude any email that is in people table (active or deleted)
-                            // If we are showing trash (includeDeleted=true), we only exclude if it's already in the 'employees' list (which are the trashed ones)
                             emailsToExclude.add(row.email.toLowerCase());
                         }
                     });
                 }
 
-                // If NOT viewing trash, exclude any email already listed (active) OR any profile that has a persona in 'people' table (to avoid duplication or showing deleted ones)
                 profileEmployees.forEach((pe: Person) => {
                     if (pe.email && !emailsToExclude.has(pe.email.toLowerCase())) {
                         employees.push(pe);
@@ -180,22 +170,15 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
             }
         }
 
-        // Sort final list
         employees.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
-        callback(employees);
+        currentPeople = employees;
+        callback(currentPeople);
     };
 
     fetchAll();
 
-    const channel = supabase.channel(`${collectionName}_mixed_changes`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => fetchAll())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-            if (collectionName === 'employees') fetchAll();
-        })
-        .subscribe();
-
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

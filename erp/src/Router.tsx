@@ -26,7 +26,6 @@ import ProfilePage from './pages/App/Profile/Index';
 import PurchasesPage from './pages/App/Stock/Purchases/Index';
 import OrderRouteMap from './pages/App/SalesOrder/OrderRouteMap';
 import ShippingLabelPage from './pages/ShippingLabelPage';
-import AttendanceDashboard from './pages/App/Attendance/Dashboard';
 import CustomerDesiresPage from './pages/App/Customers/CustomerDesiresPage';
 import WhatsAppMarketplace from './pages/App/Products/WhatsAppMarketplace';
 import FinanceDashboard from './pages/App/Finance/Dashboard';
@@ -117,7 +116,6 @@ function Router() {
             <Route path='/sales-order/freight-calculation' element={<OrderRouteMap />} />
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
-            <Route path='/attendance-dashboard' element={<AttendanceDashboard />} />
             <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
 
             {/* Registrations */}

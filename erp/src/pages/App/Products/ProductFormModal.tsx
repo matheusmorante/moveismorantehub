@@ -909,7 +909,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             { id: 'ambientes', label: 'Ambientes', icon: 'bi-house' },
                             !isService && { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
                             !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
-                            !isService && { id: 'ecommerce', label: 'Vitrine / E-commerce', icon: 'bi-cart-check' },
+                            !isService && { id: 'ecommerce', label: 'Fotos do Produto', icon: 'bi-images' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ] as any[]).filter(Boolean).map((tab: any) => (
                             <button

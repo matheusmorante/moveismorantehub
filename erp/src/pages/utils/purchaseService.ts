@@ -5,33 +5,31 @@ import { getSettings } from '@/pages/utils/settingsService';
 
 const TABLE_NAME = "purchases";
 
-export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
-    supabase.from(TABLE_NAME)
-        .select('*')
-        .order('date', { ascending: false })
-        .then((response: any) => {
-            const { data, error } = response;
-            if (data && !error) {
-                callback(data.map(mapFromDB));
-            } else if (error) {
-                console.error("Erro ao buscar compras iniciais:", error);
-                callback([]);
-            }
-        });
 
-    const channel = supabase.channel('purchases_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
-            supabase.from(TABLE_NAME)
-                .select('*')
-                .order('date', { ascending: false })
-                .then((response: any) => {
-                    if (response.data) callback(response.data.map(mapFromDB));
-                });
-        })
-        .subscribe();
+
+export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
+    let currentPurchases: Purchase[] = [];
+
+    const fetchAll = () => {
+        supabase.from(TABLE_NAME)
+            .select('*')
+            .order('date', { ascending: false })
+            .then((response: any) => {
+                const { data, error } = response;
+                if (data && !error) {
+                    currentPurchases = data.map(mapFromDB);
+                    callback(currentPurchases);
+                } else if (error) {
+                    console.error("Erro ao buscar compras iniciais:", error);
+                    callback([]);
+                }
+            });
+    };
+
+    fetchAll();
 
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

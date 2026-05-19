@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Order from "../../../types/order.type";
 import Person from "../../../types/person.type";
-import { subscribeToOrders } from "../../../utils/orderHistoryService";
+import { getOrdersByCustomerInfo } from "../../../utils/orderHistoryService";
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { getSettings } from '@/pages/utils/settingsService';
@@ -21,21 +21,18 @@ const PersonPurchaseHistoryModal = ({ isOpen, onClose, person }: Props) => {
         if (!isOpen) return;
 
         setLoading(true);
-        const unsubscribe = subscribeToOrders((allOrders) => {
-            // Filter orders for this person
-            // We match by customer fullName or phone/email if possible
-            // In this system, orders store a snapshot of customer data
-            const filtered = allOrders.filter(o => 
-                o.customerData?.fullName?.toLowerCase() === person.fullName.toLowerCase() ||
-                (person.phone && o.customerData?.phone === person.phone) ||
-                (person.email && o.customerData?.email === person.email)
-            );
-            setOrders(filtered);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        getOrdersByCustomerInfo(person.fullName, person.phone, person.email)
+            .then((data) => {
+                setOrders(data);
+                setLoading(false);
+            })
+            .catch((e) => {
+                console.error("Erro ao buscar histórico do cliente:", e);
+                setOrders([]);
+                setLoading(false);
+            });
     }, [isOpen, person]);
+
 
     if (!isOpen) return null;
 

@@ -58,19 +58,8 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
             }
         });
 
-    const channel = supabase.channel('variations_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
-            supabase.from(TABLE_NAME)
-                .select('*')
-                .order('id', { ascending: false })
-                .then(({ data }: { data: any }) => {
-                    if (data) callback(data.map(mapFromDB));
-                });
-        })
-        .subscribe();
-
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

@@ -120,20 +120,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
                         Título do Produto (Manual) <span className="text-red-500">*</span>
                     </label>
-                    {formData.isCombo && (
-                        <button
-                            type="button"
-                            onClick={handleGenerateComboName}
-                            disabled={isGeneratingComboName}
-                            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter bg-purple-100 text-purple-600 hover:bg-purple-200 transition-all shadow-sm"
-                        >
-                            {isGeneratingComboName ? (
-                                <span className="flex items-center gap-1"><i className="bi bi-hourglass-split animate-spin"></i> Gerando...</span>
-                            ) : (
-                                <span className="flex items-center gap-1"><i className="bi bi-magic"></i> Sugerir com IA</span>
-                            )}
-                        </button>
-                    )}
+                    {/* Removido Sugerir com IA */}
                 </div>
                 
                 <input
@@ -358,7 +345,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
                             <i className="bi bi-rulers text-blue-600"></i> Detalhes Técnicos / Dimensões
                         </h4>
-                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Essas informações enriquecem a descrição gerada pela IA</p>
+                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Essas informações enriquecem a ficha técnica do produto</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

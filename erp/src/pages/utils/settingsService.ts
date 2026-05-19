@@ -634,23 +634,8 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void) =
             }
         });
 
-    const channel = supabase.channel('settings_changes')
-        .on('postgres_changes',
-            { event: '*', schema: 'public', table: SUPABASE_SETTINGS_TABLE, filter: `id=eq.${SETTINGS_ID}` },
-            (payload: any) => {
-                if (payload.new) {
-                    const settingsFromCloud = (payload.new as any).data as any;
-                    const migrated = migrateSettings(settingsFromCloud);
-                    const mergedSettings = deepMerge(defaults, migrated);
-                    localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
-                    callback(mergedSettings);
-                }
-            }
-        )
-        .subscribe();
-
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

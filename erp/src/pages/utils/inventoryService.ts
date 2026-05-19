@@ -20,25 +20,8 @@ export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => 
             }
         });
 
-    const channel = supabase.channel('inventory_moves_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
-            if (payload.eventType === 'INSERT') {
-                const newMove = mapFromDB(payload.new);
-                currentMoves = [newMove, ...currentMoves].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                callback(currentMoves);
-            } else if (payload.eventType === 'UPDATE') {
-                const updatedMove = mapFromDB(payload.new);
-                currentMoves = currentMoves.map(m => m.id === updatedMove.id ? updatedMove : m);
-                callback(currentMoves);
-            } else if (payload.eventType === 'DELETE') {
-                currentMoves = currentMoves.filter(m => m.id !== String(payload.old.id));
-                callback(currentMoves);
-            }
-        })
-        .subscribe();
-
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

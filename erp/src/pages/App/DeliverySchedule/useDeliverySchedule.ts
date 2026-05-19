@@ -239,12 +239,9 @@ export const useDeliverySchedule = () => {
         };
         fetchShowroom();
 
-        // Optional: subscribe to changes
-        const channel = supabase.channel('showroom_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, fetchShowroom)
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            // Realtime desabilitado para economizar conexões e tráfego
+        };
     }, []);
 
     // Re-process when filter changes locally

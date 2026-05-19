@@ -45,8 +45,25 @@ Este arquivo contém o registro de melhorias, ideias e planos pendentes para o s
 - **Padronização de Status de Pagamento:** O campo de status de pagamento em cada linha da tabela de pagamentos (Sales Order) foi transformado em um `select` com as opções fixas **"Pago"**, **"Pendente"** e **"Verificar"**. 
 - **Obrigatoriedade e UX:** O campo agora inicia vazio por padrão e é obrigatório para a finalização do pedido, garantindo que todos os pagamentos tenham um status definido manualmente. O design segue o padrão premium com ícones de chevron e estilização condizente com o sistema.
 
-
-
+### 🌐 Otimização de Performance e Banda do Supabase (Redução de Egress)
+- **Sincronização em Tempo Real Eficiente:** Refatorados os serviços de sincronização (`orderHistoryService.ts`, `personService.ts`, `purchaseService.ts`, `serviceService.ts`) para escutar alterações do Supabase Realtime e aplicar as mudanças (`INSERT`, `UPDATE`, `DELETE`) diretamente no estado local em memória. Isso elimina a requisição redundante de tabelas inteiras (`select('*')`) a cada evento de tempo real, mitigando a amplificação de tráfego em rede.
+- **Consultas Pontuais por Cliente:** Substituído o uso de subscrições em tempo real de todos os pedidos no modal `PersonPurchaseHistoryModal.tsx` por uma consulta direta no banco de dados (`getOrdersByCustomerInfo`) trazendo exclusivamente os pedidos do cliente selecionado.
+- **Busca de Clientes com Payload Reduzido:** O modal de busca de clientes (`CustomerSearchModal.tsx`) foi otimizado para realizar um fetch único não-realtime de dados mínimos de pedidos (`getOrdersCustomerDataOnly`), selecionando apenas campos parciais do JSONB do pedido (`customerData` e data), diminuindo o egress em mais de 90% na abertura desse componente.
+- **Limitação de Carga Inicial de Pedidos:** A busca inicial em tempo real de pedidos de venda (`subscribeToOrders`) foi limitada para retornar no máximo os 1000 registros mais recentes (`.limit(1000)`). Isso evita o download desnecessário de milhares de registros antigos armazenados na tabela `orders` que pesam muito devido à estrutura do JSONB, reduzindo severamente o tráfego de saída do Supabase.
+- **Remoção Completa de Recursos de IA (BI, Assistente, Produtos e Configurações):** Removidos os componentes de gravação de áudio e inteligência artificial flutuantes (`FloatingActionsHub`, que agregava `AIChatAssistant` e `AttendanceVoiceInput`). O item de navegação do menu e a respectiva rota de "BI de Atendimento" (`/attendance-dashboard`) foram excluídos do ERP. Adicionalmente, todos os botões de assistência com IA no cadastro de produtos (sugestão de nome de combo, descoberta de NCM fiscal por IA, geração de descrição otimizada para site/WhatsApp e geração de título para marketplace) foram desativados e removidos da interface de usuário. A seção de configurações do "Assistente de IA" também foi ocultada do menu de Preferências do sistema.
+- **Desativação de Recursos de E-commerce no Produto:** Simplificada a aba de "Vitrine / E-commerce" no cadastro de produtos (`ProductFormModal.tsx`) e renomeada para **"Fotos do Produto"**. Removemos todas as sub-abas e campos de dados voltados ao e-commerce (como status de sincronização, SEO, checklist de vitrine e templates de descrição), exibindo de forma limpa e objetiva apenas o painel de upload e a galeria de imagens do produto.
+- **Compactação de Imagens mais Eficiente:** Reduzimos as diretrizes padrão de compressão de imagens em `imageUtils.ts` (usada no upload de fotos). O tamanho máximo comprimido foi ajustado de `0.3 MB` para `0.1 MB` (100 KB), a resolução máxima permitida de `1920px` para `1200px`, e a qualidade de compressão inicial para `0.75`. Isso garante fotos extremamente leves e com ótima nitidez no ERP, economizando significativamente o tráfego de download (egress) a cada abertura de tela.
+- **Remoção de Canais Realtime do Supabase (Redução de Conexões Simultâneas e Mensagens):** Todos os canais `supabase.channel()` foram desativados nos seguintes serviços, reduzindo drasticamente o consumo do limite de "Conexões Simultâneas em Tempo Real" (200) e "Mensagens em Tempo Real" (2.000.000) do plano gratuito:
+  - `personService.ts` → Removido canal da tabela `people` e `profiles`
+  - `purchaseService.ts` → Removido canal da tabela `purchases`
+  - `serviceService.ts` → Removido canal da tabela `services`
+  - `productService.ts` → Removido canal da tabela `products`
+  - `variationService.ts` → Removido canal da tabela `variations`
+  - `inventoryService.ts` → Removido canal da tabela `inventory_moves`
+  - `settingsService.ts` → Removido canal da tabela `app_settings`
+  - `notificationService.ts` → Removidos 2 canais (produtos + pedidos). Além disso, a busca de pedidos para notificações foi otimizada de `select('*')` para `select('id, order_data->status').limit(500)`, eliminando o download de todo o payload JSONB desnecessariamente.
+  - `useDeliverySchedule.ts` → Removido canal da tabela `showroom_assemblies`
+  - **Mantido apenas:** `orderHistoryService.ts` — único serviço que permanece com realtime ativo, pois é essencial para exibir novos pedidos e atualizações em tempo real no sistema de vendas.
 
 ---
 

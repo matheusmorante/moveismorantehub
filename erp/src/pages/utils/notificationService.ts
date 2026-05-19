@@ -206,10 +206,11 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
             .eq('deleted', false)
             .eq('active', true);
 
-        // Fetch Orders
+        // Fetch Orders - somente status para notificações de rascunho (campo mínimo)
         const { data: oData, error: oError } = await supabase
             .from('orders')
-            .select('*');
+            .select('id, order_data->status')
+            .limit(500);
 
         if (pError || oError) return;
 
@@ -252,18 +253,10 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
         callback(allNotifications);
     };
 
+    // Busca inicial (sem realtime para economizar conexões)
     fetchAndNotify();
 
-    const pChannel = supabase.channel('notifications_products')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => fetchAndNotify())
-        .subscribe();
-
-    const oChannel = supabase.channel('notifications_orders')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchAndNotify())
-        .subscribe();
-
     return () => {
-        supabase.removeChannel(pChannel);
-        supabase.removeChannel(oChannel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };

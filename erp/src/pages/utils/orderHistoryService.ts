@@ -11,6 +11,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
     console.log('[OrdersSync] Start subscription');
 
     let aborted = false;
+    let currentOrders: Order[] = [];
 
     const fetchAndCallback = async () => {
         if (aborted) return;
@@ -20,7 +21,8 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
             const { data, error } = await supabase
                 .from(TABLE_NAME)
                 .select('*')
-                .order('id', { ascending: false });
+                .order('id', { ascending: false })
+                .limit(1000);
 
             if (aborted) {
                 console.log('[OrdersSync] Fetch completed but subscription was cancelled, ignoring.');
@@ -50,7 +52,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
 
             if (data && Array.isArray(data)) {
                 console.log('[OrdersSync] Data received, count:', data.length);
-                const orders = data.map((row: any) => {
+                currentOrders = data.map((row: any) => {
                     try {
                         const rawData = { ...(row.order_data || {}), id: String(row.id) } as Order;
                         // Inject marketing origin from people registry for legacy orders
@@ -78,7 +80,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                         return { ...(row.order_data || {}), id: String(row.id) } as Order;
                     }
                 });
-                callback(orders);
+                callback(currentOrders);
             } else {
                 console.warn('[OrdersSync] No data or invalid format:', typeof data);
                 callback([]);
@@ -95,15 +97,35 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
 
     const channel = supabase.channel(`orders_changes_${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
-            if (!aborted) {
-                console.log('[OrdersSync] Change detected in orders, refetching...');
-                fetchAndCallback();
-            }
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, (payload: any) => {
-            if (!aborted) {
-                console.log('[OrdersSync] Change detected in people (CRM), refetching to update marketing origins...');
-                fetchAndCallback();
+            if (aborted) return;
+            console.log('[OrdersSync] Change detected in orders, event:', payload.eventType);
+            
+            if (payload.eventType === 'INSERT') {
+                const newRow = payload.new;
+                try {
+                    const rawData = { ...(newRow.order_data || {}), id: String(newRow.id) } as Order;
+                    const formatted = capitalizeOrder(rawData);
+                    currentOrders = [formatted, ...currentOrders];
+                    callback(currentOrders);
+                } catch (e) {
+                    console.error('[OrdersSync] Error parsing inserted order, refetching...', e);
+                    fetchAndCallback();
+                }
+            } else if (payload.eventType === 'UPDATE') {
+                const updatedRow = payload.new;
+                try {
+                    const rawData = { ...(updatedRow.order_data || {}), id: String(updatedRow.id) } as Order;
+                    const formatted = capitalizeOrder(rawData);
+                    currentOrders = currentOrders.map(o => o.id === formatted.id ? formatted : o);
+                    callback(currentOrders);
+                } catch (e) {
+                    console.error('[OrdersSync] Error parsing updated order, refetching...', e);
+                    fetchAndCallback();
+                }
+            } else if (payload.eventType === 'DELETE') {
+                const deletedId = String(payload.old.id);
+                currentOrders = currentOrders.filter(o => o.id !== deletedId);
+                callback(currentOrders);
             }
         })
         .subscribe((status: string) => {
@@ -116,6 +138,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
         supabase.removeChannel(channel);
     };
 };
+
 
 export const saveOrder = async (order: Order): Promise<string> => {
     if (order.id) {
@@ -699,3 +722,77 @@ export const getOrdersByProductId = async (productId: string, productSku?: strin
         return [];
     }
 };
+
+/**
+ * Busca todos os pedidos de um cliente específico (sem real-time)
+ */
+export const getOrdersByCustomerInfo = async (fullName: string, phone?: string, email?: string): Promise<Order[]> => {
+    try {
+        const queryPromises: any[] = [];
+        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('id', { ascending: false });
+
+        if (fullName) {
+            queryPromises.push(baseQuery().contains('order_data', { customerData: { fullName } }));
+        }
+        
+        if (phone && phone.trim() !== '') {
+            queryPromises.push(baseQuery().contains('order_data', { customerData: { phone } }));
+        }
+
+        if (email && email.trim() !== '') {
+            queryPromises.push(baseQuery().contains('order_data', { customerData: { email } }));
+        }
+
+        if (queryPromises.length === 0) return [];
+
+        const results = await Promise.all(queryPromises);
+        const uniqueOrders = new Map<string, Order>();
+
+        results.forEach(res => {
+            if (res.data) {
+                res.data.forEach((row: any) => {
+                    const rawData = { ...(row.order_data || {}), id: String(row.id) } as Order;
+                    if (!rawData.deleted && !uniqueOrders.has(rawData.id!)) {
+                        uniqueOrders.set(rawData.id!, capitalizeOrder(rawData));
+                    }
+                });
+            }
+        });
+
+        const finalOrders = Array.from(uniqueOrders.values()).filter(o => 
+            o.customerData?.fullName?.toLowerCase() === fullName.toLowerCase() ||
+            (phone && o.customerData?.phone === phone) ||
+            (email && o.customerData?.email === email)
+        );
+
+        return finalOrders.sort((a, b) => Number(b.id) - Number(a.id));
+    } catch (error) {
+        console.error("Erro ao buscar pedidos por cliente:", error);
+        return [];
+    }
+};
+
+/**
+ * Busca dados enxutos de pedidos apenas com informações de clientes
+ * Usado para o modal de busca rápida e listagens enxutas.
+ */
+export const getOrdersCustomerDataOnly = async (): Promise<{ id: string, date: string, customerData: any, deleted: boolean }[]> => {
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('id, date, order_data->customerData, order_data->deleted');
+        
+        if (error) throw error;
+        
+        return (data || []).map((row: any) => ({
+            id: String(row.id),
+            date: row.date || (row.order_data as any)?.date || '',
+            customerData: (row.order_data as any)?.customerData || {},
+            deleted: (row.order_data as any)?.deleted === true
+        }));
+    } catch (e) {
+        console.error("Erro ao buscar dados enxutos de clientes nos pedidos:", e);
+        return [];
+    }
+};
+

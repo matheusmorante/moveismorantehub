@@ -8,10 +8,10 @@ export const compressImage = async (file: File, options?: { maxMB?: number, maxW
         const imageCompression = (await import('browser-image-compression')).default;
         
         const compressionOptions = {
-            maxSizeMB: options?.maxMB || 0.3,
-            maxWidthOrHeight: options?.maxWidth || 1920,
+            maxSizeMB: options?.maxMB || 0.1,
+            maxWidthOrHeight: options?.maxWidth || 1200,
             useWebWorker: true,
-            initialQuality: 0.8,
+            initialQuality: 0.75,
         };
 
         const compressedFile = await imageCompression(file, compressionOptions);
@@ -37,10 +37,10 @@ export const compressImageToFile = async (file: File, options?: { maxMB?: number
         const imageCompression = (await import('browser-image-compression')).default;
         
         const compressionOptions = {
-            maxSizeMB: options?.maxMB || 0.3,
-            maxWidthOrHeight: options?.maxWidth || 1920,
+            maxSizeMB: options?.maxMB || 0.1,
+            maxWidthOrHeight: options?.maxWidth || 1200,
             useWebWorker: true,
-            initialQuality: 0.8,
+            initialQuality: 0.75,
         };
 
         const compressedFile = await imageCompression(file, compressionOptions);

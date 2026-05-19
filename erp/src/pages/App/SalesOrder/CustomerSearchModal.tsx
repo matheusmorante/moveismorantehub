@@ -3,7 +3,7 @@ import CustomerData from "../../types/customerData.type";
 import Person from "../../types/person.type";
 import Order from "../../types/order.type";
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { subscribeToOrders } from "../../utils/orderHistoryService";
+import { getOrdersCustomerDataOnly } from "../../utils/orderHistoryService";
 
 interface CustomerSearchEntry {
     id: string;
@@ -56,12 +56,27 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
     }, []);
 
     useEffect(() => {
-        const unsub = subscribeToOrders((data) => {
-            setOrders(data.filter(o => !o.deleted && o.customerData?.fullName));
-            setLoadingOrders(false);
-        });
-        return unsub;
+        setLoadingOrders(true);
+        getOrdersCustomerDataOnly()
+            .then((data) => {
+                const mappedOrders = data
+                    .filter(o => !o.deleted && o.customerData?.fullName)
+                    .map(o => ({
+                        id: o.id,
+                        date: o.date,
+                        customerData: o.customerData,
+                        deleted: o.deleted
+                    } as any));
+                setOrders(mappedOrders);
+                setLoadingOrders(false);
+            })
+            .catch((e) => {
+                console.error("Erro ao buscar histórico reduzido para busca de clientes:", e);
+                setOrders([]);
+                setLoadingOrders(false);
+            });
     }, []);
+
 
     // Build unified customer list: merge cadastro + order history
     const customerList = useMemo<CustomerSearchEntry[]>(() => {

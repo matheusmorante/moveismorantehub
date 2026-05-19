@@ -11,35 +11,31 @@ const mapFromDB = (data: any): Service => ({
     updatedAt: data.updated_at
 });
 
-export const subscribeToServices = (callback: (services: Service[]) => void) => {
-    // Initial fetch
-    supabase.from(TABLE_NAME)
-        .select('*')
-        .eq('is_draft', false)
-        .order('id', { ascending: false })
-        .then(({ data, error }: { data: any, error: any }) => {
-            if (data && !error) {
-                callback(data.map(mapFromDB));
-            } else if (error) {
-                console.error("Erro ao buscar serviços iniciais:", error);
-                callback([]);
-            }
-        });
 
-    const channel = supabase.channel('services_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
-            supabase.from(TABLE_NAME)
-                .select('*')
-                .eq('is_draft', false)
-                .order('id', { ascending: false })
-                .then(({ data }: { data: any }) => {
-                    if (data) callback(data.map(mapFromDB));
-                });
-        })
-        .subscribe();
+
+export const subscribeToServices = (callback: (services: Service[]) => void) => {
+    let currentServices: Service[] = [];
+
+    const fetchAll = () => {
+        supabase.from(TABLE_NAME)
+            .select('*')
+            .eq('is_draft', false)
+            .order('id', { ascending: false })
+            .then(({ data, error }: { data: any, error: any }) => {
+                if (data && !error) {
+                    currentServices = data.map(mapFromDB);
+                    callback(currentServices);
+                } else if (error) {
+                    console.error("Erro ao buscar serviços iniciais:", error);
+                    callback([]);
+                }
+            });
+    };
+
+    fetchAll();
 
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

@@ -5,7 +5,6 @@ import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import DesktopNav from "./components/layout/DesktopNav";
 import MobileNav from "./components/layout/MobileNav";
-import FloatingActionsHub from "./components/shared/FloatingActionsHub";
 import GlobalAutoScroll from "./components/shared/GlobalAutoScroll";
 import NotificationBell from "./components/shared/NotificationBell";
 import AssistanceOrderModal from "./pages/App/SalesOrder/AssistanceOrderModal";
@@ -206,8 +205,6 @@ export default function AppLayout() {
       <main className="flex-1 p-4 xl:p-8 overflow-x-hidden">
         <Outlet />
       </main>
-
-      <FloatingActionsHub />
 
       {isAssistanceModalOpen && (
         <AssistanceOrderModal 

@@ -251,25 +251,8 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, inc
 
     fetchInitial();
 
-    const channel = supabase.channel('products_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
-            if (payload.eventType === 'INSERT') {
-                const newProduct = mapFromDB(payload.new);
-                currentProducts = [...currentProducts, newProduct].sort((a, b) => a.description.localeCompare(b.description));
-                callback(currentProducts);
-            } else if (payload.eventType === 'UPDATE') {
-                const updatedProduct = mapFromDB(payload.new);
-                currentProducts = currentProducts.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p);
-                callback(currentProducts);
-            } else if (payload.eventType === 'DELETE') {
-                currentProducts = currentProducts.filter(p => p.id !== String(payload.old.id));
-                callback(currentProducts);
-            }
-        })
-        .subscribe();
-
     return () => {
-        supabase.removeChannel(channel);
+        // Realtime desabilitado para economizar conexões e tráfego
     };
 };
 

@@ -190,24 +190,7 @@ const Products = () => {
                         >
                             <i className="bi bi-gear-fill text-lg xl:text-xl" />
                         </Link>
-                        <button
-                            onClick={() => setIsImportModalOpen(true)}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-6 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
-                            title="Importar catálogo de produtos via CSV"
-                        >
-                            <i className="bi bi-file-earmark-arrow-up text-lg xl:text-xl" />
-                            Importar
-                        </button>
-                        <button
-                            onClick={() => { setEditingProduct(null); setInitialFormData({ itemType: 'product' }); setIsFormModalOpen(true); }}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
-                            title="Adicionar Novo Produto ou Serviço no Catálogo"
-                        >
-                            <i className="bi bi-plus-lg text-lg xl:text-xl" />
-                            Novo Produto
-                        </button>
-
-                        {/* Menu de Tipos removido conforme solicitado (Foco apenas em Produto) */}
+                        {/* Cadastro de novos produtos desabilitado para economizar armazenamento e tráfego de dados */}
                     </div>
                 </div>
 
@@ -345,7 +328,6 @@ const Products = () => {
                     }}
                     onToggleColumn={toggleVisibility}
                     onSort={handleSort}
-                    onDuplicate={handleDuplicate}
                     categoryTree={categoryTree}
                     ref={productListRef}
                     onRefresh={() => productListRef.current?.refresh()}
