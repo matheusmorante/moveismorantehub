@@ -234,13 +234,14 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
     ].filter(el => !el.hidden);
 
     const isLogoOnly = config.category === 'logos' || (config as any).printingMode === 'simple' || !!image;
+    const isBlank = (config as any).isBlank;
 
     return (
         <div className="label-item-bleed-container" style={bleedStyle}>
             <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
             
             {/* Imagem de Fundo (Bleed Area) */}
-            {image && (
+            {image && !isBlank && (
                 <img 
                     src={image} 
                     alt="" 
@@ -261,7 +262,7 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
 
             {/* Etiqueta Física (Corte) */}
             <div className="label-item-container" style={labelStyle}>
-                {!isLogoOnly && !hideContent && elements.map(renderModularElement)}
+                {!isLogoOnly && !hideContent && !isBlank && elements.map(renderModularElement)}
             </div>
             
             {/* Estilos para ocultar bordas no PRINT */}

@@ -1,12 +1,11 @@
-# Regras do Usuário
+# REGRAS DO USUÁRIO - MÓVEIS MORANTE HUB
 
-O usuário definiu as seguintes regras que devem ser SEMPRE seguidas sem qualquer exceção:
 1. Siga princípio de código limpo e modularizado.
 2. Sempre salve minhas ideias e planos pendentes em um arquivo para posterior consulta e lembrete.
 3. Economize o máximo de cota que puder do plano de assinatura.
 4. Lembra que tem o ambiente de desenvolvimento e produção, deixe ajustado para cada um o que for fazer.
-5. Relate imediatamente bugs que estão te impedindo para eu saber da demora enquanto você continua fazendo o que está fazendo.
+5. Relate imediatamente bugs que tá te impedindo para eu saber da demora quanto você continua fazendo o que está fazendo.
 6. Sempre considere ambiente dev e ambiente prod ao configurar rotas, variáveis de ambiente e outros dados ambíguos para funcionar corretamente em ambos os ambientes.
 7. Me pergunte se tiver dúvida de ambiguidade ou entendimento no que eu disser ou mostrar.
-8. Salve os rules sempre em um arquivo do projeto.
+8. Salve as regras (rules) sempre em um arquivo do projeto.
 9. Fale apenas em português brasileiro.

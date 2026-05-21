@@ -13,6 +13,7 @@ export interface LabelItemConfig {
     rotation?: number;
     imageFit?: 'contain' | 'cover' | 'fill';
     extraFields?: any[];
+    isBlank?: boolean;
 }
 
 export interface LogoItemConfig {
@@ -26,6 +27,7 @@ export interface LogoItemConfig {
     promoPrice?: string;
     sku?: string;
     extraFields?: any[];
+    isBlank?: boolean;
 }
 
 interface Props {
@@ -39,7 +41,16 @@ interface Props {
     previewMode?: boolean;
 }
 
-const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClick, labelItems, logoItems, currentPage = 0, previewMode = false }) => {
+const LabelGrid: React.FC<Props> = ({ 
+    config, 
+    image, 
+    cellImages = {}, 
+    onCellClick, 
+    labelItems, 
+    logoItems, 
+    currentPage = 0, 
+    previewMode = false
+}) => {
     const totalCells = config.columns * config.rows;
     
     const isLogos = config.category === 'logos';
@@ -102,8 +113,6 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
         zIndex: 1
     };
 
-
-
     return (
         <div 
             className="label-sheet-container"
@@ -129,25 +138,34 @@ const LabelGrid: React.FC<Props> = ({ config, image, cellImages = {}, onCellClic
                 {/* Camada 1: Conteúdo Recortado pela Folha (Imagens, Textos) */}
                 {Array.from({ length: totalCells }).map((_, i) => {
                     const item = finalItems[i];
+
                     return (
                         <div 
                             key={`content-${i}-${currentPage}`} 
                             onClick={() => onCellClick?.(i)}
-                            className={`flex items-center justify-center transition-all ${config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50 group' : ''}`} 
-                            style={{ width: '100%', height: '100%', position: 'relative', overflow: 'visible' }}
+                            className={`flex items-center justify-center transition-all duration-200 relative overflow-visible group ${
+                                config.preset === 'custom' ? 'cursor-pointer hover:bg-blue-50/50' : ''
+                            }`} 
+                            style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                position: 'relative', 
+                                overflow: 'visible'
+                            }}
                         >
                             {item ? (
                                 <LabelItem 
                                     config={{
                                         ...config,
-                                        text: item.name || (item.type === 'logo' ? '' : (config.text || '')),
-                                        price: item.price || (item.type === 'logo' ? '' : (config.price || '')),
-                                        promoPrice: item.promoPrice || (item.type === 'logo' ? '' : (config.promoPrice || '')),
-                                        sku: item.sku || (item.type === 'logo' ? '' : (config.sku || '')),
-                                        extraFields: item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || [])),
+                                        isBlank: item.isBlank,
+                                        text: item.isBlank ? '' : (item.name || (item.type === 'logo' ? '' : (config.text || ''))),
+                                        price: item.isBlank ? '' : (item.price || (item.type === 'logo' ? '' : (config.price || ''))),
+                                        promoPrice: item.isBlank ? '' : (item.promoPrice || (item.type === 'logo' ? '' : (config.promoPrice || ''))),
+                                        sku: item.isBlank ? '' : (item.sku || (item.type === 'logo' ? '' : (config.sku || ''))),
+                                        extraFields: item.isBlank ? [] : (item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || []))),
                                         imageFit: item.imageFit || config.imageFit,
                                     }} 
-                                    image={item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image))} 
+                                    image={item.isBlank ? null : (item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image)))} 
                                     index={i} 
                                     scale={item.scale ?? config.imageScale}
                                     rotation={item.rotation || 0}

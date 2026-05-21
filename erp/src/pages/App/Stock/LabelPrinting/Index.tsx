@@ -98,6 +98,7 @@ const LabelPrinting: React.FC = () => {
     const previewContainerRef = useRef<HTMLDivElement>(null);
     const [cellImages, setCellImages] = useState<Record<number, string>>({});
     const cellInputRef = useRef<HTMLInputElement>(null);
+    const logoInputRef = useRef<HTMLInputElement>(null);
     const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
     const [layoutModalOpen, setLayoutModalOpen] = useState(false);
     const [gridModalOpen, setGridModalOpen] = useState(false); 
@@ -724,6 +725,85 @@ const LabelPrinting: React.FC = () => {
         toast.success(`${fullName} adicionado à lista.`);
     };
 
+    const handleAddBlankLabel = () => {
+        if (selectedCategory === 'logos') {
+            const newItem: LogoItemConfig = {
+                image: '',
+                quantity: 1,
+                imageFit: config.imageFit || 'contain',
+                scale: config.imageScale || 1,
+                rotation: 0,
+                name: 'ETIQUETA EM BRANCO',
+                price: '',
+                promoPrice: '',
+                sku: '',
+                isBlank: true as any
+            };
+            setLogoItems(prev => [...prev, newItem]);
+        } else {
+            const newItem: LabelItemConfig = {
+                name: 'ETIQUETA EM BRANCO',
+                price: '',
+                promoPrice: '',
+                sku: '',
+                quantity: 1,
+                isBlank: true,
+                extraFields: []
+            };
+            setLabelItems(prev => [...prev, newItem]);
+        }
+        toast.success('Etiqueta em branco adicionada à fila.');
+    };
+
+    const handleReorderItems = (draggedIdx: number, targetIdx: number) => {
+        const isLogos = selectedCategory === 'logos';
+        const sourceItems = isLogos ? logoItems : labelItems;
+
+        // 1. Desmembrar a fila atual em itens individuais de tamanho 1
+        const flattenedItems: any[] = [];
+        sourceItems.forEach(item => {
+            const qty = Number(item.quantity || 0);
+            for (let i = 0; i < qty; i++) {
+                flattenedItems.push({ ...item, quantity: 1 });
+            }
+        });
+
+        if (draggedIdx < 0 || draggedIdx >= flattenedItems.length || targetIdx < 0 || targetIdx >= flattenedItems.length) {
+            return;
+        }
+
+        // 2. Mover o item
+        const [movedItem] = flattenedItems.splice(draggedIdx, 1);
+        flattenedItems.splice(targetIdx, 0, movedItem);
+
+        // 3. Recompactar a fila unindo vizinhos iguais adjacentes
+        const compactQueue: any[] = [];
+        flattenedItems.forEach(item => {
+            const last = compactQueue[compactQueue.length - 1];
+            
+            const isSame = last && (
+                (item.isBlank && last.isBlank) ||
+                (!item.isBlank && !last.isBlank && (
+                    (isLogos && item.image === last.image && item.name === last.name) ||
+                    (!isLogos && item.name === last.name && item.sku === last.sku && item.price === last.price && item.promoPrice === last.promoPrice)
+                ))
+            );
+
+            if (isSame) {
+                last.quantity += 1;
+            } else {
+                compactQueue.push({ ...item });
+            }
+        });
+
+        // 4. Salvar no estado apropriado
+        if (isLogos) {
+            setLogoItems(compactQueue);
+        } else {
+            setLabelItems(compactQueue);
+        }
+    };
+
     const handleDownloadImage = async () => {
         if (!gridRef.current) return;
         setIsDownloading(true);
@@ -1242,12 +1322,20 @@ const LabelPrinting: React.FC = () => {
 
                                             <div className="flex items-center gap-2">
                                                 {selectedCategory === 'logos' && (
-                                                    <button 
-                                                        onClick={() => setIsAssetManagerModalOpen(true)}
-                                                        className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm"
-                                                    >
-                                                        <i className="bi bi-grid-fill" /> Biblioteca de Logotipos / Rótulos
-                                                    </button>
+                                                    <>
+                                                        <button 
+                                                            onClick={handleAddBlankLabel}
+                                                            className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-55 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm"
+                                                        >
+                                                            <i className="bi bi-file-earmark-plus text-slate-400" /> Branco
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setIsAssetManagerModalOpen(true)}
+                                                            className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm"
+                                                        >
+                                                            <i className="bi bi-grid-fill" /> Biblioteca de Logotipos / Rótulos
+                                                        </button>
+                                                    </>
                                                 )}
                                                 
                                                 {(selectedCategory === 'logos' ? logoItems.length > 0 : labelItems.length > 0) && (
@@ -1282,6 +1370,13 @@ const LabelPrinting: React.FC = () => {
                                                                     <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 mb-1">Carregar Imagem da Etiqueta</p>
                                                                     <p className="text-[8px] text-blue-400 font-bold uppercase tracking-widest">A imagem preencherá a etiqueta</p>
                                                                 </div>
+                                                                <button 
+                                                                    onClick={handleAddBlankLabel}
+                                                                    className="w-full py-3 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800"
+                                                                >
+                                                                    <i className="bi bi-file-earmark-plus text-sm" />
+                                                                    Adicionar Etiqueta em Branco
+                                                                </button>
                                                                 <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                                                                     <p className="text-[9px] font-black uppercase text-slate-400 text-center leading-relaxed">
                                                                         A etiqueta não será customizada. <br /> Use apenas imagens com o design final.
@@ -1305,23 +1400,33 @@ const LabelPrinting: React.FC = () => {
                                                         {printingMode !== 'simple' && (
                                                             <div className="space-y-4">
                                                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adicionar Produtos</label>
-                                                                <div className="relative group/add">
-                                                                    <select 
-                                                                        onChange={e => {
-                                                                            const p = products.find(p => String(p.id) === e.target.value);
-                                                                            if (p) handleProductSelect(p);
-                                                                            e.target.value = ""; 
-                                                                        }}
-                                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl pl-10 pr-12 py-3 text-[11px] font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 transition-all group-hover/add:border-blue-500"
-                                                                    >
-                                                                        <option value="">Buscar Produto ({products.length} carr.)...</option>
-                                                                        {products.map(p => (
-                                                                            <option key={p.id} value={String(p.id)}>{p.description}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center text-[10px] pointer-events-none">
-                                                                        <i className="bi bi-plus-lg" />
+                                                                <div className="flex gap-2">
+                                                                    <div className="relative group/add flex-1">
+                                                                        <select 
+                                                                            onChange={e => {
+                                                                                const p = products.find(p => String(p.id) === e.target.value);
+                                                                                if (p) handleProductSelect(p);
+                                                                                e.target.value = ""; 
+                                                                            }}
+                                                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl pl-10 pr-12 py-3 text-[11px] font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 transition-all group-hover/add:border-blue-500"
+                                                                        >
+                                                                            <option value="">Buscar Produto ({products.length} carr.)...</option>
+                                                                            {products.map(p => (
+                                                                                <option key={p.id} value={String(p.id)}>{p.description}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center text-[10px] pointer-events-none">
+                                                                            <i className="bi bi-plus-lg" />
+                                                                        </div>
                                                                     </div>
+                                                                    <button 
+                                                                        onClick={handleAddBlankLabel}
+                                                                        className="px-4 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 border border-slate-100 dark:border-slate-800 shadow-sm"
+                                                                        title="Adicionar etiqueta vazia para espaçamento"
+                                                                    >
+                                                                        <i className="bi bi-file-earmark-plus text-sm text-slate-400" />
+                                                                        Branco
+                                                                    </button>
                                                                 </div>
                                                                 {hasMoreProducts && (
                                                                     <button 
@@ -1455,6 +1560,7 @@ const LabelPrinting: React.FC = () => {
                                                      labelItems={labelItems}
                                                      logoItems={logoItems}
                                                      currentPage={currentPage}
+                                                     
                                                  />
                                              </div>
                                          </div>
@@ -1695,7 +1801,7 @@ const LabelPrinting: React.FC = () => {
              {/* Input Global oculto para upload de imagens de marca e rótulos */}
             <input 
                 type="file" 
-                ref={cellInputRef} 
+                ref={logoInputRef} 
                 className="hidden" 
                 accept="image/*" 
                 onChange={handleLogoUpload} 
@@ -1781,13 +1887,12 @@ const LabelPrinting: React.FC = () => {
                                 <i className="bi bi-x-lg text-lg" />
                             </button>
                         </div>
-
                         <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
                             <div className="space-y-8">
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ativos Disponíveis ({availableLogos.length})</h4>
                                     <button 
-                                        onClick={() => cellInputRef.current?.click()}
+                                        onClick={() => logoInputRef.current?.click()}
                                         className="px-5 py-3 bg-indigo-600 text-white rounded-2xl hover:scale-105 active:scale-95 transition-all font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-500/20 flex items-center gap-2"
                                     >
                                         <i className="bi bi-cloud-arrow-up-fill" />Subir Novo Logotipo/Rótulo
@@ -1798,7 +1903,7 @@ const LabelPrinting: React.FC = () => {
                                     <div className="py-20 text-center bg-slate-50 dark:bg-slate-950/20 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800">
                                         <i className="bi bi-image text-4xl text-slate-200 mb-4 block" />
                                         <p className="text-[10px] font-black text-slate-400 uppercase">Sua biblioteca está vazia</p>
-                                        <button onClick={() => cellInputRef.current?.click()} className="mt-4 text-[9px] font-black uppercase text-indigo-600 hover:underline">Carregar meu primeiro ativo</button>
+                                        <button onClick={() => logoInputRef.current?.click()} className="mt-4 text-[9px] font-black uppercase text-indigo-600 hover:underline">Carregar meu primeiro ativo</button>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
