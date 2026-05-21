@@ -424,10 +424,6 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
 
     React.useEffect(() => {
         if (hasInitialScrolled?.current) return;
-        if (pendingOrders.length > 0) {
-            if (hasInitialScrolled) hasInitialScrolled.current = true;
-            return;
-        }
 
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;

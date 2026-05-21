@@ -146,10 +146,6 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
 const ScheduleTimelineView = ({ schedule, onOrderClick, hasInitialScrolled, pendingOrders = [] }: Props) => {
     React.useEffect(() => {
         if (hasInitialScrolled?.current) return;
-        if (pendingOrders.length > 0) {
-            if (hasInitialScrolled) hasInitialScrolled.current = true;
-            return;
-        }
         
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -167,7 +163,7 @@ const ScheduleTimelineView = ({ schedule, onOrderClick, hasInitialScrolled, pend
                 if (hasInitialScrolled) hasInitialScrolled.current = true;
             }
         }, 300);
-    }, [schedule, hasInitialScrolled, pendingOrders]);
+    }, [schedule, hasInitialScrolled]);
 
     return (
         <div className="max-h-[80vh] overflow-y-auto pr-4 custom-scrollbar py-12">

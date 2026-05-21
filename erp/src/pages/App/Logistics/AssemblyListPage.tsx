@@ -14,12 +14,15 @@ const AssemblyListPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const isStandalone = window.location.pathname.includes("/assembly-schedule");
+    const hasInitialScrolled = React.useRef(false);
 
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAssembly, setSelectedAssembly] = useState<ShowcaseAssembly | null>(null);
     const [settings, setSettings] = useState<AppSettings>(getSettings());
     const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+
 
     useEffect(() => {
         const unsubscribe = subscribeToSettings((newSettings) => {
@@ -162,6 +165,27 @@ const AssemblyListPage = () => {
         item.id?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    useEffect(() => {
+        if (loading || filteredAssemblies.length === 0 || hasInitialScrolled.current) return;
+
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        // Find the closest date (today or future)
+        const availableDates = filteredAssemblies.map(a => a.date).filter(Boolean).sort();
+        const targetDate = availableDates.find(d => d >= todayStr) || availableDates[0];
+
+        if (!targetDate) return;
+
+        setTimeout(() => {
+            const element = document.getElementById(`timeline-date-${targetDate}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                hasInitialScrolled.current = true;
+            }
+        }, 500);
+    }, [filteredAssemblies, loading]);
+
     // ─── Header ───────────────────────────────────────────────────
     const renderHeader = () => (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -261,7 +285,7 @@ const AssemblyListPage = () => {
         return (
             <div className="max-w-[95%] mx-auto py-2 space-y-12">
                 {sortedKeys.map(dateKey => (
-                    <div key={dateKey} className="space-y-8">
+                    <div key={dateKey} id={`timeline-date-${dateKey}`} className="space-y-8">
                         {/* ── Cabeçalho de Data (igual ao Cronograma) ── */}
                         <div className="sticky top-0 z-20 flex items-center gap-6 mb-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-8 py-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm">
                             <div className="flex flex-col">

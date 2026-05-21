@@ -221,10 +221,6 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
 
     useEffect(() => {
         if (hasInitialScrolled?.current) return;
-        if (pendingOrders.length > 0) {
-            if (hasInitialScrolled) hasInitialScrolled.current = true;
-            return;
-        }
         
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -242,7 +238,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                 if (hasInitialScrolled) hasInitialScrolled.current = true;
             }
         }, 500); // Give it a bit more time for the zoom/layout to settle
-    }, [schedule, hasInitialScrolled, pendingOrders]);
+    }, [schedule, hasInitialScrolled]);
 
     useEffect(() => {
         const el = scrollParentRef.current;
