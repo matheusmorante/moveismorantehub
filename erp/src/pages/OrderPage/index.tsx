@@ -123,16 +123,50 @@ const OrderPage = () => {
                     </div>
                 )}
 
-                {hasPayments && (
+                {isBudget ? (
                     <div className="space-y-2">
-                        <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">CONDIÇÕES COMERCIAIS</div>
-                        <div className="bg-white rounded-3xl overflow-hidden">
-                            <PaymentsTable
-                                payments={order.payments}
-                                summary={order.paymentsSummary}
-                            />
+                        <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">CONDIÇÕES DE PAGAMENTO</div>
+                        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 flex flex-col justify-center gap-4 print-exact-bg">
+                            <div className="flex items-start gap-3">
+                                <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600 print-exact-bg">
+                                    <i className="bi bi-credit-card-2-front-fill text-base leading-none"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider mb-0.5">Opções de Parcelamento</h4>
+                                    <p className="text-xs text-slate-700 leading-normal">
+                                        Parcelamos em até <strong className="text-indigo-700 font-black">10x sem juros</strong> no <strong className="font-bold text-slate-800">Visa, Master, Elo e Hiper</strong>.
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">
+                                        * Senff com juros.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="h-[1px] bg-slate-200"></div>
+                            <div className="flex items-start gap-3">
+                                <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600 print-exact-bg">
+                                    <i className="bi bi-cash-coin text-base leading-none"></i>
+                                </div>
+                                <div>
+                                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider mb-0.5">Pagamento à Vista</h4>
+                                    <p className="text-xs text-slate-700 leading-normal">
+                                        Desconto especial para pagamento no <strong className="text-emerald-700 font-black">Débito, Pix e Dinheiro</strong>.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                ) : (
+                    hasPayments && (
+                        <div className="space-y-2">
+                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">CONDIÇÕES COMERCIAIS</div>
+                            <div className="bg-white rounded-3xl overflow-hidden">
+                                <PaymentsTable
+                                    payments={order.payments}
+                                    summary={order.paymentsSummary}
+                                />
+                            </div>
+                        </div>
+                    )
                 )}
             </div>
 
@@ -146,26 +180,14 @@ const OrderPage = () => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Termos e Condições</h3>
-                            <ul className="text-[9px] text-slate-500 space-y-1 font-medium leading-tight list-disc pl-3">
-                                <li>Prazo de entrega contado após a confirmação do pagamento.</li>
-                                <li>A montagem está inclusa apenas nos itens devidamente sinalizados.</li>
-                                <li>Este documento não garante reserva de estoque até a efetivação do pedido.</li>
-                                <li className="font-bold text-slate-700">Preços sujeitos a alteração sem aviso prévio.</li>
-                            </ul>
-                        </div>
-                        <div className="flex flex-col justify-end gap-12">
-                            <div className="flex justify-between gap-8">
-                                <div className="flex-1 border-t border-slate-300 pt-2 text-center">
-                                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Assinatura do Cliente</div>
-                                </div>
-                                <div className="flex-1 border-t border-slate-300 pt-2 text-center">
-                                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Responsável Morante</div>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="space-y-4">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Termos e Condições</h3>
+                        <ul className="text-[9px] text-slate-500 space-y-1 font-medium leading-tight list-disc pl-3">
+                            <li>Prazo de entrega contado após a confirmação do pagamento.</li>
+                            <li>A montagem está inclusa apenas nos itens devidamente sinalizados.</li>
+                            <li>Este documento não garante reserva de estoque até a efetivação do pedido.</li>
+                            <li className="font-bold text-slate-700">Preços sujeitos a alteração sem aviso prévio.</li>
+                        </ul>
                     </div>
                 </div>
             )}

@@ -21,11 +21,17 @@ Este arquivo documenta o progresso atual e os próximos passos para o refatorame
     -   Correção de bug no campo SKU (variável indefinida no input manual)
 -   **Cronograma Logístico:**
     -   Alterado o modo de visualização padrão de "Tabela" para "Linha do Tempo" (Timeline).
--   **Visualização de Pedidos:**
+-   **Ajuste na Impressão de Orçamento:**
+    -   Remoção dos campos de assinatura (Cliente e Responsável).
+    -   Substituição da tabela detalhada de pagamentos por informativo de condições comerciais gerais (10x sem juros no Visa/Master/Elo/Hiper, Senff com juros, desconto à vista no Pix/débito/dinheiro).
+-   **Migração de Produtos para LocalStorage:**
+    -   Redirecionamento de todas as ações de leitura, escrita, subscrição e modificação de produtos da tabela `products` do Supabase para o `localStorage` do navegador para poupar a cota gratuita.
+    -   Implementação de sincronização inicial automática (one-time fetch) a partir do Supabase caso o cache local esteja vazio, garantindo que nenhum dado de produto existente seja perdido.
+    -   Criação de sistema de subscrição reativa interna em memória para que múltiplos componentes da aplicação reflitam modificações de produtos instantaneamente.
 -   **Limpeza do Ecossistema:**
--   Remoção dos módulos `ecommerce` e `automation` (não serão utilizados).
--   Atualização do `package.json` raiz para remover scripts vinculados.
--   Deleção física das pastas (obs: `ecommerce/node_modules` pode exigir reinicialização se estiver travado por processo node).
+    -   Remoção dos módulos `ecommerce` e `automation` (não serão utilizados).
+    -   Atualização do `package.json` raiz para remover scripts vinculados.
+    -   Deleção física das pastas.
 
 
 

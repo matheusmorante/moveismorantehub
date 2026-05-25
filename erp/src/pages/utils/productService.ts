@@ -4,15 +4,14 @@ import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
 
 const TABLE_NAME = "products";
+const LOCAL_STORAGE_KEY = 'local_products';
 
 const mapToDB = (product: Partial<Product>) => {
     const data: any = {
         updated_at: new Date().toISOString()
     };
 
-    // [x] Novo: Suporte a ID Manual e SKU
     if (product.id !== undefined && product.id !== '') data.id = product.id;
-    
     if (product.code !== undefined) data.code = product.code;
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
@@ -49,8 +48,6 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.ecommerceSync !== undefined) data.ecommerce_sync = product.ecommerceSync;
     if (product.whatsappAutoSync !== undefined) data.whatsapp_auto_sync = product.whatsappAutoSync;
     if (product.lastWhatsappSync !== undefined) data.last_whatsapp_sync = product.lastWhatsappSync;
-    
-    // Dimensions & Details
     if (product.width !== undefined) data.width = product.width;
     if (product.height !== undefined) data.height = product.height;
     if (product.depth !== undefined) data.depth = product.depth;
@@ -75,8 +72,6 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.noBrand !== undefined) data.no_brand = product.noBrand;
     if (product.noColors !== undefined) data.no_colors = product.noColors;
     if (product.hasNoLine !== undefined) data.has_no_line = product.hasNoLine;
-
-    // Dynamic Title fields
     if (product.productTypeId !== undefined) data.product_type_id = product.productTypeId;
     if (product.productTypeName !== undefined) data.product_type_name = product.productTypeName;
     if (product.environment !== undefined) data.environment = product.environment;
@@ -88,8 +83,6 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.titleComplement !== undefined) data.title_complement = product.titleComplement;
     if (product.includeComplement !== undefined) data.include_complement = product.includeComplement;
     if (product.titleOrder !== undefined) data.title_order = product.titleOrder;
-
-    // SEO Fields
     if (product.slug !== undefined) data.slug = product.slug;
     if (product.meta_title !== undefined) data.meta_title = product.meta_title;
     if (product.meta_description !== undefined) data.meta_description = product.meta_description;
@@ -148,8 +141,6 @@ export const mapFromDB = (data: any): Product => {
         categoryIds: data.product_categories?.map((pc: any) => pc.category_id) || [],
         createdAt: data.created_at,
         updatedAt: data.updated_at,
-        
-        // Dimensions & Details
         width: Number(data.width || 0),
         height: Number(data.height || 0),
         depth: Number(data.depth || 0),
@@ -163,8 +154,6 @@ export const mapFromDB = (data: any): Product => {
         material: data.material || '',
         colors: data.colors || '',
         notIncluded: data.not_included || '',
-        
-        // SEO Fields
         slug: data.slug || '',
         meta_title: data.meta_title || '',
         meta_description: data.meta_description || '',
@@ -180,8 +169,6 @@ export const mapFromDB = (data: any): Product => {
         noBrand: data.no_brand ?? false,
         noColors: data.no_colors ?? false,
         hasNoLine: data.has_no_line ?? false,
-
-        // Dynamic Title fields
         productTypeId: data.product_type_id || '',
         productTypeName: data.product_type_name || '',
         environment: data.environment || '',
@@ -203,153 +190,125 @@ export const mapFromDB = (data: any): Product => {
 const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at";
 const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(category_id)";
 
-export const subscribeToProducts = (callback: (products: Product[]) => void, includeDeleted = false) => {
-    let currentProducts: Product[] = [];
-
-    const fetchInitial = async () => {
-        try {
-            // Tenta primeiro com categorias relacionadas
-            let { data, error } = await supabase.from(TABLE_NAME)
-                .select(LIGHT_COLUMNS_WITH_CATS)
-                .eq('deleted', includeDeleted)
-                .order('description', { ascending: true });
-
-            // Se falhar (400, coluna não encontrada ou schema cache), tenta sem o join de categorias
-            if (error) {
-                console.warn("[ProductService] Fetch com categorias falhou, tentando sem join...", error.message);
-                const res = await supabase.from(TABLE_NAME)
-                    .select(LIGHT_COLUMNS)
-                    .eq('deleted', includeDeleted)
-                    .order('description', { ascending: true });
-                data = res.data;
-                error = res.error;
-            }
-
-            // Último fallback: apenas colunas básicas
-            if (error) {
-                console.warn("[ProductService] Fallback básico...", error.message);
-                const res = await supabase.from(TABLE_NAME)
-                    .select('id, code, description, brand, category, unit_price, cost_price, stock, item_type, created_at, active, deleted, images, variations')
-                    .eq('deleted', includeDeleted)
-                    .order('description', { ascending: true });
-                data = res.data;
-                error = res.error;
-            }
-
-            if (!error && data) {
-                currentProducts = data.map(mapFromDB);
-                callback(currentProducts);
-            } else {
-                console.error("[ProductService] Erro fatal nos 3 níveis de fallback:", error);
-                callback([]);
-            }
-        } catch (err) {
-            console.error("[ProductService] Exceção crítica ao buscar produtos:", err);
-            callback([]);
-        }
-    };
-
-    fetchInitial();
-
-    return () => {
-        // Realtime desabilitado para economizar conexões e tráfego
-    };
-};
-
-/**
- * Busca um produto completo com todos os campos (para edição)
- */
-export const getFullProduct = async (id: string): Promise<Product | null> => {
+// Helper to get products from localStorage
+const getLocalProducts = (): Product[] => {
+    const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!data) return [];
     try {
-        // Tenta buscar com categorias relacionadas
-        let { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*, product_categories(category_id)')
-            .eq('id', id)
-            .single();
-
-        // Fallback sem join caso schema cache falhe
-        if (error) {
-            console.warn('[ProductService] getFullProduct com join falhou, tentando sem join...', error.message);
-            const res = await supabase
-                .from(TABLE_NAME)
-                .select('*')
-                .eq('id', id)
-                .single();
-            data = res.data;
-            error = res.error;
-        }
-
-        if (error) throw error;
-        return data ? mapFromDB(data) : null;
-    } catch (error) {
-        console.error("Erro ao buscar produto completo:", error);
-        return null;
+        return JSON.parse(data);
+    } catch (e) {
+        console.error("Erro ao ler produtos locais:", e);
+        return [];
     }
 };
 
-/**
- * Verifica se múltiplos SKUs já existem no sistema (em produtos ou variações) de uma vez só.
- * Otimiza a performance de salvamento permitindo validar todos os SKUs em 2 chamadas ao banco.
- */
+// Helper to save products to localStorage
+const saveLocalProducts = (products: Product[]) => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+};
+
+// Helper to initialize products from Supabase once if not done yet
+const initializeProductsIfEmpty = async (): Promise<Product[]> => {
+    const existing = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (existing !== null) {
+        return getLocalProducts();
+    }
+    
+    try {
+        console.log("[ProductService] Inicializando banco de produtos local a partir do Supabase...");
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select(LIGHT_COLUMNS_WITH_CATS)
+            .order('description', { ascending: true });
+            
+        let fetchedProducts: Product[] = [];
+        if (!error && data) {
+            fetchedProducts = data.map(mapFromDB);
+        } else {
+            const res = await supabase
+                .from(TABLE_NAME)
+                .select(LIGHT_COLUMNS)
+                .order('description', { ascending: true });
+            if (res.data) {
+                fetchedProducts = res.data.map(mapFromDB);
+            }
+        }
+        
+        saveLocalProducts(fetchedProducts);
+        return fetchedProducts;
+    } catch (e) {
+        console.error("[ProductService] Erro ao sincronizar dados iniciais do Supabase:", e);
+        saveLocalProducts([]);
+        return [];
+    }
+};
+
+// Simple reactive subscription system for UI updates
+type SubscriptionCallback = (products: Product[]) => void;
+const subscribers = new Set<{ callback: SubscriptionCallback; includeDeleted: boolean }>();
+
+const notifySubscribers = () => {
+    const products = getLocalProducts();
+    subscribers.forEach(sub => {
+        const filtered = products.filter(p => !!p.deleted === sub.includeDeleted);
+        sub.callback(filtered);
+    });
+};
+
+export const subscribeToProducts = (callback: (products: Product[]) => void, includeDeleted = false) => {
+    const run = async () => {
+        const products = await initializeProductsIfEmpty();
+        const filtered = products.filter(p => !!p.deleted === includeDeleted);
+        callback(filtered);
+    };
+    run();
+
+    const subObj = { callback, includeDeleted };
+    subscribers.add(subObj);
+
+    return () => {
+        subscribers.delete(subObj);
+    };
+};
+
+export const getFullProduct = async (id: string): Promise<Product | null> => {
+    const products = getLocalProducts();
+    const product = products.find(p => String(p.id) === String(id));
+    return product || null;
+};
+
 export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?: string): Promise<{ [sku: string]: string }> => {
     const uniqueSkus = Array.from(new Set(skus.filter(s => s && s.trim() !== "")));
     if (uniqueSkus.length === 0) return {};
 
     const duplicates: { [sku: string]: string } = {};
+    const products = getLocalProducts().filter(p => !p.deleted);
 
-    try {
-        // 1. Verificar em produtos (campo code)
-        let productQuery = supabase.from(TABLE_NAME)
-            .select('id, description, code')
-            .in('code', uniqueSkus)
-            .eq('deleted', false);
-        
-        if (excludeProductId) productQuery = productQuery.neq('id', excludeProductId);
+    products.forEach(p => {
+        if (excludeProductId && String(p.id) === String(excludeProductId)) return;
 
-        const { data: productMatches } = await productQuery;
-        productMatches?.forEach((p: any) => {
+        if (p.code && uniqueSkus.includes(p.code)) {
             duplicates[p.code] = p.description;
+        }
+
+        const vrs = p.variations || [];
+        uniqueSkus.forEach(s => {
+            if (!duplicates[s] && vrs.some((v: any) => v.sku === s)) {
+                duplicates[s] = p.description;
+            }
         });
-
-        // 2. Verificar em variações (field JSON)
-        // Infelizmente Supabase/PostgREST não suporta muito bem um "ANY" dentro de um array de objetos JSON direto na clause in.
-        // Como o volume de SKUs por produto raramente passa de 50-100, verificaremos via .or() com @> ou simplesmente via um RPC se necessário.
-        // Abordagem via .or() para ser compatível sem criar novas funcoes SQL:
-        const filterOr = uniqueSkus.map(s => `variations.cs.[{"sku": "${s}"}]`).join(',');
-        
-        let variationQuery = supabase.from(TABLE_NAME)
-            .select('id, description, variations')
-            .eq('deleted', false)
-            .or(filterOr);
-
-        if (excludeProductId) variationQuery = variationQuery.neq('id', excludeProductId);
-
-        const { data: variationMatches } = await variationQuery;
-        variationMatches?.forEach((p: any) => {
-            const vrs = p.variations || [];
-            uniqueSkus.forEach(s => {
-                if (!duplicates[s] && vrs.some((v: any) => v.sku === s)) {
-                    duplicates[s] = p.description;
-                }
-            });
-        });
-    } catch (err) {
-        console.error("[ProductService] Erro na verificação em lote de SKUs:", err);
-    }
+    });
 
     return duplicates;
 };
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
-    // 1. Identificar todos os SKUs que precisam de validação
     const skusToValidate: string[] = [];
     if (product.code) skusToValidate.push(product.code);
     if (product.variations?.length) {
         product.variations.forEach(v => { if (v.sku) skusToValidate.push(v.sku); });
     }
 
-    // 2. Validação em LOTE (Apenas 1 ou 2 requisições em vez de N)
     if (skusToValidate.length > 0) {
         const duplicates = await checkSkusUniquenessBatch(skusToValidate, product.id);
         const duplicateSkus = Object.keys(duplicates);
@@ -360,157 +319,74 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         }
     }
 
+    const products = getLocalProducts();
+
     if (product.id && !forceInsert) {
         await updateProduct(product.id, product);
         return String(product.id);
     }
 
-    try {
-        const dbProduct = mapToDB(product);
-        // Supabase serial ID will handle the auto-increment
-        let { data, error } = await supabase
-            .from(TABLE_NAME)
-            .insert([dbProduct])
-            .select('id, description');
+    const newId = product.id || String(Date.now() + Math.floor(Math.random() * 1000));
+    const newProduct: Product = {
+        ...product,
+        id: newId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
 
-        // Fail-safe: If insert fails due to missing columns
-        if (error && (error.message?.includes("column") || error.message?.includes("schema cache") || error.code === '42703')) {
-            console.warn("[ProductService] Schema mismatch on insert. Retrying without newer columns...", error.message);
-            
-            const safeDBProduct = { ...dbProduct };
-            const fieldsToStrip = [
-                'width', 'height', 'depth', 'weight', 'pkg_width', 'pkg_height', 'pkg_depth',
-                'lead_time', 'avg_monthly_sales', 'classification',
-                'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
-                'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
-                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors', 'has_no_line',
-                'product_type_id', 'product_type_name', 'environment', 'include_environment', 
-                'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
-                'title_complement', 'include_complement', 'include_type',
-                'whatsapp_sync', 'ecommerce_sync', 'whatsapp_auto_sync', 'last_whatsapp_sync'
-            ];
-            fieldsToStrip.forEach(field => delete (safeDBProduct as any)[field]);
-            
-            const { data: retryData, error: retryError } = await supabase
-                .from(TABLE_NAME)
-                .insert([safeDBProduct])
-                .select('id, description');
-            
-            data = retryData;
-            error = retryError;
-        }
+    products.push(newProduct);
+    saveLocalProducts(products);
+    notifySubscribers();
 
-        if (error) throw error;
-
-        if (data && data[0]) {
-            const newId = String(data[0].id);
-            const secondaryPromises: Promise<any>[] = [];
-
-            if (product.categoryIds && product.categoryIds.length > 0) {
-                const links = product.categoryIds.map(cid => ({ product_id: newId, category_id: cid }));
-                secondaryPromises.push(supabase.from('product_categories').insert(links));
-            }
-
-            // Lógica de CRM: Se o produto for 'salvado' ou 'usado', busca interessados
-            const condition = product.condition?.toLowerCase();
-            if (condition === 'salvado' || condition === 'usado') {
-                secondaryPromises.push((async () => {
-                    try {
-                        const matches = await crmIntelligenceService.findMatchingDesires(product.description);
-                        for (const match of matches) {
-                            if (match.id) await crmIntelligenceService.registerMatch(match.id, newId);
-                        }
-                    } catch (crmError) {
-                        console.error("Erro CRM:", crmError);
-                    }
-                })());
-            }
-
-            // Lançamento de Estoque Inicial
-            secondaryPromises.push((async () => {
-                const { saveInventoryMove } = await import('./inventoryService');
-                
-                // Legado
-                if (product.launchInitialStock && Number(product.stock) > 0) {
-                    await saveInventoryMove({
-                        productId: newId,
-                        productDescription: product.description || "Estoque Inicial",
-                        type: 'entry',
-                        quantity: Number(product.stock),
-                        unitCost: product.finalPurchasePrice || product.costPrice || 0,
-                        date: new Date().toISOString(),
-                        label: 'ESTOQUE INICIAL',
-                        observation: 'Lançamento automático de estoque inicial.'
-                    }, 0).catch(console.error);
-                }
-
-                // Múltiplas Entradas
-                if (product.initialStockEntries?.length) {
-                    for (const entry of product.initialStockEntries) {
-                        if (entry.quantity > 0) {
-                            await saveInventoryMove({
-                                productId: newId,
-                                productDescription: product.description || "Estoque Inicial",
-                                type: 'entry',
-                                quantity: entry.quantity,
-                                unitCost: entry.finalUnitCost || entry.unitCost,
-                                date: new Date().toISOString(),
-                                label: 'ESTOQUE INICIAL',
-                                observation: 'Entrada múltipla.'
-                            }, 0).catch(console.error);
-                        }
-                    }
-                }
-
-                // Variações
-                if (product.variations?.length) {
-                    for (const v of product.variations) {
-                        if (v.launchInitialStock && Number(v.initialStock) > 0) {
-                            await saveInventoryMove({
-                                productId: newId,
-                                variationId: v.id,
-                                productDescription: `${product.description} (${v.name})`,
-                                type: 'entry',
-                                quantity: Number(v.initialStock),
-                                unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
-                                date: new Date().toISOString(),
-                                label: 'ESTOQUE INICIAL',
-                                observation: `Estoque da variação ${v.name}.`
-                            }, 0).catch(console.error);
-                        }
-                        if (v.initialStockEntries?.length) {
-                            for (const entry of v.initialStockEntries) {
-                                if (entry.quantity > 0) {
-                                    await saveInventoryMove({
-                                        productId: newId,
-                                        variationId: v.id,
-                                        productDescription: `${product.description} (${v.name})`,
-                                        type: 'entry',
-                                        quantity: entry.quantity,
-                                        unitCost: entry.finalUnitCost || entry.unitCost,
-                                        date: new Date().toISOString(),
-                                        label: 'ESTOQUE INICIAL',
-                                        observation: `Entrada múltipla variação.`
-                                    }, 0).catch(console.error);
-                                }
-                            }
-                        }
-                    }
-                }
-            })());
-
-            // Executar tudo em paralelo para não travar o retorno do ID
-            Promise.all(secondaryPromises).catch(err => console.error("Erro em operações secundárias:", err));
-            
-            return newId;
-        }
-        return "";
-    } catch (error: any) {
-        console.error("Erro ao salvar o produto:", error.message || error);
-        if (error.details) console.error("Detalhes do erro:", error.details);
-        if (error.hint) console.error("Dica:", error.hint);
-        throw error;
+    if (product.launchInitialStock && Number(product.stock) > 0) {
+        saveInventoryMove({
+            productId: newId,
+            productDescription: product.description || "Estoque Inicial",
+            type: 'entry',
+            quantity: Number(product.stock),
+            unitCost: product.finalPurchasePrice || product.costPrice || 0,
+            date: new Date().toISOString(),
+            label: 'ESTOQUE INICIAL',
+            observation: 'Lançamento automático de estoque inicial.'
+        }, 0).catch(console.error);
     }
+
+    if (product.initialStockEntries?.length) {
+        for (const entry of product.initialStockEntries) {
+            if (entry.quantity > 0) {
+                saveInventoryMove({
+                    productId: newId,
+                    productDescription: product.description || "Estoque Inicial",
+                    type: 'entry',
+                    quantity: entry.quantity,
+                    unitCost: entry.finalUnitCost || entry.unitCost,
+                    date: new Date().toISOString(),
+                    label: 'ESTOQUE INICIAL',
+                    observation: 'Entrada múltipla.'
+                }, 0).catch(console.error);
+            }
+        }
+    }
+
+    if (product.variations?.length) {
+        for (const v of product.variations) {
+            if (v.launchInitialStock && Number(v.initialStock) > 0) {
+                saveInventoryMove({
+                    productId: newId,
+                    variationId: v.id,
+                    productDescription: `${product.description} (${v.name})`,
+                    type: 'entry',
+                    quantity: Number(v.initialStock),
+                    unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
+                    date: new Date().toISOString(),
+                    label: 'ESTOQUE INICIAL',
+                    observation: `Estoque da variação ${v.name}.`
+                }, 0).catch(console.error);
+            }
+        }
+    }
+
+    return newId;
 };
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
@@ -520,12 +396,7 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
         const allCodesToCheck = new Set<string>();
         const allNamesToCheck = new Set<string>();
 
-        // 1. Coletar IDs de variações e metadados (Pai e Filhos)
-        const { data: product } = await supabase
-            .from(TABLE_NAME)
-            .select('id, code, description, variations')
-            .eq('id', id)
-            .single();
+        const product = getLocalProducts().find(p => String(p.id) === idStr);
 
         if (product) {
             if (product.code) allCodesToCheck.add(product.code);
@@ -543,52 +414,25 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
                 });
             }
         }
-        
-        const { data: children } = await supabase
-            .from(TABLE_NAME)
-            .select('id, code, description')
-            .eq('parent_id', id);
-        
-        children?.forEach((c: any) => {
-            allIdsToCheck.add(String(c.id));
-            if (c.code) allCodesToCheck.add(c.code);
-            if (c.description) allNamesToCheck.add(c.description);
-        });
 
-        // 2. Realizar a busca em orders
         const idsArray = Array.from(allIdsToCheck);
         const codesArray = Array.from(allCodesToCheck);
         const namesArray = Array.from(allNamesToCheck);
         
         const queryPromises: any[] = [];
-        
-        // CORREÇÃO CRITICAL: Removidos filtros neq() que usavam seta (->>)
-        // Filtros neq em PostgREST excluem registros onde o campo é NULL.
-        // Muitos pedidos não tem a flag deleted ou orderType explícita, sendo nulos por padrão.
-        // Vamos buscar todos e filtrar os orçamentos/deletados no JavaScript após o retorno.
         const getBaseQuery = () => supabase.from('orders').select('id, order_data');
 
-        // Busca por IDs (.contains padrão)
         for (const targetId of idsArray) {
             queryPromises.push(getBaseQuery().contains('order_data', { items: [{ productId: targetId }] }).limit(5));
             queryPromises.push(getBaseQuery().contains('order_data', { items: [{ variationId: targetId }] }).limit(5));
             queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ id: targetId }] }).limit(5));
-            
-            const num = parseInt(targetId);
-            if (!isNaN(num)) {
-                queryPromises.push(getBaseQuery().contains('order_data', { items: [{ productId: num }] }).limit(5));
-                queryPromises.push(getBaseQuery().contains('order_data', { items: [{ variationId: num }] }).limit(5));
-                queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ id: num }] }).limit(5));
-            }
         }
 
-        // Busca por Codes/SKUs
         for (const targetCode of codesArray) {
             queryPromises.push(getBaseQuery().contains('order_data', { items: [{ code: targetCode }] }).limit(1));
             queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ sku: targetCode }] }).limit(1));
         }
 
-        // Busca por Nomes
         for (const targetName of namesArray) {
             queryPromises.push(getBaseQuery().contains('order_data', { items: [{ description: targetName }] }).limit(1));
             queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ description: targetName }] }).limit(1));
@@ -597,7 +441,6 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
         const results = await Promise.all(queryPromises);
         for (const res of results) {
             if (res.data && res.data.length > 0) {
-                // Filtrar manualmente orçamentos e deletados
                 const validOrder = res.data.find((o: any) => {
                     const isBudget = o.order_data?.orderType === 'budget';
                     const isDeleted = o.order_data?.deleted === true || o.order_data?.deleted === 'true';
@@ -605,7 +448,6 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
                 });
                 
                 if (validOrder) {
-                    console.log(`[SecurityLock] Bloqueando ID ${idStr}: Vinculo encontrado no Pedido #${validOrder.id}`);
                     return String(validOrder.id);
                 }
             }
@@ -619,7 +461,6 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
 };
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
-    // 1. Identificar SKUs para validar (Somente se mudaram)
     const skusToValidate: string[] = [];
     if (productToUpdate.code) skusToValidate.push(productToUpdate.code);
     if (productToUpdate.variations?.length) {
@@ -635,116 +476,31 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
         }
     }
 
-    try {
-        // Fetch current product for history log
-        const { data: currentItem, error: fetchError } = await supabase
-            .from(TABLE_NAME)
-            .select('id, description, unit_price, cost_price, code, variations')
-            .eq('id', id)
-            .single();
+    const products = getLocalProducts();
+    const index = products.findIndex(p => String(p.id) === String(id));
+    if (index === -1) throw new Error("Produto não encontrado.");
 
-        if (fetchError) throw fetchError;
+    const currentItem = products[index];
 
-        const dbProduct = mapToDB(productToUpdate);
-        let { error } = await supabase
-            .from(TABLE_NAME)
-            .update(dbProduct)
-            .eq('id', id);
+    const updatedProduct = {
+        ...currentItem,
+        ...productToUpdate,
+        updatedAt: new Date().toISOString()
+    };
 
-        // Fail-safe: If update fails due to missing columns (common after schema changes),
-        // try to update without the newer dimension/detail columns.
-        if (error && (error.message?.includes("column") || error.message?.includes("schema cache") || error.message?.includes("not found"))) {
-            console.warn("[ProductService] updateProduct schema issue. Retrying without extended fields...", error.message);
-            
-            // Lista abrangente de colunas que podem não existir no banco de dados ainda
-            const unsafeFields = [
-                'width', 'height', 'depth', 'weight', 'pkg_width', 'pkg_height', 'pkg_depth',
-                'lead_time', 'avg_monthly_sales', 'classification',
-                'extra_dimensions', 'line', 'main_differential', 'material', 'colors', 
-                'not_included', 'main_supplier_id', 'supplier_ref', 'observations', 'parent_id', 'is_variation',
-                'no_width', 'no_height', 'no_depth', 'no_brand', 'no_colors', 'has_no_line',
-                'product_type_id', 'product_type_name', 'environment', 'include_environment', 
-                'include_line', 'include_brand', 'include_supplier_ref', 'title_order',
-                'title_complement', 'include_complement', 'include_type',
-                'slug', 'meta_title', 'meta_description', 'seo_description',
-                'whatsapp_sync', 'ecommerce_sync', 'whatsapp_auto_sync', 'last_whatsapp_sync'
-            ];
-            
-            const safeDBProduct = { ...dbProduct };
-            unsafeFields.forEach(field => {
-                if (field in (safeDBProduct as any)) {
-                    delete (safeDBProduct as any)[field];
-                }
-            });
-            
-            // Log for debugging
-            console.log("[ProductService] Cleaned payload keys:", Object.keys(safeDBProduct));
-            
-            const { error: retryError } = await supabase
-                .from(TABLE_NAME)
-                .update(safeDBProduct)
-                .eq('id', id);
-            
-            error = retryError;
-        }
+    products[index] = updatedProduct;
+    saveLocalProducts(products);
+    notifySubscribers();
 
-        if (error) throw error;
+    const oldCode = currentItem.code;
+    const newCode = productToUpdate.code;
+    const variationsChanged = productToUpdate.variations !== undefined;
 
-        const secondaryPromises: Promise<any>[] = [];
-
-        // Price History Logic (Pode ser paralelo)
-        const oldUnitPrice = Number(currentItem.unit_price);
-        const newUnitPrice = productToUpdate.unitPrice !== undefined ? Number(productToUpdate.unitPrice) : oldUnitPrice;
-        const oldCostPrice = Number(currentItem.cost_price);
-        const newCostPrice = productToUpdate.costPrice !== undefined ? Number(productToUpdate.costPrice) : oldCostPrice;
-
-        if (oldUnitPrice !== newUnitPrice || oldCostPrice !== newCostPrice) {
-            let changeType = 'both';
-            if (oldUnitPrice !== newUnitPrice && oldCostPrice === newCostPrice) changeType = 'unit_price';
-            else if (oldUnitPrice === newUnitPrice && oldCostPrice !== newCostPrice) changeType = 'cost_price';
-
-            secondaryPromises.push(supabase.from('product_price_history').insert([{
-                product_id: id,
-                old_unit_price: oldUnitPrice,
-                new_unit_price: newUnitPrice,
-                old_cost_price: oldCostPrice,
-                new_cost_price: newCostPrice,
-                change_type: changeType
-            }]));
-        }
-
-        if (productToUpdate.categoryIds !== undefined) {
-            secondaryPromises.push((async () => {
-                await supabase.from('product_categories').delete().eq('product_id', id);
-                if (productToUpdate.categoryIds!.length > 0) {
-                    const links = productToUpdate.categoryIds!.map(cid => ({ product_id: id, category_id: cid }));
-                    await supabase.from('product_categories').insert(links);
-                }
-            })());
-        }
-
-        // --- Code Sync Logic ---
-        const oldCode = currentItem.code;
-        const newCode = dbProduct.code;
-        const variationsChanged = productToUpdate.variations !== undefined;
-
-        if ((newCode && oldCode !== newCode) || variationsChanged) {
-            secondaryPromises.push(syncCodesInOrders(id, newCode || oldCode, productToUpdate.variations));
-        }
-
-        // Não wait por esses processos para não segurar o usuário
-        Promise.all(secondaryPromises).catch(e => console.error("Erro em processos paralelos de update:", e));
-    } catch (error: any) {
-        console.error("Erro ao atualizar o produto:", error.message || error);
-        if (error.details) console.error("Detalhes do erro:", error.details);
-        if (error.hint) console.error("Dica:", error.hint);
-        throw error;
+    if ((newCode && oldCode !== newCode) || variationsChanged) {
+        syncCodesInOrders(id, newCode || oldCode, productToUpdate.variations).catch(console.error);
     }
 };
 
-/**
- * Verifica se um produto ou variação possui movimentações de estoque vinculadas
- */
 export const checkProductHasMoves = async (productId: string, variationId?: string): Promise<boolean> => {
     try {
         let query = supabase
@@ -767,12 +523,8 @@ export const checkProductHasMoves = async (productId: string, variationId?: stri
     }
 };
 
-/**
- * Sincroniza códigos de produtos e variações em pedidos de venda existentes
- */
 const syncCodesInOrders = async (productId: string, parentCode: string, variations?: Variation[]) => {
     try {
-        // Find orders containing this product
         const { data: orders, error } = await supabase
             .from('orders')
             .select('id, order_data')
@@ -818,7 +570,6 @@ const syncCodesInOrders = async (productId: string, parentCode: string, variatio
 
 export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[] }> => {
     try {
-        // 1. Verificar em lote se existem pedidos vinculados (excluindo orçamentos e pedidos já na lixeira)
         const idsWithOrders = new Set<string>();
         const orderConflicts: string[] = [];
 
@@ -839,12 +590,17 @@ export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: nu
         }
 
         if (idsToUpdate.length > 0) {
-            const { error: updateError } = await supabase
-                .from(TABLE_NAME)
-                .update({ deleted: true, active: false, updated_at: new Date().toISOString() })
-                .in('id', idsToUpdate);
-
-            if (updateError) throw updateError;
+            const products = getLocalProducts();
+            idsToUpdate.forEach(id => {
+                const idx = products.findIndex(p => String(p.id) === String(id));
+                if (idx !== -1) {
+                    products[idx].deleted = true;
+                    products[idx].active = false;
+                    products[idx].updatedAt = new Date().toISOString();
+                }
+            });
+            saveLocalProducts(products);
+            notifySubscribers();
         }
 
         return {
@@ -860,12 +616,17 @@ export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: nu
 
 export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
     try {
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .update({ deleted: false, active: true, updated_at: new Date().toISOString() })
-            .in('id', ids);
-
-        if (error) throw error;
+        const products = getLocalProducts();
+        ids.forEach(id => {
+            const idx = products.findIndex(p => String(p.id) === String(id));
+            if (idx !== -1) {
+                products[idx].deleted = false;
+                products[idx].active = true;
+                products[idx].updatedAt = new Date().toISOString();
+            }
+        });
+        saveLocalProducts(products);
+        notifySubscribers();
     } catch (error) {
         console.error("Erro no bulkRestoreProducts:", error);
         throw error;
@@ -874,39 +635,18 @@ export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
 
 export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[] }> => {
     try {
-        // 1. Verificar vínculos com pedidos (Lógica simplificada p/ bulk)
-        // Buscamos pedidos que contenham QUALQUER um dos IDs no JSONB
-        // Usamos o operador ?| para verificar existência de chaves ou cs para objetos
-        // Como o Supabase/Postgrest é limitado em ORs complexos em JSON, 
-        // faremos uma busca por pedidos recentes que contenham o array de itens.
-        
-        // Estratégia: Verificar um por um em paralelo mas com controle de concorrência ou 
-        // simplesmente aceitar que a exclusão permanente é uma operação sensível e rara.
-        // Contudo, para evitar o erro do usuário, faremos uma verificação em lote das movimentações primeiro.
-        
         const { data: moves } = await supabase
             .from('inventory_moves')
             .select('product_id')
             .in('product_id', ids);
             
         const idsWithMoves = new Set(moves?.map((m: any) => String(m.product_id)));
-        
-        // 2. Para pedidos, fazemos uma busca por cada ID (limitada)
-        // Nota: ISSO AINDA pode causar gargalo se 'ids' for gigante (>100), 
-        // então processaremos em chunks de 10 se necessário.
         const idsToProcess = ids.filter(id => !idsWithMoves.has(id));
         const idsWithOrders = new Set<string>();
         
-        // Processamento serial/chunked para não estourar conexões
         for (const id of idsToProcess) {
-             const { data: linkedOrders } = await supabase
-                .from('orders')
-                .select('id')
-                .neq('order_data->>deleted', 'true')
-                .neq('order_data->>orderType', 'budget')
-                .or(`order_data.cs."{\\"items\\": [{\\"productId\\": \\"${id}\\"}]}",order_data.cs."{\\"items\\": [{\\"productId\\": ${id}}]}",order_data.cs."{\\"items\\": [{\\"variationId\\": \\"${id}\\"}]}",order_data.cs."{\\"items\\": [{\\"variationId\\": ${id}}]}"`)
-                .limit(1);
-             if (linkedOrders && linkedOrders.length > 0) idsWithOrders.add(id);
+             const linkedOrderId = await checkProductLinkedToSales(id);
+             if (linkedOrderId) idsWithOrders.add(id);
         }
 
         const idsToDelete = idsToProcess.filter(id => !idsWithOrders.has(id));
@@ -916,12 +656,10 @@ export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ succ
         if (idsWithOrders.size > 0) errors.push(`${idsWithOrders.size} produto(s) possuem pedidos de venda ou assistência vinculados.`);
 
         if (idsToDelete.length > 0) {
-            const { error: deleteError } = await supabase
-                .from(TABLE_NAME)
-                .delete()
-                .in('id', idsToDelete);
-
-            if (deleteError) throw deleteError;
+            let products = getLocalProducts();
+            products = products.filter(p => !idsToDelete.includes(String(p.id)));
+            saveLocalProducts(products);
+            notifySubscribers();
         }
 
         return {
@@ -936,190 +674,96 @@ export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ succ
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {
-    try {
-        // Verificar se há pedidos vinculados que impedem a exclusão/desativação
-        const linkedOrderId = await checkProductLinkedToSales(id);
-
-        if (linkedOrderId) {
-            throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser removido para preservar o histórico.`);
-        }
-
-        await updateProduct(id, { deleted: true, active: false });
-    } catch (error) {
-        console.error("Erro ao mover produto para lixeira: ", error);
-        throw error;
+    const linkedOrderId = await checkProductLinkedToSales(id);
+    if (linkedOrderId) {
+        throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser removido para preservar o histórico.`);
     }
+    await updateProduct(id, { deleted: true, active: false });
 };
 
 export const restoreProduct = async (id: string): Promise<void> => {
-    try {
-        await updateProduct(id, { deleted: false, active: true });
-    } catch (error) {
-        console.error("Erro ao restaurar o produto: ", error);
-        throw error;
-    }
+    await updateProduct(id, { deleted: false, active: true });
 };
 
 export const permanentDeleteProduct = async (id: string): Promise<void> => {
-    try {
-        // Verificar se há pedidos vinculados (ignora orçamentos e pedidos deletados)
-        const linkedOrderId = await checkProductLinkedToSales(id);
-
-        if (linkedOrderId) {
-            throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser excluído permanentemente.`);
-        }
-
-        const hasMoves = await checkProductHasMoves(id);
-        if (hasMoves) {
-            throw new Error("Este produto possui histórico de movimentações e não pode ser excluído permanentemente.");
-        }
-
-        const { error } = await supabase.from(TABLE_NAME).delete().eq('id', id);
-        if (error) throw error;
-    } catch (error: any) {
-        console.error("Erro ao deletar permanentemente o produto: ", error);
-        throw error;
+    const linkedOrderId = await checkProductLinkedToSales(id);
+    if (linkedOrderId) {
+        throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser excluído permanentemente.`);
     }
+
+    const hasMoves = await checkProductHasMoves(id);
+    if (hasMoves) {
+        throw new Error("Este produto possui histórico de movimentações e não pode ser excluído permanentemente.");
+    }
+
+    let products = getLocalProducts();
+    products = products.filter(p => String(p.id) !== String(id));
+    saveLocalProducts(products);
+    notifySubscribers();
 };
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
     try {
-        const { data: parent, error: fetchError } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('id', productId)
-            .single();
+        const products = getLocalProducts();
+        const index = products.findIndex(p => String(p.id) === String(productId));
+        if (index === -1) throw new Error("Produto pai não encontrado.");
 
-        if (fetchError) throw fetchError;
-        if (!parent) throw new Error("Produto pai não encontrado.");
-
+        const parent = products[index];
         const variations = parent.variations || [];
-        const index = variations.findIndex((v: any) => v.id === variation.id);
-
-        // Price History Logic
-        let oldUnitPrice = 0;
-        let oldCostPrice = 0;
-        
-        if (index !== -1) {
-            const oldVar = variations[index];
-            oldUnitPrice = Number(oldVar.unitPrice || 0);
-            oldCostPrice = Number(oldVar.costPrice || 0);
-        }
-
-        const newUnitPrice = Number(variation.unitPrice || 0);
-        const newCostPrice = Number(variation.costPrice || 0);
-
-        if (oldUnitPrice !== newUnitPrice || oldCostPrice !== newCostPrice) {
-            let changeType = index === -1 ? 'both' : 'both';
-            if (index !== -1) {
-                if (oldUnitPrice !== newUnitPrice && oldCostPrice === newCostPrice) changeType = 'unit_price';
-                else if (oldUnitPrice === newUnitPrice && oldCostPrice !== newCostPrice) changeType = 'cost_price';
-            }
-
-            await supabase.from('product_price_history').insert([{
-                product_id: productId,
-                variation_id: variation.id,
-                old_unit_price: oldUnitPrice,
-                new_unit_price: newUnitPrice,
-                old_cost_price: oldCostPrice,
-                new_cost_price: newCostPrice,
-                change_type: changeType
-            }]);
-        }
+        const varIndex = variations.findIndex((v: any) => v.id === variation.id);
 
         let newVariations = [...variations];
-        if (index === -1) {
+        if (varIndex === -1) {
             newVariations.push(variation);
         } else {
-            newVariations[index] = variation;
+            newVariations[varIndex] = variation;
         }
 
-        const { error: updateError } = await supabase
-            .from(TABLE_NAME)
-            .update({ variations: newVariations, updated_at: new Date().toISOString() })
-            .eq('id', productId);
-
-        if (updateError) throw updateError;
+        await updateProduct(productId, { variations: newVariations });
     } catch (error) {
         console.error("Erro ao salvar variação: ", error);
         throw error;
     }
 };
 
-/**
- * Sincroniza fotos e descrições do catálogo do WhatsApp para um produto existente no ERP
- */
 export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> => {
     try {
         let existingProduct = null;
         const cleanRetailerId = whatsappProduct.retailer_id?.trim();
+        const products = getLocalProducts().filter(p => !p.deleted);
 
-        // 1. Tentar encontrar pelo Código correspondente ao Retailer ID (Prioridade Máxima)
         if (cleanRetailerId) {
-            console.log(`[WhatsAppSync] Buscando por código: ${cleanRetailerId}`);
-            const { data, error } = await supabase
-                .from(TABLE_NAME)
-                .select('*')
-                .eq('code', cleanRetailerId)
-                .eq('deleted', false)
-                .limit(1);
-            
-            if (error) console.error("[WhatsAppSync] Erro Supabase (Code):", error);
-            if (data && data.length > 0) existingProduct = data[0];
+            existingProduct = products.find(p => p.code === cleanRetailerId) || null;
         }
 
-        // 2. Tentar encontrar pelo Nome (Description) - Busca Flexível
         if (!existingProduct && whatsappProduct.name) {
-            const cleanName = whatsappProduct.name.trim();
-            console.log(`[WhatsAppSync] Buscando por nome: ${cleanName}`);
-            
-            let { data, error } = await supabase
-                .from(TABLE_NAME)
-                .select('*')
-                .ilike('description', `%${cleanName}%`)
-                .eq('deleted', false)
-                .limit(1);
-            
-            if (error) console.error("[WhatsAppSync] Erro Supabase (Name):", error);
-                
-            if (data && data.length > 0) {
-                existingProduct = data[0];
-            } else {
-                // Se não achou exato/inteiro, pega as 2 primeiras palavras significativas (> 3 letras)
+            const cleanName = whatsappProduct.name.trim().toLowerCase();
+            existingProduct = products.find(p => p.description.toLowerCase().includes(cleanName)) || null;
+
+            if (!existingProduct) {
                 const words = cleanName.split(' ').filter((w: string) => w.length > 3);
                 if (words.length >= 2) {
-                    const partialPattern = `%${words[0]}%${words[1]}%`;
-                    console.log(`[WhatsAppSync] Tentando busca parcial: ${partialPattern}`);
-                    const { data: partialData } = await supabase
-                        .from(TABLE_NAME)
-                        .select('*')
-                        .ilike('description', partialPattern)
-                        .eq('deleted', false)
-                        .limit(1);
-                        
-                    if (partialData && partialData.length > 0) existingProduct = partialData[0];
+                    existingProduct = products.find(p => {
+                        const desc = p.description.toLowerCase();
+                        return desc.includes(words[0]) && desc.includes(words[1]);
+                    }) || null;
                 }
             }
         }
 
         if (existingProduct) {
-            console.log(`[WhatsAppSync] Produto encontrado (ID: ${existingProduct.id}). Atualizando imagens...`);
             let currentImages = Array.isArray(existingProduct.images) ? existingProduct.images : [];
-            
-            // Adiciona a imagem do WhatsApp no topo, caso ela exista e já não esteja na lista
             if (whatsappProduct.image_url && !currentImages.includes(whatsappProduct.image_url)) {
                 currentImages = [whatsappProduct.image_url, ...currentImages];
             }
 
-            // Atualiza o produto com a nova imagem e descrição do WhatsApp
             await updateProduct(existingProduct.id, {
                 images: currentImages,
-                whatsappDescription: whatsappProduct.description || existingProduct.whatsapp_description,
+                whatsappDescription: whatsappProduct.description || existingProduct.whatsappDescription,
             });
             
             return String(existingProduct.id);
         } else {
-            console.warn(`[WhatsAppSync] Produto "${whatsappProduct.name}" não encontrado. Criando rascunho...`);
             const newProduct: Partial<Product> = {
                 description: whatsappProduct.name,
                 unitPrice: Number(whatsappProduct.price?.replace(/[^0-9.-]+/g, "") || 0),
@@ -1135,61 +779,31 @@ export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> =>
             
             return await saveProduct(newProduct as Product);
         }
-        
     } catch (error) {
         console.error("[WhatsAppSync] Falha crítica na sincronização:", error);
         throw error;
     }
 };
-export const getProductsByIds = async (ids: string[]): Promise<Product[]> => {
-    try {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*, product_categories(category_id)')
-            .in('id', ids);
 
-        if (error) throw error;
-        return (data || []).map(mapFromDB);
-    } catch (error) {
-        console.error("Erro ao buscar produtos por IDs:", error);
-        return [];
-    }
+export const getProductsByIds = async (ids: string[]): Promise<Product[]> => {
+    const products = getLocalProducts();
+    const idStrings = ids.map(String);
+    return products.filter(p => idStrings.includes(String(p.id)));
 };
 
 export const getProductByCode = async (code: string): Promise<{ product: Product, variation?: Variation } | null> => {
     try {
-        // 1. Try to find product by its own code
-        const { data: directMatch, error: directError } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('code', code)
-            .eq('deleted', false)
-            .maybeSingle();
+        const products = getLocalProducts().filter(p => !p.deleted);
 
+        const directMatch = products.find(p => p.code === code);
         if (directMatch) {
-            return { product: mapFromDB(directMatch) };
+            return { product: directMatch };
         }
 
-        // 2. Try to find a product that has a variation with this SKU
-        // This is tricky with JSON columns in Supabase/Postgres if not indexed properly,
-        // but for now we search for variations where SKU matches.
-        // If we have MANY products, we might want a better index or a dedicated variations table.
-        // For now, we fetch products that have variations and filter in memory if needed,
-        // or try a specialized JSON query.
-        
-        const { data: variationMatch, error: variationError } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .not('variations', 'is', null)
-            .eq('deleted', false);
-            
-        if (variationMatch) {
-            for (const p of variationMatch) {
-                const mapped = mapFromDB(p);
-                const variation = mapped.variations?.find(v => v.sku === code);
-                if (variation) {
-                    return { product: mapped, variation };
-                }
+        for (const p of products) {
+            const variation = p.variations?.find(v => v.sku === code);
+            if (variation) {
+                return { product: p, variation };
             }
         }
 
@@ -1199,9 +813,7 @@ export const getProductByCode = async (code: string): Promise<{ product: Product
         return null;
     }
 };
-/**
- * Busca estat├¡sticas de venda de um produto nos ├║ltimos 90 dias para calcular o giro mensal
- */
+
 export const getProductSalesStats = async (productId: string, variationId?: string): Promise<{ avgMonthlySales: number }> => {
     try {
         const ninetyDaysAgo = new Date();
@@ -1213,7 +825,6 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
             .neq('order_data->>deleted', 'true')
             .gte('created_at', ninetyDaysAgo.toISOString());
 
-        // We use MANUAL QUOTED contains to find orders with this product (avoid 400 error)
         if (variationId) {
             query = query.filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\", \\"variationId\\": \\"${variationId}\\"}]}"`);
         } else {
@@ -1221,7 +832,6 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
         }
 
         const { data, error } = await query;
-
         if (error) throw error;
         if (!data) return { avgMonthlySales: 0 };
 
@@ -1235,7 +845,6 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
             });
         });
 
-        // Avg per month (90 days = 3 months)
         return { avgMonthlySales: Math.round(totalQty / 3) };
     } catch (error) {
         console.error("Erro ao buscar estatísticas de venda:", error);
@@ -1243,21 +852,12 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
     }
 };
 
-/**
- * Converte todos os produtos simples (sem variações) para o modelo de variações
- * criando uma variação padrão "COR: BRANCO" herdando os dados do pai.
- */
 export const bulkConvertToVariations = async (): Promise<{ success: number, fails: number }> => {
     try {
-        // 1. Buscar produtos simples que não foram deletados
-        const { data: simpleProducts, error: fetchError } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('has_variations', false)
-            .eq('deleted', false);
+        const products = getLocalProducts();
+        const simpleProducts = products.filter(p => !p.hasVariations && !p.deleted);
 
-        if (fetchError) throw fetchError;
-        if (!simpleProducts || simpleProducts.length === 0) return { success: 0, fails: 0 };
+        if (simpleProducts.length === 0) return { success: 0, fails: 0 };
 
         let success = 0;
         let fails = 0;
@@ -1270,8 +870,8 @@ export const bulkConvertToVariations = async (): Promise<{ success: number, fail
                     name: "COR: BRANCO",
                     sku: p.code || `SKU-${variationId.substring(0, 8)}`,
                     stock: Number(p.stock || 0),
-                    unitPrice: Number(p.unit_price || 0),
-                    costPrice: Number(p.cost_price || 0),
+                    unitPrice: Number(p.unitPrice || 0),
+                    costPrice: Number(p.costPrice || 0),
                     active: true,
                     condition: p.condition || 'novo',
                     attributes: [{ name: 'COR', value: 'BRANCO' }],
@@ -1281,24 +881,28 @@ export const bulkConvertToVariations = async (): Promise<{ success: number, fail
                     syncCondition: true
                 };
 
-                const { error: updateError } = await supabase
-                    .from(TABLE_NAME)
-                    .update({
-                        has_variations: true,
+                const idx = products.findIndex(prod => String(prod.id) === String(p.id));
+                if (idx !== -1) {
+                    products[idx] = {
+                        ...products[idx],
+                        hasVariations: true,
                         variations: [defaultVariation],
-                        code: null,
+                        code: '',
                         stock: 0,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', p.id);
-
-                if (updateError) throw updateError;
-                success++;
+                        updatedAt: new Date().toISOString()
+                    };
+                    success++;
+                } else {
+                    fails++;
+                }
             } catch (err) {
                 console.error(`Falha ao converter produto ${p.id}:`, err);
                 fails++;
             }
         }
+
+        saveLocalProducts(products);
+        notifySubscribers();
 
         return { success, fails };
     } catch (error) {
@@ -1312,28 +916,32 @@ export const cleanupOldDrafts = async () => {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq('is_draft', true)
-            .lt('updated_at', sevenDaysAgo.toISOString());
-            
-        if (error) throw error;
+        let products = getLocalProducts();
+        const initialCount = products.length;
+        
+        products = products.filter(p => {
+            if (p.isDraft) {
+                const updatedTime = p.updatedAt ? new Date(p.updatedAt).getTime() : 0;
+                return updatedTime >= sevenDaysAgo.getTime();
+            }
+            return true;
+        });
+
+        if (products.length !== initialCount) {
+            saveLocalProducts(products);
+            notifySubscribers();
+        }
     } catch (error) {
         console.error("Erro ao limpar rascunhos antigos:", error);
     }
 };
 
-/**
- * Migra todas as referências de um produto antigo para um novo
- */
 export const migrateProductReferences = async (oldId: string, newId: string): Promise<void> => {
     try {
         const { error } = await supabase.rpc('migrate_product_data', { 
             old_id: parseInt(oldId), 
             new_id: parseInt(newId) 
         });
-
         if (error) throw error;
     } catch (error) {
         console.error("Erro ao migrar referências de produto:", error);
@@ -1341,17 +949,12 @@ export const migrateProductReferences = async (oldId: string, newId: string): Pr
     }
 };
 
-/**
- * Busca descrições de produtos baseadas em pedidos e compras passadas.
- * Útil para itens que não estão cadastrados formalmente (serviços ad-hoc, fretes, etc).
- */
 export const searchHistoricalItems = async (query: string): Promise<string[]> => {
     if (!query || query.length < 2) return [];
 
     try {
         const words = query.trim().toLowerCase().split(/\s+/).filter(w => w.length > 0);
 
-        // 1. Buscar em Pedidos de Venda
         const { data: salesData } = await supabase
             .from('orders')
             .select('order_data')
@@ -1359,7 +962,6 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
             .order('id', { ascending: false })
             .limit(100);
 
-        // 2. Buscar em Pedidos de Compra
         const { data: purchaseData } = await supabase
             .from('purchases')
             .select('items')
@@ -1368,7 +970,6 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
 
         const descriptions = new Set<string>();
 
-        // Processar Vendas
         salesData?.forEach((row: any) => {
             const items = row.order_data?.items || [];
             items.forEach((item: any) => {
@@ -1381,7 +982,6 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
             });
         });
 
-        // Processar Compras
         purchaseData?.forEach((row: any) => {
             const items = row.items || [];
             items.forEach((item: any) => {
@@ -1400,4 +1000,3 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
         return [];
     }
 };
-
