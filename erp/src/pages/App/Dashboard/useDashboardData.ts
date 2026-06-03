@@ -19,6 +19,8 @@ export interface DashboardStats {
     avgTicket: number;
     pendingOrders: number;
     activeSchedules: number;
+    totalKmDriven: number;
+    paidTrafficSalesValue: number;
 }
 
 const parsePTBRDate = (dateStr: any): Date | null => {
@@ -150,6 +152,18 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             o && o.status === 'scheduled' && o.shipping?.scheduling?.date
         ).length;
 
+        const totalKmDriven = saleOrders.reduce((acc, curr) => {
+            const dist = Number(curr?.shipping?.distance) || 0;
+            return acc + dist;
+        }, 0);
+        
+        const isPaidTraffic = (o: Order) => {
+            if (!o.marketingOrigin || typeof o.marketingOrigin !== 'string') return false;
+            const mo = o.marketingOrigin.toLowerCase();
+            return mo === 'paid' || mo.includes('trafego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google');
+        };
+        const paidTrafficSalesValue = saleOrders.filter(isPaidTraffic).reduce((acc, curr) => acc + (curr?.paymentsSummary?.totalOrderValue || 0), 0);
+
         return {
             totalSales,
             saleCount,
@@ -158,6 +172,8 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             avgTicket,
             pendingOrders,
             activeSchedules,
+            totalKmDriven,
+            paidTrafficSalesValue,
         };
     };
 

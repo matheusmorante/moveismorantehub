@@ -153,7 +153,7 @@ export default function Dashboard() {
 
             {/* Metrics */}
             {visibility.stats && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
                     <StatsCard
                         title="Faturamento" value={formatCurrency(stats.totalSales)} icon="currency-dollar"
                         trend={trends.sales.trend} trendValue={trends.sales.value} color="bg-blue-600"
@@ -164,6 +164,8 @@ export default function Dashboard() {
                     />
                     <StatsCard title="Ticket Médio" value={formatCurrency(stats.avgTicket)} icon="wallet2" trend={trends.ticket.trend} trendValue={trends.ticket.value} color="bg-violet-600" />
                     <StatsCard title="Pedidos" value={stats.totalOrdersCount} icon="bag-plus-fill" color="bg-amber-600" />
+                    <StatsCard title="Tráfego Pago" value={formatCurrency(stats.paidTrafficSalesValue || 0)} icon="megaphone-fill" color="bg-orange-500" />
+                    <StatsCard title="KM Rodados" value={`${(stats.totalKmDriven || 0).toFixed(1)} km`} icon="truck-front-fill" color="bg-teal-600" />
                     <StatsCard title="Pendentes" value={stats.pendingOrders} icon="clock-history" color="bg-rose-600" />
                 </div>
             )}
