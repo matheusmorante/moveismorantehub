@@ -3,6 +3,7 @@ import Order from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, stringifyFullAddressWithObservation } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor, translateStatus } from "../../../utils/orderTypeColorUtils";
+import { formatDate } from "../../../utils/formatters";
 
 interface Props {
     schedule: Record<string, Order[]>;
@@ -16,7 +17,7 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
     const settings = getSettings();
     const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     
-    const isAssistance = order.orderType === 'assistance';
+    const isAssistance = order.orderType === 'assistance' || (order as any).taskType === 'assistance';
     const isAssemblyTask = (order as any).taskType === 'assembly';
     const isPickupTask = (order as any).taskType === 'pickup';
     
@@ -73,6 +74,11 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
                         <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
                             <i className="bi bi-clock-fill text-xs opacity-50" />
                             <span className="text-xs font-black tracking-tight">{displayTime}</span>
+                            {scheduling?.dateType === 'range' && scheduling?.endDate && (
+                                <span className="text-[9px] font-bold text-blue-500 uppercase ml-2 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30">
+                                    Até {formatDate(scheduling.endDate)}
+                                </span>
+                            )}
                         </div>
                     </div>
                     

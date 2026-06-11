@@ -1,6 +1,6 @@
 import React from "react";
 import Order from "../../../types/order.type";
-import { stringifyFullAddressWithObservation, stringifyItems } from "../../../utils/formatters";
+import { stringifyFullAddressWithObservation, stringifyItems, formatDate } from "../../../utils/formatters";
 import { getSettings } from '@/pages/utils/settingsService';
 import { getOrderTypeClasses, resolveOrderColor, getPrimaryHandlingInfo } from "../../../utils/orderTypeColorUtils";
 
@@ -26,7 +26,7 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     const colorKey = isAssemblyTask ? 'rose' : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const cls = getOrderTypeClasses(colorKey);
 
-    const isAssistance = order.orderType === 'assistance';
+    const isAssistance = order.orderType === 'assistance' || (order as any).taskType === 'assistance';
     const isPickup = (order as any).taskType === 'pickup';
     const isAssembly = (order as any).taskType === 'assembly';
     const typeLabel = isAssembly ? 'MONTAGEM' : (isAssistance ? 'ASSISTÊNCIA' : (isPickup ? 'RETIRADA' : 'ENTREGA'));
@@ -173,10 +173,17 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
 
                 <div className="flex justify-between items-start mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className={`font-black text-[12px] uppercase tracking-widest whitespace-nowrap ${cls.timeText}`}>
-                        {timeDisplay}
-                        {((order.shipping?.scheduling?.type === 'range' || (order as any).type === 'range') && endTimeDisplay) && ` → ${endTimeDisplay}`}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                        <span className={`font-black text-[12px] uppercase tracking-widest whitespace-nowrap ${cls.timeText}`}>
+                            {timeDisplay}
+                            {((order.shipping?.scheduling?.type === 'range' || (order as any).type === 'range') && endTimeDisplay) && ` → ${endTimeDisplay}`}
+                        </span>
+                        {order.shipping?.scheduling?.dateType === 'range' && order.shipping?.scheduling?.endDate && (
+                            <span className="text-[9px] font-bold text-blue-500 uppercase px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30 w-fit">
+                                Até {formatDate(order.shipping.scheduling.endDate)}
+                            </span>
+                        )}
+                    </div>
                     {order.status === 'draft' && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase tracking-widest border border-slate-300">
                             Rascunho

@@ -1,7 +1,7 @@
 import React from "react";
 import Order from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
-import { stringifyFullAddressWithObservation, formatCurrency } from "../../../utils/formatters";
+import { stringifyFullAddressWithObservation, formatCurrency, formatDate } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor, getPrimaryHandlingInfo } from "../../../utils/orderTypeColorUtils";
 import { calcItemTotalValue } from "../../../utils/calculations";
 import { updateOrder } from "../../../utils/orderHistoryService";
@@ -51,7 +51,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
 
     const currentStatus = statuses.find(s => s.id === (order.status || 'draft')) || statuses[0];
 
-    const isAssistance = order.orderType === 'assistance';
+    const isAssistance = order.orderType === 'assistance' || (order as any).taskType === 'assistance';
     const isShowroom = order.orderType === 'showroom' as any;
     const isPickupTask = (order as any).taskType === 'pickup';
     const isDeliveryTask = (order as any).taskType === 'delivery';
@@ -222,6 +222,11 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                             <i className={`bi bi-clock-fill mr-2 ${cls.timeText}`} />
                             {displayTime}
                         </span>
+                        {scheduling?.dateType === 'range' && scheduling?.endDate && (
+                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase mt-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30">
+                                Até {formatDate(scheduling.endDate)}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>

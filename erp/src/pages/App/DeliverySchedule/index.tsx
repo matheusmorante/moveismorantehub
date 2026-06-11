@@ -7,6 +7,7 @@ import ScheduleTableView from "./ScheduleTableView/Index";
 import ScheduleTimelineView from "./TimelineView/Index";
 import ShowroomAssemblyModal from "./ShowroomAssemblyModal";
 import OrderEditModal from "../SalesOrder/OrderEditModal";
+import AssistanceOrderModal from "../SalesOrder/AssistanceOrderModal";
 
 const DeliverySchedule = () => {
     const {
@@ -472,11 +473,19 @@ const DeliverySchedule = () => {
             )}
 
             {orderToEdit && (
-                <OrderEditModal
-                    order={orderToEdit}
-                    onClose={() => setOrderToEdit(null)}
-                    onSaveSuccess={() => setOrderToEdit(null)}
-                />
+                orderToEdit.orderType === 'assistance' ? (
+                    <AssistanceOrderModal
+                        order={orderToEdit}
+                        onClose={() => setOrderToEdit(null)}
+                        onSaveSuccess={() => setOrderToEdit(null)}
+                    />
+                ) : (
+                    <OrderEditModal
+                        order={orderToEdit}
+                        onClose={() => setOrderToEdit(null)}
+                        onSaveSuccess={() => setOrderToEdit(null)}
+                    />
+                )
             )}
 
             {showShowroomModal && (
