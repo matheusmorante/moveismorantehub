@@ -86,6 +86,7 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
                             currentStep={form.state.currentStep} 
                             jumpToStep={form.actions.jumpToStep} 
                             errors={form.state.errors}
+                            isBudget={isBudget}
                         />
                     </div>
 

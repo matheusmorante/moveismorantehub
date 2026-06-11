@@ -43,7 +43,7 @@ export const stringifyItems = (items: Item[]) => {
 export const stringifyItemsWithValues = (items: Item[]) => {
     return items.map(item => {
         const totalValue = calcItemTotalValue(item);
-        return `${item.description} | ${item.quantity} UN | R$ ${totalValue}`
+        return `${item.description} | ${item.quantity} UN | ${formatCurrency(totalValue)}`
 
     }).join('\n')
 };
@@ -51,7 +51,7 @@ export const stringifyItemsWithValues = (items: Item[]) => {
 export const stringifyPayments = (payments: Payment[]) => {
     return payments.map(payment => {
         const totalValue = calcPaymentTotalValue(payment);
-        return `${payment.method} | R$ ${totalValue} | Status: ${payment.status}`
+        return `${payment.method} | ${formatCurrency(totalValue)} | Status: ${payment.status}`
     }).join('\n')
 }
 
@@ -62,9 +62,13 @@ export const formatToBRDate = (value: string | undefined | null) => {
     if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
 
     // Handle YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
-    if (value.includes('-')) {
-        const datePart = value.split('T')[0];
-        const parts = datePart.split('-');
+    let dateStr = String(value);
+    if (dateStr.includes('T')) {
+        dateStr = dateStr.split('T')[0];
+    }
+    
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
         if (parts.length === 3) {
             const [y, m, d] = parts;
             return `${d}/${m}/${y}`;
@@ -99,7 +103,12 @@ export const formatDate = (value: string) => {
     if (!value) return "Não agendado";
     if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
 
-    const date = new Date(value + 'T00:00:00'); // Force local time
+    let dateStr = String(value);
+    if (dateStr.includes('T')) {
+        dateStr = dateStr.split('T')[0];
+    }
+
+    const date = new Date(dateStr + 'T12:00:00'); // Force mid-day local time to avoid timezone offsets
     if (isNaN(date.getTime())) return value;
     
     return date.toLocaleDateString("pt-BR", {

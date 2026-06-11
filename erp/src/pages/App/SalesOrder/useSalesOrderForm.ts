@@ -530,10 +530,18 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         validateOrder,
         setOrderDate,
         goToNextStep: () => {
-            setCurrentStep(prev => Math.min(prev + 1, 5));
+            setCurrentStep(prev => {
+                const isBudget = orderType === 'budget';
+                if (isBudget && prev === 3) return 5;
+                return Math.min(prev + 1, 5);
+            });
         },
         goToPrevStep: () => {
-            setCurrentStep(prev => Math.max(prev - 1, 1));
+            setCurrentStep(prev => {
+                const isBudget = orderType === 'budget';
+                if (isBudget && prev === 5) return 3;
+                return Math.max(prev - 1, 1);
+            });
         },
         jumpToStep: (step: number) => {
             setCurrentStep(step);

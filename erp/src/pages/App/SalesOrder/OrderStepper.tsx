@@ -10,6 +10,7 @@ interface OrderStepperProps {
     currentStep: number;
     jumpToStep: (step: number) => void;
     errors?: Record<string, string>;
+    isBudget?: boolean;
 }
 
 const steps: Step[] = [
@@ -20,7 +21,7 @@ const steps: Step[] = [
     { step: 5, icon: 'bi-check2-circle', label: 'Resumo' }
 ];
 
-const OrderStepper = ({ currentStep, jumpToStep, errors = {} }: OrderStepperProps) => {
+const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }: OrderStepperProps) => {
     const errorKeys = Object.keys(errors);
     const getStepStatus = (step: number) => {
         const hasError = {
@@ -37,9 +38,11 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {} }: OrderStepperProp
         return 'pending';
     };
 
+    const visibleSteps = isBudget ? steps.filter(s => s.step !== 4) : steps;
+
     return (
         <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 transition-all duration-500 py-1">
-            {steps.map((s, idx) => {
+            {visibleSteps.map((s, idx) => {
                 const status = getStepStatus(s.step);
                 return (
                     <React.Fragment key={s.step}>
@@ -84,7 +87,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {} }: OrderStepperProp
                         </div>
 
                         {/* Connector Line */}
-                        {idx < steps.length - 1 && (
+                        {idx < visibleSteps.length - 1 && (
                             <div className={`hidden md:block h-[2px] w-6 transition-all duration-1000 ${
                                 status === 'done' ? 'bg-emerald-500/30' : status === 'error' ? 'bg-rose-500/20' : 'bg-slate-100 dark:bg-slate-800'
                             }`} />

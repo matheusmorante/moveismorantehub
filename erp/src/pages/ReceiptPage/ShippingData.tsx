@@ -28,6 +28,7 @@ const ShippingData = ({ shipping }: Props) => {
                                 prefix={"R$ "}
                                 decimalScale={2}
                                 decimalSeparator=","
+                                fixedDecimalScale
                             />
                         )}
                     </div>

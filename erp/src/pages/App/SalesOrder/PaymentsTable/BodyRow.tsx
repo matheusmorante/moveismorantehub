@@ -286,7 +286,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                             type="button"
                             onClick={() => onChange(idx, 'amount', payment.amount + summary.amountRemaining)}
                             className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
-                            title={`Puxar saldo restante (R$ ${summary.amountRemaining.toFixed(2)})`}
+                            title={`Puxar saldo restante (${formatCurrency(summary.amountRemaining)})`}
                         >
                             <i className="bi bi-magic" />
                         </button>

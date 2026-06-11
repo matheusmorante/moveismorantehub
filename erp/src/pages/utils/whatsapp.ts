@@ -2,7 +2,7 @@ import Order from "../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import {
     stringifyFullAddress, stringifyFullAddressWithObservation,
-    stringifyPayments, stringifyItemsWithValues, formatDate
+    stringifyPayments, stringifyItemsWithValues, formatDate, formatCurrency
 } from "./formatters";
 import { getShippingRouteUrl } from "./maps";
 import { whatsappGraphService } from "./whatsappGraphService";
@@ -37,8 +37,6 @@ const buildDeliveryMessage = (order: Order) => {
             : `Novo Pedido para ${customer.fullName || "Cliente"}...`; 
     }
 
-    const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-
     let itemsBlock = stringifyItemsWithValues(order.items || []);
     if (order.shipping?.value && order.shipping.value > 0) {
         itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
@@ -69,6 +67,8 @@ const buildDeliveryMessage = (order: Order) => {
             .replace(/ENTREGA/g, 'RETIRADA');
     }
 
+    finalMessage = finalMessage.replace(/R\$\s*R\$/g, 'R$');
+
     return finalMessage;
 };
 
@@ -90,8 +90,6 @@ const buildCustomerOrderMessage = (order: Order) => {
     
     let message = settings.whatsappTemplates?.orderConfirmation || "";
     
-    const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-
     let itemsBlock = stringifyItemsWithValues(order.items || []);
     if (order.shipping?.value && order.shipping.value > 0) {
         itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
@@ -116,6 +114,8 @@ const buildCustomerOrderMessage = (order: Order) => {
             .replace(/entrega/g, 'retirada')
             .replace(/ENTREGA/g, 'RETIRADA');
     }
+
+    finalMessage = finalMessage.replace(/R\$\s*R\$/g, 'R$');
 
     return finalMessage;
 };
@@ -512,7 +512,7 @@ const buildBudgetWhatsappMessage = (order: Order) => {
         });
     }
     
-    message += `\n*Valor Total:* R$ ${(order.paymentsSummary.totalOrderValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+    message += `\n*Valor Total:* ${formatCurrency(order.paymentsSummary.totalOrderValue || 0)}\n\n`;
     
     if (order.observation) {
         message += `*Observações:*\n${order.observation}\n\n`;

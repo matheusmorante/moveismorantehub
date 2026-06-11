@@ -51,6 +51,7 @@ const ShippingData = ({ shipping, isBudget }: Props) => {
                                 decimalScale={2}
                                 decimalSeparator=","
                                 displayType="text"
+                                fixedDecimalScale
                             />
                         </span>
                     )}

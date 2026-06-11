@@ -10,6 +10,7 @@ import ToggleValueTypeBtn from '../ToggleValueTypeBtn';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { ValidationErrors } from '../../../utils/validations';
 import { getSettings } from '@/pages/utils/settingsService';
+import { formatCurrency } from '../../../utils/formatters';
 
 interface Props {
     item: Item;
@@ -262,7 +263,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                             />
                             {item.discountType === 'percentage' && item.unitDiscount > 0 && (
                                 <div className="absolute -top-6 right-0 text-[9px] font-black text-indigo-600 animate-fade-in bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-500/20">
-                                    = R$ {((item.unitPrice || 0) * (item.unitDiscount || 0) / 100).toFixed(2).replace('.', ',')}
+                                    = {formatCurrency(((item.unitPrice || 0) * (item.unitDiscount || 0) / 100))}
                                 </div>
                             )}
                         </div>
