@@ -46,8 +46,8 @@ const WhatsAppTemplatesSection: React.FC<Props> = ({ settings, onChange }) => {
         },
         {
             id: 'groupInviteMessage',
-            label: 'Convite para Grupo VIP',
-            description: 'Enviado ao cliente para convidar para o grupo de WhatsApp de ofertas.',
+            label: 'Convite para Grupo de Promoções e Ofertas',
+            description: 'Enviado ao cliente para convidar para o grupo de WhatsApp de ofertas e promoções.',
             variables: ['{{customerName}}', '{{groupLink}}'],
             icon: 'bi-people-fill',
             color: 'text-indigo-500',

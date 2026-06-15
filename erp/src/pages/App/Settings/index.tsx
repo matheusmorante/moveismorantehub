@@ -43,7 +43,7 @@ const categories: any[] = [
     { id: 'whatsapp', label: 'WhatsApp & Catálogo', icon: 'bi-whatsapp', group: 'system', keywords: ['whatsapp', 'api', 'token', 'catálogo', 'marketplace', 'vendas'] },
     { id: 'notificacoes', label: 'Notificações', icon: 'bi-bell-fill', group: 'system', keywords: ['notificação', 'alerta', 'estoque', 'novo', 'usado', 'salvado'] },
     { id: 'canais', label: 'Descrições por Canal', icon: 'bi-megaphone-fill', group: 'system', keywords: ['whatsapp', 'ecommerce', 'canal', 'marketplace', 'base', 'descrição', 'loja'] },
-    { id: 'templates', label: 'Mensagens & Templates', icon: 'bi-chat-quote-fill', group: 'system', keywords: ['mensagem', 'template', 'whatsapp', 'texto', 'avaliação', 'confirmação'] },
+    { id: 'templates', label: 'Mensagens & Templates', icon: 'bi-chat-quote-fill', group: 'system', keywords: ['mensagem', 'template', 'whatsapp', 'texto', 'avaliação', 'confirmação', 'grupo', 'promoções', 'ofertas'] },
     { id: 'regras', label: 'Regras de Negócio', icon: 'bi-gear-wide-connected', group: 'system', keywords: ['regra', 'estoque', 'negativo', 'reserva', 'venda'] },
     { id: 'obrigatorios', label: 'Campos Obrigatórios', icon: 'bi-shield-check', group: 'system', keywords: ['obrigatório', 'bloqueio', 'venda', 'cadastro', 'cpf', 'cnpj', 'telefone', 'rg', 'endereço', 'estoque', 'email', 'cargo'] },
     { id: 'recibo', label: 'Configuração de Recibo', icon: 'bi-printer-fill', group: 'system', keywords: ['recibo', 'impressão', 'rodapé', 'vendedor', 'garantia'] },
