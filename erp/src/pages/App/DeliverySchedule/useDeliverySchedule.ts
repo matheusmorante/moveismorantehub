@@ -84,7 +84,7 @@ const processOrders = (
         ];
         
         const checkItems = (itemsList: any[]) => itemsList?.some(item => {
-            const hLabel = (item.handlingType || "").trim().toLowerCase();
+            const hLabel = (item?.handlingType || "").trim().toLowerCase();
             if (!hLabel) return false;
             const foundOpt = allHandlingOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
             return foundOpt?.includeInAssemblySchedule === true;

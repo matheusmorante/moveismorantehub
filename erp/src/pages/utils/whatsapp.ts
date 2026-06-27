@@ -508,7 +508,22 @@ const buildBudgetWhatsappMessage = (order: Order) => {
     message += `*Itens:*\n`;
     if (order.items && order.items.length > 0) {
         order.items.forEach((item) => {
-            message += `• ${item.quantity}x ${item.description}\n`;
+            const unitPrice = item.unitPrice || 0;
+            const qty = item.quantity || 1;
+            const unitDisc = item.unitDiscount || 0;
+            
+            const subtotal = unitPrice * qty;
+            const unitDiscount = item.discountType === 'fixed' ? unitDisc : (unitPrice * unitDisc) / 100;
+            const totalDiscount = unitDiscount * qty;
+            const finalValue = subtotal - totalDiscount;
+
+            let itemLine = `• *${qty}x ${item.description}* | Subtotal: ${formatCurrency(subtotal)}`;
+            if (totalDiscount > 0) {
+                itemLine += ` | Desconto: -${formatCurrency(totalDiscount)}`;
+            }
+            itemLine += ` | Valor Final: ${formatCurrency(finalValue)}\n`;
+            
+            message += itemLine;
         });
     }
     

@@ -49,21 +49,23 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         Dashboard
                     </Link>
 
-                    {/* Produtos e Serviços */}
+                    {/* Produtos do Bling e Importação */}
                     <div className="flex flex-col">
-                        <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
+                        <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', false)}>
                             <div className="flex items-center gap-3">
                                 <i className="bi bi-box-seam text-lg"></i>
-                                <span>Produtos e Serviços</span>
-                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
+                                <span>Produtos</span>
                             </div>
                             <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'products' ? 'rotate-180' : ''}`}></i>
                         </button>
                         {activeMenu === 'products' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>Todos os Produtos</Link>
-                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>Categorias</Link>
-                                <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>Atributos e Valores</Link>
+                                <Link to="/stock/bling" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-clouds-fill mr-2 text-blue-500"></i> Lista do Bling
+                                </Link>
+                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-file-earmark-arrow-up-fill mr-2"></i> Gerenciar Importação
+                                </Link>
                             </div>
                         )}
                     </div>
@@ -126,26 +128,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         )}
                     </div>
 
-                    {/* Estoque */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-box-fill text-lg"></i>
-                                <span>Estoque</span>
-                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'stock' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/stock?tab=history" onClick={onClose} className={mobileSubLinkClass}>Movimentações</Link>
-                                <Link to="/stock/purchases" onClick={onClose} className={mobileSubLinkClass}>Pedidos de Compras</Link>
-                                <Link to="/stock/bling" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-clouds-fill mr-2 text-blue-500"></i> Estoque do Bling
-                                </Link>
-                            </div>
-                        )}
-                    </div>
+
 
                     {/* Financeiro */}
                     <div className="flex flex-col">

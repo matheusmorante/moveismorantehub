@@ -65,7 +65,9 @@ export type OrderAction =
     'PRINT_ASSISTANCE_OS' |
     'GENERATE_RETURN' |
     'UNDO_RETURN' |
-    'PRINT_RETURN_OS'
+    'PRINT_RETURN_OS' |
+    'DUPLICATE_ORDER' |
+    'GENERATE_SALE_FROM_BUDGET'
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -88,7 +90,9 @@ export type IsButtonsClicked = {
     printAssistanceOS: boolean,
     generateReturn: boolean,
     undoReturn: boolean,
-    printReturnOS: boolean
+    printReturnOS: boolean,
+    duplicateOrder: boolean,
+    generateSaleFromBudget: boolean
 }
 
 export type VisibilitySettings = {

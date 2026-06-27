@@ -21,6 +21,7 @@ const SalesOrder = () => {
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
     const [returningOrder, setReturningOrder] = useState<Order | null>(null);
+    const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
     const location = useLocation();
     const navigate = useNavigate();
     const isBudgetRoute = location.pathname === '/budgets';
@@ -126,6 +127,27 @@ const SalesOrder = () => {
     const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: false }), [filters]);
     const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, isDraft: false }), [filters]);
     const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true }), [filters]);
+
+    const handleOrderAction = (key: string, order: Order) => {
+        if (key === 'generateReturn') {
+            setReturningOrder(order);
+        } else if (key === 'duplicateOrder') {
+            setDuplicatingOrder({
+                ...order,
+                id: undefined,
+                status: 'draft',
+                date: new Date().toISOString()
+            });
+        } else if (key === 'generateSaleFromBudget') {
+            setDuplicatingOrder({
+                ...order,
+                id: undefined,
+                status: 'draft',
+                orderType: 'sale',
+                date: new Date().toISOString()
+            });
+        }
+    };
 
     return (
         <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
@@ -370,11 +392,7 @@ const SalesOrder = () => {
                             highlightOrderId={highlightOrderId}
                             ref={orderListRef}
                             onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
-                            onAction={(key, order) => {
-                                if (key === 'generateReturn') {
-                                    setReturningOrder(order);
-                                }
-                            }}
+                            onAction={handleOrderAction}
                         />
                     </div>
                 </div>
@@ -423,11 +441,7 @@ const SalesOrder = () => {
                                     highlightOrderId={highlightOrderId}
                                     ref={trashListRef}
                                     onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
-                                    onAction={(key, order) => {
-                                        if (key === 'generateReturn') {
-                                            setReturningOrder(order);
-                                        }
-                                    }}
+                                    onAction={handleOrderAction}
                                 />
                             </div>
                         </div>
@@ -478,6 +492,7 @@ const SalesOrder = () => {
                                     highlightOrderId={highlightOrderId}
                                     ref={draftsListRef}
                                     onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
+                                    onAction={handleOrderAction}
                                 />
                             </div>
                         </div>
@@ -541,6 +556,37 @@ const SalesOrder = () => {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();
                             trashListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
+                            if (order) setPostOrderDetails(order);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
+                />
+            ) : null}
+
+            {duplicatingOrder && duplicatingOrder.orderType === 'assistance' ? (
+                <AssistanceOrderModal
+                    order={duplicatingOrder}
+                    onClose={() => setDuplicatingOrder(null)}
+                    onSaveSuccess={(id, order) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
+                            if (order) setPostOrderDetails(order);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
+                />
+            ) : duplicatingOrder ? (
+                <NewSaleOrder
+                    initialOrder={duplicatingOrder}
+                    orderType={duplicatingOrder.orderType}
+                    onClose={() => setDuplicatingOrder(null)}
+                    onSaveSuccess={(id, order) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
                             draftsListRef.current?.refresh();
                             if (order) setPostOrderDetails(order);
                             setTimeout(() => setHighlightOrderId(null), 5000);

@@ -29,46 +29,24 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 Dashboard
             </Link>
 
-            {/* Produtos e Serviços */}
+            {/* Produtos do Bling e Importação */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('products')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', true)}>
+                <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', false)}>
                     <i className="bi bi-box-seam"></i>
-                    <span>Produtos e Serviços</span>
-                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
+                    <span>Produtos</span>
                     <i className={chevronClass(activeMenu === 'products')}></i>
                 </button>
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Todos os Produtos</Link>
-                        <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Categorias</Link>
-                        <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Atributos e Valores</Link>
-                    </div>
-                )}
-            </div>
-
-            {/* Estoque */}
-            <div
-                className="relative h-full flex items-center"
-                onMouseEnter={() => setActiveMenu('stock')}
-                onMouseLeave={() => setActiveMenu(null)}
-            >
-                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', true)}>
-                    <i className="bi bi-box-fill"></i>
-                    <span>Estoque</span>
-                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                    <i className={chevronClass(activeMenu === 'stock')}></i>
-                </button>
-                {activeMenu === 'stock' && (
-                    <div className={dropdownClass}>
-                        <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Movimentações</Link>
-                        <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Pedidos de Compras</Link>
-                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
                         <Link to="/stock/bling" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-clouds-fill mr-1 text-blue-500"></i> Estoque do Bling
+                            <i className="bi bi-clouds-fill mr-1 text-blue-500"></i> Lista do Bling
+                        </Link>
+                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-file-earmark-arrow-up-fill mr-1"></i> Gerenciar Importação
                         </Link>
                     </div>
                 )}

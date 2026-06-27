@@ -1,10 +1,11 @@
 import Router from './Router';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Router />
       <ToastContainer
         position="top-right"
@@ -18,7 +19,7 @@ function App() {
         pauseOnHover
         theme="colored"
       />
-    </>
+    </ErrorBoundary>
   );
 }
 

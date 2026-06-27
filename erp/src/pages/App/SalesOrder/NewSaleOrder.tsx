@@ -11,9 +11,10 @@ interface NewSaleOrderProps {
     onSaveSuccess: (id?: string, order?: Order) => void;
     initialDeliveryMethod?: 'delivery' | 'pickup';
     orderType?: Order['orderType'];
+    initialOrder?: Order;
 }
 
-const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType = 'sale' }: NewSaleOrderProps) => {
+const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType = 'sale', initialOrder }: NewSaleOrderProps) => {
     const form = useSalesOrderForm(initialDeliveryMethod, orderType);
     const isBudget = orderType === 'budget';
     const isReturn = orderType === 'return';
@@ -24,6 +25,12 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
     const [isScrolled, setIsScrolled] = React.useState(false);
     const sellerRef = React.useRef<HTMLButtonElement>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (initialOrder) {
+            form.actions.loadOrderForEditing(initialOrder);
+        }
+    }, [initialOrder, form.actions]);
 
     React.useEffect(() => {
         const el = scrollContainerRef.current;

@@ -44,6 +44,7 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
     const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
     
     const isAssemblyOutside = allItems.some(item => {
+        if (!item) return false;
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
@@ -51,6 +52,7 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
     });
 
     const isOnlyInternalAssembly = allItems.some(item => {
+        if (!item) return false;
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
@@ -130,14 +132,14 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
 
                 {/* Items Summary */}
                 <div className="mt-4 flex flex-wrap gap-2">
-                    {[...(order.items || []), ...(order.assistanceItems || [])].slice(0, 4).map((item, i) => (
+                    {[...(order.items || []), ...(order.assistanceItems || [])].filter(Boolean).slice(0, 4).map((item, i) => (
                         <div key={i} className="px-2.5 py-1 bg-white/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 rounded-lg text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
                             {item.quantity}x {item.description}
                         </div>
                     ))}
-                    {[...(order.items || []), ...(order.assistanceItems || [])].length > 4 && (
+                    {[...(order.items || []), ...(order.assistanceItems || [])].filter(Boolean).length > 4 && (
                         <div className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            + {([...(order.items || []), ...(order.assistanceItems || [])].length - 4)} itens
+                            + {([...(order.items || []), ...(order.assistanceItems || [])].filter(Boolean).length - 4)} itens
                         </div>
                     )}
                 </div>

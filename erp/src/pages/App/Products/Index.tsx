@@ -174,10 +174,10 @@ const Products = () => {
                     <div className="flex items-start xl:items-center gap-4 xl:gap-6">
                         <div>
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Produtos e Serviços
+                                Produtos (Importação)
                             </h1>
                             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Gestão de Produtos, Serviços e Preços
+                                Visualize os produtos importados e gerencie novas importações
                             </p>
                         </div>
                     </div>
@@ -190,6 +190,13 @@ const Products = () => {
                         >
                             <i className="bi bi-gear-fill text-lg xl:text-xl" />
                         </Link>
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-3 xl:px-6 xl:py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl xl:rounded-2xl transition-all shadow-lg shadow-blue-600/30 font-bold text-xs xl:text-sm whitespace-nowrap active:scale-95"
+                        >
+                            <i className="bi bi-file-earmark-arrow-up-fill text-lg"></i>
+                            <span className="hidden sm:inline">Importar do Bling (CSV)</span>
+                        </button>
                         {/* Cadastro de novos produtos desabilitado para economizar armazenamento e tráfego de dados */}
                     </div>
                 </div>

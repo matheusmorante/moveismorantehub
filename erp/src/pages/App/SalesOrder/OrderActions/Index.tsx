@@ -57,7 +57,7 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
     // Form-specific restrictions
     if (context === 'form') {
       // Hide labels in form mode
-      if (['PRINT_SHIPPING_LABEL', 'PRINT_PRODUCT_LABEL'].includes(btn.action)) return false;
+      if (['PRINT_SHIPPING_LABEL', 'PRINT_PRODUCT_LABEL', 'DUPLICATE_ORDER', 'GENERATE_SALE_FROM_BUDGET'].includes(btn.action)) return false;
       
       // NEW: Enviar Entrega button only if deliveryMethod === 'delivery'
       if (btn.action === 'SEND_SHIPPING_ORDER') {

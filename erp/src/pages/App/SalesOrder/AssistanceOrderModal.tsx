@@ -95,7 +95,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     const [currentOrderId, setCurrentOrderId] = useState(order?.id);
     const [status, setStatus] = useState(order?.status || 'draft');
 
-    const isEditing = !!order;
+    const isEditing = !!order && !!order.id;
     const initialDataFetched = useRef(false);
 
     // Sync state when order prop changes (important for editing existing orders)

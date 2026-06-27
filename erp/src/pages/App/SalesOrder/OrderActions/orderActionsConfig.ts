@@ -319,6 +319,14 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         // This is complex and might need a refresh of the list, 
         // so we'll likely handle the logic in the component or passing a callback
         console.log("Desfazendo devolução para o pedido:", order.id);
+    },
+    'DUPLICATE_ORDER': (order) => {
+        // Handled by onAction prop in SalesOrder/Index.tsx
+        console.log("Iniciando fluxo de duplicação para o pedido:", order.id);
+    },
+    'GENERATE_SALE_FROM_BUDGET': (order) => {
+        // Handled by onAction prop in SalesOrder/Index.tsx
+        console.log("Gerando venda a partir de orçamento:", order.id);
     }
 };
 
@@ -459,5 +467,23 @@ export const buttons: OrderButton[] = [
         color: "text-indigo-600 hover:bg-indigo-50",
         tooltip: "Enviar convite do grupo VIP para o WhatsApp do cliente",
         orderTypes: ['sale']
+    },
+    {
+        key: "duplicateOrder",
+        icon: "bi-files",
+        action: "DUPLICATE_ORDER",
+        label: "Duplicar Pedido",
+        color: "text-emerald-600 hover:bg-emerald-50",
+        tooltip: "Criar um novo pedido idêntico a este",
+        // applies to all types
+    },
+    {
+        key: "generateSaleFromBudget",
+        icon: "bi-cart-check-fill",
+        action: "GENERATE_SALE_FROM_BUDGET",
+        label: "Gerar Pedido de Venda",
+        color: "text-emerald-600 hover:bg-emerald-50",
+        tooltip: "Criar um novo pedido de venda a partir deste orçamento",
+        orderTypes: ['budget']
     },
 ];

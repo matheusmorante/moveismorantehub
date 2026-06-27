@@ -89,6 +89,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
     
     const isAssemblyOutside = allItems.some(item => {
+        if (!item) return false;
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
@@ -96,6 +97,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     });
 
     const isOnlyInternalAssembly = allItems.some(item => {
+        if (!item) return false;
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
@@ -378,7 +380,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                         {isAssemblyTask ? 'Necessita Montar:' : (isAssistance ? 'Peças / Materiais' : 'Itens do Pedido')}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                        {[...(order.items || []), ...(order.assistanceItems || [])].map((item, i) => (
+                        {[...(order.items || []), ...(order.assistanceItems || [])].filter(Boolean).map((item, i) => (
                             <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-white/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/40 rounded-lg shadow-sm">
                                 <span className={`text-[10px] font-black ${isAssemblyTask ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
                                     {item.quantity}x
