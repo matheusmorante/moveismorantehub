@@ -59,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         let active = true;
+        let handlingSession = false;
         const isDev = import.meta.env.DEV;
 
         if (isDev) console.log('[Auth] Initializing in DEVELOPMENT mode');
@@ -72,9 +73,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }, 5000);
 
-        const handleSession = async (session: any) => {
+        const handleSession = async (session: any, source: string) => {
             if (!active) return;
-            
+            // Evitar chamadas duplicadas paralelas (getSession + onAuthStateChange)
+            if (handlingSession) {
+                console.log('[Auth] Skipping duplicate handleSession from:', source);
+                return;
+            }
+            handlingSession = true;
+
             const newUser = session?.user || null;
             setUser(newUser);
 
@@ -84,37 +91,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     window.history.replaceState(null, '', window.location.pathname + window.location.search);
                 }
 
-                // Only fetch if profile is missing or user changed
-                if (!profile || profile.id !== newUser.id) {
-                    try {
-                        await fetchProfile(newUser.id);
-                    } finally {
-                        if (active) setLoading(false);
-                    }
-                } else {
-                    setLoading(false);
+                try {
+                    await fetchProfile(newUser.id);
+                } finally {
+                    if (active) setLoading(false);
+                    handlingSession = false;
                 }
             } else {
                 setProfile(null);
                 setLoading(false);
+                handlingSession = false;
             }
         };
 
-        // 1. Explicitly check for initial session (especially for OAuth redirects)
+        // 1. Verificar sessão inicial (para OAuth redirects)
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (active && session) {
                 console.log('[Auth] Initial session found');
-                handleSession(session);
+                handleSession(session, 'getSession');
+            } else if (active && !session) {
+                // Sem sessão, liberar loading para redirecionar para login
+                clearTimeout(failsafe);
+                setLoading(false);
             }
         });
 
-        // 2. Listen for auth state changes
+        // 2. Ouvir mudanças de estado (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!active) return;
             console.log('[Auth] State Change:', event);
-
             clearTimeout(failsafe);
-            handleSession(session);
+            // INITIAL_SESSION já é coberto por getSession(); evitar duplicata
+            if (event === 'INITIAL_SESSION') return;
+            handleSession(session, event);
         });
 
         return () => {
