@@ -137,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isAdmin: profile?.role === 'administrator',
         isManager: profile?.role === 'manager' || profile?.role === 'administrator',
-        isPending: !profile?.role || profile?.role === 'pending',
+        isPending: !loading && !!user && (!profile?.role || profile?.role === 'pending'),
         logout
     }), [user, profile, loading]);
 

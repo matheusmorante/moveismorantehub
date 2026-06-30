@@ -115,6 +115,7 @@ const OrderHistoryCard = ({
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
     const hasAssemblyConfig = allOrderItems.some(isHandlingAssembly);
     const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
+    const isOnlyInternalAssembly = hasAssemblyConfig && !isAssemblyOutside;
 
     // Marketing Origin Logic
     const mOrigin1 = (order.marketingOrigin || "").toLowerCase();

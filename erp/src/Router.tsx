@@ -45,6 +45,13 @@ const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/Reports
 const SalesOrderReportViewBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/ReportView'));
 import BlingStock from './pages/App/Stock/BlingStock';
 
+const LoadingFallback = () => (
+  <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+    <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">Carregando...</p>
+  </div>
+);
+
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
   const logger = (globalThis as any).console;
@@ -100,7 +107,7 @@ function Router() {
           <Route path='/schedule' element={<DeliverySchedule />} />
           <Route path='/assembly-schedule' element={<AssemblyListPage />} />
           <Route path='/logistics/assembly-print' element={<AssemblyPrintPage />} />
-          <Route path='/public/report/:id' element={<Suspense fallback={null}><SalesOrderReportView /></Suspense>} />
+          <Route path='/public/report/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportView /></Suspense>} />
 
           {/* Protected ERP Application */}
           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -109,10 +116,10 @@ function Router() {
             <Route path='/budgets' element={<SalesOrder />} />
             <Route path='/assistance-orders' element={<SalesOrder />} />
             <Route path='/returns' element={<SalesOrder />} />
-            <Route path='/sales-order/reports' element={<SalesOrderReports />} />
-            <Route path='/sales-order/reports/:id' element={<Suspense fallback={null}><SalesOrderReportView /></Suspense>} />
-            <Route path='/sales-order/reports-bling' element={<Suspense fallback={null}><SalesOrderReportsBling /></Suspense>} />
-            <Route path='/sales-order/reports-bling/:id' element={<Suspense fallback={null}><SalesOrderReportViewBling /></Suspense>} />
+            <Route path='/sales-order/reports' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReports /></Suspense>} />
+            <Route path='/sales-order/reports/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportView /></Suspense>} />
+            <Route path='/sales-order/reports-bling' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportsBling /></Suspense>} />
+            <Route path='/sales-order/reports-bling/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportViewBling /></Suspense>} />
             <Route path='/sales-order/freight-calculation' element={<OrderRouteMap />} />
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
