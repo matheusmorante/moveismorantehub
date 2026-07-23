@@ -41,19 +41,19 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
     const visibleSteps = isBudget ? steps.filter(s => s.step !== 4) : steps;
 
     return (
-        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 transition-all duration-500 py-1">
+        <div className="flex flex-nowrap items-center justify-center gap-1.5 md:gap-4 transition-all duration-500 py-1">
             {visibleSteps.map((s, idx) => {
                 const status = getStepStatus(s.step);
                 return (
                     <React.Fragment key={s.step}>
                         <div 
                             onClick={() => jumpToStep(s.step)}
-                            className={`flex items-center gap-3 cursor-pointer group transition-all duration-500 relative ${
-                                status === 'active' ? 'scale-110' : 'hover:scale-105'
+                            className={`flex items-center gap-1.5 md:gap-3 cursor-pointer group transition-all duration-500 relative shrink-0 ${
+                                status === 'active' ? 'scale-105 md:scale-110' : 'hover:scale-105'
                             }`}
                         >
                             {/* Step Icon Hexagon/Box */}
-                            <div className={`relative w-10 h-10 rounded-2xl flex items-center justify-center border-2 transition-all duration-500 shadow-sm ${
+                            <div className={`relative w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center border-2 transition-all duration-500 shadow-sm shrink-0 ${
                                 status === 'error' 
                                 ? 'border-rose-600 bg-rose-600 text-white shadow-gradient-rose shadow-rose-500/40'
                                 : status === 'active' 
@@ -62,25 +62,29 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
                                 ? 'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
                                 : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shadow-none text-slate-400 group-hover:border-blue-200'
                             }`}>
-                                <i className={`bi ${s.icon} text-lg transition-transform duration-500 ${status === 'active' ? '-rotate-[22.5deg]' : ''}`} />
+                                <i className={`bi ${s.icon} text-sm md:text-lg transition-transform duration-500 ${status === 'active' ? '-rotate-[22.5deg]' : ''}`} />
                                 
                                 {/* Pulse for active or error step */}
                                 {status === 'active' && (
-                                    <div className="absolute inset-0 rounded-2xl bg-blue-500 animate-ping opacity-20" />
+                                    <div className="absolute inset-0 rounded-xl md:rounded-2xl bg-blue-500 animate-ping opacity-20" />
                                 )}
                                 {status === 'error' && (
-                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center border border-rose-500 shadow-sm">
-                                        <i className="bi bi-exclamation-triangle-fill text-rose-500 text-[8px]" />
+                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center border border-rose-500 shadow-sm">
+                                        <i className="bi bi-exclamation-triangle-fill text-rose-500 text-[6px]" />
                                     </div>
                                 )}
                             </div>
 
                             {/* Text Label */}
-                            <div className={`flex flex-col transition-all duration-500 ${status === 'active' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0 lg:opacity-100 lg:w-auto lg:translate-x-0'}`}>
-                                <span className={`text-[8px] font-black uppercase tracking-widest leading-none ${status === 'error' ? 'text-rose-500' : status === 'active' ? 'text-blue-500' : 'text-slate-400'}`}>
+                            <div className={`flex flex-col transition-all duration-500 overflow-hidden ${
+                                status === 'active' 
+                                ? 'opacity-100 w-auto translate-x-0' 
+                                : 'opacity-0 w-0 -translate-x-4 lg:opacity-100 lg:w-auto lg:overflow-visible lg:translate-x-0'
+                            }`}>
+                                <span className={`text-[7px] md:text-[8px] font-black uppercase tracking-widest leading-none ${status === 'error' ? 'text-rose-500' : status === 'active' ? 'text-blue-500' : 'text-slate-400'}`}>
                                     {status === 'error' ? 'Atenção' : `Passo ${s.step}`}
                                 </span>
-                                <span className={`text-[10px] font-black uppercase tracking-tight whitespace-nowrap ${status === 'error' ? 'text-rose-600 font-black italic' : status === 'active' ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500'}`}>
+                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight whitespace-nowrap ${status === 'error' ? 'text-rose-600 font-black italic' : status === 'active' ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500'}`}>
                                     {s.label}
                                 </span>
                             </div>
@@ -88,7 +92,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
 
                         {/* Connector Line */}
                         {idx < visibleSteps.length - 1 && (
-                            <div className={`hidden md:block h-[2px] w-6 transition-all duration-1000 ${
+                            <div className={`hidden md:block h-[2px] w-4 md:w-6 transition-all duration-1000 shrink-0 ${
                                 status === 'done' ? 'bg-emerald-500/30' : status === 'error' ? 'bg-rose-500/20' : 'bg-slate-100 dark:bg-slate-800'
                             }`} />
                         )}

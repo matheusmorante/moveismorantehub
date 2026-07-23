@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useDeliverySchedule, ScheduleFilter, OrderTypeFilter } from "./useDeliverySchedule";
 import OrderDetailsModal from "./OrderDetailsModal";
 import ScheduleCardView from "./ScheduleCardView/Index";
@@ -10,6 +10,7 @@ import OrderEditModal from "../SalesOrder/OrderEditModal";
 import AssistanceOrderModal from "../SalesOrder/AssistanceOrderModal";
 
 const DeliverySchedule = () => {
+    const navigate = useNavigate();
     const {
         schedule,
         loading,
@@ -465,27 +466,23 @@ const DeliverySchedule = () => {
                     order={selectedOrder}
                     onClose={closeOrderDetails}
                         onEdit={isStandalone ? undefined : (ord) => {
-                            setOrderToEdit(ord);
                             closeOrderDetails();
+                            if (ord.orderType === 'assistance') {
+                                setOrderToEdit(ord);
+                            } else {
+                                navigate(`/sales-order/edit/${ord.id}`);
+                            }
                         }}
                     isReadOnly={isStandalone}
                 />
             )}
 
-            {orderToEdit && (
-                orderToEdit.orderType === 'assistance' ? (
-                    <AssistanceOrderModal
-                        order={orderToEdit}
-                        onClose={() => setOrderToEdit(null)}
-                        onSaveSuccess={() => setOrderToEdit(null)}
-                    />
-                ) : (
-                    <OrderEditModal
-                        order={orderToEdit}
-                        onClose={() => setOrderToEdit(null)}
-                        onSaveSuccess={() => setOrderToEdit(null)}
-                    />
-                )
+            {orderToEdit && orderToEdit.orderType === 'assistance' && (
+                <AssistanceOrderModal
+                    order={orderToEdit}
+                    onClose={() => setOrderToEdit(null)}
+                    onSaveSuccess={() => setOrderToEdit(null)}
+                />
             )}
 
             {showShowroomModal && (

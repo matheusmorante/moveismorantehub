@@ -132,20 +132,33 @@ const SalesOrder = () => {
         if (key === 'generateReturn') {
             setReturningOrder(order);
         } else if (key === 'duplicateOrder') {
-            setDuplicatingOrder({
-                ...order,
-                id: undefined,
-                status: 'draft',
-                date: new Date().toISOString()
-            });
+            if (order.orderType === 'assistance') {
+                setDuplicatingOrder({
+                    ...order,
+                    id: undefined,
+                    status: 'draft',
+                    date: new Date().toISOString()
+                });
+            } else {
+                const duplicated = {
+                    ...order,
+                    id: undefined,
+                    status: 'draft' as const,
+                    date: new Date().toISOString()
+                };
+                sessionStorage.setItem("pdv_duplicate_order", JSON.stringify(duplicated));
+                navigate(`/sales-order/new?type=${order.orderType || 'sale'}&duplicate=true`);
+            }
         } else if (key === 'generateSaleFromBudget') {
-            setDuplicatingOrder({
+            const duplicated = {
                 ...order,
                 id: undefined,
-                status: 'draft',
-                orderType: 'sale',
+                status: 'draft' as const,
+                orderType: 'sale' as const,
                 date: new Date().toISOString()
-            });
+            };
+            sessionStorage.setItem("pdv_duplicate_order", JSON.stringify(duplicated));
+            navigate(`/sales-order/new?type=sale&duplicate=true`);
         }
     };
 
@@ -238,7 +251,7 @@ const SalesOrder = () => {
 
                             {isBudgetRoute && (
                                 <button
-                                    onClick={() => setOrderModalType('budget')}
+                                    onClick={() => navigate("/sales-order/new?type=budget")}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-plus-lg text-base" />
@@ -256,7 +269,7 @@ const SalesOrder = () => {
                             )}
                             {isReturnRoute && (
                                 <button
-                                    onClick={() => setOrderModalType('return')}
+                                    onClick={() => navigate("/sales-order/new?type=return")}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-amber-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-arrow-return-left text-base" />
@@ -265,7 +278,7 @@ const SalesOrder = () => {
                             )}
                             {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
                                 <button
-                                    onClick={() => setOrderModalType('sale')}
+                                    onClick={() => navigate("/sales-order/new?type=sale")}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-plus-lg text-base" />
@@ -384,7 +397,13 @@ const SalesOrder = () => {
 
                     <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-2xl shadow-none md:shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors flex-1 flex flex-col min-h-0">
                         <OrderHistoryList
-                            onEdit={setEditingOrder}
+                            onEdit={(order) => {
+                                if (order.orderType === 'assistance') {
+                                    setEditingOrder(order);
+                                } else {
+                                    navigate(`/sales-order/edit/${order.id}`);
+                                }
+                            }}
                             filters={activeFilters}
                             visibilitySettings={visibilitySettings}
                             onToggleColumn={toggleVisibility}
@@ -433,7 +452,13 @@ const SalesOrder = () => {
                         <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-slate-50 dark:bg-slate-950">
                             <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                                 <OrderHistoryList
-                                    onEdit={setEditingOrder}
+                                    onEdit={(order) => {
+                                        if (order.orderType === 'assistance') {
+                                            setEditingOrder(order);
+                                        } else {
+                                            navigate(`/sales-order/edit/${order.id}`);
+                                        }
+                                    }}
                                     filters={trashFilters}
                                     visibilitySettings={visibilitySettings}
                                     onToggleColumn={toggleVisibility}
@@ -484,7 +509,13 @@ const SalesOrder = () => {
                         <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-slate-50 dark:bg-slate-950">
                             <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                                 <OrderHistoryList
-                                    onEdit={setEditingOrder}
+                                    onEdit={(order) => {
+                                        if (order.orderType === 'assistance') {
+                                            setEditingOrder(order);
+                                        } else {
+                                            navigate(`/sales-order/edit/${order.id}`);
+                                        }
+                                    }}
                                     filters={draftFilters}
                                     visibilitySettings={visibilitySettings}
                                     onToggleColumn={toggleVisibility}
@@ -501,23 +532,6 @@ const SalesOrder = () => {
             )}
 
 
-            {(orderModalType === 'sale' || orderModalType === 'pickup' || orderModalType === 'budget' || orderModalType === 'return') && (
-                <NewSaleOrder
-                    initialDeliveryMethod={orderModalType === 'pickup' ? 'pickup' : 'delivery'}
-                    orderType={orderModalType === 'budget' ? 'budget' : (orderModalType === 'return' ? 'return' : 'sale')}
-                    onClose={() => setOrderModalType(null)}
-                    onSaveSuccess={(id, order) => {
-                        if (id) {
-                            setHighlightOrderId(id);
-                            orderListRef.current?.refresh();
-                            draftsListRef.current?.refresh();
-                            if (order) setPostOrderDetails(order);
-                            setTimeout(() => setHighlightOrderId(null), 5000);
-                        }
-                    }}
-                />
-            )}
-
             {orderModalType === 'assistance' && (
                 <AssistanceOrderModal
                     onClose={() => setOrderModalType(null)}
@@ -533,7 +547,7 @@ const SalesOrder = () => {
                 />
             )}
 
-            {editingOrder && editingOrder.orderType === 'assistance' ? (
+            {editingOrder && editingOrder.orderType === 'assistance' && (
                 <AssistanceOrderModal
                     order={editingOrder}
                     onClose={() => setEditingOrder(null)}
@@ -547,24 +561,9 @@ const SalesOrder = () => {
                         }
                     }}
                 />
-            ) : editingOrder ? (
-                <OrderEditModal
-                    order={editingOrder}
-                    onClose={() => setEditingOrder(null)}
-                    onSaveSuccess={(id, order) => {
-                        if (id) {
-                            setHighlightOrderId(id);
-                            orderListRef.current?.refresh();
-                            trashListRef.current?.refresh();
-                            draftsListRef.current?.refresh();
-                            if (order) setPostOrderDetails(order);
-                            setTimeout(() => setHighlightOrderId(null), 5000);
-                        }
-                    }}
-                />
-            ) : null}
+            )}
 
-            {duplicatingOrder && duplicatingOrder.orderType === 'assistance' ? (
+            {duplicatingOrder && duplicatingOrder.orderType === 'assistance' && (
                 <AssistanceOrderModal
                     order={duplicatingOrder}
                     onClose={() => setDuplicatingOrder(null)}
@@ -578,22 +577,7 @@ const SalesOrder = () => {
                         }
                     }}
                 />
-            ) : duplicatingOrder ? (
-                <NewSaleOrder
-                    initialOrder={duplicatingOrder}
-                    orderType={duplicatingOrder.orderType}
-                    onClose={() => setDuplicatingOrder(null)}
-                    onSaveSuccess={(id, order) => {
-                        if (id) {
-                            setHighlightOrderId(id);
-                            orderListRef.current?.refresh();
-                            draftsListRef.current?.refresh();
-                            if (order) setPostOrderDetails(order);
-                            setTimeout(() => setHighlightOrderId(null), 5000);
-                        }
-                    }}
-                />
-            ) : null}
+            )}
 
             {postOrderDetails && (
                 <PostOrderActionsModal 

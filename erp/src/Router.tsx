@@ -44,6 +44,8 @@ const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/R
 const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/Index'));
 const SalesOrderReportViewBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/ReportView'));
 import BlingStock from './pages/App/Stock/BlingStock';
+import NewSaleOrder from './pages/App/SalesOrder/NewSaleOrder';
+import OrderEditModal from './pages/App/SalesOrder/OrderEditModal';
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -113,6 +115,8 @@ function Router() {
           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path='/sales-order' element={<SalesOrder />} />
+            <Route path='/sales-order/new' element={<NewSaleOrder />} />
+            <Route path='/sales-order/edit/:id' element={<OrderEditModal />} />
             <Route path='/budgets' element={<SalesOrder />} />
             <Route path='/assistance-orders' element={<SalesOrder />} />
             <Route path='/returns' element={<SalesOrder />} />

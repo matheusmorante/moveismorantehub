@@ -34,7 +34,7 @@ const formatToStorageDate = (datetimeLocalStr: string) => {
     return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
 
-const parseStorageDateToLocal = (dateStr: string) => {
+export const parseStorageDateToLocal = (dateStr: string) => {
     if (!dateStr) return getCurrentDatetimeLocal();
     
     let date: Date;

@@ -150,6 +150,30 @@ export const saveOrder = async (order: Order): Promise<string> => {
         const orderToSave = { ...order };
         delete orderToSave.id;
 
+        // Se o cliente não tem ID, mas tem nome e não é Consumidor Final, vamos cadastrá-lo no CRM.
+        if (orderToSave.customerData && !orderToSave.customerData.id && orderToSave.customerData.fullName && orderToSave.customerData.fullName.toLowerCase().trim() !== 'consumidor final') {
+            try {
+                const { savePerson } = await import("./personService");
+                const personToSave = {
+                    fullName: orderToSave.customerData.fullName,
+                    phone: orderToSave.customerData.phone || '',
+                    noPhone: orderToSave.customerData.noPhone || false,
+                    fullAddress: orderToSave.customerData.fullAddress,
+                    noAddress: orderToSave.customerData.noAddress || false,
+                    additionalContacts: orderToSave.customerData.additionalContacts || [],
+                    marketingOrigin: (orderToSave.marketingOrigin || 'organic') as any,
+                    active: true,
+                    type: 'customers' as const
+                };
+                const savedPerson = await savePerson('customers', personToSave as any);
+                if (savedPerson && savedPerson.id) {
+                    orderToSave.customerData.id = savedPerson.id;
+                }
+            } catch (savePersonErr) {
+                console.error("[OrderCreate] Erro ao cadastrar cliente no CRM:", savePersonErr);
+            }
+        }
+
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .insert([{
@@ -185,7 +209,7 @@ export const saveOrder = async (order: Order): Promise<string> => {
                 const { updatePerson } = await import("./personService");
                 await updatePerson('customers', orderToSave.customerData.id, {
                     phone: orderToSave.customerData.phone,
-                    marketingOrigin: orderToSave.marketingOrigin
+                    marketingOrigin: orderToSave.marketingOrigin as any
                 });
             } catch (syncErr) {
                 console.error("[OrderCreate] Error syncing customer data to CRM:", syncErr);
@@ -360,6 +384,30 @@ export const updateOrder = async (
         // Ensure ID is removed from the JSONB data to avoid redundancy and potential issues
         if (merged.id) delete merged.id;
 
+        // Se o cliente não tem ID, mas tem nome e não é Consumidor Final, vamos cadastrá-lo no CRM.
+        if (merged.customerData && !merged.customerData.id && merged.customerData.fullName && merged.customerData.fullName.toLowerCase().trim() !== 'consumidor final') {
+            try {
+                const { savePerson } = await import("./personService");
+                const personToSave = {
+                    fullName: merged.customerData.fullName,
+                    phone: merged.customerData.phone || '',
+                    noPhone: merged.customerData.noPhone || false,
+                    fullAddress: merged.customerData.fullAddress,
+                    noAddress: merged.customerData.noAddress || false,
+                    additionalContacts: merged.customerData.additionalContacts || [],
+                    marketingOrigin: (merged.marketingOrigin || 'organic') as any,
+                    active: true,
+                    type: 'customers' as const
+                };
+                const savedPerson = await savePerson('customers', personToSave as any);
+                if (savedPerson && savedPerson.id) {
+                    merged.customerData.id = savedPerson.id;
+                }
+            } catch (savePersonErr) {
+                console.error("[OrderUpdate] Erro ao cadastrar cliente no CRM:", savePersonErr);
+            }
+        }
+
         if ((merged as any).shipping?.orderType) {
             console.log(`[OrderUpdate] Salvando modalidade global: ${(merged as any).shipping.orderType}`);
         }
@@ -451,7 +499,7 @@ export const updateOrder = async (
                 const { updatePerson } = await import("./personService");
                 await updatePerson('customers', merged.customerData.id, {
                     phone: merged.customerData.phone,
-                    marketingOrigin: merged.marketingOrigin
+                    marketingOrigin: merged.marketingOrigin as any
                 });
             } catch (syncErr) {
                 console.error("[OrderUpdate] Error syncing customer data to CRM:", syncErr);
@@ -793,6 +841,21 @@ export const getOrdersCustomerDataOnly = async (): Promise<{ id: string, date: s
     } catch (e) {
         console.error("Erro ao buscar dados enxutos de clientes nos pedidos:", e);
         return [];
+    }
+};
+
+export const fetchOrderById = async (id: string): Promise<Order | null> => {
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error || !data) return null;
+        return capitalizeOrder({ ...(data.order_data || {}), id: String(data.id) } as Order);
+    } catch (e) {
+        console.error(`[fetchOrderById] Erro ao buscar pedido #${id}:`, e);
+        return null;
     }
 };
 

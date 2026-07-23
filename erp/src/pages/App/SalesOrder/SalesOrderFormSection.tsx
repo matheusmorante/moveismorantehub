@@ -15,9 +15,10 @@ import { getSettings } from "../../../pages/utils/settingsService";
 type SalesOrderFormSectionProps = {
     form: ReturnType<typeof useSalesOrderForm>;
     scrollRef?: React.RefObject<HTMLDivElement>;
+    onLoadJSON?: (data: any) => void;
 };
 
-const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) => {
+const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSectionProps) => {
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
@@ -56,6 +57,7 @@ const SalesOrderFormSection = ({ form, scrollRef }: SalesOrderFormSectionProps) 
                     onMainAction={state.status === 'draft' ? actions.handleCompleteOrder : actions.handleSaveOrder}
                     currentOrderId={state.currentOrderId}
                     isBudget={isBudget}
+                    onLoadJSON={onLoadJSON}
                 />
 
                 {/* Wizard Steps Content */}

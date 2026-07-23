@@ -1,20 +1,32 @@
 import React, { useCallback } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import SalesOrderFormSection from "./SalesOrderFormSection";
-import { useSalesOrderForm } from "./useSalesOrderForm";
+import { useSalesOrderForm, parseStorageDateToLocal } from "./useSalesOrderForm";
 import OrderStepper from "./OrderStepper";
 import Order from "../../types/order.type";
 import SellerSearchModal from "./SellerSearchModal";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import { toast } from "react-toastify";
 
 interface NewSaleOrderProps {
-    onClose: () => void;
-    onSaveSuccess: (id?: string, order?: Order) => void;
+    onClose?: () => void;
+    onSaveSuccess?: (id?: string, order?: Order) => void;
     initialDeliveryMethod?: 'delivery' | 'pickup';
     orderType?: Order['orderType'];
     initialOrder?: Order;
 }
 
-const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType = 'sale', initialOrder }: NewSaleOrderProps) => {
+const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, initialDeliveryMethod, orderType: propOrderType, initialOrder }: NewSaleOrderProps) => {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+
+    const orderType = propOrderType || (searchParams.get("type") as Order["orderType"]) || "sale";
+    const onClose = propOnClose || (() => navigate("/sales-order"));
+    const onSaveSuccess = propOnSaveSuccess || (() => {
+        toast.success("Pedido salvo com sucesso!");
+        navigate("/sales-order");
+    });
+
     const form = useSalesOrderForm(initialDeliveryMethod, orderType);
     const isBudget = orderType === 'budget';
     const isReturn = orderType === 'return';
@@ -26,11 +38,127 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
     const sellerRef = React.useRef<HTMLButtonElement>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
+    const [isCustomerRegistrationOpen, setIsCustomerRegistrationOpen] = React.useState(false);
+    const [pendingCustomerData, setPendingCustomerData] = React.useState<any>(null);
+    const [pendingOrderData, setPendingOrderData] = React.useState<any>(null);
+
+    const applyOrderData = useCallback((order: any) => {
+        if (order.seller) {
+            form.actions.setSeller(order.seller);
+        }
+        if (order.observation) {
+            form.actions.setObservation(order.observation);
+        }
+        if (order.date) {
+            form.actions.setOrderDate(parseStorageDateToLocal(order.date));
+        }
+        if (order.shipping) {
+            form.actions.setShipping(prev => ({
+                ...prev,
+                deliveryMethod: order.shipping.deliveryMethod || prev.deliveryMethod,
+                value: typeof order.shipping.value === 'number' ? order.shipping.value : prev.value,
+                scheduling: order.shipping.scheduling ? {
+                    notInformed: !!order.shipping.scheduling.notInformed,
+                    dateType: order.shipping.scheduling.dateType || "fixed",
+                    date: order.shipping.scheduling.date || "",
+                    endDate: order.shipping.scheduling.endDate || "",
+                    type: order.shipping.scheduling.type || "fixed",
+                    time: order.shipping.scheduling.time || "",
+                    startTime: order.shipping.scheduling.startTime || "",
+                    endTime: order.shipping.scheduling.endTime || ""
+                } : prev.scheduling
+            }));
+        }
+        if (order.items && Array.isArray(order.items)) {
+            const mappedItems = order.items.map((item: any) => ({
+                productId: item.productId || undefined,
+                variationId: item.variationId || undefined,
+                code: item.code || "",
+                description: item.description || "",
+                unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+                quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+                costPrice: typeof item.costPrice === 'number' ? item.costPrice : 0,
+                condition: item.condition || "novo",
+                handlingType: item.handlingType || ""
+            }));
+            form.actions.setItems(mappedItems);
+        }
+        if (order.payments && Array.isArray(order.payments)) {
+            const mappedPayments = order.payments.map((pay: any) => ({
+                method: pay.method || "",
+                amount: typeof pay.amount === 'number' ? pay.amount : 0,
+                status: pay.status || ""
+            }));
+            form.actions.setPayments(mappedPayments);
+        }
+    }, [form.actions]);
+
+    const handleLoadJSON = useCallback((jsonData: any) => {
+        try {
+            if (!jsonData || typeof jsonData !== 'object') {
+                toast.error("JSON inválido.");
+                return;
+            }
+
+            if (jsonData.client) {
+                const clientData = jsonData.client;
+                const personObj: any = {
+                    personType: clientData.personType || "PF",
+                    fullName: clientData.fullName || "",
+                    cpfCnpj: clientData.cpfCnpj || "",
+                    phone: clientData.phone || "",
+                    email: clientData.email || "",
+                    noPhone: clientData.noPhone !== undefined ? !!clientData.noPhone : false,
+                    marketingOrigin: clientData.marketingOrigin || "organic",
+                    fullAddress: {
+                        cep: clientData.fullAddress?.cep || "",
+                        street: clientData.fullAddress?.street || "",
+                        number: clientData.fullAddress?.number || "",
+                        neighborhood: clientData.fullAddress?.neighborhood || "",
+                        city: clientData.fullAddress?.city || "",
+                        state: clientData.fullAddress?.state || "",
+                        complement: clientData.fullAddress?.complement || "",
+                        observation: clientData.fullAddress?.observation || ""
+                    },
+                    noAddress: clientData.noAddress !== undefined ? !!clientData.noAddress : false
+                };
+
+                setPendingCustomerData(personObj);
+                if (jsonData.order) {
+                    setPendingOrderData(jsonData.order);
+                } else {
+                    setPendingOrderData(null);
+                }
+                setIsCustomerRegistrationOpen(true);
+                toast.info("Cliente identificado no JSON. Confirme o cadastro do cliente primeiro.");
+            } else if (jsonData.order) {
+                applyOrderData(jsonData.order);
+                toast.success("Pedido preenchido com sucesso via JSON!");
+            } else {
+                applyOrderData(jsonData);
+                toast.success("Pedido preenchido com sucesso via JSON!");
+            }
+        } catch (err: any) {
+            toast.error("Erro ao carregar JSON: " + err.message);
+        }
+    }, [applyOrderData]);
+
     React.useEffect(() => {
         if (initialOrder) {
             form.actions.loadOrderForEditing(initialOrder);
+        } else if (searchParams.get("duplicate") === "true") {
+            const dupData = sessionStorage.getItem("pdv_duplicate_order");
+            if (dupData) {
+                try {
+                    const parsed = JSON.parse(dupData);
+                    form.actions.loadOrderForEditing(parsed);
+                    sessionStorage.removeItem("pdv_duplicate_order");
+                } catch (e) {
+                    console.error("Erro ao carregar pedido duplicado:", e);
+                }
+            }
         }
-    }, [initialOrder, form.actions]);
+    }, [initialOrder, searchParams, form.actions]);
 
     React.useEffect(() => {
         const el = scrollContainerRef.current;
@@ -63,155 +191,215 @@ const NewSaleOrder = ({ onClose, onSaveSuccess, initialDeliveryMethod, orderType
         return result;
     }, [form.actions, form.state.currentOrder, onSaveSuccess, onClose]);
 
-    return (
+    const isPageRoute = !propOnClose;
+
+    const renderContent = () => (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-10 bg-slate-900/60 backdrop-blur-md animate-fade-in"
-            onClick={onClose}
+            className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl w-full h-full md:w-[98vw] md:h-[96vh] rounded-none md:rounded-[3.5rem] shadow-premium-lg flex flex-col overflow-hidden animate-reveal border-0 md:border md:border-white/20 dark:md:border-slate-800"}
+            onClick={(e) => e.stopPropagation()}
         >
-            <div
-                className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl w-full h-full md:w-[98vw] md:h-[96vh] rounded-none md:rounded-[3.5rem] shadow-premium-lg flex flex-col overflow-hidden animate-reveal border-0 md:border md:border-white/20 dark:md:border-slate-800"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Modal Header */}
-                <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-wrap justify-between items-center shrink-0 ${isScrolled ? 'px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'px-12 py-7 bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'px-12 py-7 bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'px-12 py-7 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-12 py-7 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
-                    <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setIsScrolled(false)}>
-                        <div className={`flex items-center justify-center rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
-                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-lg' : 'text-2xl'}`} />
+            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col xl:flex-row justify-between items-center gap-3 shrink-0 ${isScrolled ? 'px-3 py-1.5 sm:px-6 sm:py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'px-3 py-2 sm:px-6 sm:py-3 bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'px-3 py-2 sm:px-6 sm:py-3 bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'px-3 py-2 sm:px-6 sm:py-3 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-3 py-2 sm:px-6 sm:py-3 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
+                <div className="flex w-full xl:w-auto justify-between items-center">
+                    <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer" onClick={() => setIsScrolled(false)}>
+                        <div className={`flex items-center justify-center rounded-xl sm:rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-8 h-8 sm:w-9 sm:h-9' : 'w-8 h-8 sm:w-10 sm:h-10 lg:w-11 lg:h-11'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
+                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-xs sm:text-base' : 'text-sm sm:text-lg lg:text-xl'}`} />
                         </div>
                         <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95 overflow-hidden' : 'opacity-100 scale-100'}`}>
-                            <h2 className={`text-2xl font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
-                                {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova Devolução' : 'Novo Pedido de Venda'}
+                            <h2 className={`text-sm sm:text-base md:text-lg lg:text-xl font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
+                                {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova Devolução' : 'Novo Pedido'}
                             </h2>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-blue-500 transition-colors">
+                            <p className="text-[7px] sm:text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 group-hover:text-blue-500 transition-colors">
                                 {isBudget ? 'Simulação de Venda' : isReturn ? 'Devolução de Itens' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
                             </p>
                         </div>
                     </div>
 
-                    <div className={`flex-1 transition-all duration-500 min-w-full lg:min-w-0 order-last lg:order-none mt-4 lg:mt-0 ${isScrolled ? 'max-w-xl mx-4' : 'max-w-2xl mx-6 lg:mx-12'}`}>
-                        <OrderStepper 
-                            currentStep={form.state.currentStep} 
-                            jumpToStep={form.actions.jumpToStep} 
-                            errors={form.state.errors}
-                            isBudget={isBudget}
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* Compact Seller Selection for Scrolled State */}
-                        <div className={`flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-100 dark:border-slate-800 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'opacity-100 translate-x-0' : 'hidden'}`}>
-                            <button 
-                                ref={sellerRef}
-                                onClick={() => setIsSellerSearchOpen(true)}
-                                className="flex items-center gap-3 px-3 py-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-600"
-                            >
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isPickup ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                    <i className="bi bi-person-badge-fill text-xs" />
-                                </div>
-                                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
-                                    {form.state.seller || "Vendedor"}
-                                </span>
-                            </button>
-                        </div>
-
-                        {/* Full Seller & Date Section for Expanded State */}
-                        <div className={`xl:flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-1.5 gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm ${isScrolled ? 'hidden' : 'hidden xl:flex'}`}>
-                            {/* Seller Selection */}
-                            <button 
-                                ref={sellerRef}
-                                onClick={() => setIsSellerSearchOpen(true)}
-                                className="group flex items-center gap-4 px-5 py-2 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
-                            >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
-                                    <i className="bi bi-person-badge-fill text-lg" />
-                                </div>
-                                <div className="flex flex-col text-left">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5 group-hover:text-blue-500 transition-colors">Vendedor</span>
-                                    <span className={`text-xs font-black uppercase tracking-widest ${form.state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
-                                        {form.state.seller || "Selecionar..."}
-                                    </span>
-                                </div>
-                            </button>
-
-                            <div className="w-[1px] h-8 bg-slate-100 dark:bg-slate-800 mx-1" />
-
-                            {/* Date Selection */}
-                            <div className="group flex items-center gap-4 px-5 py-2">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
-                                    <i className="bi bi-calendar-event-fill text-lg" />
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] mb-0.5">Data</span>
-                                    <input
-                                        type="datetime-local"
-                                        value={form.state.orderDate}
-                                        onChange={(e) => form.actions.setOrderDate?.(e.target.value)}
-                                        className="bg-transparent border-0 p-0 focus:ring-0 text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={`flex items-center gap-2 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
+                    <div className="flex xl:hidden items-center gap-2">
+                        <div className={`flex items-center gap-1.5 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
                             <button
                                 type="button"
                                 onClick={handleSave}
                                 disabled={form.state.isSaving}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
                             >
-                                {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
-                                {isBudget ? 'Salvar Orçamento' : isReturn ? 'Salvar Devolução' : 'Cadastrar Venda'}
+                                {form.state.isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
+                                {isBudget ? 'Salvar' : isReturn ? 'Salvar' : 'Cadastrar'}
                             </button>
                         </div>
-
                         <button
+                            type="button"
                             onClick={onClose}
-                            className={`flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`}
+                            className="flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9"
                         >
-                            <i className={`bi bi-x-lg ${isScrolled ? 'text-md' : 'text-xl'}`} />
+                            <i className="bi bi-x-lg text-xs sm:text-sm" />
                         </button>
                     </div>
                 </div>
 
-                {isSellerSearchOpen && (
-                    <SellerSearchModal 
-                        anchorRef={sellerRef}
-                        onSelect={(name) => form.actions.setSeller(name)}
-                        onClose={() => setIsSellerSearchOpen(false)}
-                        onAddNew={() => {
-                            setIsSellerSearchOpen(false);
-                            setIsSellerRegistrationOpen(true);
-                        }}
+                <div className={`transition-all duration-500 w-full xl:w-auto xl:flex-1 ${isScrolled ? 'max-w-xl mx-2 sm:mx-4' : 'max-w-xl mx-2 sm:mx-4 lg:mx-8'}`}>
+                    <OrderStepper 
+                        currentStep={form.state.currentStep} 
+                        jumpToStep={form.actions.jumpToStep} 
+                        errors={form.state.errors}
+                        isBudget={isBudget}
                     />
-                )}
+                </div>
 
-                <PersonFormModal
-                    isOpen={isSellerRegistrationOpen}
-                    onClose={() => setIsSellerRegistrationOpen(false)}
-                    collectionName="employees"
-                    title="Vendedor"
-                    onSuccess={(newSeller) => {
-                        form.actions.setSeller(newSeller.nickname || newSeller.fullName);
-                        setIsSellerRegistrationOpen(false);
-                    }}
-                />
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full xl:w-auto justify-center xl:justify-end">
+                    <div className={`flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-100 dark:border-slate-800 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'opacity-100 translate-x-0' : 'hidden'}`}>
+                        <button 
+                            ref={sellerRef}
+                            onClick={() => setIsSellerSearchOpen(true)}
+                            className="flex items-center gap-2 px-2 py-1 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-600"
+                        >
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${isPickup ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                <i className="bi bi-person-badge-fill text-[10px]" />
+                            </div>
+                            <span className="text-[9px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[100px]">
+                                {form.state.seller || "Vendedor"}
+                            </span>
+                        </button>
+                    </div>
 
-                {/* Modal Content - Internal Scroll handled by PdvFormSection */}
-                <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900">
-                    <SalesOrderFormSection 
-                        scrollRef={scrollContainerRef}
-                        form={{
-                            ...form,
-                            actions: {
-                                ...form.actions,
-                                handleSaveOrder: handleSave,
-                                handleCompleteOrder: handleComplete
-                            }
-                        }} 
-                    />
+                    <div className={`flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-0.5 sm:p-1 gap-1 sm:gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'hidden' : 'flex'}`}>
+                        <button 
+                            ref={sellerRef}
+                            onClick={() => setIsSellerSearchOpen(true)}
+                            className="group flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-4 sm:py-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
+                        >
+                            <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
+                                <i className="bi bi-person-badge-fill text-xs sm:text-base" />
+                            </div>
+                            <div className="flex flex-col text-left">
+                                <span className="text-[7px] sm:text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider sm:tracking-[0.15em] mb-0.5 group-hover:text-blue-500 transition-colors">Vendedor</span>
+                                <span className={`text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest ${form.state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
+                                    {form.state.seller || "Selecionar..."}
+                                </span>
+                            </div>
+                        </button>
+
+                        <div className="w-[1px] h-6 sm:h-8 bg-slate-100 dark:bg-slate-800 mx-0.5 sm:mx-1" />
+
+                        <div className="group flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-4 sm:py-1.5">
+                            <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
+                                <i className="bi bi-calendar-event-fill text-xs sm:text-base" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[7px] sm:text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider sm:tracking-[0.15em] mb-0.5">Data</span>
+                                <input
+                                    type="datetime-local"
+                                    value={form.state.orderDate}
+                                    onChange={(e) => form.actions.setOrderDate?.(e.target.value)}
+                                    className="bg-transparent border-0 p-0 focus:ring-0 text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
+                        <button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={form.state.isSaving}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
+                        >
+                            {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
+                            {isBudget ? 'Salvar' : isReturn ? 'Salvar' : 'Cadastrar'}
+                        </button>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`hidden xl:flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9`}
+                    >
+                        <i className="bi bi-x-lg text-xs sm:text-base" />
+                    </button>
                 </div>
             </div>
 
+            {isSellerSearchOpen && (
+                <SellerSearchModal
+                    anchorRef={sellerRef}
+                    onSelect={(name) => form.actions.setSeller(name)}
+                    onClose={() => setIsSellerSearchOpen(false)}
+                    onAddNew={() => {
+                        setIsSellerSearchOpen(false);
+                        setIsSellerRegistrationOpen(true);
+                    }}
+                />
+            )}
+
+            <PersonFormModal
+                isOpen={isSellerRegistrationOpen}
+                onClose={() => setIsSellerRegistrationOpen(false)}
+                collectionName="employees"
+                title="Vendedor"
+                onSuccess={(newSeller) => {
+                    form.actions.setSeller(newSeller.nickname || newSeller.fullName);
+                    setIsSellerRegistrationOpen(false);
+                }}
+            />
+
+            <PersonFormModal
+                isOpen={isCustomerRegistrationOpen}
+                onClose={() => setIsCustomerRegistrationOpen(false)}
+                collectionName="customers"
+                title="Cliente"
+                person={pendingCustomerData}
+                onSuccess={(person) => {
+                    form.actions.setCustomerData({
+                        id: person.id,
+                        fullName: person.fullName || person.tradeName || '',
+                        phone: person.phone || '',
+                        noPhone: person.noPhone || false,
+                        fullAddress: person.fullAddress || {
+                            cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', observation: ''
+                        },
+                        additionalContacts: person.additionalContacts || [],
+                    });
+                    if (person.marketingOrigin) {
+                        form.actions.setMarketingOrigin(person.marketingOrigin);
+                    }
+                    setIsCustomerRegistrationOpen(false);
+                    if (pendingOrderData) {
+                        applyOrderData(pendingOrderData);
+                    }
+                    toast.success("Cliente cadastrado e pedido preenchido com sucesso via JSON!");
+                }}
+            />
+
+            <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900">
+                <SalesOrderFormSection 
+                    scrollRef={scrollContainerRef}
+                    form={{
+                        ...form,
+                        actions: {
+                            ...form.actions,
+                            handleSaveOrder: handleSave,
+                            handleCompleteOrder: handleComplete
+                        }
+                    }} 
+                    onLoadJSON={handleLoadJSON}
+                />
+            </div>
+        </div>
+    );
+
+    if (isPageRoute) {
+        return (
+            <div className="w-full h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden">
+                {renderContent()}
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-10 bg-slate-900/60 backdrop-blur-md animate-fade-in"
+            onClick={onClose}
+        >
+            {renderContent()}
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
