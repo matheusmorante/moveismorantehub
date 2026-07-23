@@ -48,6 +48,7 @@ const processOrders = (
 
     const tasks: any[] = [];
     orders.forEach((o) => {
+        if (o.deleted) return;
         const isAssistance = o.orderType === 'assistance';
         const isShowroom = o.orderType === 'showroom';
         const isBudget = o.orderType === 'budget';
@@ -55,7 +56,7 @@ const processOrders = (
 
         if (!isAssistance && !isShowroom) {
             if (o.status !== 'scheduled' && o.status !== 'fulfilled' && o.status !== 'draft') return;
-        } else if (o.deleted) return;
+        }
 
         const rawDateStr = isAssistance
             ? (o as any).scheduledDate || o.shipping?.scheduling?.date

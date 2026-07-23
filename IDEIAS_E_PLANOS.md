@@ -93,6 +93,10 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - **Instruções de Prompt de IA Embutidas:** Inclusão de uma caixa de texto interativa e recolhível dentro do modal de ajuda contendo o prompt do sistema para orientar IAs externas a formatar as informações conforme as regras do ERP (ex: status de pagamento obrigatório com opções `"Pago"`, `"Pendente"` ou `"Verificar"`).
 - **Vínculo Automatizado de Clientes:** Se o JSON contiver a chave `client`, o ERP abre primeiramente o formulário de cadastro de cliente (`PersonFormModal` com `collectionName="customers"`) pré-populado, associando-o ao pedido imediatamente após a confirmação. Caso contrário, preenche apenas os campos de pedido e itens.
 
+#### 🔧 Correção de Rascunhos Importados via JSON e Filtro do Cronograma
+- **Restauração de Rascunhos Deletados:** Corrigida a marcação indevida de pedidos importados via JSON como excluídos (`deleted: true`), impossibilitando a exibição na lista de pedidos ativa. Foram reativados os pedidos do Matheus Morante e da Francine Franco no Supabase.
+- **Filtro de Itens Deletados no Cronograma:** Corrigido bug no hook `useDeliverySchedule.ts` que deixava de filtrar pedidos excluídos do Cronograma Logístico para os tipos "venda" e "retirada".
+
 ### Concluído Recentemente (Maio 2026)
 
 #### 💳 Gestão de Pagamentos
