@@ -96,6 +96,7 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 #### 🔧 Correção de Rascunhos Importados via JSON e Filtro do Cronograma
 - **Restauração de Rascunhos Deletados:** Corrigida a marcação indevida de pedidos importados via JSON como excluídos (`deleted: true`), impossibilitando a exibição na lista de pedidos ativa. Foram reativados os pedidos do Matheus Morante e da Francine Franco no Supabase.
 - **Filtro de Itens Deletados no Cronograma:** Corrigido bug no hook `useDeliverySchedule.ts` que deixava de filtrar pedidos excluídos do Cronograma Logístico para os tipos "venda" e "retirada".
+- **Garantia de Estado Ativo na Duplicação/Importação:** Correção definitiva do bug que trazia as flags `deleted` e `deletedAt` de pedidos de origem da lixeira (ou JSONs desatualizados) ao duplicá-los ou gerá-los a partir de rascunhos antigos, deixando o pedido novo invisível na listagem principal mas ativo no Cronograma. Agora todas as duplicações/gravações de novos pedidos explicitamente limpam e resetam as chaves de exclusão.
 
 ### Concluído Recentemente (Maio 2026)
 

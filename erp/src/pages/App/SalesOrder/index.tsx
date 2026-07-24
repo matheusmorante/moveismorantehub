@@ -132,26 +132,28 @@ const SalesOrder = () => {
         if (key === 'generateReturn') {
             setReturningOrder(order);
         } else if (key === 'duplicateOrder') {
-            if (order.orderType === 'assistance') {
+            const { deleted, deletedAt, ...cleanOrder } = order;
+            if (cleanOrder.orderType === 'assistance') {
                 setDuplicatingOrder({
-                    ...order,
+                    ...cleanOrder,
                     id: undefined,
                     status: 'draft',
                     date: new Date().toISOString()
                 });
             } else {
                 const duplicated = {
-                    ...order,
+                    ...cleanOrder,
                     id: undefined,
                     status: 'draft' as const,
                     date: new Date().toISOString()
                 };
                 sessionStorage.setItem("pdv_duplicate_order", JSON.stringify(duplicated));
-                navigate(`/sales-order/new?type=${order.orderType || 'sale'}&duplicate=true`);
+                navigate(`/sales-order/new?type=${cleanOrder.orderType || 'sale'}&duplicate=true`);
             }
         } else if (key === 'generateSaleFromBudget') {
+            const { deleted, deletedAt, ...cleanOrder } = order;
             const duplicated = {
-                ...order,
+                ...cleanOrder,
                 id: undefined,
                 status: 'draft' as const,
                 orderType: 'sale' as const,

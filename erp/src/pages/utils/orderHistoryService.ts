@@ -149,6 +149,8 @@ export const saveOrder = async (order: Order): Promise<string> => {
     try {
         const orderToSave = { ...order };
         delete orderToSave.id;
+        orderToSave.deleted = false;
+        orderToSave.deletedAt = null;
 
         // Se o cliente não tem ID, mas tem nome e não é Consumidor Final, vamos cadastrá-lo no CRM.
         if (orderToSave.customerData && !orderToSave.customerData.id && orderToSave.customerData.fullName && orderToSave.customerData.fullName.toLowerCase().trim() !== 'consumidor final') {
