@@ -77,7 +77,7 @@ const OrderPage = () => {
                 {isBudget && (
                     <div className="flex items-center gap-2">
                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-500">Validade:</span>
-                        <span className="text-sm font-black text-slate-800 ml-1">7 DIAS CORRIDOS</span>
+                        <span className="text-sm font-black text-slate-800 ml-1">7 DIAS CORRIDOS APÓS A DATA DE EMISSÃO</span>
                     </div>
                 )}
             </div>
@@ -114,9 +114,11 @@ const OrderPage = () => {
             <div className={`grid ${showShippingColumn ? 'grid-cols-2' : 'grid-cols-1'} gap-4 mt-6 pt-4 border-t-2 border-slate-100`}>
                 {showShippingColumn && (
                     <div className="space-y-2">
-                        <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">
-                            {isBudget ? 'LOGÍSTICA PREVISTA' : `DETALHES DA ${isPickup ? 'RETIRADA' : 'ENTREGA'}`}
-                        </div>
+                        {!isBudget && (
+                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">
+                                {isPickup ? 'DETALHES DA RETIRADA' : 'DETALHES DA ENTREGA'}
+                            </div>
+                        )}
                         <div className="bg-white rounded-3xl overflow-hidden">
                             <ShippingData 
                                 shipping={order.shipping} 
