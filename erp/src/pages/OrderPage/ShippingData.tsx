@@ -6,9 +6,10 @@ const NumericFormat = NumericFormatBase as any;
 interface Props {
     shipping: Shipping;
     isBudget?: boolean;
+    itemsTotalValue?: number;
 }
 
-const ShippingData = ({ shipping, isBudget }: Props) => {
+const ShippingData = ({ shipping, isBudget, itemsTotalValue }: Props) => {
     const shippingDate = shipping.scheduling?.date;
 
     return (
@@ -56,6 +57,24 @@ const ShippingData = ({ shipping, isBudget }: Props) => {
                         </span>
                     )}
                 </div>
+
+                {isBudget && itemsTotalValue !== undefined && (
+                    <div className="flex justify-between items-center bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100 mt-2 print-exact-bg">
+                        <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">Valor Total (c/ Frete)</span>
+                        <span className="font-black text-indigo-900 text-lg">
+                            <NumericFormat
+                                value={itemsTotalValue + (shipping.value || 0)}
+                                allowNegative={false}
+                                thousandSeparator="."
+                                prefix={"R$ "}
+                                decimalScale={2}
+                                decimalSeparator=","
+                                displayType="text"
+                                fixedDecimalScale
+                            />
+                        </span>
+                    </div>
+                )}
             </div>
 
             {!isBudget && (
