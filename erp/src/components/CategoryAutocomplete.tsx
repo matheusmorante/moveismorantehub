@@ -36,6 +36,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
 
     useEffect(() => {
         const fetchAll = async () => {
+            setIsLoading(true);
             const { data: cats } = await supabase.from('categories').select('id, name').order('name');
             const { data: rels } = await supabase.from('category_relationships').select('child_id, parent_id');
             
@@ -46,8 +47,16 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                 }));
                 setAllCategories(mapped);
             }
+            setIsLoading(false);
         };
+        
         fetchAll();
+
+        // Recarregar sempre que a janela recuperar o foco (ex: o usuário volta da aba de gerenciar categorias)
+        window.addEventListener('focus', fetchAll);
+        return () => {
+            window.removeEventListener('focus', fetchAll);
+        };
     }, []);
 
     useEffect(() => {

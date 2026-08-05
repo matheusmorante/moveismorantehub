@@ -46,102 +46,114 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
     onEditCombo?: (id: string) => void,
     onEdit?: (id: string) => void,
     parentTitle?: string
-}) => (
-    <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
-        <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
-            <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => updateVariation(v.id, 'syncDescription', !v.syncDescription)}
-                    className={`p-1 rounded-md transition-colors ${v.syncDescription ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
-                    title="Herdar título do pai"
-                >
-                    <i className={`bi ${v.syncDescription ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
-                </button>
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
-                    <input
-                        value={v.name || ''}
+}) => {
+    const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
 
-                        readOnly
-                        className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default"
-                        placeholder="VARIAÇÃO GERADA"
+    return (
+        <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
+            <td className="px-6 py-4">
+                <div className="relative h-10 w-10 rounded-xl border overflow-hidden bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                    {varImage ? (
+                        <img src={varImage} alt="Variação" className="object-cover h-full w-full" />
+                    ) : (
+                        <i className="bi bi-image text-slate-300 text-lg"></i>
+                    )}
+                </div>
+            </td>
+            <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => updateVariation(v.id, 'syncDescription', !v.syncDescription)}
+                        className={`p-1 rounded-md transition-colors ${v.syncDescription ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
+                        title="Herdar título do pai"
+                    >
+                        <i className={`bi ${v.syncDescription ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
+                    </button>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
+                        <input
+                            value={v.name || ''}
+                            readOnly
+                            className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans"
+                            placeholder="VARIAÇÃO GERADA"
+                        />
+                    </div>
+                </div>
+            </td>
+
+            <td className="px-6 py-4">
+                <input
+                    value={v.sku || ''}
+                    readOnly
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent cursor-default opacity-80"
+                    placeholder="SKU"
+                />
+            </td>
+            <td className="px-6 py-4">
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => updateVariation(v.id, 'syncUnitPrice', !v.syncUnitPrice)}
+                        className={`p-1 rounded-md transition-colors ${v.syncUnitPrice ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
+                        title="Sincronizar preço com pai"
+                    >
+                        <i className={`bi ${v.syncUnitPrice ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
+                    </button>
+                    <input
+                        type="number"
+                        value={v.unitPrice}
+                        disabled={v.syncUnitPrice}
+                        onChange={(e) => updateVariation(v.id, 'unitPrice', parseFloat(e.target.value))}
+                        className={`bg-transparent border-none outline-none text-sm font-black w-24 ${v.syncUnitPrice ? 'text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}
                     />
                 </div>
-            </div>
-        </td>
-
-        <td className="px-6 py-4">
-            <input
-                value={v.sku || ''}
-                readOnly
-                className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent cursor-default opacity-80"
-                placeholder="SKU"
-            />
-        </td>
-        <td className="px-6 py-4">
-            <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => updateVariation(v.id, 'syncUnitPrice', !v.syncUnitPrice)}
-                    className={`p-1 rounded-md transition-colors ${v.syncUnitPrice ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
-                    title="Sincronizar preço com pai"
-                >
-                    <i className={`bi ${v.syncUnitPrice ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
-                </button>
+            </td>
+            <td className="px-6 py-4">
+                <div className="flex items-center gap-2">
+                    <input
+                        type="number"
+                        value={v.costPrice}
+                        readOnly
+                        title="O preço de custo é definido pelas entradas de estoque"
+                        className="bg-transparent border-none outline-none text-sm font-medium w-24 text-slate-400 cursor-not-allowed"
+                    />
+                </div>
+            </td>
+            <td className="px-6 py-4">
                 <input
                     type="number"
-                    value={v.unitPrice}
-                    disabled={v.syncUnitPrice}
-                    onChange={(e) => updateVariation(v.id, 'unitPrice', parseFloat(e.target.value))}
-                    className={`bg-transparent border-none outline-none text-sm font-black w-24 ${v.syncUnitPrice ? 'text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}
+                    value={v.stock}
+                    onChange={(e) => updateVariation(v.id, 'stock', parseInt(e.target.value) || 0)}
+                    className="bg-slate-100 dark:bg-slate-800 border-none outline-none text-xs font-bold w-16 px-2 py-1 rounded-lg dark:text-slate-200"
                 />
-            </div>
-        </td>
-        <td className="px-6 py-4">
-            <div className="flex items-center gap-2">
-                <input
-                    type="number"
-                    value={v.costPrice}
-                    readOnly
-                    title="O preço de custo é definido pelas entradas de estoque"
-                    className="bg-transparent border-none outline-none text-sm font-medium w-24 text-slate-400 cursor-not-allowed"
-                />
-            </div>
-        </td>
-        <td className="px-6 py-4">
-            <input
-                type="number"
-                value={v.stock}
-                onChange={(e) => updateVariation(v.id, 'stock', parseInt(e.target.value) || 0)}
-                className="bg-slate-100 dark:bg-slate-800 border-none outline-none text-xs font-bold w-16 px-2 py-1 rounded-lg dark:text-slate-200"
-            />
-        </td>
-        <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-            {isCombo && (
+            </td>
+            <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                {isCombo && (
+                    <button
+                        type="button"
+                        onClick={() => onEditCombo?.(v.id)}
+                        className={`p-1.5 rounded-xl transition-all ${v.comboItems?.length ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600'}`}
+                        title="Configurar itens deste kit/combo"
+                    >
+                        <i className="bi bi-layers-fill text-lg"></i>
+                    </button>
+                )}
                 <button
                     type="button"
-                    onClick={() => onEditCombo?.(v.id)}
-                    className={`p-1.5 rounded-xl transition-all ${v.comboItems?.length ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600'}`}
-                    title="Configurar itens deste kit/combo"
+                    onClick={() => onEdit?.(v.id)}
+                    className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600"
+                    title="Editar detalhes da variação"
                 >
-                    <i className="bi bi-layers-fill text-lg"></i>
+                    <i className="bi bi-pencil-square text-lg"></i>
                 </button>
-            )}
-            <button
-                type="button"
-                onClick={() => onEdit?.(v.id)}
-                className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600"
-                title="Editar detalhes da variação"
-            >
-                <i className="bi bi-pencil-square text-lg"></i>
-            </button>
-            <button onClick={() => removeVariation(v.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
-                <i className="bi bi-trash"></i>
-            </button>
-        </td>
-    </tr>
-));
+                <button onClick={() => removeVariation(v.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                    <i className="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    );
+});
 
 const INITIAL_FORM_DATA: Partial<Product> = {
     description: "",
@@ -252,8 +264,15 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             } else if (product) {
                 setFormData({ ...INITIAL_FORM_DATA, ...product });
             } else {
-                // If creating new, start with INITIAL_FORM_DATA then apply initialData
-                setFormData({ ...INITIAL_FORM_DATA, ...initialData });
+                // If creating new, start with INITIAL_FORM_DATA then apply initialData, and auto-generate ID and SKU (code)
+                const generatedId = String(Math.floor(Date.now() + Math.random() * 1000));
+                const generatedSku = 'PRD-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+                setFormData({
+                    ...INITIAL_FORM_DATA,
+                    id: generatedId,
+                    code: generatedSku,
+                    ...initialData
+                });
             }
             setActiveTab('geral');
         };
@@ -743,25 +762,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         const missing: string[] = [];
         if (!data.description) missing.push("Título do Produto");
         
-        // Ecommerce Content
-        if (!data.ecommerceDescription) missing.push("Descrição E-commerce (Aba Marketplace)");
-        if (!data.whatsappDescription) missing.push("Descrição WhatsApp (Aba Marketplace)");
-        
-        // Characteristics
-        if (!data.brand && !data.noBrand) missing.push("Marca / Fabricante (ou marque 'Não Contém')");
-        if (!data.line && !data.hasNoLine) missing.push("Modelo / Linha (ou marque 'Não Contém')");
-        if (!data.material) missing.push("Material");
-        
         // SupplyChain / Financial
         if (!data.mainSupplierId) missing.push("Fornecedor Principal (Aba Estoque)");
         if (!data.costPrice || data.costPrice <= 0) missing.push("Preço de Custo (Aba Estoque/Geral)");
         if (!data.unitPrice || data.unitPrice <= 0) missing.push("Preço de Venda (Aba Geral)");
-        
-        // Visual
-        if (!data.images || data.images.length === 0) missing.push("Pelo menos uma Foto (Aba Marketplace)");
-        
-        // Logistics / Dimensions
-        if (!data.weight || data.weight <= 0) missing.push("Peso Bruto (Aba Marketplace)");
         
         return missing;
     };
@@ -882,9 +886,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={handleCloseWithAutoSave} />
             
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-[96vw] h-[96vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
+            <div className="relative bg-white dark:bg-slate-900 w-full max-w-[96vw] h-[96vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
                 {/* Header */}
-                <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
+                <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
                     <div>
                         <div className="flex items-center gap-3">
                             <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-600">
@@ -892,30 +896,28 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             </span>
                             <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">v2.5 Refined</span>
                         </div>
-                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-2 tracking-tight">
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tight">
                             {product ? 'Editar Cadastro' : 'Novo Cadastro no Catálogo'}
                         </h2>
                     </div>
-                    <button onClick={handleCloseWithAutoSave} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                        <i className="bi bi-x-lg text-xl"></i>
+                    <button onClick={handleCloseWithAutoSave} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                        <i className="bi bi-x-lg text-lg"></i>
                     </button>
                 </div>
 
                 {/* Tabs Navigation */}
-                <div className="px-10 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10">
-                    <div className="flex gap-10">
+                <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
+                    <div className="flex gap-6 min-w-max">
                         {([
                             { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
-                            { id: 'ambientes', label: 'Ambientes', icon: 'bi-house' },
                             !isService && { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
                             !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
-                            !isService && { id: 'ecommerce', label: 'Fotos do Produto', icon: 'bi-images' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ] as any[]).filter(Boolean).map((tab: any) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`py-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
                             >
                                 <i className={`bi ${tab.icon}`}></i>
                                 {tab.label}
@@ -925,7 +927,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
                     {activeTab === 'geral' && (
                         <ProductGeneralTab
                             onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
@@ -939,47 +941,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         />
                     )}
 
-                    {activeTab === 'ambientes' && (
-                        <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="md:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center text-xl">
-                                        <i className="bi bi-house"></i>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Ambientes</h3>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Onde este produto será utilizado?</p>
-                                    </div>
-                                </div>
-                                
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Selecione um ou mais ambientes <span className="text-red-500">*</span></label>
-                                <CategoryAutocomplete
-                                    filter="environments"
-                                    selectedIds={formData.categoryIds || []}
-                                    onSelect={(cat) => {
-                                        setFormData(prev => {
-                                            const ids = prev.categoryIds || [];
-                                            if (ids.includes(cat.id)) return prev;
-                                            return { ...prev, categoryIds: [...ids, cat.id] };
-                                        });
-                                    }}
-                                    onRemove={(id) => {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            categoryIds: prev.categoryIds?.filter(i => i !== id) || []
-                                        }));
-                                    }}
-                                    placeholder="Buscar ambiente... (Ex: Sala de Jantar, Cozinha)"
-                                />
 
-                                <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-950/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">
-                                        As categorias detalhadas (ex: mesas, cadeiras) ficam na aba <span className="text-blue-600">Cadastro Geral</span>.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {activeTab === 'estoque' && (
                         <ProductInventoryTab
@@ -1009,24 +971,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         />
                     )}
 
-                    {activeTab === 'ecommerce' && (
-                        <ProductEcommerceTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            activeEcommerceSubTab={activeEcommerceSubTab}
-                            setActiveEcommerceSubTab={setActiveEcommerceSubTab}
-                            isDraggingPhoto={isDraggingPhoto}
-                            setIsDraggingPhoto={setIsDraggingPhoto}
-                            handleFileChange={handleFileChange}
-                            removingPhoto={removingPhoto}
-                            removePhoto={removePhoto}
-                            handleGenerateAIDescription={handleGenerateAIDescription}
-                            isGeneratingDescription={isGeneratingDescription}
-                            handleGenerateMarketplaceTitle={handleGenerateMarketplaceTitle}
-                            isGeneratingTitle={isGeneratingTitle}
-                            handleToggleActive={handleToggleActive}
-                        />
-                    )}
+
 
                     {activeTab === 'fiscal' && (
                         <ProductFiscalTab
@@ -1039,48 +984,30 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-between gap-3 shrink-0">
-                    <div className="flex items-center">
-                        <div className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${formData.active ? 'bg-emerald-500' : 'bg-slate-300'}`} onClick={handleToggleActive}>
-                            <div className={`w-3 h-3 bg-white rounded-full transition-transform ${formData.active ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </div>
-                        <span className="ml-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Ativo no Catálogo (Anúncios)</span>
-                    </div>
-
-                    <div className="flex gap-3">
-                        {!formData.hasVariations && formData.id && (
-                            <button
-                                type="button"
-                                onClick={() => setIsConversionModalOpen(true)}
-                                className="px-6 py-3 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
-                                title="Transformar este produto simples em um produto com grade de variações"
-                            >
-                                <i className="bi bi-layers-fill"></i> Converter para Variação
-                            </button>
-                        )}
-
+                <div className="p-4 md:p-6 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3 shrink-0">
+                    <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
                         <button
                             onClick={handleCloseWithAutoSave}
-                            className="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                            className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 flex-1 md:flex-initial justify-center"
                         >
-                            <i className="bi bi-pencil-square"></i> Salvar como Rascunho
+                            <i className="bi bi-pencil-square"></i> Salvar Rascunho
                         </button>
 
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95"
+                            className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 flex-1 md:flex-initial text-center"
                         >
-                            Sair sem Salvar
+                            Sair
                         </button>
 
                         <button
                             onClick={() => handleSubmit(false)}
                             disabled={loading}
-                            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-xl shadow-blue-200 dark:shadow-none"
+                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-xl shadow-blue-200 dark:shadow-none w-full md:w-auto justify-center"
                         >
                             {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                             <i className="bi bi-check-circle-fill"></i>
-                            {product ? "Concluir Edição" : "Concluir Cadastro"}
+                            {product ? "Salvar" : "Cadastrar"}
                         </button>
                     </div>
                 </div>

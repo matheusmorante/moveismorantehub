@@ -42,11 +42,43 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
+                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-box-seam mr-1 text-indigo-500"></i> Produtos
+                        </Link>
                         <Link to="/stock/bling" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-clouds-fill mr-1 text-blue-500"></i> Lista do Bling
                         </Link>
                         <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-file-earmark-arrow-up-fill mr-1"></i> Gerenciar Importação
+                        </Link>
+                    </div>
+                )}
+            </div>
+
+            {/* Estoque */}
+            <div
+                className="relative h-full flex items-center"
+                onMouseEnter={() => setActiveMenu('stock')}
+                onMouseLeave={() => setActiveMenu(null)}
+            >
+                <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', false)}>
+                    <i className="bi bi-box-seam-fill"></i>
+                    <span>Estoque</span>
+                    <i className={chevronClass(activeMenu === 'stock')}></i>
+                </button>
+                {activeMenu === 'stock' && (
+                    <div className={dropdownClass}>
+                        <Link to="/stock?tab=balance" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-list-ul mr-1 text-emerald-500"></i> Lista
+                        </Link>
+                        <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-arrow-left-right mr-1 text-emerald-500"></i> Movimentações
+                        </Link>
+                        <Link to="/stock?tab=audit" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-journal-check mr-1 text-emerald-500"></i> Inventário
+                        </Link>
+                        <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
                         </Link>
                     </div>
                 )}

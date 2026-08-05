@@ -53,33 +53,6 @@ const StockPage = () => {
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
                                 Gestão de Estoque
                             </h1>
-                            <div className="flex items-center gap-4 mt-2">
-                                <button
-                                    onClick={() => handleTabChange('balance')}
-                                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'balance' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
-                                >
-                                    Saldo Atual
-                                </button>
-                                <button
-                                    onClick={() => handleTabChange('history')}
-                                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'history' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
-                                >
-                                    Movimentações
-                                </button>
-                                <button
-                                    onClick={() => handleTabChange('audit')}
-                                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'audit' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
-                                >
-                                    Inventário
-                                </button>
-                                <button
-                                    onClick={() => handleTabChange('purchases')}
-                                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all pb-1 border-b-2 ${activeTab === 'purchases' ? 'text-blue-600 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
-                                >
-                                    <i className="bi bi-cart-fill mr-1" />
-                                    Compras
-                                </button>
-                            </div>
                         </div>
                     </div>
 

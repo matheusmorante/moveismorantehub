@@ -60,11 +60,41 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         </button>
                         {activeMenu === 'products' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
+                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-box-seam mr-2 text-indigo-500"></i> Produtos
+                                </Link>
                                 <Link to="/stock/bling" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-clouds-fill mr-2 text-blue-500"></i> Lista do Bling
                                 </Link>
                                 <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-file-earmark-arrow-up-fill mr-2"></i> Gerenciar Importação
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Estoque */}
+                    <div className="flex flex-col">
+                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', false)}>
+                            <div className="flex items-center gap-3">
+                                <i className="bi bi-box-seam-fill text-lg"></i>
+                                <span>Estoque</span>
+                            </div>
+                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
+                        </button>
+                        {activeMenu === 'stock' && (
+                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
+                                <Link to="/stock?tab=balance" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-list-ul mr-2 text-emerald-500"></i> Lista
+                                </Link>
+                                <Link to="/stock?tab=history" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-arrow-left-right mr-2 text-emerald-500"></i> Movimentações
+                                </Link>
+                                <Link to="/stock?tab=audit" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-journal-check mr-2 text-emerald-500"></i> Inventário
+                                </Link>
+                                <Link to="/stock/purchases" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-cart-fill mr-2 text-blue-500"></i> Pedidos de Compra
                                 </Link>
                             </div>
                         )}

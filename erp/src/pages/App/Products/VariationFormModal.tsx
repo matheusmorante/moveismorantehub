@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import Product, { Variation } from '../../types/product.type';
+import Product, { Variation, InitialStockEntry } from '../../types/product.type';
 import { saveVariation } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
-import { generateProductCode } from '@/pages/utils/formatters';
+import { supabase } from '@/pages/utils/supabaseConfig';
 import InitialStockList from './components/InitialStockList';
-import AttributeSelectionModal from './components/AttributeSelectionModal';
-import AttributeManagementModal from './components/AttributeManagementModal';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface VariationFormModalProps {
     isOpen: boolean;
@@ -20,55 +17,276 @@ interface VariationFormModalProps {
 
 const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variation, onSuccess }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
+    const [varStep, setVarStep] = useState(1);
+    
+    // States for global attributes from database
+    const [dbAttributes, setDbAttributes] = useState<{ id: string; name: string }[]>([]);
+    const [dbAttributeValues, setDbAttributeValues] = useState<{ id: string; attribute_id: string; value: string }[]>([]);
+    
+    // Dialog fast CRUD attributes
+    const [isFastCreateOpen, setIsFastCreateOpen] = useState(false);
+    const [fastAttrName, setFastAttrName] = useState("");
+    const [fastAttrValues, setFastAttrValues] = useState<string[]>([]);
+    const [fastAttrValInput, setFastAttrValInput] = useState("");
+    const [editingAttrId, setEditingAttrId] = useState<string | null>(null);
+
+    // Form data
     const [formData, setFormData] = useState<Variation | null>(null);
-    const [isAttrSelectionOpen, setIsAttrSelectionOpen] = useState(false);
-    const [isAttrManagementOpen, setIsAttrManagementOpen] = useState(false);
 
-    useEffect(() => {
-        if (variation) {
-            setFormData({ ...variation });
+    // Discount helper states
+    const [varDiscountPercent, setVarDiscountPercent] = useState("");
+    const [varDiscountFixed, setVarDiscountFixed] = useState("");
+
+    const fetchDbAttributes = async () => {
+        try {
+            const [attrRes, valRes] = await Promise.all([
+                supabase.from("attributes").select("*").order("name"),
+                supabase.from("attribute_values").select("*").order("value")
+            ]);
+            setDbAttributes((attrRes.data || []) as { id: string; name: string }[]);
+            setDbAttributeValues((valRes.data || []) as { id: string; attribute_id: string; value: string }[]);
+        } catch (err) {
+            console.error("Erro ao buscar atributos globais:", err);
         }
-    }, [variation, isOpen]);
+    };
 
     useEffect(() => {
+        if (isOpen) {
+            fetchDbAttributes();
+            setVarStep(1);
+            if (variation) {
+                setFormData({
+                    ...variation,
+                    syncUnitPrice: variation.syncUnitPrice ?? true,
+                    syncDescription: variation.syncDescription ?? true,
+                    syncCostPrice: variation.syncCostPrice ?? true
+                });
+                
+                const orig = Number(variation.syncUnitPrice ? parentProduct.unitPrice : variation.unitPrice || 0);
+                const promo = Number(variation.syncUnitPrice ? parentProduct.promoPrice : variation.promoPrice || 0);
+                if (orig > 0 && promo > 0 && promo < orig) {
+                    const fixed = orig - promo;
+                    const pct = (fixed / orig) * 100;
+                    setVarDiscountFixed(fixed.toFixed(2));
+                    setVarDiscountPercent(pct.toFixed(1));
+                } else {
+                    setVarDiscountPercent("");
+                    setVarDiscountFixed("");
+                }
+            } else {
+                setFormData({
+                    id: crypto.randomUUID(),
+                    sku: "",
+                    name: "",
+                    stock: 0,
+                    unitPrice: parentProduct.unitPrice || 0,
+                    costPrice: parentProduct.costPrice || 0,
+                    active: true,
+                    attributes: [],
+                    images: [],
+                    syncUnitPrice: true,
+                    syncDescription: true,
+                    syncCostPrice: true
+                });
+                setVarDiscountPercent("");
+                setVarDiscountFixed("");
+            }
+        }
+    }, [variation, isOpen, parentProduct]);
+
+    const handleFastSaveAttribute = async () => {
+        if (!fastAttrName.trim()) {
+            toast.error("Preencha o nome do atributo!");
+            return;
+        }
+        if (fastAttrValues.length === 0) {
+            toast.error("Adicione pelo menos um valor!");
+            return;
+        }
+
+        try {
+            if (editingAttrId) {
+                const { error: attrErr } = await supabase
+                    .from("attributes")
+                    .update({ name: fastAttrName.trim() })
+                    .eq("id", editingAttrId);
+
+                if (attrErr) throw attrErr;
+
+                const { error: delErr } = await supabase
+                    .from("attribute_values")
+                    .delete()
+                    .eq("attribute_id", editingAttrId);
+
+                if (delErr) throw delErr;
+
+                const valuesToInsert = fastAttrValues.map(val => ({
+                    attribute_id: editingAttrId,
+                    value: val
+                }));
+                const { error: valErr } = await supabase.from("attribute_values").insert(valuesToInsert);
+                if (valErr) throw valErr;
+
+                toast.success("Atributo atualizado com sucesso!");
+                await fetchDbAttributes();
+            } else {
+                const { data: attr, error: attrErr } = await supabase
+                    .from("attributes")
+                    .insert([{ name: fastAttrName.trim() }])
+                    .select()
+                    .single();
+
+                if (attrErr) throw attrErr;
+
+                const valuesToInsert = fastAttrValues.map(val => ({
+                    attribute_id: attr.id,
+                    value: val
+                }));
+                const { error: valErr } = await supabase.from("attribute_values").insert(valuesToInsert);
+                if (valErr) throw valErr;
+
+                toast.success("Atributo criado com sucesso!");
+                await fetchDbAttributes();
+            }
+
+            setIsFastCreateOpen(false);
+            setFastAttrName("");
+            setFastAttrValues([]);
+            setFastAttrValInput("");
+            setEditingAttrId(null);
+        } catch (err: any) {
+            toast.error("Erro ao salvar atributo: " + err.message);
+        }
+    };
+
+    const handleKeyDownFastAttrVal = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            const val = fastAttrValInput.trim().replace(/,/g, "");
+            if (val) {
+                if (fastAttrValues.includes(val)) {
+                    toast.error("Este valor já foi adicionado!");
+                    return;
+                }
+                setFastAttrValues(prev => [...prev, val]);
+            }
+            setFastAttrValInput("");
+        } else if (e.key === "Backspace" && !fastAttrValInput) {
+            setFastAttrValues(prev => prev.slice(0, -1));
+        }
+    };
+
+    const handlePriceChange = (valStr: string) => {
         if (!formData) return;
-        const cost = formData.costPrice || 0;
-        const freightVal = formData.freightCost || 0;
-        const freightType = formData.freightType || 'fixed';
-
-        let freightAmount = 0;
-        if (freightType === 'percentage') {
-            freightAmount = cost * (freightVal / 100);
-        } else {
-            freightAmount = freightVal;
+        const newPrice = parseFloat(valStr) || 0;
+        setFormData(prev => prev ? { ...prev, unitPrice: newPrice, syncUnitPrice: false } : null);
+        
+        const orig = newPrice;
+        if (orig <= 0) {
+            setVarDiscountPercent("");
+            setVarDiscountFixed("");
+            setFormData(prev => prev ? { ...prev, promoPrice: undefined } : null);
+            return;
         }
 
-        const ipi = formData.ipiPercent || 0;
-        const final = (cost + freightAmount) * (1 + ipi / 100);
-
-        if (Math.abs(final - (formData.finalPurchasePrice || 0)) > 0.01) {
-            setFormData(prev => prev ? { ...prev, finalPurchasePrice: Number(final.toFixed(2)) } : null);
+        if (varDiscountPercent) {
+            const pct = parseFloat(varDiscountPercent);
+            if (!isNaN(pct)) {
+                const fixed = orig * (pct / 100);
+                setVarDiscountFixed(fixed.toFixed(2));
+                const promo = orig - fixed;
+                setFormData(prev => prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 } : null);
+            }
         }
-    }, [formData?.costPrice, formData?.freightCost, formData?.freightType, formData?.ipiPercent]);
+    };
 
-    const onDragEnd = (result: DropResult) => {
-        if (!result.destination || !formData) return;
+    const handleDiscountPercentChange = (valStr: string) => {
+        if (!formData) return;
+        setVarDiscountPercent(valStr);
+        const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
+        if (orig <= 0 || valStr === "") {
+            setVarDiscountFixed("");
+            setFormData(prev => prev ? { ...prev, promoPrice: undefined } : null);
+            return;
+        }
+
+        const pct = parseFloat(valStr);
+        if (isNaN(pct) || pct < 0) {
+            setVarDiscountFixed("");
+            setFormData(prev => prev ? { ...prev, promoPrice: undefined } : null);
+            return;
+        }
+
+        const fixed = orig * (pct / 100);
+        setVarDiscountFixed(fixed.toFixed(2));
+        const promo = orig - fixed;
+        setFormData(prev => prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0, syncUnitPrice: false } : null);
+    };
+
+    const handleDiscountFixedChange = (valStr: string) => {
+        if (!formData) return;
+        setVarDiscountFixed(valStr);
+        const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
+        if (orig <= 0 || valStr === "") {
+            setVarDiscountPercent("");
+            setFormData(prev => prev ? { ...prev, promoPrice: undefined } : null);
+            return;
+        }
+
+        const fixed = parseFloat(valStr);
+        if (isNaN(fixed) || fixed < 0) {
+            setVarDiscountPercent("");
+            setFormData(prev => prev ? { ...prev, promoPrice: undefined } : null);
+            return;
+        }
+
+        const pct = (fixed / orig) * 100;
+        setVarDiscountPercent(pct.toFixed(1));
+        const promo = orig - fixed;
+        setFormData(prev => prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0, syncUnitPrice: false } : null);
+    };
+
+    const handlePromoPriceFieldChange = (valStr: string) => {
+        if (!formData) return;
+        const promo = parseFloat(valStr) || 0;
+        setFormData(prev => prev ? { ...prev, promoPrice: promo > 0 ? promo : undefined, syncUnitPrice: false } : null);
         
-        const nextAttrs = Array.from(formData.attributes || []);
-        const [reorderedItem] = nextAttrs.splice(result.source.index, 1);
-        nextAttrs.splice(result.destination.index, 0, reorderedItem);
-        
-        setFormData({ ...formData, attributes: nextAttrs } as Variation);
+        const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
+        if (orig <= 0 || valStr === "" || promo >= orig) {
+            setVarDiscountPercent("");
+            setVarDiscountFixed("");
+            return;
+        }
+
+        const fixed = orig - promo;
+        const pct = (fixed / orig) * 100;
+        setVarDiscountFixed(fixed.toFixed(2));
+        setVarDiscountPercent(pct.toFixed(1));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData) return;
 
+        if (!formData.images || formData.images.length === 0) {
+            toast.error("Vincule pelo menos uma foto para esta variação!");
+            setVarStep(1);
+            return;
+        }
+
+        if (!formData.name.trim()) {
+            toast.error("O título da variação é obrigatório!");
+            setVarStep(2);
+            return;
+        }
+
         setLoading(true);
         try {
-            await saveVariation(parentId, formData);
-            toast.success("Variação atualizada com sucesso!");
+            await saveVariation(parentId, {
+                ...formData,
+                sku: formData.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+            });
+            toast.success("Variação salva com sucesso!");
             if (onSuccess) onSuccess();
             onClose();
         } catch (error) {
@@ -81,496 +299,505 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     if (!isOpen || !formData) return null;
 
-    const allSync = formData.syncUnitPrice && formData.syncCostPrice && formData.syncDescription;
-
-    const toggleAllSync = () => {
-        const target = !allSync;
-        setFormData(prev => prev ? {
-            ...prev,
-            syncUnitPrice: target,
-            syncCostPrice: target,
-            syncDescription: target,
-            syncWithParent: target,
-            // If turning ON, we should probably update values immediately
-            unitPrice: target ? (parentProduct.unitPrice || 0) : prev.unitPrice,
-            costPrice: target ? (parentProduct.costPrice || 0) : prev.costPrice,
-            freightCost: target ? (parentProduct.freightCost || 0) : prev.freightCost,
-            freightType: target ? (parentProduct.freightType || 'fixed') : prev.freightType,
-            ipiPercent: target ? (parentProduct.ipiPercent || 0) : prev.ipiPercent,
-        } : null);
-    };
+    const parentImages = parentProduct.images || [];
 
     return createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             <div 
-                className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden"
-                style={{ height: 'min(85vh, 700px)' }}
+                className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden"
+                style={{ height: 'min(85vh, 750px)' }}
             >
                 {/* Header */}
-                <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
-                    <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                            Editar Variação
-                        </h2>
-                        <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">
-                            {parentProduct.description} - <span className="text-blue-600">{formData.name}</span>
-                        </p>
+                <div className="p-4 md:p-5 bg-slate-950 text-white space-y-3 flex-shrink-0 relative">
+                    <div className="flex justify-between items-start pr-8">
+                        <div>
+                            <h2 className="text-lg md:text-xl font-black tracking-tight flex items-center gap-2">
+                                {variation ? "Editar Variação" : "Nova Variação"}
+                                <span className="text-white/50 text-xs font-normal">| {parentProduct.description || "Produto Pai"}</span>
+                            </h2>
+                            <p className="text-white/70 text-[10px] font-medium mt-1">
+                                Configure os dados específicos desta variação.
+                            </p>
+                        </div>
+                        <span className="text-xs bg-white/10 px-2 py-1 rounded-full font-bold">
+                            {varStep}/3
+                        </span>
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={toggleAllSync}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${allSync ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white dark:bg-slate-800 text-slate-400 border border-slate-100 dark:border-slate-700'}`}
-                    >
-                        <i className={`bi bi-link-45deg text-sm ${allSync ? 'rotate-0' : '-rotate-45'} transition-transform`}></i>
-                        {allSync ? "Sincronizado" : "Sincronizar Tudo"}
-                    </button>
+                    <div className="flex gap-1 mt-2">
+                        {[1, 2, 3].map((s) => (
+                            <button
+                                key={s}
+                                type="button"
+                                onClick={() => setVarStep(s)}
+                                className={`flex-1 py-2 text-[10px] sm:text-xs font-bold border-b-4 transition-all hover:bg-white/5 rounded-t-lg ${varStep === s ? "border-white text-white bg-white/10" : "border-white/20 text-white/60 hover:text-white/90"}`}
+                            >
+                                {s === 1 ? "1. Foto Vinculada" : s === 2 ? "2. Identificação & Preço" : "3. Ficha Técnica"}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-                    <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0">
-                        <div className="flex flex-col gap-4">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center justify-between">
-                                Atributos (Ex: Cor, Tamanho)
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAttrSelectionOpen(true)}
-                                    className="p-1 px-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                >
-                                    <i className="bi bi-plus-lg mr-1"></i> Adicionar
-                                </button>
-                            </label>
-
-                            <DragDropContext onDragEnd={onDragEnd}>
-                                <Droppable droppableId="attributes-list">
-                                    {(provided) => (
-                                        <div 
-                                            {...provided.droppableProps}
-                                            ref={provided.innerRef}
-                                            className="flex flex-col gap-2 min-h-[50px]"
-                                        >
-                                            {(formData.attributes || []).length === 0 && (
-                                                <p className="text-[10px] text-slate-400 italic py-2">Nenhum atributo definido.</p>
-                                            )}
-                                            {(formData.attributes || []).map((attr, idx) => (
-                                                <Draggable key={`${attr.name}-${idx}`} draggableId={`${attr.name}-${idx}`} index={idx}>
-                                                    {(provided, snapshot) => (
-                                                        <div 
-                                                            ref={provided.innerRef}
-                                                            {...provided.draggableProps}
-                                                            className={`flex gap-2 items-center animate-in slide-in-from-left-2 duration-200 bg-white dark:bg-slate-900 rounded-xl transition-all ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500/20 z-50' : ''}`}
-                                                        >
-                                                            <div 
-                                                                {...provided.dragHandleProps}
-                                                                className="flex items-center justify-center p-2 text-slate-300 hover:text-blue-500 cursor-grab active:cursor-grabbing"
-                                                            >
-                                                                <i className="bi bi-grip-vertical text-lg"></i>
-                                                            </div>
-                                                            <div className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-bold text-slate-500">
-                                                                {attr.name}
-                                                            </div>
-                                                            <div className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[11px] font-bold">
-                                                                {attr.value}
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const newAttrs = [...(formData.attributes || [])];
-                                                                    newAttrs[idx].showName = !newAttrs[idx].showName;
-                                                                    setFormData({ ...formData, attributes: newAttrs });
-                                                                }}
-                                                                className={`p-1.5 rounded-lg transition-colors ${attr.showName !== false ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                                                                title={attr.showName !== false ? "Ocultar nome no título" : "Mostrar nome no título"}
-                                                            >
-                                                                <i className={`bi ${attr.showName !== false ? 'bi-eye-fill' : 'bi-eye-slash'}`}></i>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setFormData({ ...formData, attributes: formData.attributes?.filter((_, i) => i !== idx) });
-                                                                }}
-                                                                className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                                            >
-                                                                <i className="bi bi-trash3 text-xs"></i>
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </Draggable>
-                                            ))}
-                                            {provided.placeholder}
-                                        </div>
-                                    )}
-                                </Droppable>
-                            </DragDropContext>
-                        </div>
-
-                        <div className="flex flex-col gap-6">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center justify-between">
-                                    Nome / Descrição
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[8px] font-bold text-slate-400">Gerar com Atributos?</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if ((formData.attributes || []).length > 0) {
-                                                    const attrsPart = formData.attributes!.map(a => {
-                                                        const val = a.value.toUpperCase();
-                                                        return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
-                                                    }).join(' ');
-                                                    const autoName = `${parentProduct.description} ${attrsPart}`.trim();
-                                                    if (autoName) setFormData({ ...formData, name: autoName });
-                                                }
-                                            }}
-                                            className="p-1 px-2 border border-slate-100 dark:border-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                            title="Gerar nome a partir dos atributos"
-                                        >
-                                            <i className="bi bi-magic mr-1"></i> Auto
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, syncDescription: !formData.syncDescription })}
-                                            className={`text-lg transition-colors ${formData.syncDescription ? 'text-blue-600' : 'text-slate-300'}`}
-                                            title="Herança do Pai"
-                                        >
-                                            <i className="bi bi-link-45deg"></i>
-                                        </button>
-                                    </div>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20"
-                                    placeholder="Ex: AZUL P"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center justify-between">
-                                    SKU / Código Único
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (!formData.name && !parentProduct.description) {
-                                                return toast.warning("Defina o nome da variação primeiro");
-                                            }
-                                            const base = parentProduct.description || "PROD";
-                                            const varName = formData.name ? ` ${formData.name}` : "";
-                                            const newCode = generateProductCode(`${base}${varName}`);
-                                            setFormData({ ...formData, sku: newCode });
-                                            toast.info(`SKU Sugerido: ${newCode}`);
-                                        }}
-                                        className="p-1 px-2 border border-slate-100 dark:border-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                        title="Sugerir SKU"
-                                    >
-                                        <i className="bi bi-magic mr-1"></i> Sugerir
-                                    </button>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.sku}
-                                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20"
-                                    placeholder="SKU-001"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 shrink-0">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center justify-between">
-                            Galeria da Variação (Máx 15)
-                            <span className="text-[9px] text-slate-300 font-bold uppercase">Selecione da galeria do pai</span>
-                        </label>
-                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 max-h-[180px] overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950 rounded-[2rem] border border-slate-100 dark:border-slate-800 custom-scrollbar">
-                            {((parentProduct as any).parentImages || parentProduct.images || []).map((url: string, idx: number) => {
-                                const isSelected = formData.images?.includes(url);
-                                return (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => {
-                                            const currentImages = formData.images || [];
-                                            if (isSelected) {
-                                                setFormData({ ...formData, images: currentImages.filter(img => img !== url) });
-                                            } else {
-                                                if (currentImages.length >= 15) {
-                                                    toast.warning("Limite de 15 fotos atingido.");
-                                                    return;
-                                                }
-                                                setFormData({ ...formData, images: [...currentImages, url] });
-                                            }
-                                        }}
-                                        className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 ${isSelected ? 'border-blue-500 shadow-lg shadow-blue-500/30 ring-4 ring-blue-500/10' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                                    >
-                                        <img src={url} alt={`Galeria ${idx}`} className="w-full h-full object-cover" />
-                                        {isSelected && (
-                                            <div className="absolute top-1 right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                                                <i className="bi bi-check text-white text-sm"></i>
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                            {(!parentProduct.images && !(parentProduct as any).parentImages) && (
-                                <div className="col-span-full py-6 text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                                    Nenhuma imagem no produto pai
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 custom-scrollbar min-h-0">
+                    {/* Etapa 1: Foto Vinculada */}
+                    {varStep === 1 && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                                Vincular Foto <span className="text-red-500">*</span>
+                            </h3>
+                            <p className="text-xs text-slate-500 bg-blue-50/50 dark:bg-blue-900/15 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/25">
+                                Selecione as fotos que representam esta variação. As imagens devem ser cadastradas no produto pai primeiro.
+                            </p>
+                            {parentImages.length === 0 ? (
+                                <div className="text-center p-8 border border-dashed rounded-2xl text-xs text-red-500 bg-red-50 font-bold">
+                                    Nenhuma imagem cadastrada no produto principal. Adicione fotos na aba principal primeiro!
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                    {parentImages.map((url, imgIndex) => {
+                                        const isSelected = formData.images?.includes(url);
+                                        const selectIndex = formData.images?.indexOf(url) ?? -1;
+                                        return (
+                                            <button
+                                                key={imgIndex}
+                                                type="button"
+                                                onClick={() => {
+                                                    const currentImages = formData.images || [];
+                                                    if (isSelected) {
+                                                        setFormData({ ...formData, images: currentImages.filter(u => u !== url) });
+                                                    } else {
+                                                        setFormData({ ...formData, images: [...currentImages, url] });
+                                                    }
+                                                }}
+                                                className={`relative aspect-square rounded-2xl overflow-hidden border-4 bg-slate-50 transition-all ${isSelected ? "border-blue-600 scale-[1.03] shadow-md" : "border-transparent opacity-75 hover:opacity-100"}`}
+                                            >
+                                                <img src={url} alt={`Foto ${imgIndex + 1}`} className="object-cover h-full w-full" />
+                                                {isSelected && (
+                                                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded font-bold">
+                                                        #{selectIndex + 1} Vinculada
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
-                    </div>
+                    )}
 
-                    <div className="flex flex-col gap-5 bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shrink-0">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                <i className="bi bi-tag text-blue-600"></i> Precificação e Custos
-                            </h4>
-                            <div className="flex items-center gap-3">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                    Sincronizar Venda
-                                </label>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const target = !formData.syncUnitPrice;
-                                        setFormData({ 
-                                            ...formData, 
-                                            syncUnitPrice: target,
-                                            unitPrice: target ? (parentProduct.unitPrice || 0) : formData.unitPrice
-                                        });
-                                    }}
-                                    className={`text-lg transition-colors ${formData.syncUnitPrice ? 'text-blue-600' : 'text-slate-300'}`}
-                                    title="Herdar do pai"
-                                >
-                                    <i className="bi bi-link-45deg"></i>
-                                </button>
-                                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                    Sincronizar Custos
-                                </label>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const target = !formData.syncCostPrice;
-                                        setFormData({ 
-                                            ...formData, 
-                                            syncCostPrice: target,
-                                            costPrice: target ? (parentProduct.costPrice || 0) : formData.costPrice,
-                                            freightCost: target ? (parentProduct.freightCost || 0) : formData.freightCost,
-                                            freightType: target ? (parentProduct.freightType || 'fixed') : formData.freightType,
-                                            ipiPercent: target ? (parentProduct.ipiPercent || 0) : formData.ipiPercent
-                                        });
-                                    }}
-                                    className={`text-lg transition-colors ${formData.syncCostPrice ? 'text-blue-600' : 'text-slate-300'}`}
-                                    title="Herdar do pai"
-                                >
-                                    <i className="bi bi-link-45deg"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Preço de Venda (R$)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    disabled={formData.syncUnitPrice}
-                                    value={formData.unitPrice || 0}
-                                    onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) })}
-                                    className={`w-full px-4 py-3 rounded-2xl outline-none text-sm font-black transition-all ${formData.syncUnitPrice ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 text-blue-600 dark:text-blue-400'}`}
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Preço Base de Custo
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    disabled={formData.syncCostPrice}
-                                    value={formData.costPrice || 0}
-                                    onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
-                                    className={`w-full px-4 py-3 rounded-2xl outline-none text-sm font-black transition-all ${formData.syncCostPrice ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-2">
+                    {/* Etapa 2: Identificação & Preço */}
+                    {varStep === 2 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Nome / Título da Variante */}
+                            <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                        Frete ({formData.freightType === 'percentage' ? '%' : 'R$'})
-                                    </label>
-                                    <div className={`flex bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg gap-0.5 scale-75 origin-right ${formData.syncCostPrice ? 'opacity-50 pointer-events-none' : ''}`}>
+                                    <label className="text-xs font-black uppercase tracking-widest text-slate-500">Título da Variante</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const nextUse = !formData.syncDescription;
+                                            const comboName = (formData.attributes || [])
+                                                .map(a => a.value)
+                                                .filter(Boolean)
+                                                .join(" / ");
+                                            const autoName = comboName || "Padrão";
+                                            setFormData(prev => prev ? {
+                                                ...prev,
+                                                syncDescription: nextUse,
+                                                name: nextUse ? autoName : prev.name
+                                            } : null);
+                                        }}
+                                        className={`px-2 py-1 text-[10px] font-bold rounded-lg ${formData.syncDescription ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20" : "bg-slate-100 text-slate-700 dark:bg-slate-800"}`}
+                                    >
+                                        {formData.syncDescription ? "Gerar Automático" : "Personalizado"}
+                                    </button>
+                                </div>
+                                {!formData.syncDescription ? (
+                                    <input
+                                        type="text"
+                                        placeholder="Título personalizado da variante"
+                                        value={formData.name || ""}
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-100"
+                                    />
+                                ) : (
+                                    <div className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border italic font-bold">
+                                        {(() => {
+                                            const comboName = (formData.attributes || [])
+                                                .map(a => a.value)
+                                                .filter(Boolean)
+                                                .join(" / ");
+                                            return comboName || "Padrão";
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Atributos Selector */}
+                            <div className="space-y-3 bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100 dark:border-slate-850">
+                                <div className="flex items-center justify-between border-b pb-2">
+                                    <h4 className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">Atributos da Variação</h4>
+                                    <div className="flex items-center gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, freightType: 'fixed' })}
-                                            className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase transition-all ${formData.freightType === 'fixed' || !formData.freightType ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                                            onClick={() => setIsFastCreateOpen(true)}
+                                            className="px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100"
                                         >
-                                            $
+                                            + Criar Atributo
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, freightType: 'percentage' })}
-                                            className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase transition-all ${formData.freightType === 'percentage' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                                            onClick={() => {
+                                                const availableAttr = dbAttributes.find(a => !(formData.attributes || []).some(sel => sel.name === a.name));
+                                                if (availableAttr) {
+                                                    setFormData(prev => prev ? {
+                                                        ...prev,
+                                                        attributes: [...(prev.attributes || []), { name: availableAttr.name, value: "", showName: true }]
+                                                    } : null);
+                                                } else if (dbAttributes.length > 0) {
+                                                    toast.error("Todos os atributos já foram adicionados.");
+                                                }
+                                            }}
+                                            className="px-2 py-1 text-[9px] font-bold text-slate-600 bg-white dark:bg-slate-800 border rounded-lg"
                                         >
-                                            %
+                                            + Vínculo
                                         </button>
                                     </div>
                                 </div>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    disabled={formData.syncCostPrice}
-                                    value={formData.freightCost || 0}
-                                    onChange={(e) => setFormData({ ...formData, freightCost: parseFloat(e.target.value) })}
-                                    className={`w-full px-4 py-3 rounded-2xl outline-none text-sm font-black transition-all ${formData.syncCostPrice ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
-                                    placeholder={formData.freightType === 'percentage' ? "0.00 %" : "0.00"}
+
+                                {(formData.attributes || []).length === 0 ? (
+                                    <p className="text-xs text-slate-400 italic text-center py-2">Nenhum atributo vinculado.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {(formData.attributes || []).map((attr, idx) => {
+                                            const currentAttr = dbAttributes.find(a => a.name === attr.name);
+                                            const attrVals = currentAttr ? dbAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
+
+                                            return (
+                                                <div key={idx} className="flex items-end gap-3 animate-in fade-in duration-200">
+                                                    <div className="flex-1 space-y-1">
+                                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Atributo</label>
+                                                        <select
+                                                            value={attr.name}
+                                                            onChange={e => {
+                                                                const newName = e.target.value;
+                                                                setFormData(prev => {
+                                                                    if (!prev) return null;
+                                                                    const updated = [...prev.attributes];
+                                                                    updated[idx] = { ...updated[idx], name: newName, value: "" };
+                                                                    return { ...prev, attributes: updated };
+                                                                });
+                                                            }}
+                                                            className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
+                                                        >
+                                                            {dbAttributes.map(a => (
+                                                                <option key={a.id} value={a.name} disabled={(formData.attributes || []).some(sel => sel.name === a.name && a.name !== attr.name)}>
+                                                                    {a.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="flex-1 space-y-1">
+                                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Valor</label>
+                                                        <select
+                                                            value={attr.value}
+                                                            onChange={e => {
+                                                                const val = e.target.value;
+                                                                setFormData(prev => {
+                                                                    if (!prev) return null;
+                                                                    const updated = [...prev.attributes];
+                                                                    updated[idx] = { ...updated[idx], value: val };
+                                                                    
+                                                                    // Se herda o título, atualiza o nome
+                                                                    let newName = prev.name;
+                                                                    if (prev.syncDescription) {
+                                                                        newName = updated.map(a => a.value).filter(Boolean).join(" / ") || "Padrão";
+                                                                    }
+                                                                    
+                                                                    return { ...prev, attributes: updated, name: newName };
+                                                                });
+                                                            }}
+                                                            required
+                                                            className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
+                                                        >
+                                                            <option value="">Selecione...</option>
+                                                            {attrVals.map(val => (
+                                                                <option key={val.id} value={val.value}>{val.value}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFormData(prev => prev ? {
+                                                                ...prev,
+                                                                attributes: prev.attributes.filter((_, i) => i !== idx)
+                                                            } : null);
+                                                        }}
+                                                        className="h-9 w-9 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl flex items-center justify-center border"
+                                                    >
+                                                        <i className="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* SKU / Preço */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500">SKU Variação</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ex: SKU-VAR"
+                                        value={formData.sku || ""}
+                                        onChange={e => setFormData({ ...formData, sku: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-slate-500">Preço</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const nextSync = !formData.syncUnitPrice;
+                                                setFormData(prev => prev ? {
+                                                    ...prev,
+                                                    syncUnitPrice: nextSync,
+                                                    unitPrice: nextSync ? parentProduct.unitPrice : prev.unitPrice,
+                                                    promoPrice: nextSync ? parentProduct.promoPrice : prev.promoPrice
+                                                } : null);
+                                            }}
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded ${formData.syncUnitPrice ? "bg-blue-50 text-blue-600" : "bg-slate-100"}`}
+                                        >
+                                            {formData.syncUnitPrice ? "Herdado" : "Personalizado"}
+                                        </button>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        disabled={formData.syncUnitPrice}
+                                        value={formData.syncUnitPrice ? (parentProduct.unitPrice || 0) : (formData.unitPrice || 0)}
+                                        onChange={e => handlePriceChange(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Descontos e Preço Promocional se personalizado */}
+                            {!formData.syncUnitPrice && (
+                                <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-dashed animate-in slide-in-from-top-1 duration-300">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500">% Desconto</label>
+                                        <input
+                                            type="number"
+                                            value={varDiscountPercent}
+                                            onChange={e => handleDiscountPercentChange(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500">Desconto R$</label>
+                                        <input
+                                            type="number"
+                                            value={varDiscountFixed}
+                                            onChange={e => handleDiscountFixedChange(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500">Promo final</label>
+                                        <input
+                                            type="number"
+                                            value={formData.promoPrice || ""}
+                                            onChange={e => handlePromoPriceFieldChange(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Etapa 3: Ficha Técnica */}
+                    {varStep === 3 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Medidas */}
+                            <div className="space-y-2">
+                                <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Dimensões da Variante</h3>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <span className="text-[10px] font-bold text-slate-500">Largura (cm)</span>
+                                        <input
+                                            type="number"
+                                            placeholder="L"
+                                            value={formData.width || ""}
+                                            onChange={e => setFormData({ ...formData, width: parseFloat(e.target.value) })}
+                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs text-center"
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-bold text-slate-500">Profundidade (cm)</span>
+                                        <input
+                                            type="number"
+                                            placeholder="P"
+                                            value={formData.depth || ""}
+                                            onChange={e => setFormData({ ...formData, depth: parseFloat(e.target.value) })}
+                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs text-center"
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-bold text-slate-500">Altura (cm)</span>
+                                        <input
+                                            type="number"
+                                            placeholder="A"
+                                            value={formData.height || ""}
+                                            onChange={e => setFormData({ ...formData, height: parseFloat(e.target.value) })}
+                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs text-center"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Descrição Personalizada */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500">Descrição Personalizada</label>
+                                <textarea
+                                    placeholder="Descrição opcional e específica para esta variação"
+                                    value={formData.description || ""}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                    rows={4}
+                                    className="w-full p-4 bg-slate-50 dark:bg-slate-950 border rounded-2xl text-xs resize-none"
                                 />
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">IPI (%)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    disabled={formData.syncCostPrice}
-                                    value={formData.ipiPercent || 0}
-                                    onChange={(e) => setFormData({ ...formData, ipiPercent: parseFloat(e.target.value) })}
-                                    className={`w-full px-4 py-3 rounded-2xl outline-none text-sm font-black transition-all ${formData.syncCostPrice ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}
-                                />
+
+                            {/* Estoque e alertas */}
+                            <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500">Estoque Inicial</label>
+                                    <input
+                                        type="number"
+                                        value={formData.stock || 0}
+                                        onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500">Estoque Mínimo (Alerta)</label>
+                                    <input
+                                        type="number"
+                                        value={formData.minStock || 0}
+                                        onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold"
+                                    />
+                                </div>
                             </div>
                         </div>
+                    )}
+                </div>
 
-                        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Preço de Compra Final</label>
-                            <span className="text-lg font-black text-emerald-700 dark:text-emerald-300">R$ {(formData.finalPurchasePrice || 0).toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-5 bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shrink-0">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Estoque Inicial?</h4>
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, launchInitialStock: !formData.launchInitialStock })}
-                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.launchInitialStock ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}
-                            >
-                                {formData.launchInitialStock ? 'Sim, Lançar' : 'Não Lançar'}
-                            </button>
-                        </div>
-
-                        {formData.launchInitialStock && (
-                            <div className="animate-in zoom-in-95 duration-300">
-                                <InitialStockList
-                                    entries={formData.initialStockEntries || []}
-                                    onChange={(entries) => {
-                                        const totalStock = entries.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
-                                        const avgCost = entries.length > 0
-                                            ? entries.reduce((acc, curr) => acc + (curr.finalUnitCost || 0), 0) / entries.length
-                                            : 0;
-
-                                        setFormData({
-                                            ...formData,
-                                            initialStockEntries: entries,
-                                            stock: totalStock,
-                                            costPrice: avgCost
-                                        });
-                                    }}
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-6 shrink-0">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex flex-col">
-                                {formData.launchInitialStock ? 'Saldo de Lotes' : 'Estoque Atual'}
-                                {!!variation?.id && !formData.launchInitialStock && <span className="text-[8px] text-amber-500 font-bold lowercase tracking-normal mt-0.5">(altere na tela anterior)</span>}
-                            </label>
-                            <input
-                                type="number"
-                                value={formData.stock || 0}
-                                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                                disabled={true}
-                                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 font-bold transition-all cursor-not-allowed"
-                                placeholder="0"
-                            />
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight italic mt-1">* Ajuste via Movimentações Manuais</p>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Alerta (Mín)</label>
-                            <input
-                                type="number"
-                                value={formData.minStock || 0}
-                                onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) })}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</label>
-                            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl gap-1 h-full">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, active: true })}
-                                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.active ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <div className={`w-2 h-2 rounded-full ${formData.active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                                    Ativo
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, active: false })}
-                                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!formData.active ? 'bg-white dark:bg-slate-700 text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <div className={`w-2 h-2 rounded-full ${!formData.active ? 'bg-red-500' : 'bg-slate-300'}`} />
-                                    Inativo
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    </div>
-
-                    <div className="p-8 border-t border-slate-50 dark:border-slate-800 flex gap-4 shrink-0 bg-white dark:bg-slate-900">
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-50 dark:border-slate-800 flex gap-4 shrink-0 bg-white dark:bg-slate-900">
+                    {varStep > 1 ? (
+                        <button
+                            type="button"
+                            onClick={() => setVarStep(varStep - 1)}
+                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-black uppercase tracking-widest text-[10px]"
+                        >
+                            Voltar
+                        </button>
+                    ) : (
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-8 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all"
+                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-black uppercase tracking-widest text-[10px]"
                         >
                             Cancelar
                         </button>
+                    )}
+
+                    {varStep < 3 ? (
                         <button
-                            type="submit"
+                            type="button"
+                            onClick={() => setVarStep(varStep + 1)}
+                            className="flex-[2] py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px]"
+                        >
+                            Avançar
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={handleSubmit}
                             disabled={loading}
-                            className="flex-[2] px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50"
+                            className="flex-[2] py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px]"
                         >
                             {loading ? "Salvando..." : "Concluir Cadastro"}
                         </button>
-                    </div>
-                </form>
+                    )}
+                </div>
             </div>
-            <AttributeSelectionModal 
-                isOpen={isAttrSelectionOpen}
-                onClose={() => setIsAttrSelectionOpen(false)}
-                onSelect={(attr) => {
-                    const exists = formData.attributes?.some(a => a.name === attr.name);
-                    if (exists) return toast.warning("Este atributo já foi adicionado.");
-                    setFormData({ ...formData, attributes: [...(formData.attributes || []), { ...attr, showName: true }] });
-                }}
-                onManageAttributes={() => {
-                    setIsAttrSelectionOpen(false);
-                    setIsAttrManagementOpen(true);
-                }}
-            />
 
-            <AttributeManagementModal 
-                isOpen={isAttrManagementOpen}
-                onClose={() => setIsAttrManagementOpen(false)}
-            />
+            {/* Fast Create Attribute Modal */}
+            {isFastCreateOpen && (
+                <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsFastCreateOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2rem] p-6 shadow-2xl border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Gerenciar Atributo Global</h3>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700">Nome do Atributo</label>
+                            <input
+                                type="text"
+                                placeholder="Ex: Voltagem, Cor, Tamanho"
+                                value={fastAttrName}
+                                onChange={e => setFastAttrName(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs font-bold"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 font-sans">Valores (Enter ou vírgula para adicionar)</label>
+                            <div className="min-h-12 flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-950 border rounded-xl items-center">
+                                {fastAttrValues.map((val, idx) => (
+                                    <span key={idx} className="bg-blue-100 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                        {val}
+                                        <button type="button" onClick={() => setFastAttrValues(prev => prev.filter((_, i) => i !== idx))}>
+                                            <i className="bi bi-x"></i>
+                                        </button>
+                                    </span>
+                                ))}
+                                <input
+                                    type="text"
+                                    placeholder={fastAttrValues.length === 0 ? "Ex: 110v, 220v..." : ""}
+                                    value={fastAttrValInput}
+                                    onChange={e => setFastAttrValInput(e.target.value)}
+                                    onKeyDown={handleKeyDownFastAttrVal}
+                                    className="flex-1 bg-transparent border-none outline-none text-xs"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsFastCreateOpen(false)}
+                                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleFastSaveAttribute}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
+                            >
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     , document.body);
 };

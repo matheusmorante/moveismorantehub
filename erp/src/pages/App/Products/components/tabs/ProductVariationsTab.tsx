@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Variation } from '../../../../types/product.type';
-import VariationType from '../../../../types/variation.type';
-import { subscribeToVariations } from '../../../../utils/variationService';
 
 interface ProductVariationsTabProps {
     variations: Variation[];
@@ -36,8 +34,8 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Variations Table */}
             <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
                         <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Catálogo de Variações ({variations.length})</h4>
                         {variations.length > 0 && regenerateAllSkus && (
                             <button
@@ -50,13 +48,20 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5 w-full md:w-auto">
+                        <button
+                            type="button"
+                            onClick={addVariation}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-750 shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 flex-1 md:flex-initial"
+                        >
+                            <i className="bi bi-plus-lg"></i> Adicionar variação
+                        </button>
                         <button
                             type="button"
                             onClick={onOpenCartesianModal}
-                            className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 flex-1 md:flex-initial"
                         >
-                            <i className="bi bi-grid-3x3-gap"></i> Gerar variação
+                            <i className="bi bi-grid-3x3-gap"></i> Gerar grade
                         </button>
                     </div>
                 </div>
@@ -65,6 +70,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/50">
+                                <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[80px]">Foto</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Código (SKU)</th>
                                 <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço Venda (R$)</th>
@@ -87,7 +93,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                             ))}
                             {variations.length === 0 && (
                                 <tr className="px-6 py-20 text-center text-slate-400">
-                                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400">
+                                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400">
                                         <i className="bi bi-stack text-4xl mb-3 block opacity-20"></i>
                                         <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma variação definida ainda.</p>
                                     </td>

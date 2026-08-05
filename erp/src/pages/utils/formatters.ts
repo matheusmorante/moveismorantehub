@@ -237,30 +237,20 @@ export const getLocalISODate = (date: Date = new Date()) => {
 };
 
 export const generateProductCode = (description: string, type?: string, line?: string): string => {
-    // PADRÃO SOLICITADO: 3 LETRAS + '-' + 5 NUMEROS
-    // Letras baseadas no TIPO e MODELO/LINHA
-    
+    // NOVO PADRÃO: 3 LETRAS DA PRIMEIRA PALAVRA DO TITULO + '-'
     let letters = "";
-    
-    if (type && type.length >= 1) {
-        letters += type.substring(0, 1).toUpperCase();
-    }
-    
-    if (line && line.length >= 2) {
-        letters += line.substring(0, 2).toUpperCase();
-    } else if (line && line.length === 1) {
-        letters += line.toUpperCase() + "X";
-    }
-
-    // Fallback se não tiver dados suficientes
-    if (letters.length < 3) {
-        const cleanDesc = (description || "").replace(/\s/g, '').toUpperCase();
-        letters = (letters + cleanDesc).substring(0, 3);
+    if (description && description.trim().length > 0) {
+        const firstWord = description.trim().split(/\s+/)[0].replace(/[^a-zA-Z0-9]/g, '');
+        if (firstWord.length >= 3) {
+            letters = firstWord.substring(0, 3).toUpperCase();
+        } else {
+            letters = firstWord.padEnd(3, 'X').toUpperCase();
+        }
+    } else {
+        letters = "PRD";
     }
 
-    if (letters.length > 3) letters = letters.substring(0, 3);
-
-    // O sufixo númerico -NNNNN será gerado dinamicamente pelo banco/serviço para evitar duplicidade
+    // O sufixo númerico -NNNNNN (6 dígitos) será gerado dinamicamente para evitar duplicidade
     return `${letters}-`;
 };
 

@@ -120,13 +120,41 @@ export const mapFromDB = (data: any): Product => {
         whatsappTemplate: data.whatsapp_template || '',
         ecommerceTemplate: data.ecommerce_template || '',
         hasVariations: data.has_variations ?? false,
-        variations: (data.variations || []).map((v: any) => ({
-            ...v,
-            unitPrice: v.unitPrice || 0,
-            costPrice: v.costPrice || 0,
-            stock: v.stock || 0,
-            sku: v.sku || ''
-        })),
+        variations: (data.product_variations || data.variations || []).map((v: any) => {
+            if (v.product_id) {
+                // Converter attributes do formato JSONB object {"Cor": "Azul"} para array [{ name: "Cor", value: "Azul" }]
+                const attributesList = Object.entries(v.attributes || {}).map(([name, value]) => ({
+                    name,
+                    value: String(value),
+                    showName: true
+                }));
+                return {
+                    id: String(v.id),
+                    sku: v.sku || '',
+                    name: v.name || '',
+                    stock: Number(v.stock || 0),
+                    unitPrice: v.use_parent_price ? Number(data.unit_price || 0) : Number(v.price || 0),
+                    promoPrice: v.use_parent_promo_price ? Number(data.promo_price || 0) : Number(v.promo_price || 0),
+                    costPrice: Number(v.cost_price || 0),
+                    active: true,
+                    condition: data.condition || 'novo',
+                    attributes: attributesList,
+                    syncUnitPrice: v.use_parent_price !== false,
+                    syncDescription: v.use_parent_description !== false,
+                    description: v.description || '',
+                    width: v.width ? Number(v.width) : undefined,
+                    depth: v.depth ? Number(v.depth) : undefined,
+                    height: v.height ? Number(v.height) : undefined,
+                };
+            }
+            return {
+                ...v,
+                unitPrice: v.unitPrice || 0,
+                costPrice: v.costPrice || 0,
+                stock: v.stock || 0,
+                sku: v.sku || ''
+            };
+        }),
         itemType: data.item_type || 'product',
         fiscal: {
             ncm: data.fiscal?.ncm || '',
@@ -187,8 +215,8 @@ export const mapFromDB = (data: any): Product => {
     };
 };
 
-const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, variations, item_type, created_at, updated_at";
-const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(category_id)";
+const LIGHT_COLUMNS = "id, code, description, brand, category, condition, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, item_type, created_at, updated_at";
+const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(category_id), product_variations(*)";
 
 // Helper to get products from localStorage
 const getLocalProducts = (): Product[] => {
@@ -302,6 +330,70 @@ export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?
     return duplicates;
 };
 
+const syncProductToSupabase = async (product: Product): Promise<void> => {
+    try {
+        const dbData = mapToDB(product);
+        // Remover propriedades que não são colunas diretas da tabela products
+        delete dbData.variations;
+        
+        // Upsert no Supabase
+        const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
+        if (prodErr) throw prodErr;
+
+        // Sincronizar variações na tabela product_variations
+        if (product.id) {
+            if (product.hasVariations && product.variations && product.variations.length > 0) {
+                const currentIds = product.variations.map(v => v.id).filter(Boolean);
+                if (currentIds.length > 0) {
+                    await supabase
+                        .from("product_variations")
+                        .delete()
+                        .eq("product_id", product.id)
+                        .not("id", "in", `(${currentIds.join(",")})`);
+                } else {
+                    await supabase.from("product_variations").delete().eq("product_id", product.id);
+                }
+
+                const recordsToSave = product.variations.map(v => {
+                    const attributesObj: Record<string, string> = {};
+                    (v.attributes || []).forEach((attr: any) => {
+                        if (attr.name && attr.value) {
+                            attributesObj[attr.name] = attr.value;
+                        }
+                    });
+
+                    return {
+                        ...(v.id ? { id: v.id } : {}),
+                        product_id: product.id,
+                        name: v.name,
+                        sku: v.sku || null,
+                        price: v.syncUnitPrice ? null : (v.unitPrice ? Number(v.unitPrice) : null),
+                        stock: v.stock ? parseInt(String(v.stock), 10) : 0,
+                        image_url: v.images && v.images.length > 0 ? v.images.join(",") : null,
+                        attributes: attributesObj,
+                        promo_price: v.syncUnitPrice ? null : (v.promoPrice ? Number(v.promoPrice) : null),
+                        description: v.syncDescription ? null : (v.description || null),
+                        width: v.width ? String(v.width) : null,
+                        depth: v.depth ? String(v.depth) : null,
+                        height: v.height ? String(v.height) : null,
+                        use_parent_price: v.syncUnitPrice !== false,
+                        use_parent_promo_price: v.syncUnitPrice !== false,
+                        use_parent_dimensions: v.syncDescription !== false,
+                        use_parent_description: v.syncDescription !== false
+                    };
+                });
+
+                const { error: varErr } = await supabase.from("product_variations").upsert(recordsToSave);
+                if (varErr) throw varErr;
+            } else {
+                await supabase.from("product_variations").delete().eq("product_id", product.id);
+            }
+        }
+    } catch (err) {
+        console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
+    }
+};
+
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
     const skusToValidate: string[] = [];
     if (product.code) skusToValidate.push(product.code);
@@ -337,6 +429,9 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     products.push(newProduct);
     saveLocalProducts(products);
     notifySubscribers();
+    
+    // Sincronizar com Supabase em background
+    syncProductToSupabase(newProduct).catch(console.error);
 
     if (product.launchInitialStock && Number(product.stock) > 0) {
         saveInventoryMove({
@@ -379,7 +474,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
                     quantity: Number(v.initialStock),
                     unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
                     date: new Date().toISOString(),
-                    label: 'ESTOQUE INICIAL',
+                    label: 'ESTOCIAL INICIAL',
                     observation: `Estoque da variação ${v.name}.`
                 }, 0).catch(console.error);
             }
@@ -390,74 +485,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 };
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
-    try {
-        const idStr = String(id);
-        const allIdsToCheck = new Set<string>([idStr]);
-        const allCodesToCheck = new Set<string>();
-        const allNamesToCheck = new Set<string>();
-
-        const product = getLocalProducts().find(p => String(p.id) === idStr);
-
-        if (product) {
-            if (product.code) allCodesToCheck.add(product.code);
-            if (product.description) allNamesToCheck.add(product.description);
-            
-            const vars = product.variations || [];
-            if (Array.isArray(vars)) {
-                vars.forEach((v: any) => {
-                    if (v.id) allIdsToCheck.add(String(v.id));
-                    if (v.sku) {
-                        allCodesToCheck.add(v.sku);
-                        allIdsToCheck.add(`${idStr}_${v.sku}`);
-                    }
-                    if (v.name) allNamesToCheck.add(`${product.description} - ${v.name}`);
-                });
-            }
-        }
-
-        const idsArray = Array.from(allIdsToCheck);
-        const codesArray = Array.from(allCodesToCheck);
-        const namesArray = Array.from(allNamesToCheck);
-        
-        const queryPromises: any[] = [];
-        const getBaseQuery = () => supabase.from('orders').select('id, order_data');
-
-        for (const targetId of idsArray) {
-            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ productId: targetId }] }).limit(5));
-            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ variationId: targetId }] }).limit(5));
-            queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ id: targetId }] }).limit(5));
-        }
-
-        for (const targetCode of codesArray) {
-            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ code: targetCode }] }).limit(1));
-            queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ sku: targetCode }] }).limit(1));
-        }
-
-        for (const targetName of namesArray) {
-            queryPromises.push(getBaseQuery().contains('order_data', { items: [{ description: targetName }] }).limit(1));
-            queryPromises.push(getBaseQuery().contains('order_data', { assistanceItems: [{ description: targetName }] }).limit(1));
-        }
-
-        const results = await Promise.all(queryPromises);
-        for (const res of results) {
-            if (res.data && res.data.length > 0) {
-                const validOrder = res.data.find((o: any) => {
-                    const isBudget = o.order_data?.orderType === 'budget';
-                    const isDeleted = o.order_data?.deleted === true || o.order_data?.deleted === 'true';
-                    return !isBudget && !isDeleted;
-                });
-                
-                if (validOrder) {
-                    return String(validOrder.id);
-                }
-            }
-        }
-
-        return null;
-    } catch (err) {
-        console.error("Erro ao verificar vínculos do produto:", err);
-        return null;
-    }
+    return null;
 };
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
@@ -491,6 +519,9 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     products[index] = updatedProduct;
     saveLocalProducts(products);
     notifySubscribers();
+
+    // Sincronizar com Supabase em background
+    syncProductToSupabase(updatedProduct).catch(console.error);
 
     const oldCode = currentItem.code;
     const newCode = productToUpdate.code;
