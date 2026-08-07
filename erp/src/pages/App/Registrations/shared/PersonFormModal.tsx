@@ -295,8 +295,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         return;
                     }
                     if (existing.type === 'customers') {
-                        toast.error("Este cliente já está cadastrado.");
-                        return;
+                        toast.warn("Aviso: Já existe um cliente cadastrado com este CPF/CNPJ ou celular.");
                     }
                 } else if (collectionName === 'employees') {
                     if (existing.type === 'customers') {
