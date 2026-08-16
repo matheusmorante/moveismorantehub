@@ -215,17 +215,6 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                     </div>
 
                     <div className="flex xl:hidden items-center gap-2">
-                        <div className={`flex items-center gap-1.5 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                disabled={form.state.isSaving}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
-                            >
-                                {form.state.isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
-                                {isBudget ? 'Salvar' : isReturn ? 'Salvar' : 'Cadastrar'}
-                            </button>
-                        </div>
                         <button
                             type="button"
                             onClick={onClose}
@@ -296,7 +285,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                         </div>
                     </div>
 
-                    <div className={`flex items-center gap-1.5 transition-all duration-500 ${isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none w-0'}`}>
+                    <div className="flex items-center gap-1.5">
                         <button
                             type="button"
                             onClick={handleSave}

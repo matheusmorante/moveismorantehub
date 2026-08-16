@@ -42,3 +42,9 @@ export const supabase = isConfigured
         })
       }
     } as any);
+
+const ecomUrl = import.meta.env.VITE_ECOM_SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
+const ecomKey = import.meta.env.VITE_ECOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
+
+export const ecommerceSupabase = createClient(ecomUrl, ecomKey);
+

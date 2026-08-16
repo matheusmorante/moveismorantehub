@@ -32,6 +32,19 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
     const handlingError = errors[handlingErrorKey];
     const settings = getSettings();
 
+    const handleSubtotalChange = (val: number) => {
+        const currentUnitPrice = item.unitPrice || 0;
+        if (val > currentUnitPrice) {
+            onChange(idx, 'unitPrice', val);
+            onChange(idx, 'discountType', 'fixed');
+            onChange(idx, 'unitDiscount', 0);
+        } else {
+            const newDiscount = currentUnitPrice - val;
+            onChange(idx, 'discountType', 'fixed');
+            onChange(idx, 'unitDiscount', newDiscount);
+        }
+    };
+
     if (isMobile) {
         return (
             <div className={`p-4 bg-white dark:bg-slate-900/40 border rounded-3xl ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} shadow-sm relative group overflow-hidden transition-all hover:shadow-lg`}>
@@ -123,7 +136,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                 <CurrencyInput
                                     value={item.unitPrice}
                                     onChange={(value: number) => onChange(idx, 'unitPrice', value)}
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none"
+                                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none"
                                 />
                             </div>
                         </div>
@@ -133,27 +146,45 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                     <div className="flex gap-3 items-end">
                         {!item.isComboItem ? (
                             <div className="flex-[3] space-y-1">
-                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto Unitário</label>
-                                <div className="flex items-center gap-0 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl pr-1 focus-within:border-blue-500 transition-all overflow-hidden">
-                                    <CurrencyOrPercentInput
-                                        prefix={item.discountType === "fixed" ? "R$ " : ""}
-                                        suffix={item.discountType === "fixed" ? "" : " %"}
-                                        value={item.unitDiscount}
-                                        onChange={(value: number) => onChange(idx, 'unitDiscount', value)}
-                                        className="w-full bg-transparent border-0 px-3 py-2 text-sm font-bold outline-none text-right"
-                                    />
-                                    <button 
-                                        type="button"
-                                        onClick={onToggleDiscountType}
-                                        className="h-7 min-w-[28px] px-1 flex items-center justify-center bg-white dark:bg-slate-700 text-[9px] font-black text-blue-600 dark:text-blue-400 rounded-lg shadow-sm border border-slate-50 dark:border-slate-700 hover:scale-105 active:scale-95 transition-all"
-                                    >
-                                        {item.discountType === 'fixed' ? 'R$' : '%'}
-                                    </button>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto R$</label>
+                                        <CurrencyInput
+                                            value={item.discountType === "fixed" ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100)}
+                                            onChange={(val: number) => {
+                                                onChange(idx, 'discountType', 'fixed');
+                                                onChange(idx, 'unitDiscount', val);
+                                            }}
+                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto %</label>
+                                        <CurrencyOrPercentInput
+                                            prefix=""
+                                            suffix=" %"
+                                            value={item.discountType === "percentage" ? item.unitDiscount : (item.unitPrice > 0 ? (item.unitDiscount / item.unitPrice) * 100 : 0)}
+                                            onChange={(val: number) => {
+                                                onChange(idx, 'discountType', 'percentage');
+                                                onChange(idx, 'unitDiscount', val);
+                                            }}
+                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         ) : <div className="flex-[3]" />}
                         
-                        <div className="flex-[2] flex flex-col items-end gap-1 px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/30 dark:border-blue-500/10">
+                        <div className="flex-1">
+                            <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Subtotal</label>
+                            <CurrencyInput
+                                value={item.unitPrice - (item.discountType === 'fixed' ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100))}
+                                onChange={handleSubtotalChange}
+                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
+                            />
+                        </div>
+
+                        <div className="flex-1 flex flex-col items-end gap-1 px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/30 dark:border-blue-500/10">
                             <span className="text-[8px] font-black uppercase text-blue-600/60 dark:text-blue-400/60 tracking-widest">Total Item</span>
                             <div className="text-sm font-black text-blue-600 dark:text-blue-400">
                                 <CurrencyDisplay value={calcItemTotalValue(item)} />
@@ -194,7 +225,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                 {!item.isComboItem && !isBudget && (
                     <div className="relative group/hsel">
                         <select
-                            className={`w-full min-w-[120px] bg-transparent border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
+                            className={`w-full min-w-[120px] bg-white dark:bg-slate-950 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
                             value={item.handlingType || ''}
                             onChange={(e) => {
                                 const val = e.target.value;
@@ -235,49 +266,64 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                 )}
             </td>
             <td className="px-4 py-2">
-                <UnitInput
-                    value={item.quantity}
-                    onChange={(value: number) => onChange(idx, 'quantity', value)}
-                    disabled={item.isComboItem}
-                />
+                <div style={{ width: '68px' }} className="mx-auto">
+                    <UnitInput
+                        value={item.quantity}
+                        onChange={(value: number) => onChange(idx, 'quantity', value)}
+                        disabled={item.isComboItem}
+                    />
+                </div>
             </td>
             <td className="px-4 py-2">
                 {!item.isComboItem ? (
-                    <CurrencyInput
-                        value={item.unitPrice}
-                        onChange={(value: number) => onChange(idx, 'unitPrice', value)}
-                    />
+                    <div style={{ width: '128px' }} className="ml-auto">
+                        <CurrencyInput
+                            value={item.unitPrice}
+                            onChange={(value: number) => onChange(idx, 'unitPrice', value)}
+                            className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm font-bold"
+                        />
+                    </div>
                 ) : (
                     <div className="text-center text-[10px] text-slate-400 font-bold">---</div>
                 )}
             </td>
-            <td className="px-4 py-2">
+            <td className="px-4 py-2 text-right">
                 {!item.isComboItem && (
-                    <div className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-lg pr-2 border border-slate-100/50 dark:border-slate-800/50 group-focus-within:border-blue-200 dark:group-focus-within:border-blue-500/30 transition-all">
-                        <div className="relative group/discinput">
-                            <CurrencyOrPercentInput
-                                prefix={item.discountType === "fixed" ? "R$ " : ""}
-                                suffix={item.discountType === "fixed" ? "" : " %"}
-                                value={item.unitDiscount}
-                                onChange={(value: number) => onChange(idx, 'unitDiscount', value)}
-                            />
-                            {item.discountType === 'percentage' && item.unitDiscount > 0 && (
-                                <div className="absolute -top-6 right-0 text-[9px] font-black text-indigo-600 animate-fade-in bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-500/20">
-                                    = {formatCurrency(((item.unitPrice || 0) * (item.unitDiscount || 0) / 100))}
-                                </div>
-                            )}
-                        </div>
-                        <ToggleValueTypeBtn 
-                            onClick={onToggleDiscountType}
-                            title="Clique para converter % em R$ ou vice-versa"
-                        >
-                            {item.discountType === 'fixed' ? 'R$' : '%'}
-                        </ToggleValueTypeBtn>
-                    </div>
+                    <CurrencyInput
+                        value={item.discountType === "fixed" ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100)}
+                        onChange={(val: number) => {
+                            onChange(idx, 'discountType', 'fixed');
+                            onChange(idx, 'unitDiscount', val);
+                        }}
+                        className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none"
+                    />
                 )}
             </td>
             <td className="px-4 py-2 text-right">
-                <div className="font-bold text-slate-700 dark:text-slate-200">
+                {!item.isComboItem && (
+                    <div style={{ width: '82px' }} className="ml-auto">
+                        <CurrencyOrPercentInput
+                            prefix=""
+                            suffix=" %"
+                            value={item.discountType === "percentage" ? item.unitDiscount : (item.unitPrice > 0 ? (item.unitDiscount / item.unitPrice) * 100 : 0)}
+                            onChange={(val: number) => {
+                                onChange(idx, 'discountType', 'percentage');
+                                onChange(idx, 'unitDiscount', val);
+                            }}
+                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                        />
+                    </div>
+                )}
+            </td>
+            <td className="px-4 py-2">
+                <CurrencyInput
+                    value={item.unitPrice - (item.discountType === 'fixed' ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100))}
+                    onChange={handleSubtotalChange}
+                    className="w-full min-w-[110px] text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm font-bold"
+                />
+            </td>
+            <td className="px-4 py-2 text-right">
+                <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">
                     <CurrencyDisplay value={calcItemTotalValue(item)} />
                 </div>
             </td>

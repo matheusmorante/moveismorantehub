@@ -17,8 +17,10 @@ interface FreteDistanciaProps {
 }
 
 const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDistance, onAutoCalculateDistance, autoCalculateValue, onToggleAutoCalculate, isCalculatingDistance, errors }: FreteDistanciaProps) => (
-    <div className="flex-1 flex flex-col gap-8 h-fit">
-        <div className="flex flex-col relative group">
+    <div className="flex-1 flex flex-row items-end gap-4 h-fit">
+
+        {/* Valor do Frete */}
+        <div className="flex-1 flex flex-col relative group">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 ml-1">
                 <div className="flex flex-wrap justify-between items-center w-full gap-2">
                     <span>Valor do Frete</span>
@@ -58,33 +60,33 @@ const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDist
                 )}
             </div>
         </div>
-        <div className="flex flex-col relative group">
-            <div className="flex flex-wrap justify-between items-center mb-2 px-1 w-full gap-2">
+
+        {/* Distância KM */}
+        <div className="w-[140px] flex flex-col relative group">
+            <div className="flex justify-between items-center mb-2 px-1 w-full gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Distância KM</label>
-                <div className="flex items-center gap-2">
-                    <a
-                        href={routeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-[10px] font-black uppercase tracking-widest border border-blue-100/50 dark:border-blue-900/20"
-                        title="Ver rota"
-                    >
-                        <i className="bi bi-geo-alt-fill" />
-                        <span className="hidden sm:inline">Rota</span>
-                    </a>
-                </div>
+                <a
+                    href={routeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-[10px] font-black uppercase tracking-widest border border-blue-100/50 dark:border-blue-900/20"
+                    title="Ver rota"
+                >
+                    <i className="bi bi-geo-alt-fill" />
+                    <span className="hidden sm:inline">Rota</span>
+                </a>
             </div>
-            <div className="relative">
-                <input
-                    type="text"
-                    className="w-full bg-transparent border-0 border-b border-slate-100 dark:border-slate-800 px-1 py-3 focus:border-blue-600 dark:focus:border-blue-500 transition-all text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300"
-                    value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
-                    onChange={(e) => onChangeDistance(e.target.value)}
-                    placeholder="Ex: 5,5"
-                />
-            </div>
+            <input
+                type="text"
+                className="w-full bg-transparent border border-slate-100 dark:border-slate-800 px-3 py-3 rounded-2xl focus:border-blue-600 dark:focus:border-blue-500 transition-all text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300"
+                value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
+                onChange={(e) => onChangeDistance(e.target.value)}
+                placeholder="Ex: 5,5"
+            />
         </div>
     </div>
 );
 
 export default FreteDistancia;
+
+

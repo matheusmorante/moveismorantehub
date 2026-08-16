@@ -7,12 +7,14 @@ interface Props {
     prefix: string,
     suffix: string,
     className?: string
+    style?: React.CSSProperties
 }
 
-const CurrencyOrPercentInput = ({ value, onChange, prefix, suffix, className }: Props) => {
+const CurrencyOrPercentInput = ({ value, onChange, prefix, suffix, className, style }: Props) => {
     return (
         <NumericFormat
             className={className || "w-full min-w-[90px] text-right bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-1 rounded-xl outline-none transition-all text-sm"}
+            style={style}
             value={value}
             allowNegative={false}
             thousandSeparator="."

@@ -5,12 +5,14 @@ interface Props {
     value: number
     onChange: (value: number) => void
     disabled?: boolean
+    className?: string
 }
 
-const UnitInput = ({ value, onChange, disabled }: Props) => {
+const UnitInput = ({ value, onChange, disabled, className }: Props) => {
     return (
         <NumericFormat
-            className={`w-full min-w-[80px] text-right bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={className || `text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm font-bold ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={{ width: '68px' }}
             value={value}
             allowNegative={false}
             disabled={disabled}

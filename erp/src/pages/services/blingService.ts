@@ -24,21 +24,17 @@ export const blingService = {
   exchangeCode: async (code: string) => {
     try {
       const settings = getSettings();
-      const response = await fetch('/api/bling-oauth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      const { data, error } = await supabase.functions.invoke('bling-oauth', {
+        body: { 
             action: 'exchange_code',
             code,
             clientId: settings.blingConfig?.clientId || 'abc06068586195ac65f1df01e26de945712caca7',
             clientSecret: settings.blingConfig?.clientSecret || '3b9500fc5343b4308765eed271c01eb8fbd771152c97928d3d2015270759',
             redirectUri: `${window.location.origin}/stock/bling`
-        })
+        }
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro na autenticação');
-
+      if (error) throw error;
       return data;
     } catch (err) {
       console.error('Erro ao trocar código Bling:', err);
@@ -50,17 +46,14 @@ export const blingService = {
    * Busca produtos do Bling
    */
   fetchProducts: async (params: { pagina?: number; limite?: number; pesquisa?: string; criterio?: number } = {}) => {
-    const response = await fetch('/api/bling-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+    const { data, error } = await supabase.functions.invoke('bling-proxy', {
+      body: { 
         endpoint: '/produtos',
         params 
-      })
+      }
     });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Erro ao buscar produtos');
+    if (error) throw error;
     return data;
   }
 };

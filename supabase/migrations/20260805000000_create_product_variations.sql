@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.attribute_values (
 
 CREATE TABLE IF NOT EXISTS public.product_variations (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  product_id bigint NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   name varchar NOT NULL,
   sku varchar UNIQUE,
   price numeric,
@@ -44,18 +44,30 @@ ALTER TABLE public.attribute_values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_variations ENABLE ROW LEVEL SECURITY;
 
 -- Policies for attributes
+DROP POLICY IF EXISTS "allow_select_attr" ON public.attributes;
+DROP POLICY IF EXISTS "allow_insert_attr" ON public.attributes;
+DROP POLICY IF EXISTS "allow_update_attr" ON public.attributes;
+DROP POLICY IF EXISTS "allow_delete_attr" ON public.attributes;
 CREATE POLICY "allow_select_attr" ON public.attributes FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "allow_insert_attr" ON public.attributes FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "allow_update_attr" ON public.attributes FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "allow_delete_attr" ON public.attributes FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Policies for attribute_values
+DROP POLICY IF EXISTS "allow_select_val" ON public.attribute_values;
+DROP POLICY IF EXISTS "allow_insert_val" ON public.attribute_values;
+DROP POLICY IF EXISTS "allow_update_val" ON public.attribute_values;
+DROP POLICY IF EXISTS "allow_delete_val" ON public.attribute_values;
 CREATE POLICY "allow_select_val" ON public.attribute_values FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "allow_insert_val" ON public.attribute_values FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "allow_update_val" ON public.attribute_values FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "allow_delete_val" ON public.attribute_values FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Policies for product_variations
+DROP POLICY IF EXISTS "allow_select" ON public.product_variations;
+DROP POLICY IF EXISTS "allow_insert" ON public.product_variations;
+DROP POLICY IF EXISTS "allow_update" ON public.product_variations;
+DROP POLICY IF EXISTS "allow_delete" ON public.product_variations;
 CREATE POLICY "allow_select" ON public.product_variations FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "allow_insert" ON public.product_variations FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "allow_update" ON public.product_variations FOR UPDATE USING (auth.role() = 'authenticated');

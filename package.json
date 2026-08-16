@@ -5,11 +5,7 @@
   "private": true,
   "scripts": {
     "install:erp": "npm install --prefix erp",
-    "install:api": "npm install --prefix api",
-    "install:all": "npm run install:erp && npm run install:api",
-    "dev:erp": "npm run dev --prefix erp",
-    "dev:api": "npm run start --prefix api",
-    "dev": "npx concurrently -n \"ERP,API\" -c \"blue,yellow\" \"npm run dev:erp\" \"npm run dev:api\""
+    "dev": "npm run dev --prefix erp"
   },
   "devDependencies": {
     "@types/bwip-js": "^3.2.3",

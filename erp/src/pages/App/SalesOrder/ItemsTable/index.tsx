@@ -67,9 +67,11 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                 <tr>
                     <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 min-w-[200px]">Descrição <span className="text-red-500">*</span></th>
                     {!isBudget && <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[130px]">Manuseio</th>}
-                    <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd. <span className="text-red-500">*</span></th>
+                    <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[4em]">Qtd. <span className="text-red-500">*</span></th>
                     <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Preço Un. <span className="text-red-500">*</span></th>
-                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">Desconto</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Desc. R$</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[90px]">Desc. %</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Subtotal</th>
                     <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Total</th>
                     <th className="px-4 py-3 text-center border-none bg-transparent w-[60px]">
                         <button

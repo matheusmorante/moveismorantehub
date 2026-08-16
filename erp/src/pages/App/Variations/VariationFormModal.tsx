@@ -6,11 +6,12 @@ import { toast } from "react-toastify";
 interface VariationFormModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
     variation?: VariationType | null;
     allVariations?: VariationType[];
 }
 
-const VariationFormModal = ({ isOpen, onClose, variation, allVariations = [] }: VariationFormModalProps) => {
+const VariationFormModal = ({ isOpen, onClose, onSuccess, variation, allVariations = [] }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
     const [isCartesianMode, setIsCartesianMode] = useState(false);
     const [cartesianAttrA, setCartesianAttrA] = useState("");
@@ -131,6 +132,7 @@ const VariationFormModal = ({ isOpen, onClose, variation, allVariations = [] }: 
 
             await saveVariation(formData as VariationType);
             toast.success(variation ? "Variação atualizada!" : "Variação criada com sucesso!");
+            onSuccess?.();
             onClose();
         } catch (error) {
             toast.error("Erro ao salvar a variação.");

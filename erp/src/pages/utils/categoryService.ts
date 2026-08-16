@@ -1,4 +1,5 @@
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
+import { toTitleCase } from './textUtils';
 
 export type Category = {
     id: string;
@@ -56,10 +57,11 @@ export const generateSlug = (name: string) => {
 };
 
 export const createCategory = async (name: string, parentIds: string[], seoFields?: Partial<Category>) => {
+    const formattedName = toTitleCase(name);
     const insertData = { 
-        name, 
+        name: formattedName, 
         active: true,
-        slug: seoFields?.slug || generateSlug(name),
+        slug: seoFields?.slug || generateSlug(formattedName),
         meta_title: seoFields?.meta_title,
         meta_description: seoFields?.meta_description,
         seo_description: seoFields?.seo_description
@@ -70,7 +72,7 @@ export const createCategory = async (name: string, parentIds: string[], seoField
     // Fail-safe: If insert fails due to missing columns (SEO fields)
     if (error && (error.message?.includes("column") || error.code === '42703' || error.message?.includes("schema cache"))) {
         console.warn("[CategoryService] Schema issue on insert. Retrying with basic fields...");
-        const basicData = { name, active: true };
+        const basicData = { name: formattedName, active: true };
         const { data: retryData, error: retryError } = await supabase.from('categories').insert([basicData]).select();
         data = retryData;
         error = retryError;
@@ -89,7 +91,8 @@ export const createCategory = async (name: string, parentIds: string[], seoField
 };
 
 export const updateCategory = async (id: string, name: string, parentIds: string[], seoFields?: Partial<Category>) => {
-    const updateData: any = { name };
+    const formattedName = toTitleCase(name);
+    const updateData: any = { name: formattedName };
     if (seoFields) {
         if (seoFields.slug) updateData.slug = seoFields.slug;
         if (seoFields.meta_title) updateData.meta_title = seoFields.meta_title;
@@ -102,7 +105,7 @@ export const updateCategory = async (id: string, name: string, parentIds: string
     // Fail-safe: Retry without SEO fields if they don't exist
     if (error && (error.message?.includes("column") || error.code === '42703' || error.message?.includes("schema cache"))) {
         console.warn("[CategoryService] Schema issue on update. Retrying with basic name...");
-        const { error: retryError } = await supabase.from('categories').update({ name }).eq('id', id);
+        const { error: retryError } = await supabase.from('categories').update({ name: formattedName }).eq('id', id);
         error = retryError;
     }
 

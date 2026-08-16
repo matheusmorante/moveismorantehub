@@ -43,13 +43,13 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
                         <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-box-seam mr-1 text-indigo-500"></i> Produtos
+                            <i className="bi bi-list-ul mr-1 text-indigo-500"></i> Lista
                         </Link>
-                        <Link to="/stock/bling" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-clouds-fill mr-1 text-blue-500"></i> Lista do Bling
+                        <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-ui-radios mr-1 text-blue-500"></i> Atributos
                         </Link>
-                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-file-earmark-arrow-up-fill mr-1"></i> Gerenciar Importação
+                        <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-tag-fill mr-1 text-teal-500"></i> Ambientes e Categorias
                         </Link>
                     </div>
                 )}

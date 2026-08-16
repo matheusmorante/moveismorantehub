@@ -890,14 +890,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
                     <div>
-                        <div className="flex items-center gap-3">
-                            <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-600">
-                                Ficha de Produto
-                            </span>
-                            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">v2.5 Refined</span>
-                        </div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tight">
-                            {product ? 'Editar Cadastro' : 'Novo Cadastro no Catálogo'}
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                            Cadastro de Produto
                         </h2>
                     </div>
                     <button onClick={handleCloseWithAutoSave} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">

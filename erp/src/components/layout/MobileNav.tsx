@@ -61,13 +61,13 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         {activeMenu === 'products' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
                                 <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-box-seam mr-2 text-indigo-500"></i> Produtos
+                                    <i className="bi bi-list-ul mr-2 text-indigo-500"></i> Lista
                                 </Link>
-                                <Link to="/stock/bling" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-clouds-fill mr-2 text-blue-500"></i> Lista do Bling
+                                <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-ui-radios mr-2 text-blue-500"></i> Atributos
                                 </Link>
-                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-file-earmark-arrow-up-fill mr-2"></i> Gerenciar Importação
+                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-tag-fill mr-2 text-teal-500"></i> Ambientes e Categorias
                                 </Link>
                             </div>
                         )}

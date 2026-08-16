@@ -10,7 +10,6 @@ import { generateProductCode } from '@/pages/utils/formatters';
 import { getProductSalesStats } from "../../../utils/productService";
 import VariationType from "../../../types/variation.type";
 import { subscribeToVariations } from "../../../utils/variationService";
-import AttributeSelectionModal from "./AttributeSelectionModal";
 import AttributeManagementModal from "./AttributeManagementModal";
 import InitialStockList from "./InitialStockList";
 
@@ -275,56 +274,95 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                         <div className="flex items-center gap-4">
                                             <button
                                                 type="button"
-                                                onClick={() => setIsSelectionModalOpen(true)}
+                                                onClick={() => {
+                                                    const availableAttr = availableVariations.find(v => !(localVariation.attributes || []).some(a => a.name === v.name));
+                                                    const newAttrName = availableAttr ? availableAttr.name : "";
+                                                    const nextAttrs = [...(localVariation.attributes || []), { name: newAttrName, value: "", showName: true }];
+                                                    handleAttributesChange(nextAttrs);
+                                                }}
                                                 className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 transition-colors"
                                             >
-                                                + Selecionar Atributo
+                                                + Adicionar Atributo
                                             </button>
-
                                         </div>
                                     </div>
 
-                                    
                                     <div className="space-y-3">
-                                        {(localVariation.attributes || []).map((attr, idx) => (
-                                            <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-left-1 group">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
-                                                        <i className="bi bi-tag-fill text-xs"></i>
+                                        {(localVariation.attributes || []).map((attr, idx) => {
+                                            const currentAttr = availableVariations.find(v => v.name === attr.name);
+                                            const attrVals = currentAttr ? currentAttr.options : [];
+
+                                            return (
+                                                <div key={idx} className="flex items-end gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-left-1 group">
+                                                    <div className="flex-1 space-y-1.5">
+                                                        <label className="text-[10px] text-slate-400 font-black uppercase">Atributo</label>
+                                                        <select
+                                                            value={attr.name}
+                                                            onChange={e => {
+                                                                const newName = e.target.value;
+                                                                const nextAttrs = [...(localVariation.attributes || [])];
+                                                                nextAttrs[idx] = { ...nextAttrs[idx], name: newName, value: "" };
+                                                                handleAttributesChange(nextAttrs);
+                                                            }}
+                                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                                        >
+                                                            <option value="" disabled>Selecionar...</option>
+                                                            {availableVariations.map(v => (
+                                                                <option key={v.id} value={v.name} disabled={(localVariation.attributes || []).some(a => a.name === v.name) && v.name !== attr.name}>
+                                                                    {v.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{attr.name}</p>
-                                                        <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">{attr.value}</p>
+
+                                                    <div className="flex-1 space-y-1.5">
+                                                        <label className="text-[10px] text-slate-400 font-black uppercase">Valor</label>
+                                                        <select
+                                                            value={attr.value}
+                                                            onChange={e => {
+                                                                const val = e.target.value;
+                                                                const nextAttrs = [...(localVariation.attributes || [])];
+                                                                nextAttrs[idx] = { ...nextAttrs[idx], value: val };
+                                                                handleAttributesChange(nextAttrs);
+                                                            }}
+                                                            required
+                                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                                        >
+                                                            <option value="" disabled>Selecione...</option>
+                                                            {attrVals.map(opt => (
+                                                                <option key={opt.id} value={opt.value}>{opt.value}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
-                                                </div>
-                                                
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const nextAttrs = [...(localVariation.attributes || [])];
-                                                            nextAttrs[idx] = { ...nextAttrs[idx], showName: !nextAttrs[idx].showName };
-                                                            handleAttributesChange(nextAttrs);
-                                                        }}
-                                                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${attr.showName !== false ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                                                        title={attr.showName !== false ? "Ocultar nome no título" : "Mostrar nome no título"}
-                                                    >
-                                                        <i className={`bi ${attr.showName !== false ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}></i>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
+
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const nextAttrs = [...(localVariation.attributes || [])];
+                                                                nextAttrs[idx] = { ...nextAttrs[idx], showName: !nextAttrs[idx].showName };
+                                                                handleAttributesChange(nextAttrs);
+                                                            }}
+                                                            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${attr.showName !== false ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                            title={attr.showName !== false ? "Ocultar nome no título" : "Mostrar nome no título"}
+                                                        >
+                                                            <i className={`bi ${attr.showName !== false ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}></i>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
                                                                 const nextAttrs = localVariation.attributes!.filter((_, i) => i !== idx);
                                                                 handleAttributesChange(nextAttrs);
-                                                        }}
-                                                        className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
-                                                        title="Remover Atributo"
-                                                    >
-                                                        <i className="bi bi-trash"></i>
-                                                    </button>
+                                                            }}
+                                                            className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
+                                                            title="Remover Atributo"
+                                                        >
+                                                            <i className="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
 
 

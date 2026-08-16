@@ -64,10 +64,6 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
                             }`}>
                                 <i className={`bi ${s.icon} text-sm md:text-lg transition-transform duration-500 ${status === 'active' ? '-rotate-[22.5deg]' : ''}`} />
                                 
-                                {/* Pulse for active or error step */}
-                                {status === 'active' && (
-                                    <div className="absolute inset-0 rounded-xl md:rounded-2xl bg-blue-500 animate-ping opacity-20" />
-                                )}
                                 {status === 'error' && (
                                     <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center border border-rose-500 shadow-sm">
                                         <i className="bi bi-exclamation-triangle-fill text-rose-500 text-[6px]" />

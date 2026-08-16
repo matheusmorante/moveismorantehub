@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Product, { Variation, InitialStockEntry } from '../../types/product.type';
 import { saveVariation } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import InitialStockList from './components/InitialStockList';
 
 interface VariationFormModalProps {

@@ -16,15 +16,12 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
 }) => {
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
-                <div className="flex items-center justify-between mb-2">
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            <i className="bi bi-file-earmark-text text-blue-600"></i> Informações Fiscais para NF-e
-                        </h4>
-                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Dados essenciais para emissão de nota fiscal</p>
-                    </div>
-                    {/* Removido Descobrir NCM com IA */}
+            <div className="flex flex-col gap-6">
+                <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <i className="bi bi-file-earmark-text text-blue-600"></i> Informações Fiscais para NF-e
+                    </h4>
+                    <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Dados essenciais para emissão de nota fiscal</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -75,9 +72,8 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                 </div>
             </div>
 
-            {/* Simples Nacional / Tributação */}
-            <div className="bg-slate-50/50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col gap-6">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Configurações de Imposto por Produto</h4>
+            <div className="flex flex-col gap-6 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Configurações de Imposto por Produto</h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {formData.itemType !== 'service' && (

@@ -261,19 +261,15 @@ export const useSalesReport = () => {
                 
                 console.log(`Buscando todos os pedidos (Sem filtro de situação) Pág ${page}:`, params);
 
-                const response = await fetch('/api/bling-proxy', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
+                const { data, error } = await supabase.functions.invoke('bling-proxy', {
+                    body: { 
                         endpoint: '/pedidos/vendas',
                         params 
-                    })
+                    }
                 });
-
-                const data = await response.json();
                 
-                if (!response.ok) {
-                    alert(`Erro na API do Bling: ${data.error || response.statusText}`);
+                if (error) {
+                    alert(`Erro na API do Bling: ${error.message}`);
                     hasMore = false;
                     break;
                 }

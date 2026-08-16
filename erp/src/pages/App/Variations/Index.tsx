@@ -1,46 +1,204 @@
 import { useState } from "react";
-import VariationType, { VariationOption, VariationVisibilitySettings } from "../../types/variation.type";
-import VariationFormModal from "./VariationFormModal";
+import VariationType, { VariationOption } from "../../types/variation.type";
 import { useVariations } from "./useVariations";
-import { useWindowSize } from "../../../hooks/useWindowSize";
-
-type VisibilityKey = keyof VariationVisibilitySettings;
-
-const COLUMN_OPTIONS: { key: VisibilityKey; label: string }[] = [
-    { key: "id", label: "ID" },
-    { key: "name", label: "Nome do Atributo" },
-    { key: "options", label: "Valores" },
-];
-
-const DEFAULT_VISIBILITY: VariationVisibilitySettings = {
-    id: true,
-    name: true,
-    options: true,
-    actions: true,
-};
+import { saveVariation, updateVariation, checkVariationUsage } from "../../utils/variationService";
+import { toast } from "react-toastify";
 
 const Variations = () => {
     const { variations, loading, handleDelete, refresh } = useVariations();
-    const { width } = useWindowSize();
-    const isMobile = width <= 900;
 
     const [searchTerm, setSearchTerm] = useState("");
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingVariation, setEditingVariation] = useState<VariationType | null>(null);
-    const [visibility, setVisibility] = useState<VariationVisibilitySettings>(DEFAULT_VISIBILITY);
-    const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
+    
+    // Novo atributo state
+    const [newAttrName, setNewAttrName] = useState("");
+    const [tempValues, setTempValues] = useState<string[]>([]);
+    const [currentValInput, setCurrentValInput] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
 
-    const toggleColumn = (key: VisibilityKey) =>
-        setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+    // Val inputs para atributos existentes (mapeado por attributeId)
+    const [existingValInputs, setExistingValInputs] = useState<Record<string, string>>({});
 
-    const openEdit = (variation: VariationType) => {
-        setEditingVariation(variation);
-        setIsFormOpen(true);
+    const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = event.target?.result as string;
+            if (!text) return;
+
+            try {
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                let startIndex = 0;
+                if (lines.length > 0 && (lines[0].toLowerCase().includes("atributo") || lines[0].toLowerCase().includes("valor"))) {
+                    startIndex = 1;
+                }
+
+                const capitalize = (str: string): string => {
+                    if (!str) return "";
+                    const trimmed = str.trim();
+                    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+                };
+
+                const importedData: Record<string, Set<string>> = {};
+                for (let i = startIndex; i < lines.length; i++) {
+                    const row = lines[i];
+                    let parts: string[] = [];
+                    if (row.includes('"')) {
+                        const matches = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                        parts = matches ? matches.map(m => m.replace(/"/g, '').trim()) : row.split(',').map(p => p.trim());
+                    } else {
+                        parts = row.split(',').map(p => p.trim());
+                    }
+
+                    if (parts.length > 0 && parts[0]) {
+                        const attrName = capitalize(parts[0]);
+                        const valText = parts[1] ? capitalize(parts[1]) : "";
+                        
+                        if (!importedData[attrName]) {
+                            importedData[attrName] = new Set<string>();
+                        }
+                        if (valText) {
+                            importedData[attrName].add(valText);
+                        }
+                    }
+                }
+
+                let createdCount = 0;
+                let updatedCount = 0;
+
+                for (const [attrName, valsSet] of Object.entries(importedData)) {
+                    const existingAttr = variations.find(v => v.name.toLowerCase() === attrName.toLowerCase());
+                    const valsArray = Array.from(valsSet);
+
+                    if (existingAttr) {
+                        const currentVals = existingAttr.options.map(o => o.value.toLowerCase());
+                        const newVals = valsArray.filter(v => !currentVals.includes(v.toLowerCase()));
+
+                        if (newVals.length > 0) {
+                            const updatedOptions = [
+                                ...existingAttr.options,
+                                ...newVals.map(v => ({ id: "", value: v }))
+                            ];
+                            await updateVariation(existingAttr.id!, { options: updatedOptions });
+                            updatedCount++;
+                        }
+                    } else {
+                        await saveVariation({
+                            name: attrName,
+                            active: true,
+                            options: valsArray.map(v => ({ id: "", value: v }))
+                        });
+                        createdCount++;
+                    }
+                }
+
+                toast.success(`Importação concluída! ${createdCount} atributos criados, ${updatedCount} atualizados.`);
+                refresh();
+            } catch (err: any) {
+                toast.error("Erro ao importar CSV: " + err.message);
+            }
+        };
+
+        reader.readAsText(file, "UTF-8");
+        e.target.value = "";
     };
 
-    const openAdd = () => {
-        setEditingVariation(null);
-        setIsFormOpen(true);
+    const handleKeyDownTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            const val = currentValInput.trim().replace(/,/g, "");
+            if (val) {
+                if (tempValues.includes(val)) {
+                    toast.error("Este valor já foi adicionado!");
+                    return;
+                }
+                setTempValues((prev) => [...prev, val]);
+            }
+            setCurrentValInput("");
+        } else if (e.key === "Backspace" && !currentValInput) {
+            setTempValues((prev) => prev.slice(0, -1));
+        }
+    };
+
+    const handleSaveAttribute = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newAttrName.trim()) {
+            toast.error("Preencha o nome do atributo!");
+            return;
+        }
+
+        let finalValues = [...tempValues];
+        const pendingVal = currentValInput.trim().replace(/,/g, "");
+        if (pendingVal) {
+            if (!finalValues.includes(pendingVal)) {
+                finalValues.push(pendingVal);
+            }
+        }
+
+        if (finalValues.length === 0) {
+            toast.error("Adicione pelo menos um valor/rótulo!");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await saveVariation({
+                name: newAttrName.trim(),
+                active: true,
+                options: finalValues.map(val => ({ id: "", value: val }))
+            });
+
+            toast.success("Atributo criado com sucesso!");
+            setNewAttrName("");
+            setTempValues([]);
+            setCurrentValInput("");
+            refresh();
+        } catch (err: any) {
+            toast.error("Erro ao salvar: " + err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDeleteValue = async (attr: VariationType, opt: VariationOption) => {
+        if (!confirm(`Tem certeza que deseja remover o valor "${opt.value}" do atributo "${attr.name}"?`)) return;
+
+        try {
+            // Verificar se o valor está em uso por algum produto
+            const isUsed = await checkVariationUsage(attr.name, opt.value);
+            if (isUsed) {
+                toast.warning(`Não é possível excluir o valor "${opt.value}" pois ele está em uso em uma ou mais variações de produtos.`);
+                return;
+            }
+
+            const updatedOptions = attr.options.filter(o => o.id !== opt.id);
+            await updateVariation(attr.id!, { options: updatedOptions });
+            toast.success("Valor removido com sucesso!");
+            refresh();
+        } catch (err: any) {
+            toast.error("Erro ao remover valor: " + err.message);
+        }
+    };
+
+    const handleAddValueToExisting = async (attr: VariationType) => {
+        const valText = existingValInputs[attr.id!] || "";
+        if (!valText.trim()) return;
+
+        if (attr.options.some(o => o.value.toLowerCase() === valText.trim().toLowerCase())) {
+            toast.error("Este valor já existe para este atributo!");
+            return;
+        }
+
+        try {
+            const updatedOptions = [...attr.options, { id: "", value: valText.trim() }];
+            await updateVariation(attr.id!, { options: updatedOptions });
+            toast.success("Valor adicionado com sucesso!");
+            setExistingValInputs(prev => ({ ...prev, [attr.id!]: "" }));
+            refresh();
+        } catch (err: any) {
+            toast.error("Erro ao adicionar valor: " + err.message);
+        }
     };
 
     const filteredVariations = variations.filter(
@@ -56,13 +214,13 @@ const Variations = () => {
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <i className="bi bi-ui-radios text-2xl text-blue-600" />
+                            <i className="bi bi-stars text-2xl text-blue-600 animate-pulse" />
                             <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                                Atributos e Valores
+                                Atributos
                             </h1>
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                            Gestão de Atributos e Opções (Cores, Tamanhos, Materiais)
+                            Gerencie as propriedades (ex: Cor, Tamanho, Material) utilizadas na grade de variações
                         </p>
                     </div>
 
@@ -79,51 +237,6 @@ const Variations = () => {
                             />
                         </div>
 
-                        {!isMobile && (
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowVisibilityMenu(!showVisibilityMenu)}
-                                    className="h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl flex items-center justify-center transition-all shadow-sm group"
-                                    title="Colunas Visíveis"
-                                >
-                                    <i className="bi bi-view-list text-lg text-slate-600 dark:text-slate-400 group-hover:text-blue-600 transition-colors" />
-                                </button>
-
-                                {showVisibilityMenu && (
-                                    <div className="absolute right-0 top-14 w-56 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-xl p-4 z-50">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
-                                            Colunas Visíveis
-                                        </h4>
-                                        <div className="flex flex-col gap-1">
-                                            {COLUMN_OPTIONS.map((col) => (
-                                                <button
-                                                    key={col.key}
-                                                    onClick={() => toggleColumn(col.key)}
-                                                    className="flex items-center justify-between px-3 py-2 text-sm font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-slate-600 dark:text-slate-300"
-                                                >
-                                                    {col.label}
-                                                    <i
-                                                        className={`bi bi-check text-lg ${
-                                                            visibility[col.key]
-                                                                ? "text-blue-600 opacity-100"
-                                                                : "opacity-0"
-                                                        }`}
-                                                    />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <button
-                            onClick={openAdd}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
-                        >
-                            <i className="bi bi-plus-lg text-sm" />
-                            <span className="hidden sm:inline">Novo Atributo / Valor</span>
-                        </button>
                     </div>
                 </div>
             </header>
@@ -131,160 +244,163 @@ const Variations = () => {
             {/* Content */}
             <main className="flex-1 overflow-x-auto overflow-y-auto p-4 md:p-8 relative z-10 custom-scrollbar">
                 <div className="max-w-7xl mx-auto">
-                    {!isMobile ? (
-                        <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-w-[800px]">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                                        {visibility.id && <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">ID</th>}
-                                        {visibility.name && <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Atributo</th>}
-                                        {visibility.options && <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Valores</th>}
-                                        {visibility.actions && <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center w-24">Ações</th>}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                                    {filteredVariations.length > 0 ? (
-                                        filteredVariations.map((v) => (
-                                            <tr
-                                                key={v.id}
-                                                onClick={() => openEdit(v)}
-                                                className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors"
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Formulário de Criação (Coluna Esquerda) */}
+                        <div className="lg:col-span-1 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm h-fit space-y-6">
+                            <div>
+                                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                    <i className="bi bi-plus-circle-fill text-blue-600" />
+                                    Novo Atributo
+                                </h2>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">
+                                    Cadastre propriedades reutilizáveis
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleSaveAttribute} className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Nome do Atributo
+                                    </label>
+                                    <input
+                                        placeholder="Ex: Cor, Tamanho, Voltagem"
+                                        value={newAttrName}
+                                        onChange={(e) => setNewAttrName(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold dark:text-slate-300"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Valores (Enter ou Vírgula)
+                                    </label>
+                                    <div className="min-h-[5rem] flex flex-wrap gap-2 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl items-center focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
+                                        {tempValues.map((val, idx) => (
+                                            <span
+                                                key={idx}
+                                                className="h-8 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-xs gap-1.5 py-0 px-3 rounded-xl border border-blue-100 dark:border-blue-900/30 flex items-center shrink-0"
                                             >
-                                                {visibility.id && (
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400">
-                                                        #{v.id}
-                                                    </td>
-                                                )}
-                                                {visibility.name && (
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-2 h-2 rounded-full ${v.active ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
-                                                            <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{v.name}</span>
-                                                        </div>
-                                                    </td>
-                                                )}
-                                                {visibility.options && (
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {v.options.slice(0, 5).map((opt: VariationOption) => (
-                                                                <span
-                                                                    key={opt.id}
-                                                                    className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700"
-                                                                >
-                                                                    {opt.value}
-                                                                </span>
-                                                            ))}
-                                                            {v.options.length > 5 && (
-                                                                <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-100 dark:border-blue-800">
-                                                                    +{v.options.length - 5}
-                                                                </span>
-                                                            )}
-                                                            {v.options.length === 0 && (
-                                                                <span className="text-slate-400 italic text-xs">Sem valores cadastrados</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                )}
-                                                {visibility.actions && (
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="flex items-center justify-center">
-                                                            <button
-                                                                onClick={(e) => handleDelete(v.id!, e)}
-                                                                className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 transition-colors flex items-center justify-center active:scale-95"
-                                                                title="Apagar Atributo"
-                                                            >
-                                                                <i className="bi bi-trash" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        ))
+                                                {val}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTempValues((prev) => prev.filter((_, i) => i !== idx))}
+                                                    className="text-blue-400 hover:text-red-500 rounded-full transition-colors flex items-center"
+                                                >
+                                                    <i className="bi bi-x-lg text-[10px]" />
+                                                </button>
+                                            </span>
+                                        ))}
+                                        <input
+                                            type="text"
+                                            placeholder={tempValues.length === 0 ? "Ex: Azul, Preto..." : ""}
+                                            value={currentValInput}
+                                            onChange={(e) => setCurrentValInput(e.target.value)}
+                                            onKeyDown={handleKeyDownTagInput}
+                                            className="flex-1 min-w-[100px] bg-transparent outline-none border-none text-sm p-1 font-bold dark:text-slate-300"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    {isSaving ? (
+                                        <i className="bi bi-arrow-clockwise animate-spin text-sm" />
                                     ) : (
-                                        <tr>
-                                            <td colSpan={6} className="px-6 py-16 text-center text-slate-400 text-sm font-bold">
-                                                <div className="flex flex-col items-center justify-center gap-3">
-                                                    <i className="bi bi-ui-radios text-5xl opacity-20" />
-                                                    {searchTerm ? "Nenhum atributo encontrado." : "Nenhum atributo cadastrado."}
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <>Criar Atributo</>
                                     )}
-                                </tbody>
-                            </table>
+                                </button>
+                            </form>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 gap-4">
-                            {filteredVariations.length > 0 ? (
-                                filteredVariations.map((v) => (
+
+                        {/* Lista de Atributos Existentes (Coluna Direita) */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {loading ? (
+                                <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm flex flex-col items-center justify-center gap-3">
+                                    <i className="bi bi-arrow-clockwise animate-spin text-3xl text-blue-600" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Carregando atributos...</p>
+                                </div>
+                            ) : filteredVariations.length === 0 ? (
+                                <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm italic text-slate-400 font-bold">
+                                    Nenhum atributo cadastrado.
+                                </div>
+                            ) : (
+                                filteredVariations.map((attr) => (
                                     <div
-                                        key={v.id}
-                                        onClick={() => openEdit(v)}
-                                        className="bg-white dark:bg-slate-950 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 active:scale-[0.98] transition-all relative overflow-hidden group"
+                                        key={attr.id}
+                                        className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm space-y-6"
                                     >
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-3 h-3 rounded-full ${v.active ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-300 dark:bg-slate-600"}`} />
-                                                <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg">{v.name}</h3>
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">{attr.name}</h3>
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">
+                                                    Valores vinculados a este atributo
+                                                </p>
                                             </div>
                                             <button
-                                                onClick={(e) => handleDelete(v.id!, e)}
-                                                className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 transition-colors flex items-center justify-center active:scale-90"
+                                                onClick={(e) => handleDelete(attr.id!, e)}
+                                                className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
+                                                title="Excluir Atributo"
                                             >
                                                 <i className="bi bi-trash text-lg" />
                                             </button>
                                         </div>
 
-                                        <div className="space-y-3">
-                                            <div className="flex flex-wrap gap-2">
-                                                {v.options.map((opt: VariationOption) => (
-                                                    <span
-                                                        key={opt.id}
-                                                        className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wider rounded-xl border border-slate-100 dark:border-slate-800"
+                                        <div className="flex flex-wrap gap-2.5">
+                                            {attr.options?.map((opt) => (
+                                                <span
+                                                    key={opt.id}
+                                                    className="h-8 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs gap-2 py-0 px-3 rounded-full flex items-center shrink-0 group transition-colors"
+                                                >
+                                                    {opt.value}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteValue(attr, opt)}
+                                                        className="text-slate-400 hover:text-red-500 transition-colors flex items-center cursor-pointer"
+                                                        title="Remover este valor"
                                                     >
-                                                        {opt.value}
-                                                    </span>
-                                                ))}
-                                                {v.options.length === 0 && (
-                                                    <span className="text-slate-400 italic text-xs">Sem valores cadastrados</span>
-                                                )}
-                                            </div>
-                                            <div className="pt-2 flex justify-between items-center border-t border-slate-50 dark:border-slate-900">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                    #{v.id}
+                                                        <i className="bi bi-x-lg text-[9px]" />
+                                                    </button>
                                                 </span>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">
-                                                    Editar Detalhes <i className="bi bi-chevron-right ml-1" />
-                                                </span>
-                                            </div>
+                                            ))}
+                                            {attr.options?.length === 0 && (
+                                                <span className="text-slate-400 italic text-xs">Sem valores cadastrados</span>
+                                            )}
+                                        </div>
+
+                                        {/* Formulário rápido para adicionar valor avulso */}
+                                        <div className="flex gap-3 max-w-md pt-2">
+                                            <input
+                                                placeholder="Adicionar novo valor..."
+                                                value={existingValInputs[attr.id!] || ""}
+                                                onChange={(e) => setExistingValInputs(prev => ({ ...prev, [attr.id!]: e.target.value }))}
+                                                onKeyDown={async (e) => {
+                                                    if (e.key === "Enter") {
+                                                        await handleAddValueToExisting(attr);
+                                                    }
+                                                }}
+                                                className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold dark:text-slate-300"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleAddValueToExisting(attr)}
+                                                className="bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer"
+                                            >
+                                                Adicionar
+                                            </button>
                                         </div>
                                     </div>
                                 ))
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-                                    <div className="w-20 h-20 bg-white dark:bg-slate-950 rounded-full flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-800 mb-4">
-                                        <i className="bi bi-ui-radios text-3xl text-slate-200 dark:text-slate-800" />
-                                    </div>
-                                    <p className="text-slate-400 dark:text-slate-600 font-bold tracking-widest uppercase text-xs">
-                                        {searchTerm ? "Nenhum atributo encontrado." : "Nenhum atributo cadastrado."}
-                                    </p>
-                                </div>
                             )}
                         </div>
-                    )}
+                    </div>
                 </div>
             </main>
-
-            <VariationFormModal
-                isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
-                onSuccess={refresh}
-                variation={editingVariation}
-                allVariations={variations}
-            />
         </div>
     );
 };
-
 
 export default Variations;

@@ -379,7 +379,8 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         use_parent_price: v.syncUnitPrice !== false,
                         use_parent_promo_price: v.syncUnitPrice !== false,
                         use_parent_dimensions: v.syncDescription !== false,
-                        use_parent_description: v.syncDescription !== false
+                        use_parent_description: v.syncDescription !== false,
+                        use_parent_name: true
                     };
                 });
 

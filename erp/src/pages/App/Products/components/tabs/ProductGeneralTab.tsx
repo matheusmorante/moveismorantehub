@@ -67,58 +67,12 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Identification Section */}
-            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
-                            ID do Produto <span className="text-slate-400 font-normal">(Auto ou Manual)</span>
-                        </label>
-                        <i className="bi bi-fingerprint text-slate-300"></i>
-                    </div>
-                    <input
-                        value={formData.id || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, id: e.target.value }))}
-                        disabled={!!formData.id && formData.id.length > 15} // Disable if it's already a UUID (safety)
-                        className="w-full px-4 py-2 bg-slate-50/50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-600 dark:text-slate-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                        placeholder="Gerado automaticamente..."
-                    />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
-                            SKU / Código Comercial <span className="text-red-500">*</span>
-                        </label>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const newCode = 'PRD-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-                                setFormData(prev => ({ ...prev, code: newCode }));
-                                toast.info(`Novo SKU gerado: ${newCode}`);
-                            }}
-                            className="text-[9px] font-black uppercase text-blue-600 hover:underline flex items-center gap-1"
-                        >
-                            <i className="bi bi-magic"></i> Gerar Novo
-                        </button>
-                    </div>
-                    <div className="relative">
-                        <input
-                            value={formData.code || ''}
-                            onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                            className="w-full px-4 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 dark:text-blue-400 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                            placeholder="EX: REF-123, 489..."
-                        />
-                        <i className="bi bi-barcode absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                    </div>
-                </div>
-            </div>
 
             {/* Title Section */}
             <div className="md:col-span-2 flex flex-col gap-2">
                 <div className="flex items-center justify-between mb-0.5">
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
-                        Título do Produto <span className="text-red-500">*</span>
+                        Nome do Produto (Interno / Fiscal) <span className="text-red-500">*</span>
                     </label>
                 </div>
                 
@@ -126,7 +80,53 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     value={formData.description || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value.toUpperCase() }))}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-base font-black text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                    placeholder="Digite o título do produto..."
+                    placeholder="Digite o nome interno/fiscal do produto..."
+                />
+            </div>
+
+            {/* Ecommerce Title Section */}
+            <div className="md:col-span-2 flex flex-col gap-2">
+                <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
+                        Título do Produto (E-commerce)
+                    </label>
+                </div>
+                
+                <input
+                    value={formData.marketplaceTitle || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, marketplaceTitle: e.target.value.toUpperCase() }))}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-base font-black text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                    placeholder="Digite o título que aparecerá no e-commerce..."
+                />
+            </div>
+
+            {/* Price */}
+            <div className="flex flex-col gap-1.5 md:col-span-1 max-w-xs">
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Preço de Venda (R$)</label>
+                    {formData.isCombo && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const total = formData.comboItems?.reduce((acc: number, item) => acc + ((item.unitPrice || 0) * item.quantity), 0) || 0;
+                                setFormData({ ...formData, unitPrice: Number(total.toFixed(2)) });
+                                toast.info(`Preço calculado: R$ ${total.toFixed(2)}`);
+                            }}
+                            className="text-[9px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                        >
+                            <i className="bi bi-calculator"></i> Somar
+                        </button>
+                    )}
+                </div>
+                <input
+                    type="number"
+                    step="0.01"
+                    value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
+                    onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setFormData({ ...formData, unitPrice: isNaN(val) ? 0 : val });
+                    }}
+                    className="w-full px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-black text-blue-600 dark:text-blue-400"
                 />
             </div>
 
@@ -153,7 +153,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 </button>
                             </div>
                         </div>
-                        <div className="border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20 max-h-60 overflow-y-auto p-2 space-y-1 custom-scrollbar w-full">
+                        <div className="max-h-80 min-h-[200px] overflow-y-auto py-1 space-y-0.5 custom-scrollbar w-full">
                             {availableCategories
                                 .filter(cat => {
                                     // Filtra para remover categorias que são ambientes principais baseados na lógica anterior
@@ -241,42 +241,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4 md:col-span-2">
-            </div>
 
-            {/* Price */}
-            <div className="flex flex-col gap-1.5 md:col-span-2">
-                <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Preço de Venda (R$)</label>
-                    {formData.isCombo && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const total = formData.comboItems?.reduce((acc: number, item) => acc + ((item.unitPrice || 0) * item.quantity), 0) || 0;
-                                setFormData({ ...formData, unitPrice: Number(total.toFixed(2)) });
-                                toast.info(`Preço calculado: R$ ${total.toFixed(2)}`);
-                            }}
-                            className="text-[9px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
-                        >
-                            <i className="bi bi-calculator"></i> Somar Itens do Combo
-                        </button>
-                    )}
-                </div>
-                <input
-                    type="number"
-                    step="0.01"
-                    value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
-                    onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        setFormData({ ...formData, unitPrice: isNaN(val) ? 0 : val });
-                    }}
-                    className="w-full px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-black text-blue-600 dark:text-blue-400"
-                />
-            </div>
 
             {/* Observations */}
             <div className="md:col-span-2">
-                <div className="bg-slate-50/50 dark:bg-slate-950/20 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-2.5">
+                <div className="flex flex-col gap-2.5">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                         Observações Internas (Não visível no marketplace)
                     </label>
