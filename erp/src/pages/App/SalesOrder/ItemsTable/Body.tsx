@@ -44,6 +44,17 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProdu
         });
     };
 
+    const changeBatchItems = (
+        idx: number, changes: Partial<Item>
+    ) => {
+        setItems((prev: Item[]) => {
+            const newItems = [...prev];
+            const newItem = sanitizeItem({ ...newItems[idx], ...changes });
+            newItems[idx] = newItem;
+            return newItems;
+        });
+    };
+
     const deleteItem = (idx: number) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
@@ -58,6 +69,7 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProdu
             item={item}
             idx={idx}
             onChange={changeItems}
+            onBatchChange={changeBatchItems}
             onToggleDiscountType={() => toggleDiscountType(idx)}
             onDelete={() => deleteItem(idx)}
             deliveryMethod={deliveryMethod}

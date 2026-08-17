@@ -15,6 +15,7 @@ import { formatCurrency } from '../../../utils/formatters';
 interface Props {
     item: Item;
     onChange: (idx: number, key: keyof Item, value: string | number) => void;
+    onBatchChange: (idx: number, changes: Partial<Item>) => void;
     onToggleDiscountType: () => void;
     onDelete: () => void;
     idx: number;
@@ -25,7 +26,7 @@ interface Props {
     isBudget?: boolean;
 }
 
-const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
+const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
     const handlingErrorKey = `item_${idx}_handlingType`;
@@ -165,8 +166,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                         <CurrencyInput
                                             value={item.discountType === "fixed" ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100)}
                                             onChange={(val: number) => {
-                                                onChange(idx, 'discountType', 'fixed');
-                                                onChange(idx, 'unitDiscount', val);
+                                                onBatchChange(idx, { discountType: 'fixed', unitDiscount: val });
                                             }}
                                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
                                         />
@@ -178,8 +178,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                                             suffix=" %"
                                             value={item.discountType === "percentage" ? item.unitDiscount : (item.unitPrice > 0 ? (item.unitDiscount / item.unitPrice) * 100 : 0)}
                                             onChange={(val: number) => {
-                                                onChange(idx, 'discountType', 'percentage');
-                                                onChange(idx, 'unitDiscount', val);
+                                                onBatchChange(idx, { discountType: 'percentage', unitDiscount: val });
                                             }}
                                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
                                         />
@@ -306,8 +305,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                     <CurrencyInput
                         value={item.discountType === "fixed" ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100)}
                         onChange={(val: number) => {
-                            onChange(idx, 'discountType', 'fixed');
-                            onChange(idx, 'unitDiscount', val);
+                            onBatchChange(idx, { discountType: 'fixed', unitDiscount: val });
                         }}
                         className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none"
                     />
@@ -321,8 +319,7 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                             suffix=" %"
                             value={item.discountType === "percentage" ? item.unitDiscount : (item.unitPrice > 0 ? (item.unitDiscount / item.unitPrice) * 100 : 0)}
                             onChange={(val: number) => {
-                                onChange(idx, 'discountType', 'percentage');
-                                onChange(idx, 'unitDiscount', val);
+                                onBatchChange(idx, { discountType: 'percentage', unitDiscount: val });
                             }}
                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
                         />
