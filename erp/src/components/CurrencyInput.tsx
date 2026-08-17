@@ -6,9 +6,10 @@ interface Props {
     onChange: (val: number) => void
     className?: string
     style?: React.CSSProperties
+    onBlur?: () => void
 }
 
-const CurrencyInput = ({ value, onChange, className, style }: Props) => {
+const CurrencyInput = ({ value, onChange, className, style, onBlur }: Props) => {
     return (
         <NumericFormat
             className={className || "w-full min-w-[110px] text-right bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm"}
@@ -22,6 +23,7 @@ const CurrencyInput = ({ value, onChange, className, style }: Props) => {
             decimalSeparator=","
             fixedDecimalScale
             onFocus={(e: any) => e.target.select()}
+            onBlur={onBlur}
             onValueChange={(values: NumberFormatValues) => {
                 onChange(values.floatValue ?? 0)
             }}

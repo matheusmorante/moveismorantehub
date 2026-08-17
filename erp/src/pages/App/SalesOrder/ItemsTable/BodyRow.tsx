@@ -32,7 +32,20 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
     const handlingError = errors[handlingErrorKey];
     const settings = getSettings();
 
+    const initialSubtotal = item.unitPrice - (item.discountType === 'fixed' ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100));
+    const [tempSubtotal, setTempSubtotal] = React.useState(initialSubtotal);
+
+    // Sincronizar com mudanças externas (ex: alteração no preço unitário ou descontos)
+    React.useEffect(() => {
+        setTempSubtotal(initialSubtotal);
+    }, [initialSubtotal]);
+
     const handleSubtotalChange = (val: number) => {
+        setTempSubtotal(val);
+    };
+
+    const commitSubtotal = () => {
+        const val = tempSubtotal;
         const currentUnitPrice = item.unitPrice || 0;
         if (val > currentUnitPrice) {
             onChange(idx, 'unitPrice', val);
@@ -178,8 +191,9 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
                         <div className="flex-1">
                             <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Subtotal</label>
                             <CurrencyInput
-                                value={item.unitPrice - (item.discountType === 'fixed' ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100))}
+                                value={tempSubtotal}
                                 onChange={handleSubtotalChange}
+                                onBlur={commitSubtotal}
                                 className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
                             />
                         </div>
@@ -317,8 +331,9 @@ const BodyRow = ({ item, onChange, onToggleDiscountType, onDelete, idx, delivery
             </td>
             <td className="px-4 py-2">
                 <CurrencyInput
-                    value={item.unitPrice - (item.discountType === 'fixed' ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100))}
+                    value={tempSubtotal}
                     onChange={handleSubtotalChange}
+                    onBlur={commitSubtotal}
                     className="w-full min-w-[110px] text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm font-bold"
                 />
             </td>

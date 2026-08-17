@@ -11,15 +11,22 @@ export function middleware(request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || ''
   const path = request.nextUrl.pathname
 
+  // Bypass imediato e total para o feed do catálogo do Facebook/Meta
+  const isFacebookCatalogFeed = path === '/api/facebook-catalog.csv' || path === '/api/facebook-catalog';
+  if (isFacebookCatalogFeed) {
+    return NextResponse.next();
+  }
+
   // 1. Bloqueio de Bots e Scrapers em rotas críticas (admin, api, busca)
   if (BOT_USER_AGENTS.test(userAgent)) {
     return new NextResponse('Acesso não autorizado para bots.', { status: 403 })
   }
 
   // Para bots de redes sociais (WhatsApp, FB, etc.), permitimos apenas páginas de produtos e home pública.
-  // Bloqueamos acesso a rotas de API, Admin e rotas com parâmetros de busca pesados.
+  // Bloqueamos acesso a rotas de API (exceto o feed de catálogo do Facebook), Admin e rotas com parâmetros de busca pesados.
   if (SOCIAL_BOTS.test(userAgent)) {
-    const isCriticalRoute = path.startsWith('/admin') || path.startsWith('/api') || path.includes('/search')
+    const isFacebookCatalogFeed = path === '/api/facebook-catalog.csv' || path === '/api/facebook-catalog';
+    const isCriticalRoute = path.startsWith('/admin') || (path.startsWith('/api') && !isFacebookCatalogFeed) || path.includes('/search');
     if (isCriticalRoute) {
       return new NextResponse('Acesso restrito para crawlers de rede social.', { status: 403 })
     }

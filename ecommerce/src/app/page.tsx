@@ -231,7 +231,7 @@ function HomeContent() {
                   variant="outline"
                   size="icon"
                   onClick={() => setIsSidebarOpen(v => !v)}
-                  className={`h-8 w-8 rounded-full border-2 shrink-0 transition-all lg:hidden ${
+                  className={`h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
                     isSidebarOpen
                       ? "bg-primary border-primary text-white hover:bg-primary/95"
                       : "border-primary/30 text-primary hover:border-primary hover:bg-primary/5"
@@ -287,18 +287,9 @@ function HomeContent() {
             </div>
           </div>
 
-          {/* Layout: Sidebar inline em desktop (mais larga), drawer no mobile */}
+          {/* Layout: Sidebar no botão de filtro para todos, grade de produtos em tela cheia */}
           <div className="flex gap-8 items-start relative">
-            {/* Sidebar Desktop (Sempre visível do lado esquerdo, com scroll independente se exceder a tela) */}
-            <aside className="hidden lg:block w-96 shrink-0 sticky top-28 self-start max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
-              <FilterContent
-                filters={filters}
-                categories={categories.filter(c => c.type === "category")}
-                environments={environments}
-                relationships={relationships}
-                onApply={handleFilterChange}
-              />
-            </aside>
+            {/* O aside fixo da desktop foi removido para ficar embutido no botão de filtro em todos os breakpoints */}
 
             {/* Conteúdo do Catálogo (Grade de produtos menores) */}
             <div className="flex-1 min-w-0">
@@ -310,25 +301,25 @@ function HomeContent() {
 
       <GoogleReviews />
 
-      {/* Overlay escuro — Apenas visível em telas menores que lg (mobile/tablet) */}
+      {/* Overlay escuro — Visível para todos os tamanhos de tela se aberto */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar drawer — Apenas ativo/flutuante em telas menores que lg (mobile/tablet), ocupando largura total no mobile */}
+      {/* Sidebar drawer — Ativo/flutuante em todos os tamanhos de tela, ocupando largura total no mobile e w-96 no desktop */}
       <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-full w-full shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        aria-label="Painel de filtros mobile"
+        aria-label="Painel de filtros"
       >
         <div className="relative h-full w-full bg-white flex flex-col">
-          {/* Botão de Fechar no topo do Drawer para Mobile */}
+          {/* Botão de Fechar no topo do Drawer */}
           <button 
             onClick={() => setIsSidebarOpen(false)}
             className="absolute top-5 right-5 z-50 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"

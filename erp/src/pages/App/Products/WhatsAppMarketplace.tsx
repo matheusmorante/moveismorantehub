@@ -32,6 +32,7 @@ export default function WhatsAppMarketplace() {
     };
 
     const [isSyncing, setIsSyncing] = useState<string | null>(null);
+    const [isResending, setIsResending] = useState<string | null>(null);
 
     const handleSyncProduct = async (product: WhatsAppProduct) => {
         setIsSyncing(product.id);
@@ -42,6 +43,32 @@ export default function WhatsAppMarketplace() {
             toast.error(error.message || "Erro ao sincronizar produto.");
         } finally {
             setIsSyncing(null);
+        }
+    };
+
+    const handleForceResendToMeta = async (product: WhatsAppProduct) => {
+        setIsResending(product.id);
+        try {
+            // Prepara um payload para atualizar/recriar na API Meta
+            const payload = {
+                id: product.id,
+                retailer_id: product.retailer_id,
+                name: product.name,
+                description: product.description || product.name,
+                price: parseFloat(product.price || '0'),
+                unitPrice: parseFloat(product.price || '0'),
+                images: product.image_url ? [product.image_url] : [],
+                stock: 10, // Default stock para garantir elegibilidade
+                active: true
+            };
+            
+            // Dispara UPDATE na Meta para forçar reanálise e atualizar o canal
+            await whatsappGraphService.syncProductToCatalog(payload, 'UPDATE');
+            toast.success(`Solicitação de reenvio de "${product.name}" enviada ao WhatsApp com sucesso!`);
+        } catch (error: any) {
+            toast.error(error.message || "Erro ao reenviar para o WhatsApp.");
+        } finally {
+            setIsResending(null);
         }
     };
 
@@ -149,12 +176,24 @@ export default function WhatsAppMarketplace() {
                                         onClick={() => handleSyncProduct(product)}
                                         disabled={isSyncing === product.id}
                                         className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all active:scale-95 disabled:bg-slate-400"
-                                        title="- Sincronizar imagem com produto ERP correspondente"
+                                        title="Sincronizar imagem com produto ERP correspondente"
                                     >
                                         {isSyncing === product.id ? (
                                             <i className="bi bi-arrow-repeat animate-spin"></i>
                                         ) : (
                                             <i className="bi bi-cloud-arrow-down-fill"></i>
+                                        )}
+                                    </button>
+                                    <button 
+                                        onClick={() => handleForceResendToMeta(product)}
+                                        disabled={isResending === product.id}
+                                        className="w-10 h-10 flex items-center justify-center bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all active:scale-95 disabled:bg-slate-400"
+                                        title="Forçar reenvio/recriação na API Meta do WhatsApp"
+                                    >
+                                        {isResending === product.id ? (
+                                            <i className="bi bi-arrow-repeat animate-spin"></i>
+                                        ) : (
+                                            <i className="bi bi-whatsapp"></i>
                                         )}
                                     </button>
                                 </div>
