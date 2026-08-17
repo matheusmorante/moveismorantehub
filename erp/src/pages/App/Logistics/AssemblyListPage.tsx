@@ -153,7 +153,7 @@ const AssemblyListPage = () => {
     };
 
     const handleShareWhatsApp = () => {
-        const REAL_URL = "https://moveismorantehub.vercel.app";
+        const REAL_URL = "https://morantehub.vercel.app";
         const url = `${REAL_URL}/assembly-schedule`;
         const message = `🛠️ *Móveis Morante - Cronograma de Montagens*\n\nOlá! Segue o link para *visualização em tempo real* da lista de montagens atualizada:\n\n🔗 ${url}\n\n_Favor conferir os itens e horários no link antes de iniciar os serviços._`;
         const encoded = encodeURIComponent(message);

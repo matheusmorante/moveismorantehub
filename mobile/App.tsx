@@ -5,7 +5,7 @@ import { LayoutGrid, ClipboardList, Map, Settings, Camera, MapPin, Bell } from '
 import * as Location from 'expo-location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-const WEB_URL = "https://moveismorantehub.vercel.app"; 
+const WEB_URL = "https://morantehub.vercel.app"; 
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('home');

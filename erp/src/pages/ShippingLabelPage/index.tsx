@@ -99,7 +99,7 @@ const ShippingLabelPage = () => {
                     {/* Real Order QR Code */}
                     <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center p-1 border-2 border-slate-900 shadow-sm">
                         <img 
-                            src={`https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(`https://morante.vercel.app/order/${order.id}`)}&choe=UTF-8`} 
+                            src={`https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(`https://morantehub.vercel.app/order/${order.id}`)}&choe=UTF-8`} 
                             alt="QR Code" 
                             className="w-full h-full"
                         />

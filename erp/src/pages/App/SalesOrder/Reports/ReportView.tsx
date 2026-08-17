@@ -101,7 +101,7 @@ const ReportView = () => {
     };
     
     const handleShareWhatsApp = () => {
-        const REAL_URL = "https://moveismorantehub.vercel.app";
+        const REAL_URL = "https://morantehub.vercel.app";
         const publicUrl = `${REAL_URL}/public/report/${id}${location.search}`;
         const text = `📊 *Análise Estratégica MoranteHub*\n\nConfira o relatório: *${reportName}*\n\n🔗 Acesse aqui: ${publicUrl}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');

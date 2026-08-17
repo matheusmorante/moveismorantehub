@@ -253,7 +253,7 @@ const SalesOrder = () => {
 
                             {isBudgetRoute && (
                                 <button
-                                    onClick={() => window.open("/sales-order/new?type=budget", "_blank")}
+                                    onClick={() => setOrderModalType('budget')}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-plus-lg text-base" />
@@ -271,7 +271,7 @@ const SalesOrder = () => {
                             )}
                             {isReturnRoute && (
                                 <button
-                                    onClick={() => window.open("/sales-order/new?type=return", "_blank")}
+                                    onClick={() => setOrderModalType('return')}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-amber-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-arrow-return-left text-base" />
@@ -280,7 +280,7 @@ const SalesOrder = () => {
                             )}
                             {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
                                 <button
-                                    onClick={() => window.open("/sales-order/new?type=sale", "_blank")}
+                                    onClick={() => setOrderModalType('sale')}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-plus-lg text-base" />
@@ -403,7 +403,7 @@ const SalesOrder = () => {
                                 if (order.orderType === 'assistance') {
                                     setEditingOrder(order);
                                 } else {
-                                    navigate(`/sales-order/edit/${order.id}`);
+                                    setEditingOrder(order); // Usamos editingOrder localmente para todas
                                 }
                             }}
                             filters={activeFilters}
@@ -458,7 +458,7 @@ const SalesOrder = () => {
                                         if (order.orderType === 'assistance') {
                                             setEditingOrder(order);
                                         } else {
-                                            navigate(`/sales-order/edit/${order.id}`);
+                                            setEditingOrder(order);
                                         }
                                     }}
                                     filters={trashFilters}
@@ -515,7 +515,7 @@ const SalesOrder = () => {
                                         if (order.orderType === 'assistance') {
                                             setEditingOrder(order);
                                         } else {
-                                            navigate(`/sales-order/edit/${order.id}`);
+                                            setEditingOrder(order);
                                         }
                                     }}
                                     filters={draftFilters}
@@ -533,6 +533,25 @@ const SalesOrder = () => {
                 </div>
             )}
 
+            {orderModalType && orderModalType !== 'assistance' && (
+                <NewSaleOrder
+                    orderType={orderModalType}
+                    onClose={() => setOrderModalType(null)}
+                    onSaveSuccess={(id, order) => {
+                        setOrderModalType(null);
+                        if (id) {
+                            setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
+                            // Ao concluir/salvar o formulário, abre o modal de tarefas pós-venda se for venda (sale)
+                            if (order && order.orderType === 'sale') {
+                                setPostOrderDetails(order);
+                            }
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
+                />
+            )}
 
             {orderModalType === 'assistance' && (
                 <AssistanceOrderModal
@@ -543,6 +562,27 @@ const SalesOrder = () => {
                             orderListRef.current?.refresh();
                             draftsListRef.current?.refresh();
                             if (order) setPostOrderDetails(order);
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
+                />
+            )}
+
+            {editingOrder && editingOrder.orderType !== 'assistance' && (
+                <OrderEditModal
+                    order={editingOrder}
+                    orderId={editingOrder.id}
+                    onClose={() => setEditingOrder(null)}
+                    onSaveSuccess={(id, order) => {
+                        setEditingOrder(null);
+                        if (id) {
+                            setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
+                            draftsListRef.current?.refresh();
+                            // Abre o modal de tarefas pós-venda se for venda
+                            if (order && order.orderType === 'sale') {
+                                setPostOrderDetails(order);
+                            }
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}

@@ -195,7 +195,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
 
     const renderContent = () => (
         <div
-            className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl w-full h-full md:w-[98vw] md:h-[96vh] rounded-none md:rounded-[3.5rem] shadow-premium-lg flex flex-col overflow-hidden animate-reveal border-0 md:border md:border-white/20 dark:md:border-slate-800"}
+            className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"}
             onClick={(e) => e.stopPropagation()}
         >
             <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col xl:flex-row justify-between items-center gap-3 shrink-0 ${isScrolled ? 'px-3 py-1.5 sm:px-6 sm:py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'px-3 py-2 sm:px-6 sm:py-3 bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'px-3 py-2 sm:px-6 sm:py-3 bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'px-3 py-2 sm:px-6 sm:py-3 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-3 py-2 sm:px-6 sm:py-3 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
@@ -385,7 +385,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-10 bg-slate-900/60 backdrop-blur-md animate-fade-in"
+            className="fixed inset-x-0 bottom-0 top-[64px] xl:top-[80px] z-[90] bg-slate-900/60 backdrop-blur-sm animate-fade-in flex"
             onClick={onClose}
         >
             {renderContent()}

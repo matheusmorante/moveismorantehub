@@ -12,16 +12,18 @@ import PersonFormModal from "../Registrations/shared/PersonFormModal";
 
 interface OrderEditModalProps {
     order?: Order;
+    orderId?: string;
     onClose?: () => void;
     onSaveSuccess?: (id?: string, order?: Order) => void;
 }
 
-const OrderEditModal = ({ order, onClose: propOnClose, onSaveSuccess: propOnSaveSuccess }: OrderEditModalProps) => {
+const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: propOnSaveSuccess }: OrderEditModalProps) => {
     const { id: paramId } = useParams();
     const navigate = useNavigate();
 
+    const id = orderId || paramId;
     const [loadedOrder, setLoadedOrder] = useState<Order | null>(null);
-    const [isLoadingOrder, setIsLoadingOrder] = useState(!!paramId && !order);
+    const [isLoadingOrder, setIsLoadingOrder] = useState(!!id && !order);
 
     const effectiveOrder = order || loadedOrder;
     const onClose = propOnClose || (() => navigate("/sales-order"));
@@ -153,19 +155,19 @@ const OrderEditModal = ({ order, onClose: propOnClose, onSaveSuccess: propOnSave
     }, []);
 
     useEffect(() => {
-        if (paramId && !order) {
+        if (id && !order) {
             setIsLoadingOrder(true);
-            fetchOrderById(paramId).then((ord) => {
+            fetchOrderById(id).then((ord) => {
                 if (ord) {
                     setLoadedOrder(ord);
                 } else {
                     toast.error("Pedido não encontrado.");
-                    navigate("/sales-order");
+                    if (!orderId) navigate("/sales-order");
                 }
                 setIsLoadingOrder(false);
             });
         }
-    }, [paramId, order, navigate]);
+    }, [id, order, navigate, orderId]);
 
     useEffect(() => {
         if (effectiveOrder && effectiveOrder.id) {
@@ -223,9 +225,7 @@ const OrderEditModal = ({ order, onClose: propOnClose, onSaveSuccess: propOnSave
 
     const renderContent = () => (
         <div
-            className={isPageRoute
-                ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
-                : "bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[95vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50"}
+            className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
         >
             {/* Header */}
@@ -421,7 +421,7 @@ const OrderEditModal = ({ order, onClose: propOnClose, onSaveSuccess: propOnSave
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in"
+            className="fixed inset-x-0 bottom-0 top-[64px] xl:top-[80px] z-[90] bg-slate-900/60 backdrop-blur-sm animate-fade-in flex"
             onClick={onClose}
         >
             {renderContent()}
