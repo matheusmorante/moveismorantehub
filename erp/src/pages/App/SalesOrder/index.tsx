@@ -253,7 +253,7 @@ const SalesOrder = () => {
 
                             {isBudgetRoute && (
                                 <button
-                                    onClick={() => navigate("/sales-order/new?type=budget")}
+                                    onClick={() => window.open("/sales-order/new?type=budget", "_blank")}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-plus-lg text-base" />
@@ -271,7 +271,7 @@ const SalesOrder = () => {
                             )}
                             {isReturnRoute && (
                                 <button
-                                    onClick={() => navigate("/sales-order/new?type=return")}
+                                    onClick={() => window.open("/sales-order/new?type=return", "_blank")}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-amber-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-arrow-return-left text-base" />
@@ -280,7 +280,7 @@ const SalesOrder = () => {
                             )}
                             {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
                                 <button
-                                    onClick={() => navigate("/sales-order/new?type=sale")}
+                                    onClick={() => window.open("/sales-order/new?type=sale", "_blank")}
                                     className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                 >
                                     <i className="bi bi-plus-lg text-base" />
