@@ -39,8 +39,8 @@ interface ColumnDef {
 }
 
 const COLUMNS_DEF: ColumnDef[] = [
-    { key: 'code', label: 'Código' },
-    { key: 'description', label: 'Título' },
+    { key: 'code', label: 'SKU' },
+    { key: 'description', label: 'Nome do Produto' },
     { key: 'category', label: 'Categoria' },
     { key: 'createdAt', label: 'Data Criação' },
     { key: 'costPrice', label: 'Preço Custo', align: 'text-right' },
@@ -56,7 +56,7 @@ const ProductTable = ({
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate
 }: ProductTableProps) => {
     const { width } = useWindowSize();
-    const isMobile = width <= 900;
+    const isMobile = width < 1280; // Garantindo exibição em Cards para telas LG (< 1280px)
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
 
@@ -117,6 +117,10 @@ const ProductTable = ({
         setDraggedColumn(null);
     };
 
+    const finalProducts = React.useMemo(() => {
+        return products;
+    }, [products]);
+
     return (
         <div className="flex flex-col gap-4">
             {/* Bulk Actions Toolbar */}
@@ -136,29 +140,21 @@ const ProductTable = ({
                         {!showTrash ? (
                             <button
                                 onClick={onBulkTrash}
-                                className="bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
+                                className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
                             >
-                                <i className="bi bi-trash-fill" />
-                                <span className="hidden sm:inline">Mover para Lixeira</span>
-                                <span className="sm:hidden">Lixeira</span>
+                                <i className="bi bi-power" />
+                                <span className="hidden sm:inline">Desativar Selecionados</span>
+                                <span className="sm:hidden">Desativar</span>
                             </button>
                         ) : (
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={onBulkRestore}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                                >
-                                    <i className="bi bi-arrow-counterclockwise" />
-                                    <span className="hidden sm:inline">Restaurar</span>
-                                </button>
-                                <button
-                                    onClick={onBulkPermanentDelete}
-                                    className="bg-red-600 hover:bg-red-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                                >
-                                    <i className="bi bi-trash3-fill" />
-                                    <span className="hidden sm:inline">Excluir</span>
-                                </button>
-                            </div>
+                            <button
+                                onClick={onBulkRestore}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 font-bold"
+                            >
+                                <i className="bi bi-check-circle-fill" />
+                                <span className="hidden sm:inline">Ativar Selecionados</span>
+                                <span className="sm:hidden">Ativar</span>
+                            </button>
                         )}
                     </div>
                 </div>
@@ -170,19 +166,6 @@ const ProductTable = ({
                     <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900">
                             <tr className="border-b border-slate-100 dark:border-slate-800 transition-colors">
-                                <th className="px-6 py-4 w-12 text-center">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={isAllSelected}
-                                            ref={input => {
-                                                if (input) input.indeterminate = isIndeterminate;
-                                            }}
-                                            onChange={onSelectAll}
-                                            className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                                        />
-                                    </label>
-                                </th>
                                 {orderedColumns.map((col) => {
                                     const isVisible = visibilitySettings[col.key];
                                     const sortableKeys = ['code', 'description', 'unitPrice', 'stock', 'createdAt', 'category'];
@@ -240,75 +223,7 @@ const ProductTable = ({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {(() => {
-                                // 1. Expand all items (Real Products + Virtual Variations from JSON)
-                                const allItems: Product[] = [];
-                                const addedIds = new Set<string>();
-
-                                products.forEach(p => {
-                                    if (!addedIds.has(p.id || '')) {
-                                        allItems.push(p);
-                                        addedIds.add(p.id || '');
-                                    }
-
-                                    // Expand virtual variations from JSON field
-                                    if (p.variations && p.variations.length > 0) {
-                                        p.variations.forEach(v => {
-                                            const virtualId = `${p.id || 'new'}_v_${v.id || v.sku || Math.random()}`;
-                                            if (!addedIds.has(virtualId)) {
-                                                allItems.push({
-                                                    ...p,
-                                                    id: virtualId,
-                                                    parentId: p.id || '',
-                                                    isVariation: true,
-                                                    isParent: false,
-                                                    description: v.name || p.description,
-                                                    unitPrice: v.unitPrice || p.unitPrice,
-                                                    costPrice: v.costPrice || p.costPrice,
-                                                    stock: v.stock || 0,
-                                                    code: v.sku || p.code,
-                                                    variations: [],
-                                                    isVirtual: true
-                                                } as any);
-                                                addedIds.add(virtualId);
-                                            }
-                                        });
-                                    }
-                                });
-
-                                // 2. Robust Hierarchical Grouping
-                                const finalProducts: Product[] = [];
-                                const processedFinalIds = new Set<string>();
-
-                                // Identify Roots (Real parents or items without parents)
-                                const roots = allItems.filter(p => !p.parentId || p.isParent);
-                                const children = allItems.filter(p => p.parentId && !p.isParent);
-
-                                roots.forEach(root => {
-                                    if (processedFinalIds.has(root.id)) return;
-                                    finalProducts.push(root);
-                                    processedFinalIds.add(root.id);
-
-                                    // Find children (either DB children or Virtual children)
-                                    const related = children.filter(c => String(c.parentId) === String(root.id));
-                                    related.forEach(child => {
-                                        if (!processedFinalIds.has(child.id)) {
-                                            finalProducts.push(child);
-                                            processedFinalIds.add(child.id);
-                                        }
-                                    });
-                                });
-
-                                // 3. Add any remaining items (Orphans or items that didn't fit roots)
-                                allItems.forEach(item => {
-                                    if (!processedFinalIds.has(item.id)) {
-                                        finalProducts.push(item);
-                                        processedFinalIds.add(item.id);
-                                    }
-                                });
-
-                                return finalProducts;
-                            })().map((product) => (
+                            {finalProducts.map((product) => (
                                 <ProductRow
                                     key={product.id}
                                     product={product}
@@ -333,14 +248,14 @@ const ProductTable = ({
                     </table>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 gap-4 overflow-y-auto pb-4">
-                    {products.length === 0 ? (
+                <div className="flex flex-col gap-4 overflow-y-auto pb-4">
+                    {finalProducts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <i className="bi bi-search text-4xl mb-3 opacity-20" />
                             <p className="text-sm font-bold uppercase tracking-widest">Nenhum produto encontrado</p>
                         </div>
                     ) : (
-                        products.map((product) => (
+                        finalProducts.map((product) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}

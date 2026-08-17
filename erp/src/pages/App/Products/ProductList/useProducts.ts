@@ -5,10 +5,12 @@ import {
     moveToTrash, 
     restoreProduct, 
     permanentDeleteProduct, 
+    deleteProduct,
     updateProduct,
     bulkMoveToTrash,
     bulkRestoreProducts,
-    bulkPermanentDeleteProducts
+    bulkPermanentDeleteProducts,
+    parseVariationImages
 } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 
@@ -138,32 +140,37 @@ export const useProducts = (filters?: any) => {
         const parents = filteredProducts.filter(p => !p.isVariation);
         const independentVars = filteredProducts.filter(p => p.isVariation);
 
-        parents.forEach(product => {
+        parents.forEach((product, pIdx) => {
             // Parent Row
             const variationsFromIndependent = independentVars.filter(v => v.parentId === product.id);
-            const actuallyHasVariations = product.hasVariations || variationsFromIndependent.length > 0;
-            
-            // Se tem variações, o pai não exibe código/sku (vira apenas um agrupador)
+            const hasJsonVariations = Array.isArray(product.variations) && product.variations.length > 0;
+            const actuallyHasVariations = Boolean(product.hasVariations) || hasJsonVariations || variationsFromIndependent.length > 0;
+            const parentSku = product.sku || product.code || String(pIdx + 1).padStart(6, '0');
+
             flattened.push({ 
                 ...product, 
+                sku: parentSku,
+                code: parentSku,
                 isParent: actuallyHasVariations,
-                code: actuallyHasVariations ? "" : product.code 
             });
 
             // 1. Child Rows from JSON field
             if (product.hasVariations && product.variations) {
                 product.variations.forEach((v: any, index: number) => {
+                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
+                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+
                     const child = {
                         ...product,
-                        id: `${product.id}_${v.sku || index}`,
-                        sku: v.sku,
-                        code: v.sku, // Garantir que a coluna 'C├│digo' use o SKU da varia├º├úo
+                        id: `${product.id}_${varSku || index}`,
+                        sku: varSku,
+                        code: varSku, // Garantir que a coluna 'SKU/Código' use o SKU real da variação
                         description: v.name,
                         unitPrice: typeof v.unitPrice !== 'undefined' ? v.unitPrice : v.unit_price,
                         costPrice: typeof v.costPrice !== 'undefined' ? v.costPrice : (typeof v.cost_price !== 'undefined' ? v.cost_price : product.costPrice),
                         stock: v.stock,
                         active: v.active,
-                        images: v.images || [],
+                        images: parseVariationImages(v.image_url, v.images),
                         parentImages: product.images || [],
                         isVariation: true,
                         parentId: product.id,
@@ -173,31 +180,31 @@ export const useProducts = (filters?: any) => {
                     };
                     flattened.push({
                         ...child,
-                        displayName: v.name // Já costuma ser apenas os atributos no JSON
+                        displayName: v.name
                     });
                 });
             }
 
             // 2. Child Rows from independent items (e.g. from imports)
-            variationsFromIndependent.forEach(v => {
-                // Avoid double showing if SKU matches one from JSON
-                // Independent products use 'code' as their SKU/Code
-                const vCode = v.code || v.sku; 
-                if (product.variations?.some((jv: any) => jv.sku === vCode)) return;
+            if (!hasJsonVariations && variationsFromIndependent.length > 0) {
+                variationsFromIndependent.forEach(v => {
+                    const vCode = v.code || v.sku; 
+                    if (product.variations?.some((jv: any) => jv.sku === vCode || String(jv.id) === String(v.id))) return;
 
-                flattened.push({
-                    ...v,
-                    sku: vCode, 
-                    code: vCode,
-                    isVariation: true,
-                    parentId: product.id,
-                    description: v.description,
-                    // Para variações independentes, tentamos mostrar apenas o que não está no título do pai
-                    displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase()) 
-                        ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '')
-                        : v.description
+                    flattened.push({
+                        ...v,
+                        sku: vCode, 
+                        code: vCode,
+                        isVariation: true,
+                        parentId: product.id,
+                        description: v.description,
+                        // Para variações independentes, tentamos mostrar apenas o que não está no título do pai
+                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase()) 
+                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '')
+                            : v.description
+                    });
                 });
-            });
+            }
         });
 
         // 3. Variations whose parent is NOT in the list (orphans)
@@ -221,39 +228,42 @@ export const useProducts = (filters?: any) => {
     }, [transformedProducts, currentPage, itemsPerPage]);
 
     const handleDelete = async (id: string) => {
-        const toastId = toast.loading("Movendo para a lixeira...");
+        const toastId = toast.loading("Desativando produto...");
         try {
             await moveToTrash(id);
-            toast.update(toastId, { render: "Produto movido para a lixeira.", type: "info", isLoading: false, autoClose: 3000 });
+            toast.update(toastId, { render: "Produto desativado com sucesso.", type: "info", isLoading: false, autoClose: 3000 });
         } catch (error: any) {
-            toast.update(toastId, { render: error.message || "Erro ao excluir produto.", type: "error", isLoading: false, autoClose: 3000 });
+            toast.update(toastId, { render: error.message || "Erro ao desativar produto.", type: "error", isLoading: false, autoClose: 3000 });
         }
     };
 
     const handleRestore = async (id: string) => {
         try {
             await restoreProduct(id);
-            toast.success("Produto restaurado com sucesso!");
+            toast.success("Produto ativado com sucesso!");
         } catch (error: any) {
-            toast.error("Erro ao restaurar produto.");
+            toast.error("Erro ao ativar produto.");
         }
     };
 
     const handlePermanentDelete = async (id: string) => {
-        if (window.confirm("Certeza que deseja excluir DEFINITIVAMENTE este produto?")) {
-            const toastId = toast.loading("Excluindo permanentemente...");
-            try {
-                await permanentDeleteProduct(id);
-                toast.update(toastId, { render: "Produto excluído permanentemente.", type: "success", isLoading: false, autoClose: 3000 });
-            } catch (error: any) {
-                toast.update(toastId, { render: error.message || "Erro na exclusão definitiva.", type: "error", isLoading: false, autoClose: 3000 });
+        const toastId = toast.loading("Verificando e excluindo produto...");
+        try {
+            const result = await deleteProduct(id);
+            if (result.success) {
+                toast.update(toastId, { render: "Produto excluído com sucesso!", type: "success", isLoading: false, autoClose: 3000 });
+                refresh();
+            } else {
+                toast.update(toastId, { render: result.message || "Não foi possível excluir o produto.", type: "error", isLoading: false, autoClose: 5000 });
             }
+        } catch (error: any) {
+            toast.update(toastId, { render: error.message || "Erro ao tentar excluir produto.", type: "error", isLoading: false, autoClose: 5000 });
         }
     };
 
     const handleBulkTrash = async () => {
         if (selectedProducts.length === 0) return;
-        const toastId = toast.loading("Movendo itens selecionados para a lixeira...");
+        const toastId = toast.loading("Desativando itens selecionados...");
         setLoading(true);
         try {
             const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
@@ -261,7 +271,7 @@ export const useProducts = (filters?: any) => {
             
             if (result.successCount > 0) {
                 toast.update(toastId, { 
-                    render: `${result.successCount} produto(s) movido(s) para a lixeira.`, 
+                    render: `${result.successCount} produto(s) desativado(s) com sucesso.`, 
                     type: "info", 
                     isLoading: false, 
                     autoClose: 3000 
@@ -275,7 +285,7 @@ export const useProducts = (filters?: any) => {
             }
             setSelectedProducts([]);
         } catch (error) {
-            toast.update(toastId, { render: "Erro ao processar exclusão em massa.", type: "error", isLoading: false, autoClose: 3000 });
+            toast.update(toastId, { render: "Erro ao desativar produtos em massa.", type: "error", isLoading: false, autoClose: 3000 });
             console.error(error);
         } finally {
             setLoading(false);
@@ -288,10 +298,10 @@ export const useProducts = (filters?: any) => {
         try {
             const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
             await bulkRestoreProducts(realIds);
-            toast.success(`${realIds.length} produto(s) restaurado(s) com sucesso!`);
+            toast.success(`${realIds.length} produto(s) ativado(s) com sucesso!`);
             setSelectedProducts([]);
         } catch (error) {
-            toast.error("Erro ao restaurar produtos selecionados.");
+            toast.error("Erro ao ativar produtos selecionados.");
         } finally {
             setLoading(false);
         }
@@ -299,34 +309,38 @@ export const useProducts = (filters?: any) => {
 
     const handleBulkPermanentDelete = async () => {
         if (selectedProducts.length === 0) return;
-        if (window.confirm(`Excluir DEFINITIVAMENTE ${selectedProducts.length} produto(s)?`)) {
-            const toastId = toast.loading("Excluindo itens selecionados permanentemente...");
-            setLoading(true);
-            try {
-                const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
-                const result = await bulkPermanentDeleteProducts(realIds);
-                
-                if (result.successCount > 0) {
-                    toast.update(toastId, { 
-                        render: `${result.successCount} produto(s) excluído(s) permanentemente.`, 
-                        type: "success", 
-                        isLoading: false, 
-                        autoClose: 3000 
-                    });
-                } else {
-                    toast.dismiss(toastId);
+        const toastId = toast.loading("Excluindo produtos selecionados...");
+        setLoading(true);
+        let successCount = 0;
+        let errors: string[] = [];
+
+        try {
+            const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
+            for (const id of realIds) {
+                const res = await deleteProduct(id);
+                if (res.success) {
+                    successCount++;
+                } else if (res.message) {
+                    errors.push(res.message);
                 }
-                
-                if (result.errorCount > 0) {
-                    result.errors.forEach(err => toast.warning(err));
-                }
-                
-                setSelectedProducts([]);
-            } catch (error) {
-                toast.update(toastId, { render: "Erro na exclusão definitiva em massa.", type: "error", isLoading: false, autoClose: 3000 });
-            } finally {
-                setLoading(false);
             }
+
+            if (successCount > 0) {
+                toast.update(toastId, { render: `${successCount} produto(s) excluído(s) permanentemente.`, type: "success", isLoading: false, autoClose: 3000 });
+                refresh();
+            } else {
+                toast.dismiss(toastId);
+            }
+
+            if (errors.length > 0) {
+                // Exibir o primeiro erro representativo
+                toast.error(errors[0]);
+            }
+            setSelectedProducts([]);
+        } catch (error: any) {
+            toast.update(toastId, { render: "Erro ao excluir produtos em massa.", type: "error", isLoading: false, autoClose: 3000 });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -388,9 +402,61 @@ export const useProducts = (filters?: any) => {
 
     const toggleActive = async (id: string, currentStatus: boolean) => {
         try {
-            await updateProduct(id, { active: !currentStatus });
-            toast.success(`Produto ${!currentStatus ? 'ativado' : 'desativado'} com sucesso!`);
+            const newActive = !currentStatus;
+
+            // 1. Caso seja uma variação do array JSON (ex: 'parentId_sku')
+            if (id.includes('_')) {
+                const [parentId, ...skuParts] = id.split('_');
+                const targetSku = skuParts.join('_');
+                const parent = products.find(p => p.id === parentId);
+                if (parent && parent.variations) {
+                    const newVariations = parent.variations.map((v: any, index: number) => {
+                        const vSku = v.sku || index;
+                        if (String(vSku) === String(targetSku)) {
+                            return { ...v, active: newActive };
+                        }
+                        return v;
+                    });
+                    await updateProduct(parentId, { variations: newVariations });
+                    toast.success(`Variação ${newActive ? 'ativada' : 'desativada'} com sucesso!`);
+                    refresh();
+                    return;
+                }
+            }
+
+            // 2. Caso seja um produto pai ou produto regular
+            const parentProduct = products.find(p => p.id === id);
+            if (parentProduct) {
+                const updatePayload: Partial<Product> = { active: newActive };
+
+                // Atualizar o status de todas as variações internas (array JSON)
+                if (parentProduct.variations && parentProduct.variations.length > 0) {
+                    updatePayload.variations = parentProduct.variations.map((v: any) => ({
+                        ...v,
+                        active: newActive
+                    }));
+                }
+
+                await updateProduct(id, updatePayload);
+
+                // Atualizar produtos filhos independentes vinculados via parentId
+                const independentChildren = products.filter(p => p.parentId === id);
+                for (const child of independentChildren) {
+                    if (child.id) {
+                        await updateProduct(child.id, { active: newActive });
+                    }
+                }
+
+                toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
+                refresh();
+                return;
+            }
+
+            await updateProduct(id, { active: newActive });
+            toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
+            refresh();
         } catch (error) {
+            console.error("Erro ao alterar status:", error);
             toast.error("Erro ao alterar status do produto.");
         }
     };

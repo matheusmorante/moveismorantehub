@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Product from '../../../../types/product.type';
-import Person from '../../../../types/person.type';
-import DropdownPortal from '../../../../../components/shared/DropdownPortal';
+import React, { useState, useRef } from 'react';
+import { Product } from '@/pages/types/product.type';
+import { Person } from '../../../../types/person.type';
 import InitialStockList from '../InitialStockList';
+import DropdownPortal from '@/components/shared/DropdownPortal';
+import { CatalogDigitalIcon } from '@/components/shared/CatalogDigitalIcon';
 
 interface ProductInventoryTabProps {
     formData: Partial<Product>;
@@ -11,48 +12,52 @@ interface ProductInventoryTabProps {
     handleSuggestPrices: () => void;
     isSuggestingPrices: boolean;
     suggestPricesResults: { low: any, medium: any, high: any } | null;
+    discountPercent: string;
+    setDiscountPercent: React.Dispatch<React.SetStateAction<string>>;
+    discountFixed: string;
+    setDiscountFixed: React.Dispatch<React.SetStateAction<string>>;
+    handlePriceChange: (newPrice: string) => void;
+    handleDiscountPercentChange: (valStr: string) => void;
+    handleDiscountFixedChange: (valStr: string) => void;
+    handlePromoPriceFieldChange: (valStr: string) => void;
 }
 
 const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     formData,
     setFormData,
     suppliers,
-    handleSuggestPrices,
-    isSuggestingPrices,
-    suggestPricesResults
+    discountPercent,
+    discountFixed,
+    handlePriceChange,
+    handleDiscountPercentChange,
+    handleDiscountFixedChange,
+    handlePromoPriceFieldChange
 }) => {
     const [supplierSearch, setSupplierSearch] = useState('');
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
     const supplierInputRef = useRef<HTMLDivElement>(null);
 
-    const updateCost = (updates: Partial<Product>) => {
+    const updateCost = (fields: Partial<Product>) => {
         setFormData(prev => {
-            const next = { ...prev, ...updates };
-            const base = next.costPrice || 0;
-            const ipi = (base * (next.ipiPercent || 0)) / 100;
-            const frType = next.freightType || 'none';
-            let frCost = 0;
-            if (frType === 'percentage') {
-                frCost = (base * (next.freightCost || 0)) / 100;
-            } else if (frType === 'fixed') {
-                frCost = next.freightCost || 0;
+            const next = { ...prev, ...fields };
+            const cost = next.costPrice || 0;
+            const ipi = next.ipiPercent || 0;
+            const freight = next.freightCost || 0;
+            const freightType = next.freightType || 'fixed';
+
+            let finalCost = cost + (cost * (ipi / 100));
+            if (freightType === 'fixed') {
+                finalCost += freight;
+            } else {
+                finalCost += cost * (freight / 100);
             }
-            next.finalPurchasePrice = base + ipi + frCost;
+
+            next.finalPurchasePrice = Number(finalCost.toFixed(2));
             return next;
         });
     };
 
-    // Initialize search
-    useEffect(() => {
-        if (formData.mainSupplierId && suppliers.length > 0) {
-            const current = suppliers.find(s => s.id === formData.mainSupplierId);
-            if (current) {
-                setSupplierSearch(current.fullName || '');
-            }
-        }
-    }, [formData.mainSupplierId, suppliers]);
-
-    const filteredSuppliers = suppliers.filter(s => 
+    const filteredSuppliers = suppliers.filter(s =>
         (s.fullName || '').toLowerCase().includes(supplierSearch.toLowerCase())
     );
 
@@ -117,8 +122,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Fornecedor Principal */}
-                    <div className={`flex flex-col gap-2 relative ${!(isEditing || formData.launchInitialStock) ? 'md:col-span-3' : 'md:col-span-2'}`} ref={supplierInputRef}>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fornecedor Principal</label>
+                    <div id="field-main-supplier" className={`flex flex-col gap-2 relative transition-all p-2 rounded-2xl ${!(isEditing || formData.launchInitialStock) ? 'md:col-span-3' : 'md:col-span-2'}`} ref={supplierInputRef}>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                            <span>Fornecedor Principal</span>
+                            <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                        </label>
                         <div className="relative">
                             <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                             <input
@@ -145,14 +153,14 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                                 mainSupplierId: s.id,
                                                 ipiPercent: s.defaultIpiPercent !== undefined ? s.defaultIpiPercent : formData.ipiPercent,
                                                 freightCost: s.defaultFreightCost !== undefined ? s.defaultFreightCost : formData.freightCost,
-                                                freightType: s.defaultFreightType !== undefined ? s.defaultFreightType : formData.freightType,
+                                                freightType: s.defaultFreightType || formData.freightType
                                             });
                                             setSupplierSearch(s.fullName || '');
                                             setIsSupplierDropdownOpen(false);
                                         }}
-                                        className="w-full px-5 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0"
+                                        className="w-full text-left p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-b-0"
                                     >
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.fullName}</p>
+                                        <p className="text-xs font-black text-slate-800 dark:text-slate-200">{s.fullName}</p>
                                         <div className="flex items-center gap-2">
                                             <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">{s.cpfCnpj || 'Sem documento'}</p>
                                             {(s.leadTime ?? 0) > 0 && (
@@ -177,21 +185,12 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             </div>
                         ) : (
                             <>
-                                {/* Estoque Atual */}
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estoque Atual</label>
-                                    <input
-                                        type="number"
-                                        value={(formData.stock === null || formData.stock === undefined || isNaN(formData.stock as number)) ? '' : formData.stock}
-                                        disabled={true}
-                                        className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-slate-500 cursor-not-allowed"
-                                        placeholder="0"
-                                    />
-                                </div>
-
                                 {/* Estoque Mínimo */}
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estoque Mínimo</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                        <span>Estoque Mínimo</span>
+                                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                    </label>
                                     <input
                                         type="number"
                                         value={(formData.minStock === null || formData.minStock === undefined || isNaN(formData.minStock as number)) ? '' : formData.minStock}
@@ -203,13 +202,105 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                         placeholder="0"
                                     />
                                 </div>
+                                {/* Precificação e Desconto */}
+                                <div className="md:col-span-3 border-t border-slate-150 dark:border-slate-800/80 my-2 pt-4">
+                                    <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Precificação e Descontos</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                                         {/* Preço de Venda */}
+                                         <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Preço de Venda (Original)</span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                 </span>
+                                             </label>
+                                             <div className="relative">
+                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                                 <input
+                                                     type="number"
+                                                     step="0.01"
+                                                     placeholder="0,00"
+                                                     value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
+                                                     onChange={(e) => handlePriceChange(e.target.value)}
+                                                     className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                                                 />
+                                             </div>
+                                         </div>
+
+                                         {/* Desconto % */}
+                                         <div className="flex flex-col gap-2">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Desconto (%)</span>
+                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                 </span>
+                                             </label>
+                                             <div className="relative">
+                                                 <input
+                                                     type="number"
+                                                     placeholder="0"
+                                                     value={discountPercent}
+                                                     onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                                                     className="w-full pl-4 pr-8 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                                 />
+                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">%</span>
+                                             </div>
+                                         </div>
+
+                                         {/* Desconto R$ */}
+                                         <div className="flex flex-col gap-2">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Desconto (R$)</span>
+                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                 </span>
+                                             </label>
+                                             <div className="relative">
+                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                                 <input
+                                                     type="number"
+                                                     step="0.01"
+                                                     placeholder="0,00"
+                                                     value={discountFixed}
+                                                     onChange={(e) => handleDiscountFixedChange(e.target.value)}
+                                                     className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                                 />
+                                             </div>
+                                         </div>
+
+                                         {/* Preço Promocional Final */}
+                                         <div className="flex flex-col gap-2">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Preço Promocional Final</span>
+                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                 </span>
+                                             </label>
+                                             <div className="relative">
+                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                                 <input
+                                                     type="number"
+                                                     step="0.01"
+                                                     placeholder="Sem desconto"
+                                                     value={(formData.promoPrice === null || formData.promoPrice === undefined || isNaN(formData.promoPrice as number)) ? '' : formData.promoPrice}
+                                                     onChange={(e) => handlePromoPriceFieldChange(e.target.value)}
+                                                     className="w-full pl-8 pr-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                                 />
+                                             </div>
+                                         </div>
+                                    </div>
+                                </div>
 
                                 {/* Composição de Custo */}
                                 <div className="md:col-span-3 border-t border-slate-150 dark:border-slate-800/80 my-2 pt-4">
-                                    <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Composição de Custo</h5>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preço de Custo Base</label>
+                                     <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Composição de Custo</h5>
+                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                                         <div id="field-cost-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Preço de Custo Base</span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                             </label>
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                                                 <input type="number" 
@@ -217,10 +308,12 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                                     onChange={e => updateCost({ costPrice: Number(e.target.value) })}
                                                     className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
                                             </div>
-                                        </div>
-                                        
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Taxa de IPI</label>
+                                         </div>
+                                         <div className="flex flex-col gap-2">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Taxa de IPI</span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                             </label>
                                             <div className="relative">
                                                 <input type="number" 
                                                     value={formData.ipiPercent || ''}
@@ -228,10 +321,13 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                                     className="w-full pl-3 pr-8 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">%</span>
                                             </div>
-                                        </div>
+                                         </div>
 
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frete</label>
+                                         <div className="flex flex-col gap-2">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                 <span>Frete</span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                             </label>
                                             <div className="relative flex items-center">
                                                 <input type="number" 
                                                     value={formData.freightCost || ''}
@@ -251,17 +347,20 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                                     <i className="bi bi-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 pointer-events-none"></i>
                                                 </div>
                                             </div>
-                                        </div>
+                                         </div>
 
-                                        <div className="flex flex-col gap-1 p-4 bg-blue-600 rounded-xl text-white shadow-xl shadow-blue-500/30 justify-center">
-                                            <label className="text-[8px] font-black uppercase tracking-widest text-blue-200">Preço de Custo Final (Entrada)</label>
+                                         <div className="flex flex-col gap-1 p-4 bg-blue-600 rounded-xl text-white shadow-xl shadow-blue-500/30 justify-center">
+                                             <label className="text-[8px] font-black uppercase tracking-widest text-blue-200 flex items-center gap-1 h-6">
+                                                 <span>Preço de Custo Final</span>
+                                                 <span className="inline-flex items-center text-[6px] font-black bg-blue-500 text-white px-1 py-0.2 rounded uppercase select-none">ERP</span>
+                                             </label>
                                             <div className="flex items-center gap-1 text-xl font-black truncate">
                                                 <span className="text-xs">R$</span>
                                                 {(formData.finalPurchasePrice || formData.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                         </div>
+                                     </div>
+                                 </div>
                             </>
                         )
                     )}

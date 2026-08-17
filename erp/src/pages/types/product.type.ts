@@ -24,6 +24,15 @@ export type Variation = {
     syncCostPrice?: boolean;
     syncCondition?: boolean;
     syncDescription?: boolean;
+    syncDimensions?: boolean;
+    syncFiscal?: boolean;
+    syncWidth?: boolean;
+    syncHeight?: boolean;
+    syncDepth?: boolean;
+    syncWeight?: boolean;
+    syncIpi?: boolean;
+    syncFreight?: boolean;
+    fiscal?: FiscalInfo;
     hideAttributeNames?: boolean;
     images?: string[];
 
@@ -88,10 +97,16 @@ export type ExtraDimension = {
 export type Product = {
     id?: string;
     code?: string;
+    sku?: string;
+    name?: string;
+    title?: string;
     description: string;
     category?: string;
     categoryIds?: string[]; // IDs das categorias/subcategorias associadas
     condition?: 'novo' | 'usado' | 'salvado' | ''; // Condição do Móvel
+    opportunityId?: string | null; // Oportunidade do e-commerce (Salvados, Liquidação, Mostruário)
+    opportunityName?: string | null;
+    opportunity?: { id: string; name: string; badge_color?: string } | null;
     unitPrice: number;
     promoPrice?: number; // Preço promocional
     costPrice?: number; // Preço de custo base
@@ -170,7 +185,6 @@ export type Product = {
 
     // Adicional
     observations?: string;
-    sku?: string;
 
     // Intelligence Fields
     leadTime?: number;
@@ -204,6 +218,9 @@ export type Product = {
     meta_description?: string;
     seo_description?: string;
     availableEnvironments?: string[]; // Novos ambientes detectados
+    featured?: boolean;
+    depthUseLength?: boolean;
+    status?: 'draft' | 'published';
 };
 
 export type ProductNotificationConfig = {

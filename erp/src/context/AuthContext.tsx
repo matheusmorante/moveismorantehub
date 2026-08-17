@@ -35,25 +35,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    const fetchProfile = async (userId: string) => {
+    const fetchProfile = async (user: User) => {
         try {
-            console.log('[Auth] Fetching profile for:', userId);
-            const { data, error } = await supabase
+            console.log('[Auth] Fetching profile for:', user.id);
+            const userEmail = (user.email || '').toLowerCase().trim();
+            const isMasterEmail = userEmail === 'matheusmorante002@gmail.com';
+
+            let { data, error } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', userId)
-                .single();
+                .eq('id', user.id)
+                .maybeSingle();
 
-            if (error) {
-                if (error.code === 'PGRST116') {
-                    console.log('[Auth] No profile found, user might be new.');
-                }
-                throw error;
+            if (!data) {
+                console.log('[Auth] Perfil não encontrado no banco. Criando registro...');
+                const assignedRole: UserRole = isMasterEmail ? 'administrator' : 'pending';
+                const newProfile: Profile = {
+                    id: user.id,
+                    email: user.email || '',
+                    role: assignedRole,
+                    full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || (isMasterEmail ? 'Matheus Morante' : 'Novo Usuário'),
+                };
+
+                const { data: upsertedData } = await supabase
+                    .from('profiles')
+                    .upsert(newProfile)
+                    .select()
+                    .maybeSingle();
+
+                data = upsertedData || newProfile;
+            } else if (isMasterEmail && data.role !== 'administrator') {
+                // Se a conta master estiver como pending ou vendedora por engano no DB, promove para admin
+                console.log('[Auth] Promovendo conta Master para administrator...');
+                data.role = 'administrator';
+                await supabase.from('profiles').update({ role: 'administrator' }).eq('id', user.id);
             }
+
             setProfile(data as Profile);
         } catch (err) {
             console.error('[Auth] Error fetching profile:', err);
-            setProfile(null);
+            const userEmail = (user.email || '').toLowerCase().trim();
+            const isMasterEmail = userEmail === 'matheusmorante002@gmail.com';
+            
+            setProfile({
+                id: user.id,
+                email: user.email || '',
+                role: isMasterEmail ? 'administrator' : 'pending',
+                full_name: user.user_metadata?.full_name || (isMasterEmail ? 'Matheus Morante' : 'Usuário Pendente')
+            });
         }
     };
 
@@ -92,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 try {
-                    await fetchProfile(newUser.id);
+                    await fetchProfile(newUser);
                 } finally {
                     if (active) setLoading(false);
                     handlingSession = false;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Product, { Variation, FiscalInfo } from "../../types/product.type";
 import Person from "../../types/person.type";
-import { saveProduct, getFullProduct, checkProductHasMoves } from '@/pages/utils/productService';
+import { saveProduct, getFullProduct, checkProductHasMoves, getNextSequentialProductCode, generateVariationSku } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
@@ -22,11 +22,13 @@ import ProductGeneralTab from "./components/tabs/ProductGeneralTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
 import { generateProductCode } from '@/pages/utils/formatters';
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
+import CatalogDigitalIcon from "@/components/shared/CatalogDigitalIcon";
 
 import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
 import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
+import ProductTechnicalTab from "./components/tabs/ProductTechnicalTab";
 import ProductConversionModal from "./components/ProductConversionModal";
-import CartesianVariationModal from "./components/CartesianVariationModal";
+
 
 // [x] Novo: Cadastro de Produtos e Serviços Simplificado (Manual)
 interface ProductFormModalProps {
@@ -37,7 +39,7 @@ interface ProductFormModalProps {
     onSuccess?: (newProduct: Product) => void;
 }
 
-const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormData, isCombo, onEditCombo, onEdit }: {
+const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormData, isCombo, onEditCombo, onEdit, parentPrice }: {
     v: Variation,
     updateVariation: (id: string, field: keyof Variation, value: any) => void,
     removeVariation: (id: string) => void,
@@ -45,7 +47,7 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
     isCombo?: boolean,
     onEditCombo?: (id: string) => void,
     onEdit?: (id: string) => void,
-    parentTitle?: string
+    parentPrice?: number
 }) => {
     const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
 
@@ -61,24 +63,14 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                 </div>
             </td>
             <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => updateVariation(v.id, 'syncDescription', !v.syncDescription)}
-                        className={`p-1 rounded-md transition-colors ${v.syncDescription ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
-                        title="Herdar título do pai"
-                    >
-                        <i className={`bi ${v.syncDescription ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
-                    </button>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
-                        <input
-                            value={v.name || ''}
-                            readOnly
-                            className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans"
-                            placeholder="VARIAÇÃO GERADA"
-                        />
-                    </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
+                    <input
+                        value={v.name || ''}
+                        readOnly
+                        className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans"
+                        placeholder="VARIAÇÃO GERADA"
+                    />
                 </div>
             </td>
 
@@ -91,23 +83,13 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                 />
             </td>
             <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => updateVariation(v.id, 'syncUnitPrice', !v.syncUnitPrice)}
-                        className={`p-1 rounded-md transition-colors ${v.syncUnitPrice ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-300 hover:bg-slate-100'}`}
-                        title="Sincronizar preço com pai"
-                    >
-                        <i className={`bi ${v.syncUnitPrice ? 'bi-link-45deg' : 'bi-link-45deg opacity-30'}`}></i>
-                    </button>
-                    <input
-                        type="number"
-                        value={v.unitPrice}
-                        disabled={v.syncUnitPrice}
-                        onChange={(e) => updateVariation(v.id, 'unitPrice', parseFloat(e.target.value))}
-                        className={`bg-transparent border-none outline-none text-sm font-black w-24 ${v.syncUnitPrice ? 'text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}
-                    />
-                </div>
+                <input
+                    type="number"
+                    value={v.syncUnitPrice ? parentPrice : v.unitPrice}
+                    disabled={v.syncUnitPrice}
+                    onChange={(e) => updateVariation(v.id, 'unitPrice', parseFloat(e.target.value))}
+                    className={`bg-transparent border-none outline-none text-sm font-black w-24 ${v.syncUnitPrice ? 'text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}
+                />
             </td>
             <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
@@ -212,7 +194,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [suggestPricesResults, setSuggestPricesResults] = useState<{ low: any, medium: any, high: any } | null>(null);
     const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
     const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
-    const [isCartesianModalOpen, setIsCartesianModalOpen] = useState(false);
+    const [saveResult, setSaveResult] = useState<{ erpLegible: boolean; ecomLegible: boolean; checksErp: any; checksEcom: any; product: Product } | null>(null);
+
     const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
     const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
     const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
@@ -225,6 +208,259 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         ...INITIAL_FORM_DATA,
         ...initialData
     });
+
+    const [discountPercent, setDiscountPercent] = useState('');
+    const [discountFixed, setDiscountFixed] = useState('');
+
+    const parsePrice = useCallback((val: any): number => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        const clean = String(val).replace(/[^\d.,]/g, '').replace(',', '.');
+        const parsed = parseFloat(clean);
+        return isNaN(parsed) ? 0 : parsed;
+    }, []);
+
+    // Atualizar descontos ao alterar preço original
+    const handlePriceChange = useCallback((newPrice: string) => {
+        const orig = parsePrice(newPrice);
+        setFormData(prev => ({ ...prev, unitPrice: orig }));
+        if (orig <= 0) {
+            setDiscountPercent("");
+            setDiscountFixed("");
+            setFormData(prev => ({ ...prev, promoPrice: undefined }));
+            return;
+        }
+
+        if (discountPercent) {
+            const pct = parseFloat(discountPercent);
+            if (!isNaN(pct)) {
+                const fixed = orig * (pct / 100);
+                setDiscountFixed(fixed.toFixed(2));
+                const promo = orig - fixed;
+                setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 }));
+            }
+        } else if (formData.promoPrice) {
+            const promo = formData.promoPrice;
+            if (promo < orig) {
+                const fixed = orig - promo;
+                const pct = (fixed / orig) * 100;
+                setDiscountFixed(fixed.toFixed(2));
+                setDiscountPercent(pct.toFixed(1));
+            }
+        }
+    }, [discountPercent, formData.promoPrice, parsePrice]);
+
+    // Quando muda o desconto percentual (%)
+    const handleDiscountPercentChange = useCallback((valStr: string) => {
+        setDiscountPercent(valStr);
+        const orig = formData.unitPrice || 0;
+        if (orig <= 0 || valStr === "") {
+            setDiscountFixed("");
+            setFormData(prev => ({ ...prev, promoPrice: undefined }));
+            return;
+        }
+
+        const pct = parseFloat(valStr);
+        if (isNaN(pct) || pct < 0) {
+            setDiscountFixed("");
+            setFormData(prev => ({ ...prev, promoPrice: undefined }));
+            return;
+        }
+
+        const fixed = orig * (pct / 100);
+        setDiscountFixed(fixed.toFixed(2));
+        const promo = orig - fixed;
+        setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 }));
+    }, [formData.unitPrice]);
+
+    // Quando muda o desconto fixo (R$)
+    const handleDiscountFixedChange = useCallback((valStr: string) => {
+        setDiscountFixed(valStr);
+        const orig = formData.unitPrice || 0;
+        if (orig <= 0 || valStr === "") {
+            setDiscountPercent("");
+            setFormData(prev => ({ ...prev, promoPrice: undefined }));
+            return;
+        }
+
+        const fixed = parsePrice(valStr);
+        if (fixed < 0) {
+            setDiscountPercent("");
+            setFormData(prev => ({ ...prev, promoPrice: undefined }));
+            return;
+        }
+
+        const pct = (fixed / orig) * 150; // na verdade (fixed/orig)*100
+        const pctReal = (fixed / orig) * 100;
+        setDiscountPercent(pctReal.toFixed(1));
+        const promo = orig - fixed;
+        setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 }));
+    }, [formData.unitPrice, parsePrice]);
+
+    // Quando muda o preço promocional final (R$)
+    const handlePromoPriceFieldChange = useCallback((valStr: string) => {
+        const promo = parsePrice(valStr);
+        setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? promo : undefined }));
+        const orig = formData.unitPrice || 0;
+        if (orig <= 0 || valStr === "") {
+            setDiscountPercent("");
+            setDiscountFixed("");
+            return;
+        }
+
+        if (promo < 0 || promo >= orig) {
+            setDiscountPercent("");
+            setDiscountFixed("");
+            return;
+        }
+
+        const fixed = orig - promo;
+        const pct = (fixed / orig) * 100;
+        setDiscountFixed(fixed.toFixed(2));
+        setDiscountPercent(pct.toFixed(1));
+    }, [formData.unitPrice, parsePrice]);
+
+    const checkERPLegibility = useCallback((data: Partial<Product>) => {
+        const errors: string[] = [];
+        if (!data.description || data.description.trim().length < 2) {
+            errors.push("Nome do Produto (Interno) deve ter pelo menos 2 caracteres.");
+        }
+        if (!data.code || data.code.trim().length === 0) {
+            errors.push("Código/SKU é obrigatório.");
+        }
+        if (!data.unitPrice || data.unitPrice <= 0) {
+            errors.push("Preço de Venda deve ser maior que zero.");
+        }
+        if (!data.categoryIds || data.categoryIds.length === 0) {
+            errors.push("Pelo menos uma categoria deve ser selecionada.");
+        }
+        if (!data.mainSupplierId) {
+            errors.push("Fornecedor Principal é obrigatório.");
+        }
+        if (data.stock === undefined || data.stock === null || isNaN(data.stock as number) || data.stock < 0) {
+            errors.push("Estoque é obrigatório e deve ser maior ou igual a zero.");
+        }
+        if (!data.costPrice || data.costPrice <= 0) {
+            errors.push("Preço de Custo Final deve ser maior que zero.");
+        }
+        
+        if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
+            const up = data.unitPrice || 0;
+            if (data.promoPrice >= up) {
+                errors.push("O preço promocional deve ser menor que o preço de venda.");
+            }
+        }
+
+        return {
+            isLegible: errors.length === 0,
+            errors,
+            checks: {
+                description: !!data.description && data.description.trim().length >= 2,
+                code: !!data.code && data.code.trim().length > 0,
+                unitPrice: !!data.unitPrice && data.unitPrice > 0,
+                categories: !!data.categoryIds && data.categoryIds.length > 0,
+                supplier: !!data.mainSupplierId,
+                stock: data.stock !== undefined && data.stock !== null && !isNaN(data.stock as number) && data.stock >= 0,
+                costPrice: !!data.costPrice && data.costPrice > 0
+            }
+        };
+    }, []);
+
+    const checkEcomLegibility = useCallback((data: Partial<Product>) => {
+        const errors: string[] = [];
+        if (!data.marketplaceTitle || data.marketplaceTitle.trim().length < 2) {
+            errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
+        }
+        if (!data.unitPrice || data.unitPrice <= 0) {
+            errors.push("Preço de Venda deve ser maior que zero.");
+        }
+        if (!data.categoryIds || data.categoryIds.length === 0) {
+            errors.push("Pelo menos uma categoria deve ser selecionada.");
+        }
+        if (!data.images || data.images.length === 0) {
+            errors.push("Pelo menos uma foto deve ser adicionada.");
+        }
+        const isService = data.itemType === 'service';
+        if (!isService) {
+            if (!data.width || Number(data.width) <= 0) {
+                errors.push("Largura deve ser maior que zero.");
+            }
+            if (!data.height || Number(data.height) <= 0) {
+                errors.push("Altura deve ser maior que zero.");
+            }
+            if (!data.depth || Number(data.depth) <= 0) {
+                errors.push("Profundidade deve ser maior que zero.");
+            }
+        }
+        
+        if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
+            const up = data.unitPrice || 0;
+            if (data.promoPrice >= up) {
+                errors.push("O preço promocional deve ser menor que o preço de venda.");
+            }
+        }
+
+        return {
+            isLegible: errors.length === 0,
+            errors,
+            checks: {
+                marketplaceTitle: !!data.marketplaceTitle && data.marketplaceTitle.trim().length >= 2,
+                unitPrice: !!data.unitPrice && data.unitPrice > 0,
+                categories: !!data.categoryIds && data.categoryIds.length > 0,
+                images: !!data.images && data.images.length > 0,
+                dimensions: isService || (!!data.width && Number(data.width) > 0 && !!data.height && Number(data.height) > 0 && !!data.depth && Number(data.depth) > 0)
+            }
+        };
+    }, []);
+
+    const navigateToRequirementField = useCallback((fieldKey: string) => {
+        const requirementMap: Record<string, { tab: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'technical' | 'fiscal'; fieldId: string }> = {
+            description: { tab: 'geral', fieldId: 'field-product-description' },
+            name: { tab: 'geral', fieldId: 'field-product-description' },
+            code: { tab: 'geral', fieldId: 'field-product-code' },
+            sku: { tab: 'geral', fieldId: 'field-product-code' },
+            marketplaceTitle: { tab: 'geral', fieldId: 'field-marketplace-title' },
+            title: { tab: 'geral', fieldId: 'field-marketplace-title' },
+            categories: { tab: 'geral', fieldId: 'field-product-categories' },
+            
+            unitPrice: { tab: 'estoque', fieldId: 'field-unit-price' },
+            supplier: { tab: 'estoque', fieldId: 'field-main-supplier' },
+            mainSupplierId: { tab: 'estoque', fieldId: 'field-main-supplier' },
+            stock: { tab: 'estoque', fieldId: 'field-stock' },
+            costPrice: { tab: 'estoque', fieldId: 'field-cost-price' },
+            
+            images: { tab: 'ecommerce', fieldId: 'field-product-images' },
+            dimensions: { tab: 'technical', fieldId: 'field-product-dimensions' },
+            width: { tab: 'technical', fieldId: 'field-product-dimensions' },
+            height: { tab: 'technical', fieldId: 'field-product-dimensions' },
+            depth: { tab: 'technical', fieldId: 'field-product-dimensions' },
+            ncm: { tab: 'fiscal', fieldId: 'field-product-ncm' }
+        };
+
+        const target = requirementMap[fieldKey];
+        if (!target) return;
+
+        setSaveResult(null);
+        setActiveTab(target.tab);
+
+        setTimeout(() => {
+            const el = document.getElementById(target.fieldId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const input = el.querySelector('input, select, textarea') as HTMLElement;
+                if (input && typeof input.focus === 'function') {
+                    input.focus();
+                }
+                el.classList.add('ring-4', 'ring-amber-400', 'ring-offset-2', 'border-amber-500', 'animate-pulse', 'bg-amber-50/50', 'dark:bg-amber-950/20');
+                setTimeout(() => {
+                    el.classList.remove('ring-4', 'ring-amber-400', 'ring-offset-2', 'border-amber-500', 'animate-pulse', 'bg-amber-50/50', 'dark:bg-amber-950/20');
+                }, 3000);
+            }
+        }, 150);
+    }, []);
+
+    const erpStatus = checkERPLegibility(formData);
+    const ecomStatus = checkEcomLegibility(formData);
 
     const hasChanged = useRef(false);
     const initialFormDataRef = useRef<string>("");
@@ -259,20 +495,46 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (product?.id) {
                 const full = await getFullProduct(product.id);
                 if (full && isMounted) {
-                    setFormData(full);
+                    const hasVars = Boolean(full.hasVariations) || (Array.isArray(full.variations) && full.variations.length > 0);
+                    setFormData({ ...full, hasVariations: hasVars });
+                    // Inicializar descontos
+                    const orig = full.unitPrice || 0;
+                    const promo = full.promoPrice || 0;
+                    if (orig > 0 && promo > 0 && promo < orig) {
+                        const diff = orig - promo;
+                        setDiscountFixed(diff.toFixed(2));
+                        setDiscountPercent(((diff / orig) * 100).toFixed(1));
+                    } else {
+                        setDiscountFixed("");
+                        setDiscountPercent("");
+                    }
                 }
             } else if (product) {
-                setFormData({ ...INITIAL_FORM_DATA, ...product });
+                const hasVars = Boolean(product.hasVariations) || (Array.isArray(product.variations) && product.variations.length > 0);
+                setFormData({ ...INITIAL_FORM_DATA, ...product, hasVariations: hasVars });
+                // Inicializar descontos
+                const orig = product.unitPrice || 0;
+                const promo = product.promoPrice || 0;
+                if (orig > 0 && promo > 0 && promo < orig) {
+                    const diff = orig - promo;
+                    setDiscountFixed(diff.toFixed(2));
+                    setDiscountPercent(((diff / orig) * 100).toFixed(1));
+                } else {
+                    setDiscountFixed("");
+                    setDiscountPercent("");
+                }
             } else {
-                // If creating new, start with INITIAL_FORM_DATA then apply initialData, and auto-generate ID and SKU (code)
+                // If creating new, start with INITIAL_FORM_DATA then apply initialData, and auto-generate ID and 6-digit SKU (code)
                 const generatedId = String(Math.floor(Date.now() + Math.random() * 1000));
-                const generatedSku = 'PRD-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+                const generatedSku = await getNextSequentialProductCode();
                 setFormData({
                     ...INITIAL_FORM_DATA,
                     id: generatedId,
                     code: generatedSku,
                     ...initialData
                 });
+                setDiscountFixed("");
+                setDiscountPercent("");
             }
             setActiveTab('geral');
         };
@@ -417,21 +679,39 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     }, [formData.categoryIds, availableCategories]);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
-        let files: FileList | File[] = [];
-        if ('files' in e.target && e.target.files) {
-            files = Array.from(e.target.files);
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent | { files: File[] }) => {
+        let files: File[] = [];
+        if ('files' in e && Array.isArray((e as any).files)) {
+            files = (e as any).files;
+        } else if ('target' in e && (e.target as HTMLInputElement).files) {
+            files = Array.from((e.target as HTMLInputElement).files || []);
         } else if ('dataTransfer' in e && e.dataTransfer.files) {
             files = Array.from(e.dataTransfer.files);
         }
 
         if (files.length === 0) return;
 
+        const MAX_PHOTOS = 15;
+        const currentCount = (formData.images || []).length;
+
+        if (currentCount >= MAX_PHOTOS) {
+            toast.warning(`Limite máximo de ${MAX_PHOTOS} fotos atingido!`);
+            return;
+        }
+
+        const availableSlots = MAX_PHOTOS - currentCount;
+        let filesToProcess = files;
+
+        if (files.length > availableSlots) {
+            toast.info(`Apenas as primeiras ${availableSlots} foto(s) serão adicionadas (limite máximo de ${MAX_PHOTOS} fotos).`);
+            filesToProcess = files.slice(0, availableSlots);
+        }
+
         setLoading(true);
         try {
-            const uploadPromises = Array.from(files).map(async (file) => {
-                const compressed = await compressImageToFile(file as File);
-                const fileExt = file.name.split('.').pop();
+            const uploadPromises = filesToProcess.map(async (file) => {
+                const compressed = await compressImageToFile(file, { maxMB: 0.1, maxWidth: 1200 });
+                const fileExt = file.name.split('.').pop() || 'jpg';
                 const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
                 const path = `products/${fileName}`;
                 return uploadFile(compressed, path);
@@ -442,9 +722,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 ...prev,
                 images: [...(prev.images || []), ...urls]
             }));
-            toast.success(`${files.length} foto(s) enviada(s)`);
+            toast.success(`${urls.length} foto(s) otimizada(s) e enviada(s) com sucesso!`);
         } catch (error) {
-            toast.error("Erro no upload das imagens");
+            toast.error("Erro no upload e otimização das imagens.");
             console.error(error);
         } finally {
             setLoading(false);
@@ -461,6 +741,16 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }));
         setRemovingPhoto(null);
         toast.info("Foto removida localmente");
+    };
+
+    const handlePaste = async (e: React.ClipboardEvent) => {
+        if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
+            const imageFiles = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
+            if (imageFiles.length > 0) {
+                e.preventDefault();
+                await handleFileChange({ files: imageFiles } as any);
+            }
+        }
     };
 
     const handleGenerateCategory = async () => {
@@ -613,15 +903,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const addVariation = () => {
         const baseName = "NOVA VARIAÇÃO";
-        const existingSkus = new Set((formData.variations || []).map(v => v.sku?.toUpperCase()));
-        
-        let newSku = formData.code ? `${formData.code}-NEW` : "NEW-VAR";
-        let counter = 1;
-        while (existingSkus.has(newSku.toUpperCase())) {
-            const suffix = `-${counter}`;
-            newSku = (formData.code ? `${formData.code}-NEW` : "NEW-VAR").substring(0, 50 - suffix.length) + suffix;
-            counter++;
-        }
+        const currentCount = (formData.variations || []).length;
+        const parentCode = formData.code || '000000';
+        const newSku = generateVariationSku(parentCode, currentCount);
 
         const newVar: Variation = {
             id: Math.random().toString(36).substr(2, 9),
@@ -635,11 +919,18 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             syncUnitPrice: true,
             syncCostPrice: true,
             syncDescription: true,
+            syncDimensions: true,
+            syncWidth: true,
+            syncHeight: true,
+            syncDepth: true,
+            syncWeight: true,
+            syncIpi: true,
+            syncFreight: true,
             attributes: [],
             comboItems: []
-
         };
         setFormData(prev => ({ ...prev, variations: [...(prev.variations || []), newVar], hasVariations: true }));
+        setEditingVariationId(newVar.id);
     };
 
     const removeVariation = async (id: string) => {
@@ -691,7 +982,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 combinations = newCombinations;
             });
 
-            const newVars: Variation[] = combinations.map(combo => {
+            const newVars: Variation[] = combinations.map((combo, idx) => {
                 // [FIX] Use the original order from 'attributes' array instead of alphabetical sort
                 const attrParts = attributes.map(attr => {
                     const attrData = combo[attr.name];
@@ -700,16 +991,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 }).join(' ');
                 
                 const name = attrParts.toUpperCase();
-
-                // [FIX] Use the original order for SKU generation as well
-                const skuSuffix = attributes.map(attr => 
-                    String(combo[attr.name].value).toUpperCase().replace(/\s+/g, '')
-                ).join('-');
-                
-                let finalSku = formData.code ? `${formData.code}-${skuSuffix}` : skuSuffix;
-                if (finalSku.length > 50) {
-                    finalSku = finalSku.substring(0, 50);
-                }
+                const parentCode = formData.code || '000000';
+                const finalSku = generateVariationSku(parentCode, idx);
                 
                 return {
                     id: Math.random().toString(36).substr(2, 9),
@@ -830,8 +1113,11 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const handleSubmit = async (isDraft: boolean = false): Promise<boolean> => {
         let finalDescription = formData.description;
 
-        if (!isDraft && !finalDescription) {
-            toast.error("O título do produto é obrigatório.");
+        const erpVal = checkERPLegibility(formData);
+        const ecomVal = checkEcomLegibility(formData);
+
+        if (!isDraft && !erpVal.isLegible) {
+            toast.error("O produto não cumpre os requisitos mínimos do ERP para ser cadastrado como ativo. Complete os campos obrigatórios.");
             return false;
         }
 
@@ -841,18 +1127,32 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         
         setLoading(true);
         try {
+            const ecomPublished = !isDraft && ecomVal.isLegible;
+
             const normalizedData = { 
                 ...formData, 
                 description: finalDescription,
                 isDraft: isDraft, // Se chamou via auto-save ou rascunho, marca como rascunho
+                status: ecomPublished ? 'published' : 'draft', // Salva como publicado ou rascunho no e-commerce
                 lastAutoSave: isDraft ? new Date().toISOString() : undefined
             } as Product;
 
             await saveProduct(normalizedData);
             hasChanged.current = false;
-            if (!isDraft) toast.success(product ? "Atualizado com sucesso!" : "Criado com sucesso!");
-            if (onSuccess) onSuccess(normalizedData);
-            onClose();
+            
+            if (!isDraft) {
+                setSaveResult({
+                    erpLegible: erpVal.isLegible,
+                    ecomLegible: ecomVal.isLegible,
+                    checksErp: erpVal.checks,
+                    checksEcom: ecomVal.checks,
+                    product: normalizedData
+                });
+            } else {
+                toast.info("Rascunho salvo com sucesso.");
+                if (onSuccess) onSuccess(normalizedData);
+                onClose();
+            }
             return true;
         } catch (error: any) {
             toast.error(`Erro ao salvar: ${error.message || "Erro desconhecido"}`);
@@ -886,15 +1186,136 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={handleCloseWithAutoSave} />
             
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-[96vw] h-[96vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
+            <div onPaste={handlePaste} className="relative bg-white dark:bg-slate-900 w-full max-w-[96vw] h-[96vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
-                    <div>
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
+                    <div className="flex items-center gap-4 flex-wrap">
                         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                            Cadastro de Produto
+                            {product ? "Editar Produto" : "Cadastro de Produto"}
                         </h2>
+                        
+                        {/* Indicadores de Requisitos por Canal */}
+                        <div className="flex items-center gap-2">
+                            {/* ERP Indicator */}
+                            <div className="relative group cursor-help">
+                                <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${erpStatus.isLegible ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'}`}>
+                                    <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 mr-0.5 select-none">ERP</span>
+                                    <span>{erpStatus.isLegible ? 'Ativo' : 'Rascunho'}</span>
+                                </div>
+                                
+                                {/* Tooltip ERP */}
+                                <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Requisitos do Canal ERP</p>
+                                    <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold mb-3">💡 Clique em qualquer item pendente para ir direto ao campo.</p>
+                                    <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                        <li onClick={() => navigateToRequirementField('description')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.description ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.description ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Nome do Produto (Interno)</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('code')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.code ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.code ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Código/SKU do Produto</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('unitPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.unitPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.unitPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Venda &gt; R$ 0</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('categories')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.categories ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.categories ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Pelo menos 1 Categoria</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('supplier')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.supplier ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.supplier ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Fornecedor Principal</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('stock')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.stock ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.stock ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Estoque Atual cadastrado</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('costPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${erpStatus.checks.costPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={erpStatus.checks.costPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Custo Final &gt; R$ 0</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Catálogo Indicator */}
+                            <div className="relative group cursor-help">
+                                <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${ecomStatus.isLegible ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'}`}>
+                                    <CatalogDigitalIcon className={`w-3.5 h-3.5 ${ecomStatus.isLegible ? 'text-purple-600 dark:text-purple-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                                    <span>Catálogo: {ecomStatus.isLegible ? 'Cadastrado' : 'Rascunho'}</span>
+                                </div>
+                                
+                                {/* Tooltip Catálogo */}
+                                <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Requisitos do Catálogo</p>
+                                    <p className="text-[9px] text-purple-600 dark:text-purple-400 font-bold mb-3">💡 Clique em qualquer item pendente para ir direto ao campo.</p>
+                                    <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                        <li onClick={() => navigateToRequirementField('marketplaceTitle')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${ecomStatus.checks.marketplaceTitle ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={ecomStatus.checks.marketplaceTitle ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Título do Produto (Catálogo)</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('unitPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${ecomStatus.checks.unitPrice ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={ecomStatus.checks.unitPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Venda &gt; R$ 0</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('images')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${ecomStatus.checks.images ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={ecomStatus.checks.images ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Pelo menos 1 Foto principal</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('categories')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${ecomStatus.checks.categories ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                <span className={ecomStatus.checks.categories ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Pelo menos 1 Categoria</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        {!isService && (
+                                            <li onClick={() => navigateToRequirementField('dimensions')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
+                                                <div className="flex items-center gap-2">
+                                                    <i className={`bi ${ecomStatus.checks.dimensions ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
+                                                    <span className={ecomStatus.checks.dimensions ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Dimensões físicas (L x A x P)</span>
+                                                </div>
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <button onClick={handleCloseWithAutoSave} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                    <button onClick={handleCloseWithAutoSave} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto">
                         <i className="bi bi-x-lg text-lg"></i>
                     </button>
                 </div>
@@ -904,7 +1325,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     <div className="flex gap-6 min-w-max">
                         {([
                             { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
-                            !isService && { id: 'estoque', label: 'Estoque / Custos', icon: 'bi-box-seam' },
+                            !isService && { id: 'ecommerce', label: 'Fotos', icon: 'bi-images' },
+                            !isService && { id: 'technical', label: 'Informações Técnicas', icon: 'bi-ruler' },
+                            !isService && { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
                             !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ] as any[]).filter(Boolean).map((tab: any) => (
@@ -935,6 +1358,13 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         />
                     )}
 
+                    {activeTab === 'technical' && (
+                        <ProductTechnicalTab
+                            formData={formData}
+                            setFormData={setFormData}
+                        />
+                    )}
+
 
 
                     {activeTab === 'estoque' && (
@@ -945,6 +1375,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             handleSuggestPrices={handleSuggestPrices}
                             isSuggestingPrices={isSuggestingPrices}
                             suggestPricesResults={suggestPricesResults}
+                            discountPercent={discountPercent}
+                            setDiscountPercent={setDiscountPercent}
+                            discountFixed={discountFixed}
+                            setDiscountFixed={setDiscountFixed}
+                            handlePriceChange={handlePriceChange}
+                            handleDiscountPercentChange={handleDiscountPercentChange}
+                            handleDiscountFixedChange={handleDiscountFixedChange}
+                            handlePromoPriceFieldChange={handlePromoPriceFieldChange}
                         />
                     )}
 
@@ -953,7 +1391,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             variations={formData.variations || []}
                             isGeneratingBulk={isGeneratingBulk}
                             addVariation={addVariation}
-                            VariationRow={(props: any) => <VariationRow {...props} parentTitle={formData.description} />}
+                            VariationRow={(props: any) => <VariationRow {...props} parentPrice={formData.unitPrice} />}
                             updateVariation={updateVariation}
                             removeVariation={removeVariation}
                             setFormData={setFormData}
@@ -961,11 +1399,31 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             onEditCombo={setEditingVariationComboId}
                             onEdit={setEditingVariationId}
                             regenerateAllSkus={regenerateAllVariationSkus}
-                            onOpenCartesianModal={() => setIsCartesianModalOpen(true)}
+                            hasVariations={formData.hasVariations || false}
+                            setHasVariations={(val) => setFormData(prev => ({ ...prev, hasVariations: val }))}
                         />
                     )}
 
 
+
+                    {activeTab === 'ecommerce' && (
+                        <ProductEcommerceTab
+                            formData={formData}
+                            setFormData={setFormData}
+                            activeEcommerceSubTab={activeEcommerceSubTab}
+                            setActiveEcommerceSubTab={setActiveEcommerceSubTab}
+                            isDraggingPhoto={isDraggingPhoto}
+                            setIsDraggingPhoto={setIsDraggingPhoto}
+                            handleFileChange={handleFileChange}
+                            removingPhoto={removingPhoto}
+                            removePhoto={removePhoto}
+                            handleGenerateAIDescription={handleGenerateAIDescription}
+                            isGeneratingDescription={isGeneratingDescription}
+                            handleGenerateMarketplaceTitle={handleGenerateMarketplaceTitle}
+                            isGeneratingTitle={isGeneratingTitle}
+                            handleToggleActive={handleToggleActive}
+                        />
+                    )}
 
                     {activeTab === 'fiscal' && (
                         <ProductFiscalTab
@@ -996,22 +1454,23 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
                         <button
                             onClick={() => handleSubmit(false)}
-                            disabled={loading}
-                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-xl shadow-blue-200 dark:shadow-none w-full md:w-auto justify-center"
+                            disabled={loading || !erpStatus.isLegible}
+                            className={`px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center ${erpStatus.isLegible ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none' : 'bg-slate-400 dark:bg-slate-800 shadow-none'}`}
+                            title={!erpStatus.isLegible ? "O produto deve atender a todos os requisitos do ERP para ser finalizado/cadastrado como ativo." : ""}
                         >
                             {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                             <i className="bi bi-check-circle-fill"></i>
-                            {product ? "Salvar" : "Cadastrar"}
+                            {product && !product.isDraft ? "Salvar" : "Cadastrar"}
                         </button>
                     </div>
                 </div>
 
 
-                {/* Modals */}
-                <VariationEditModal
-                    isOpen={!!editingVariationId}
-                    onClose={() => setEditingVariationId(null)}
-                    variation={formData.variations?.find(v => v.id === editingVariationId) || null}
+                {editingVariationId && formData.variations?.some(v => v.id === editingVariationId) && (
+                    <VariationEditModal
+                        isOpen={!!editingVariationId}
+                        onClose={() => setEditingVariationId(null)}
+                        variation={formData.variations?.find(v => v.id === editingVariationId) || null}
                     suppliers={suppliers}
                     parentProduct={{
                         id: formData.id,
@@ -1030,6 +1489,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         }));
                     }}
                 />
+                )}
 
                 <CategorySearchModal
                     isOpen={isCategorySearchOpen}
@@ -1172,12 +1632,124 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     />
                 )}
 
-                <CartesianVariationModal
-                    isOpen={isCartesianModalOpen}
-                    onClose={() => setIsCartesianModalOpen(false)}
-                    isGenerating={isGeneratingBulk}
-                    onGenerate={generateBulkVariations}
-                />
+                {saveResult && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl w-full max-w-2xl animate-in zoom-in-95 duration-200 text-center">
+                            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i className="bi bi-check-circle-fill text-2xl"></i>
+                            </div>
+                            
+                            <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Produto Salvo com Sucesso!</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 mb-6">Status da publicação e legibilidade do canal</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left mb-6">
+                                {/* Coluna ERP */}
+                                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Canal ERP</span>
+                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.erpLegible ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'}`}>
+                                            {saveResult.erpLegible ? 'Ativo' : 'Rascunho'}
+                                        </span>
+                                    </div>
+                                    
+                                    <ul className="space-y-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                                        <li onClick={() => navigateToRequirementField('description')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksErp.description ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksErp.description ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Nome do Produto</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('code')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksErp.code ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksErp.code ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Código/SKU do Produto</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('unitPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksErp.unitPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksErp.unitPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Venda</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('supplier')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksErp.supplier ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksErp.supplier ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Fornecedor Principal</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('costPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksErp.costPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksErp.costPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Custo Final</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                {/* Coluna E-commerce */}
+                                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black text-purple-600 uppercase tracking-widest flex items-center gap-1">
+                                            <i className="bi bi-shop text-xs"></i> E-commerce
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.ecomLegible ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'}`}>
+                                            {saveResult.ecomLegible ? 'Publicado' : 'Rascunho'}
+                                        </span>
+                                    </div>
+                                    
+                                    <ul className="space-y-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                                        <li onClick={() => navigateToRequirementField('marketplaceTitle')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksEcom.title ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksEcom.title ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Título do Site</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('dimensions')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksEcom.dimensions ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksEcom.dimensions ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Dimensões Físicas</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('categories')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksEcom.categories ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksEcom.categories ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Categorias do Produto</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                        <li onClick={() => navigateToRequirementField('images')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`bi ${saveResult.checksEcom.images ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
+                                                <span className={saveResult.checksEcom.images ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Imagens do Produto</span>
+                                            </div>
+                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const prod = saveResult.product;
+                                    setSaveResult(null);
+                                    if (onSuccess) onSuccess(prod);
+                                    onClose();
+                                }}
+                                className="w-full py-3 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all"
+                            >
+                                Concluir e Fechar
+                            </button>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </div>

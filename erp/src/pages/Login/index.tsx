@@ -40,7 +40,7 @@ const Login = () => {
             if (error) throw error;
 
             toast.success('Bem-vindo de volta! Sincronizando dados...');
-            navigate('/');
+            navigate('/', { replace: true });
         } catch (error: any) {
             toast.error(translateAuthError(error.message));
             setIsSubmitting(false);

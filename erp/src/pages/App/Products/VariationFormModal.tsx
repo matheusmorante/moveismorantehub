@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Product, { Variation, InitialStockEntry } from '../../types/product.type';
-import { saveVariation } from '@/pages/utils/productService';
+import { saveVariation, generateVariationSku, parseVariationImages } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import InitialStockList from './components/InitialStockList';
@@ -32,6 +32,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     // Form data
     const [formData, setFormData] = useState<Variation | null>(null);
+    const [allParentImages, setAllParentImages] = useState<string[]>([]);
 
     // Discount helper states
     const [varDiscountPercent, setVarDiscountPercent] = useState("");
@@ -52,11 +53,34 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     useEffect(() => {
         if (isOpen) {
+            const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
+            if (realParentId) {
+                supabase
+                    .from('product_images')
+                    .select('url')
+                    .eq('product_id', realParentId)
+                    .order('display_order', { ascending: true })
+                    .then(({ data }) => {
+                        if (data && data.length > 0) {
+                            setAllParentImages(data.map(i => i.url));
+                        } else if (parentProduct?.images?.length) {
+                            setAllParentImages(parentProduct.images);
+                        }
+                    });
+            } else if (parentProduct?.images?.length) {
+                setAllParentImages(parentProduct.images);
+            }
+        }
+    }, [isOpen, parentProduct, parentId]);
+
+    useEffect(() => {
+        if (isOpen) {
             fetchDbAttributes();
             setVarStep(1);
             if (variation) {
                 setFormData({
                     ...variation,
+                    images: parseVariationImages((variation as any).image_url, variation.images),
                     syncUnitPrice: variation.syncUnitPrice ?? true,
                     syncDescription: variation.syncDescription ?? true,
                     syncCostPrice: variation.syncCostPrice ?? true
@@ -74,9 +98,11 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     setVarDiscountFixed("");
                 }
             } else {
+                const varIndex = (parentProduct.variations || []).length;
+                const parentCode = parentProduct.code || '000000';
                 setFormData({
                     id: crypto.randomUUID(),
-                    sku: "",
+                    sku: generateVariationSku(parentCode, varIndex),
                     name: "",
                     stock: 0,
                     unitPrice: parentProduct.unitPrice || 0,
@@ -299,7 +325,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     if (!isOpen || !formData) return null;
 
-    const parentImages = parentProduct.images || [];
+    const parentImages = allParentImages.length > 0 ? allParentImages : (parentProduct.images || []);
 
     return createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
@@ -332,21 +358,21 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                 onClick={() => setVarStep(s)}
                                 className={`flex-1 py-2 text-[10px] sm:text-xs font-bold border-b-4 transition-all hover:bg-white/5 rounded-t-lg ${varStep === s ? "border-white text-white bg-white/10" : "border-white/20 text-white/60 hover:text-white/90"}`}
                             >
-                                {s === 1 ? "1. Foto Vinculada" : s === 2 ? "2. Identificação & Preço" : "3. Ficha Técnica"}
+                                {s === 1 ? "1. Fotos" : s === 2 ? "2. Identificação & Preço" : "3. Ficha Técnica"}
                             </button>
                         ))}
                     </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 custom-scrollbar min-h-0">
-                    {/* Etapa 1: Foto Vinculada */}
+                    {/* Etapa 1: Fotos */}
                     {varStep === 1 && (
                         <div className="space-y-4 animate-in fade-in duration-300">
                             <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                                Vincular Foto <span className="text-red-500">*</span>
+                                Fotos do Produto Pai <span className="text-red-500">*</span>
                             </h3>
                             <p className="text-xs text-slate-500 bg-blue-50/50 dark:bg-blue-900/15 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/25">
-                                Selecione as fotos que representam esta variação. As imagens devem ser cadastradas no produto pai primeiro.
+                                Selecione as fotos que representam esta variação. As fotos selecionadas ficarão circuladas de azul.
                             </p>
                             {parentImages.length === 0 ? (
                                 <div className="text-center p-8 border border-dashed rounded-2xl text-xs text-red-500 bg-red-50 font-bold">
@@ -369,12 +395,21 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                         setFormData({ ...formData, images: [...currentImages, url] });
                                                     }
                                                 }}
-                                                className={`relative aspect-square rounded-2xl overflow-hidden border-4 bg-slate-50 transition-all ${isSelected ? "border-blue-600 scale-[1.03] shadow-md" : "border-transparent opacity-75 hover:opacity-100"}`}
+                                                className={`relative aspect-square rounded-2xl overflow-hidden cursor-pointer transition-all border-4 ${
+                                                    isSelected 
+                                                        ? "border-blue-600 ring-4 ring-blue-500/50 scale-[1.03] shadow-md opacity-100" 
+                                                        : "border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-100 hover:border-blue-300"
+                                                }`}
                                             >
-                                                <img src={url} alt={`Foto ${imgIndex + 1}`} className="object-cover h-full w-full" />
+                                                <img src={url} alt={`Foto ${imgIndex + 1}`} className="object-cover h-full w-full pointer-events-none" />
                                                 {isSelected && (
-                                                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded font-bold">
-                                                        #{selectIndex + 1} Vinculada
+                                                    <div className="absolute top-2 right-2 w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+                                                        <i className="bi bi-check-lg text-sm font-black" />
+                                                    </div>
+                                                )}
+                                                {isSelected && selectIndex === 0 && (
+                                                    <span className="absolute bottom-2 left-2 bg-blue-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow border border-white/40">
+                                                        Capa
                                                     </span>
                                                 )}
                                             </button>
@@ -490,6 +525,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                             }}
                                                             className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
                                                         >
+                                                            {attr.name && !dbAttributes.some(a => a.name === attr.name) && (
+                                                                <option value={attr.name}>{attr.name}</option>
+                                                            )}
                                                             {dbAttributes.map(a => (
                                                                 <option key={a.id} value={a.name} disabled={(formData.attributes || []).some(sel => sel.name === a.name && a.name !== attr.name)}>
                                                                     {a.name}
@@ -522,6 +560,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                             className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
                                                         >
                                                             <option value="">Selecione...</option>
+                                                            {attr.value && !attrVals.some(v => v.value === attr.value) && (
+                                                                <option value={attr.value}>{attr.value}</option>
+                                                            )}
                                                             {attrVals.map(val => (
                                                                 <option key={val.id} value={val.value}>{val.value}</option>
                                                             ))}

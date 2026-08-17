@@ -13,7 +13,6 @@ import StockLaunchModal from "../Stock/components/StockLaunchModal";
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { Variation } from "../../types/product.type";
 import { ProductListRef } from "./ProductList";
-import ProductImportModal from "./components/ProductImportModal";
 
 interface ProductFiltersData {
     search: string;
@@ -43,13 +42,13 @@ const Products = () => {
 
     // Variation Modal State
     const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingVariation, setEditingVariation] = useState<Variation | null>(null);
     const [variationParentProduct, setVariationParentProduct] = useState<Product | null>(null);
     const [initialFormData, setInitialFormData] = useState<any>(null);
 
     useEffect(() => {
         cleanupOldDrafts();
+        localStorage.removeItem('local_products');
     }, []);
 
     // Stock Launch Modal State
@@ -168,27 +167,26 @@ const Products = () => {
             {/* Overlay for mobile sidebar */}
             {isSidebarOpen && <div className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
-            {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
-                <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0">
-                    <div className="flex items-start xl:items-center gap-4 xl:gap-6">
+                <div className="flex justify-between items-center mb-4 md:mb-6 gap-4">
+                    <div className="flex items-center gap-4 xl:gap-6">
                         <div>
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
                                 Produtos
                             </h1>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Gerencie o cadastro de produtos locais e importados
+                            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs xl:text-sm hidden sm:block">
+                                Gerencie o cadastro de produtos
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex gap-4 relative">
+                    <div className="flex gap-3 relative">
                         <Link
                             to="/app/configuracoes"
-                            className="flex items-center justify-center p-3 xl:p-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all h-full"
+                            className="flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
                             title="Configurar Campos Obrigatórios"
                         >
-                            <i className="bi bi-gear-fill text-lg xl:text-xl" />
+                            <i className="bi bi-gear-fill text-base" />
                         </Link>
                         <button
                             onClick={() => {
@@ -196,18 +194,12 @@ const Products = () => {
                                 setInitialFormData(null);
                                 setIsFormModalOpen(true);
                             }}
-                            className="flex items-center gap-2 px-4 py-3 xl:px-6 xl:py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl xl:rounded-2xl transition-all shadow-lg shadow-emerald-600/30 font-bold text-xs xl:text-sm whitespace-nowrap active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-lg shadow-emerald-600/30 font-bold text-xs whitespace-nowrap active:scale-95"
                         >
-                            <i className="bi bi-plus-circle-fill text-lg"></i>
+                            <i className="bi bi-plus-circle-fill text-sm"></i>
                             <span className="hidden sm:inline">Novo Produto</span>
                         </button>
-                        <button
-                            onClick={() => setIsImportModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-3 xl:px-6 xl:py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl xl:rounded-2xl transition-all shadow-lg shadow-blue-600/30 font-bold text-xs xl:text-sm whitespace-nowrap active:scale-95"
-                        >
-                            <i className="bi bi-file-earmark-arrow-up-fill text-lg"></i>
-                            <span className="hidden sm:inline">Importar do Bling (CSV)</span>
-                        </button>
+
                     </div>
                 </div>
 
@@ -240,11 +232,11 @@ const Products = () => {
 
                             <button
                                 onClick={() => { setIsTrashOpen(true); setIsDraftOpen(false); }}
-                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isTrashOpen ? 'bg-red-600 text-white border-red-500' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:text-red-500'}`}
-                                title="Lixeira"
+                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isTrashOpen ? 'bg-amber-600 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:text-amber-500'}`}
+                                title="Produtos Desativados"
                             >
-                                <i className="bi bi-trash"></i>
-                                <span className="hidden sm:inline">Lixeira</span>
+                                <i className="bi bi-power"></i>
+                                <span className="hidden sm:inline">Desativados</span>
                             </button>
 
                             <button
@@ -288,7 +280,7 @@ const Products = () => {
                                             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
                                             <div className="grid grid-cols-1 gap-2">
                                                 {[
-                                                    { key: 'code', label: 'Código' },
+                                                    { key: 'code', label: 'SKU' },
                                                     { key: 'description', label: 'Título do Produto' },
                                                     { key: 'category', label: 'Categoria' },
                                                     { key: 'createdAt', label: 'Data Criação' },
@@ -366,7 +358,7 @@ const Products = () => {
                                 <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
                                     Produtos Desativados
                                 </h2>
-                                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Gerencie produtos e serviços desativados (Lixeira)</p>
+                                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Gerencie produtos e serviços desativados</p>
                             </div>
                             <button onClick={() => setIsTrashOpen(false)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                                 <i className="bi bi-x-lg text-xl"></i>
@@ -444,11 +436,7 @@ const Products = () => {
                 targetVariation={stockLaunchTarget?.variation}
             />
 
-            <ProductImportModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                onSuccess={() => productListRef.current?.refresh()}
-            />
+
         </div>
     );
 };

@@ -3,7 +3,6 @@ import Product from "../../../types/product.type";
 import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
-import ProductMigrationModal from "../components/ProductMigrationModal";
 import ProductSalesModal from "../components/ProductSalesModal";
 
 interface ProductCardProps {
@@ -40,42 +39,28 @@ const ProductCard = ({
     onDuplicate
 }: ProductCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-    const [isMigrationModalOpen, setIsMigrationModalOpen] = React.useState(false);
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
-    const isVariation = product.isVariation;
+    const isVariation = product.isVariation || !!product.parentId;
 
     return (
         <div
-            className={`border rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all
+            className={`border rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative
                 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 
-                  isParent ? 'border-blue-300 dark:border-blue-800' :
-                  isVariation ? 'border-indigo-100 dark:border-indigo-900 ml-4' :
-                  'border-slate-100 dark:border-slate-800'}
-                ${isParent ? 'bg-blue-50/50 dark:bg-blue-900/10' : 
-                  isVariation ? 'bg-slate-50/50 dark:bg-slate-900/40 relative' :
-                  'bg-white dark:bg-slate-900'}`}
+                  isParent ? 'border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10' :
+                  isVariation ? 'border-l-4 border-l-blue-500 dark:border-l-blue-400 border-slate-200 dark:border-slate-800 ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
+                  'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
             onClick={() => onEdit(product)}
         >
-            {isVariation && (
-                <div className="absolute left-[-1rem] top-1/2 -translate-y-1/2 w-4 h-0.5 bg-indigo-200 dark:bg-indigo-900/50" />
-            )}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                            e.stopPropagation();
-                            onToggleSelection?.();
-                        }}
-                        className="w-5 h-5 text-blue-600 bg-white border-slate-300 rounded-md focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                    />
-                    <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
-                        {product.code || "S/C"}
-                    </span>
+                    {product.code ? (
+                        <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
+                            {product.code}
+                        </span>
+                    ) : null}
                     {/* Parent / Variation indicator */}
                     {isParent && (
                         <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-blue-600 text-white flex items-center gap-1">
@@ -84,7 +69,7 @@ const ProductCard = ({
                         </span>
                     )}
                     {isVariation && (
-                        <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 flex items-center gap-1">
+                        <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
                             <i className="bi bi-arrow-return-right" />
                             Variação
                         </span>
@@ -95,38 +80,32 @@ const ProductCard = ({
                     <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${product.itemType === 'service' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>
                         {product.itemType === 'service' ? 'Serviço' : 'Produto'}
                     </span>
-                    {product.itemType === 'product' && product.condition && (
-                        <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${product.condition === 'salvado' ? 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400' :
-                                product.condition === 'usado' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' :
-                                    'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
-                            }`}>
-                            {product.condition}
+                    {(product.opportunityName || product.opportunity?.name) && (
+                        <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                            <i className="bi bi-fire text-amber-600" />
+                            {product.opportunityName || product.opportunity?.name}
                         </span>
                     )}
                 </div>
             </div>
 
-            <div className="mb-3 flex gap-3">
-                {!isVariation && (
-                    <div className="relative shrink-0">
-                        {product.images?.[0] ? (
-                            <img
-                                src={product.images[0]}
-                                alt=""
-                                className="w-16 h-16 rounded-2xl object-cover border border-slate-100 dark:border-slate-800 shadow-sm"
+            <div className="mb-3 flex items-center gap-3">
+                {!isParent && (
+                    <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
+                        {product.images && product.images.length > 0 && product.images[0] ? (
+                            <img 
+                                src={product.images[0]} 
+                                alt={product.name || product.title || ''} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                    if ((e.target as HTMLElement).parentElement) {
+                                        (e.target as HTMLElement).parentElement!.innerHTML = '<i class="bi bi-image text-slate-400 text-lg"></i>';
+                                    }
+                                }}
                             />
                         ) : (
-                            <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-300 border border-slate-100 dark:border-slate-800">
-                                <i className="bi bi-image text-xl"></i>
-                            </div>
-                        )}
-                        {product.hasVariations && (
-                            <div
-                                className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 animate-in zoom-in duration-300"
-                                title="Possui variações"
-                            >
-                                <i className="bi bi-layers-fill text-xs"></i>
-                            </div>
+                            <i className="bi bi-image text-slate-400 text-lg" />
                         )}
                     </div>
                 )}
@@ -138,7 +117,7 @@ const ProductCard = ({
                             ? 'text-xs font-bold text-slate-700 dark:text-slate-300 pl-3 border-l-2 border-indigo-200 dark:border-indigo-800'
                             : 'text-sm font-bold text-slate-800 dark:text-slate-100'
                     }`}>
-                        {product.description}
+                        {product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-")}
                     </h3>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 leading-relaxed">
                         {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
@@ -151,8 +130,8 @@ const ProductCard = ({
                     <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
                         Preço
                     </span>
-                    <span className="text-base font-black text-blue-600 dark:text-blue-400">
-                        {formatCurrency(product.unitPrice || 0)}
+                    <span className={`text-base font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : 'text-blue-600 dark:text-blue-400'}`}>
+                        {isParent ? '-' : formatCurrency(product.unitPrice || 0)}
                     </span>
                 </div>
 
@@ -162,12 +141,14 @@ const ProductCard = ({
                             Estoque
                         </span>
                         <div className="flex items-baseline gap-1">
-                            <span className={`text-sm font-black ${isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                {product.stock ?? 0}
+                            <span className={`text-sm font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                                {isParent ? '-' : (product.stock ?? 0)}
                             </span>
-                            <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase">
-                                {product.unit}
-                            </span>
+                            {!isParent && (
+                                <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase">
+                                    {product.unit}
+                                </span>
+                            )}
                         </div>
                     </div>
                 )}
@@ -175,22 +156,13 @@ const ProductCard = ({
 
             <div className={`grid ${(!showTrash && !product.isParent) ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 mt-3`} onClick={(e) => e.stopPropagation()}>
                 {showTrash ? (
-                    <>
-                        <button
-                            onClick={() => onRestore(product.id!)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-                        >
-                            <i className="bi bi-arrow-counterclockwise text-base" />
-                            <span className="text-[8px] font-black uppercase">Restaurar</span>
-                        </button>
-                        <button
-                            onClick={() => onPermanentDelete(product.id!)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg col-span-2 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                        >
-                            <i className="bi bi-trash3-fill text-base" />
-                            <span className="text-[8px] font-black uppercase tracking-tighter">Excluir Permanente</span>
-                        </button>
-                    </>
+                    <button
+                        onClick={() => onRestore(product.id!)}
+                        className="flex flex-col items-center justify-center gap-1 py-2 col-span-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors font-bold"
+                    >
+                        <i className="bi bi-check-circle-fill text-base" />
+                        <span className="text-[9px] font-black uppercase">Ativar Produto</span>
+                    </button>
                 ) : (
                     <>
                         <button
@@ -281,23 +253,18 @@ const ProductCard = ({
                                         </button>
                                     )}
 
-                                    {/* Opção de Migração - Apenas para simples ou variações */}
-                                    {(product.isVariation || !product.hasVariations) && !product.isParent && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setIsMigrationModalOpen(true); }}
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                        >
-                                            <i className="bi bi-shuffle text-blue-500" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Migrar Referências</span>
-                                        </button>
-                                    )}
-
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(product.id!); }}
-                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50 mt-1"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsMenuOpen(false);
+                                            if (window.confirm(`Tem certeza que deseja excluir o produto "${product.name || product.title || product.description}" permanentemente? Esta ação só é permitida para produtos sem movimentações de estoque ou vendas.`)) {
+                                                onPermanentDelete(product.id!);
+                                            }
+                                        }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
                                     >
-                                        <i className="bi bi-trash-fill text-red-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir</span>
+                                        <i className="bi bi-trash3-fill text-red-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Produto</span>
                                     </button>
                                 </div>
                             </DropdownPortal>
@@ -305,15 +272,6 @@ const ProductCard = ({
                     </>
                 )}
             </div>
-            
-            {/* Modal de Migração */}
-            {isMigrationModalOpen && (
-                <ProductMigrationModal
-                    sourceProduct={product}
-                    onClose={() => setIsMigrationModalOpen(false)}
-                    onSuccess={() => onRefresh?.()}
-                />
-            )}
 
             {isSalesModalOpen && (
                 <ProductSalesModal 

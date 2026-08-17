@@ -1,11 +1,7 @@
 import React from 'react';
 import { Product } from '@/pages/types/product.type';
-import SmartInput from '@/components/SmartInput';
-import { calculateDIM, checkLTLRequirement } from '../../../../utils/calculations';
-import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
-import { toast } from 'react-toastify';
-import { generateProductCode } from '../../../../utils/formatters';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { CatalogDigitalIcon } from '@/components/shared/CatalogDigitalIcon';
 
 interface ProductGeneralTabProps {
     onOpenCategorySearch: () => void;
@@ -20,32 +16,36 @@ interface ProductGeneralTabProps {
 
 const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     onOpenCategorySearch,
-    suppliers,
     isService,
     formData,
     setFormData,
-    availableCategories,
-    handleGenerateComboName,
-    isGeneratingComboName
+    availableCategories
 }) => {
-
     const [availableMaterials, setAvailableMaterials] = React.useState<{id: string, name: string}[]>([]);
+    const [opportunities, setOpportunities] = React.useState<{id: string, name: string}[]>([]);
 
     const fetchMaterials = async () => {
         const { data } = await supabase.from('product_materials').select('*').order('name');
         if (data) setAvailableMaterials(data);
     };
 
+    const fetchOpportunities = async () => {
+        const { data } = await supabase.from('opportunities').select('id, name').eq('active', true).order('name');
+        if (data) setOpportunities(data);
+    };
+
     React.useEffect(() => {
         fetchMaterials();
+        fetchOpportunities();
         
-        // Refresh materials when window regains focus (e.g. after adding one in settings tab)
-        const onFocus = () => fetchMaterials();
+        const onFocus = () => {
+            fetchMaterials();
+            fetchOpportunities();
+        };
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
     }, []);
 
-    // [NOVO] Sincronizar campo CORES baseado nas variações
     React.useEffect(() => {
         if (formData.hasVariations && formData.variations?.length) {
             const colorsSet = new Set<string>();
@@ -67,76 +67,66 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-
-            {/* Title Section */}
-            <div className="md:col-span-2 flex flex-col gap-2">
-                <div className="flex items-center justify-between mb-0.5">
-                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
-                        Nome do Produto (Interno / Fiscal) <span className="text-red-500">*</span>
+            {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Nome do Produto (ERP) */}
+                <div id="field-product-name" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
+                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+                        <span>Nome</span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                     </label>
+                    <input
+                        value={formData.description || formData.name || ''}
+                        onChange={(e) => {
+                            const val = e.target.value.toUpperCase();
+                            setFormData(prev => ({ 
+                                ...prev, 
+                                description: val, 
+                                name: val 
+                            }));
+                        }}
+                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                        placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
+                    />
                 </div>
-                
-                <input
-                    value={formData.description || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value.toUpperCase() }))}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-base font-black text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                    placeholder="Digite o nome interno/fiscal do produto..."
-                />
-            </div>
 
-            {/* Ecommerce Title Section */}
-            <div className="md:col-span-2 flex flex-col gap-2">
-                <div className="flex items-center justify-between mb-0.5">
-                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest">
-                        Título do Produto (E-commerce)
+                {/* Catalog / Ecommerce Title Section */}
+                <div id="field-marketplace-title" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
+                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+                        <span>Título</span>
+                        <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                            <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        </span>
                     </label>
+                    <input
+                        value={formData.title || formData.marketplaceTitle || ''}
+                        onChange={(e) => {
+                            const val = e.target.value.toUpperCase();
+                            setFormData(prev => ({ 
+                                ...prev, 
+                                title: val, 
+                                marketplaceTitle: val 
+                            }));
+                        }}
+                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                        placeholder="Digite o título no catálogo..."
+                    />
                 </div>
-                
-                <input
-                    value={formData.marketplaceTitle || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marketplaceTitle: e.target.value.toUpperCase() }))}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-base font-black text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                    placeholder="Digite o título que aparecerá no e-commerce..."
-                />
-            </div>
-
-            {/* Price */}
-            <div className="flex flex-col gap-1.5 md:col-span-1 max-w-xs">
-                <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Preço de Venda (R$)</label>
-                    {formData.isCombo && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const total = formData.comboItems?.reduce((acc: number, item) => acc + ((item.unitPrice || 0) * item.quantity), 0) || 0;
-                                setFormData({ ...formData, unitPrice: Number(total.toFixed(2)) });
-                                toast.info(`Preço calculado: R$ ${total.toFixed(2)}`);
-                            }}
-                            className="text-[9px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
-                        >
-                            <i className="bi bi-calculator"></i> Somar
-                        </button>
-                    )}
-                </div>
-                <input
-                    type="number"
-                    step="0.01"
-                    value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
-                    onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        setFormData({ ...formData, unitPrice: isNaN(val) ? 0 : val });
-                    }}
-                    className="w-full px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-black text-blue-600 dark:text-blue-400"
-                />
             </div>
 
             {/* Selection Row */}
             {!isService && (
-                <div className="md:col-span-2 flex flex-col gap-4">
+                <div id="field-product-categories" className="md:col-span-2 flex flex-col gap-4 transition-all p-2 rounded-2xl">
                     <div className="flex flex-col gap-1.5 w-full">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between h-6">
                             <div className="flex items-center gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Categoria(s) <span className="text-red-500">*</span></label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                    <span>Categoria(s)</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                    <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                                        <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                    </span>
+                                </label>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -156,7 +146,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         <div className="max-h-80 min-h-[200px] overflow-y-auto py-1 space-y-0.5 custom-scrollbar w-full">
                             {availableCategories
                                 .filter(cat => {
-                                    // Filtra para remover categorias que são ambientes principais baseados na lógica anterior
                                     const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
                                     const name = cat.name?.trim().toUpperCase();
                                     const isFixed = FIXED_ENVIRONMENTS.includes(name);
@@ -167,7 +156,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 .map((cat) => {
                                     const isChecked = (formData.categoryIds || []).includes(cat.id);
                                     
-                                    // Descobrir nomes dos ambientes (pais)
                                     const parentNames = (cat.parents || [])
                                         .map((pid: string) => availableCategories.find(item => item.id === pid)?.name)
                                         .filter(Boolean)
@@ -194,7 +182,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                                         
                                                         const next = { ...prev, categoryIds: nextIds };
                                                         
-                                                        // Auto-detect environments (root categories)
                                                         const getAllRoots = (catIds: string[]): string[] => {
                                                             const roots = new Set<string>();
                                                             const visited = new Set<string>();
@@ -241,19 +228,43 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 </div>
             )}
 
-
+            {/* Oportunidade */}
+            <div className="md:col-span-2">
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+                        <span>Oportunidade</span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                        <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
+                            <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        </span>
+                    </label>
+                    <select
+                        value={formData.opportunityId || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, opportunityId: e.target.value || null }))}
+                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    >
+                        <option value="">Nenhuma (Produto Normal)</option>
+                        {opportunities.map((opp) => (
+                            <option key={opp.id} value={opp.id}>
+                                {opp.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
             {/* Observations */}
             <div className="md:col-span-2">
                 <div className="flex flex-col gap-2.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Observações Internas (Não visível no marketplace)
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5 h-6">
+                        <span>Observações Internas</span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                     </label>
                     <textarea
                         value={formData.observations || ''}
                         onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
                         placeholder="Digite notas internas sobre este produto, processos ou detalhes específicos..."
-                        className="w-full h-24 px-4 py-2 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl outline-none text-xs font-medium dark:text-slate-200 resize-none"
+                        className="w-full h-24 px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 resize-none focus:ring-4 focus:ring-blue-500/10"
                     />
                 </div>
             </div>

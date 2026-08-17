@@ -386,7 +386,7 @@ function ChannelCatalog() {
                     >
                         <option value="all">TODOS OS CANAIS</option>
                         <option value="whatsapp">WHATSAPP SHOP</option>
-                        <option value="ecommerce">LOJA VIRTUAL</option>
+                        <option value="ecommerce">CATÁLOGO DIGITAL</option>
                     </select>
 
                     <button

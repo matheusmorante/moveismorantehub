@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ReactDOM from 'react-dom';
 import Product from '../../../types/product.type';
 import Order from '../../../types/order.type';
 import { getOrdersByProductId } from '../../../utils/orderHistoryService';
@@ -54,10 +55,17 @@ const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose 
         return normalItems + assistanceItems;
     };
 
-    return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col animate-in zoom-in-95 duration-200">
-                
+    const displayName = product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 80) : 'Produto');
+
+    return ReactDOM.createPortal(
+        <div 
+            onClick={onClose}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+            <div 
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col animate-in zoom-in-95 duration-200"
+            >
                 {/* Header */}
                 <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-800/30">
                     <div>
@@ -66,11 +74,12 @@ const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose 
                             Pedidos Vinculados
                         </h2>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                            {product.description} | SKU: {product.code || product.sku || 'N/A'}
+                            {displayName} | SKU: {product.code || product.sku || 'N/A'}
                         </p>
                     </div>
                     <button 
                         onClick={onClose}
+                        type="button"
                         className="p-3 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all text-slate-400 hover:text-red-500 border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
                     >
                         <i className="bi bi-x-lg text-xl"></i>
@@ -195,7 +204,8 @@ const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose 
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

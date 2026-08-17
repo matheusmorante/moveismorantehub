@@ -236,22 +236,13 @@ export const getLocalISODate = (date: Date = new Date()) => {
     return `${year}-${month}-${day}`;
 };
 
-export const generateProductCode = (description: string, type?: string, line?: string): string => {
-    // NOVO PADRÃO: 3 LETRAS DA PRIMEIRA PALAVRA DO TITULO + '-'
-    let letters = "";
-    if (description && description.trim().length > 0) {
-        const firstWord = description.trim().split(/\s+/)[0].replace(/[^a-zA-Z0-9]/g, '');
-        if (firstWord.length >= 3) {
-            letters = firstWord.substring(0, 3).toUpperCase();
-        } else {
-            letters = firstWord.padEnd(3, 'X').toUpperCase();
-        }
-    } else {
-        letters = "PRD";
+export const generateProductCode = (seqOrText?: string | number): string => {
+    // NOVO PADRÃO: 6 dígitos sequenciais numerados (ex: 000001, 000002)
+    const num = typeof seqOrText === 'number' ? seqOrText : parseInt(String(seqOrText || '').replace(/\D/g, ''), 10);
+    if (!isNaN(num) && num > 0) {
+        return String(num).padStart(6, '0');
     }
-
-    // O sufixo númerico -NNNNNN (6 dígitos) será gerado dinamicamente para evitar duplicidade
-    return `${letters}-`;
+    return '000001';
 };
 
 
