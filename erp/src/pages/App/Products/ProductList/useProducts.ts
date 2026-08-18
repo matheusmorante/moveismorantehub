@@ -13,6 +13,7 @@ import {
     parseVariationImages
 } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 export const useProducts = (filters?: any) => {
     const [products, setProducts] = useState<Product[]>([]);
@@ -41,20 +42,14 @@ export const useProducts = (filters?: any) => {
 
     const filteredProducts = useMemo(() => {
         const showTrash = filters?.showTrash || false;
-        const isDraft = filters?.isDraft || false;
-
         return products
             .filter(product => {
-                // Filter by Deleted or Draft status
+                // Filter by deleted status. All products are visible regardless
+                // of whether they are active in a channel.
                 if (showTrash) {
                     if (!product.deleted) return false;
                 } else {
-                    // Always show active/draft items that are not deleted in the main list
                     if (product.deleted) return false;
-                    
-                    // If the user explicitly requested drafts (via isDraft filter), 
-                    // we can still respect it, but the default main list now Includes them.
-                    if (isDraft && !product.isDraft) return false;
                 }
 
                 if (!filters) return true;
@@ -170,6 +165,7 @@ export const useProducts = (filters?: any) => {
                         costPrice: typeof v.costPrice !== 'undefined' ? v.costPrice : (typeof v.cost_price !== 'undefined' ? v.cost_price : product.costPrice),
                         stock: v.stock,
                         active: v.active,
+                        status: v.status || product.status,
                         images: parseVariationImages(v.image_url, v.images),
                         parentImages: product.images || [],
                         isVariation: true,
@@ -404,6 +400,21 @@ export const useProducts = (filters?: any) => {
         try {
             const newActive = !currentStatus;
 
+            if (newActive) {
+                const productToActivate = products.find(product => String(product.id) === String(id));
+                const isErpEligible = productToActivate &&
+                    (productToActivate.description || '').trim().length >= 2 &&
+                    Number(productToActivate.unitPrice || 0) > 0 &&
+                    (productToActivate.categoryIds || []).length > 0 &&
+                    Boolean(productToActivate.mainSupplierId) &&
+                    Number(productToActivate.costPrice || 0) > 0;
+
+                if (!isErpEligible) {
+                    toast.error('Preencha os requisitos do ERP antes de ativar este produto.');
+                    return;
+                }
+            }
+
             // 1. Caso seja uma variação do array JSON (ex: 'parentId_sku')
             if (id.includes('_')) {
                 const [parentId, ...skuParts] = id.split('_');
@@ -461,6 +472,76 @@ export const useProducts = (filters?: any) => {
         }
     };
 
+    const deactivateCatalog = async (id: string) => {
+        try {
+            const [possibleParentId, ...skuParts] = id.split('_');
+            const targetSku = skuParts.join('_');
+            const isEmbeddedVariation = skuParts.length > 0;
+            const parentProduct = isEmbeddedVariation
+                ? products.find(product => String(product.id) === String(possibleParentId))
+                : products.find(product => String(product.id) === String(id));
+
+            // Variações internas têm o ID visual "idDoPai_SKU", que não é um
+            // ID da tabela products. Atualize a variação, não o produto-pai.
+            if (isEmbeddedVariation && parentProduct?.variations) {
+                const variation = parentProduct.variations.find((item: any, index: number) => {
+                    const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
+                    return String(sku) === targetSku;
+                });
+                if (!variation?.id) throw new Error('Variação não encontrada.');
+
+                await updateProduct(parentProduct.id!, {
+                    variations: parentProduct.variations.map((item: any) =>
+                        String(item.id) === String(variation.id) ? { ...item, status: 'hidden' } : item
+                    )
+                });
+                const { error } = await supabase
+                    .from('product_variations')
+                    .update({ status: 'hidden' })
+                    .eq('id', variation.id);
+                if (error) throw error;
+
+                toast.success('Variação ocultada do Catálogo Digital.');
+                refresh();
+                return;
+            }
+
+            const { error: productError } = await supabase
+                .from('products')
+                .update({ status: 'hidden' })
+                .eq('id', id)
+                .select('id')
+                .single();
+            if (productError) throw productError;
+
+            // Mantém o cache da lista coerente enquanto ela é recarregada.
+            await updateProduct(id, { status: 'hidden' });
+
+            if (parentProduct?.variations?.length) {
+                await updateProduct(id, {
+                    variations: parentProduct.variations.map((variation: any) => ({ ...variation, status: 'hidden' }))
+                });
+            }
+
+            const { error: variationsError } = await supabase
+                .from('product_variations')
+                .update({ status: 'hidden' })
+                .eq('product_id', id);
+            if (variationsError) throw variationsError;
+
+            const independentChildren = products.filter(product => String(product.parentId) === String(id));
+            await Promise.all(independentChildren
+                .filter(child => child.id)
+                .map(child => updateProduct(child.id!, { status: 'hidden' })));
+
+            toast.success('Produto ocultado do Catálogo Digital.');
+            refresh();
+        } catch (error) {
+            console.error('Erro ao desativar catálogo:', error);
+            toast.error('Erro ao desativar o produto no Catálogo Digital.');
+        }
+    };
+
     return {
         products: paginatedProducts,
         totalItems,
@@ -481,6 +562,7 @@ export const useProducts = (filters?: any) => {
         handleBulkRestore,
         handleBulkPermanentDelete,
         toggleActive,
+        deactivateCatalog,
         refresh
     };
 };

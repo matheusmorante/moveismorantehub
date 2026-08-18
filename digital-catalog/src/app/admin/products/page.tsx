@@ -260,7 +260,14 @@ export default function ProductsAdminPage() {
       newStatus = 'published'
     }
 
-    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: newStatus } : p))
+    setProducts(prev => prev.map(p => p.id === product.id
+      ? {
+          ...p,
+          status: newStatus,
+          product_variations: p.product_variations?.map(variation => ({ ...variation, status: newStatus }))
+        }
+      : p
+    ))
 
     try {
       const { error } = await supabase
@@ -272,6 +279,14 @@ export default function ProductsAdminPage() {
         setProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: product.status } : p))
         throw error
       }
+
+      // O status do pai define a visibilidade de todas as suas variações.
+      const { error: variationsError } = await supabase
+        .from("product_variations")
+        .update({ status: newStatus })
+        .eq("product_id", product.id)
+
+      if (variationsError) throw variationsError
 
       // Sincronizar status com a Meta (publicado -> UPDATE, ocultado -> DELETE)
       fetch("/api/catalog/sync-batch", {

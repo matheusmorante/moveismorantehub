@@ -15,6 +15,7 @@ interface ProductTableProps {
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
     onToggleActive: (id: string, currentStatus: boolean) => void;
+    onDeactivateCatalog: (id: string) => void;
     visibilitySettings: ProductVisibilitySettings;
     onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
     showTrash?: boolean;
@@ -50,7 +51,7 @@ const COLUMNS_DEF: ColumnDef[] = [
 ];
 
 const ProductTable = ({
-    products, onEdit, onShowHistory, onLaunchStock, onDelete, onRestore, onPermanentDelete, onToggleActive,
+    products, onEdit, onShowHistory, onLaunchStock, onDelete, onRestore, onPermanentDelete, onToggleActive, onDeactivateCatalog,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedProducts, onToggleSelection, onSelectAll, onClearSelection,
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate
@@ -234,6 +235,7 @@ const ProductTable = ({
                                     onRestore={() => onRestore(product.id || '')}
                                     onPermanentDelete={() => onPermanentDelete(product.id || '')}
                                     onToggleActive={(id, status) => onToggleActive(product.id || '', product.active)}
+                                    onDeactivateCatalog={onDeactivateCatalog}
                                     visibilitySettings={visibilitySettings}
                                     showTrash={showTrash}
                                     orderedColumnKeys={orderedColumns.map(c => c.key as string)}
@@ -266,6 +268,7 @@ const ProductTable = ({
                                 onRestore={onRestore}
                                 onPermanentDelete={onPermanentDelete}
                                 onToggleActive={onToggleActive}
+                                onDeactivateCatalog={onDeactivateCatalog}
                                 showTrash={showTrash}
                                 isSelected={selectedProducts.includes(product.id!)}
                                 onToggleSelection={() => onToggleSelection(product.id!)}

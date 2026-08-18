@@ -17,6 +17,7 @@ export type Variation = {
     promoPrice?: number; // Preço promocional
     costPrice?: number;
     active: boolean;
+    status?: 'draft' | 'published' | 'hidden';
     condition?: 'novo' | 'usado' | 'salvado' | '';
     attributes: { name: string; value: string; showName?: boolean }[];
     syncWithParent?: boolean; // Legacy/Global
@@ -220,7 +221,7 @@ export type Product = {
     availableEnvironments?: string[]; // Novos ambientes detectados
     featured?: boolean;
     depthUseLength?: boolean;
-    status?: 'draft' | 'published';
+    status?: 'draft' | 'published' | 'hidden';
 };
 
 export type ProductNotificationConfig = {

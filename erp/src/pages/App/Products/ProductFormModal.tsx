@@ -22,7 +22,6 @@ import ProductGeneralTab from "./components/tabs/ProductGeneralTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
 import { generateProductCode } from '@/pages/utils/formatters';
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
-import CatalogDigitalIcon from "@/components/shared/CatalogDigitalIcon";
 
 import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
 import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
@@ -156,7 +155,9 @@ const INITIAL_FORM_DATA: Partial<Product> = {
     marketplaceTitle: "",
     condition: 'novo',
     itemType: 'product',
-    active: true,
+    active: false,
+    status: 'draft',
+    isDraft: true,
     isCombo: false,
     comboItems: [],
     categoryIds: [],
@@ -325,9 +326,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         if (!data.description || data.description.trim().length < 2) {
             errors.push("Nome do Produto (Interno) deve ter pelo menos 2 caracteres.");
         }
-        if (!data.code || data.code.trim().length === 0) {
-            errors.push("Código/SKU é obrigatório.");
-        }
         if (!data.unitPrice || data.unitPrice <= 0) {
             errors.push("Preço de Venda deve ser maior que zero.");
         }
@@ -336,9 +334,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
         if (!data.mainSupplierId) {
             errors.push("Fornecedor Principal é obrigatório.");
-        }
-        if (data.stock === undefined || data.stock === null || isNaN(data.stock as number) || data.stock < 0) {
-            errors.push("Estoque é obrigatório e deve ser maior ou igual a zero.");
         }
         if (!data.costPrice || data.costPrice <= 0) {
             errors.push("Preço de Custo Final deve ser maior que zero.");
@@ -356,11 +351,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             errors,
             checks: {
                 description: !!data.description && data.description.trim().length >= 2,
-                code: !!data.code && data.code.trim().length > 0,
                 unitPrice: !!data.unitPrice && data.unitPrice > 0,
                 categories: !!data.categoryIds && data.categoryIds.length > 0,
                 supplier: !!data.mainSupplierId,
-                stock: data.stock !== undefined && data.stock !== null && !isNaN(data.stock as number) && data.stock >= 0,
                 costPrice: !!data.costPrice && data.costPrice > 0
             }
         };
@@ -368,7 +361,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const checkEcomLegibility = useCallback((data: Partial<Product>) => {
         const errors: string[] = [];
-        if (!data.marketplaceTitle || data.marketplaceTitle.trim().length < 2) {
+        const catalogTitle = data.title || data.marketplaceTitle;
+        if (!catalogTitle || catalogTitle.trim().length < 2) {
             errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
         }
         if (!data.unitPrice || data.unitPrice <= 0) {
@@ -404,7 +398,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             isLegible: errors.length === 0,
             errors,
             checks: {
-                marketplaceTitle: !!data.marketplaceTitle && data.marketplaceTitle.trim().length >= 2,
+                marketplaceTitle: !!catalogTitle && catalogTitle.trim().length >= 2,
                 unitPrice: !!data.unitPrice && data.unitPrice > 0,
                 categories: !!data.categoryIds && data.categoryIds.length > 0,
                 images: !!data.images && data.images.length > 0,
@@ -461,6 +455,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const erpStatus = checkERPLegibility(formData);
     const ecomStatus = checkEcomLegibility(formData);
+    const hasProductName = Boolean((formData.name || formData.description || '').trim());
 
     const hasChanged = useRef(false);
     const initialFormDataRef = useRef<string>("");
@@ -476,7 +471,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     // Detect changes
     useEffect(() => {
-        if (isOpen && formData.description) {
+        if (isOpen) {
             const currentStr = JSON.stringify(formData);
             if (!initialFormDataRef.current) {
                 initialFormDataRef.current = currentStr;
@@ -490,13 +485,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     useEffect(() => {
         if (!isOpen) return;
 
+        hasChanged.current = false;
+        initialFormDataRef.current = "";
         let isMounted = true;
         const loadFullData = async () => {
             if (product?.id) {
                 const full = await getFullProduct(product.id);
                 if (full && isMounted) {
                     const hasVars = Boolean(full.hasVariations) || (Array.isArray(full.variations) && full.variations.length > 0);
-                    setFormData({ ...full, hasVariations: hasVars });
+                    const nextFormData = { ...full, hasVariations: hasVars };
+                    initialFormDataRef.current = JSON.stringify(nextFormData);
+                    setFormData(nextFormData);
                     // Inicializar descontos
                     const orig = full.unitPrice || 0;
                     const promo = full.promoPrice || 0;
@@ -511,7 +510,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 }
             } else if (product) {
                 const hasVars = Boolean(product.hasVariations) || (Array.isArray(product.variations) && product.variations.length > 0);
-                setFormData({ ...INITIAL_FORM_DATA, ...product, hasVariations: hasVars });
+                const nextFormData = { ...INITIAL_FORM_DATA, ...product, hasVariations: hasVars };
+                initialFormDataRef.current = JSON.stringify(nextFormData);
+                setFormData(nextFormData);
                 // Inicializar descontos
                 const orig = product.unitPrice || 0;
                 const promo = product.promoPrice || 0;
@@ -527,12 +528,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 // If creating new, start with INITIAL_FORM_DATA then apply initialData, and auto-generate ID and 6-digit SKU (code)
                 const generatedId = String(Math.floor(Date.now() + Math.random() * 1000));
                 const generatedSku = await getNextSequentialProductCode();
-                setFormData({
+                const nextFormData = {
                     ...INITIAL_FORM_DATA,
                     id: generatedId,
                     code: generatedSku,
                     ...initialData
-                });
+                };
+                initialFormDataRef.current = JSON.stringify(nextFormData);
+                setFormData(nextFormData);
                 setDiscountFixed("");
                 setDiscountPercent("");
             }
@@ -814,7 +817,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 description: formData.description,
                 material: formData.material
             });
-            setFormData(prev => ({ ...prev, marketplaceTitle: title }));
+            setFormData(prev => ({ ...prev, title, marketplaceTitle: title }));
             toast.success("Título para marketplace gerado!");
         } catch (error) {
             console.error(error);
@@ -902,7 +905,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const addVariation = () => {
-        const baseName = "NOVA VARIAÇÃO";
+        const baseName = formData.name || formData.description || "NOVA VARIAÇÃO";
         const currentCount = (formData.variations || []).length;
         const parentCode = formData.code || '000000';
         const newSku = generateVariationSku(parentCode, currentCount);
@@ -984,13 +987,13 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
             const newVars: Variation[] = combinations.map((combo, idx) => {
                 // [FIX] Use the original order from 'attributes' array instead of alphabetical sort
-                const attrParts = attributes.map(attr => {
+                const attributeValues = attributes.map(attr => {
                     const attrData = combo[attr.name];
-                    const val = String(attrData.value).toUpperCase();
-                    return attrData.showName ? `${attr.name.toUpperCase()}:${val}` : val;
+                    return String(attrData.value);
                 }).join(' ');
                 
-                const name = attrParts.toUpperCase();
+                const parentName = formData.name || formData.description || '';
+                const name = [parentName, attributeValues].filter(Boolean).join(' ');
                 const parentCode = formData.code || '000000';
                 const finalSku = generateVariationSku(parentCode, idx);
                 
@@ -1041,36 +1044,25 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }, 800);
     };
 
-    const validateProductActivation = (data: Partial<Product>) => {
-        const missing: string[] = [];
-        if (!data.description) missing.push("Título do Produto");
-        
-        // SupplyChain / Financial
-        if (!data.mainSupplierId) missing.push("Fornecedor Principal (Aba Estoque)");
-        if (!data.costPrice || data.costPrice <= 0) missing.push("Preço de Custo (Aba Estoque/Geral)");
-        if (!data.unitPrice || data.unitPrice <= 0) missing.push("Preço de Venda (Aba Geral)");
-        
-        return missing;
+    const showActivationErrors = (channel: string, errors: string[]) => {
+        toast.error(`${channel} não pode ser ativado: ${errors.join(' ')}`, { autoClose: 8000 });
     };
 
-    const handleToggleActive = () => {
-        if (!formData.active) {
-            // Attempting to Activate
-            const missing = validateProductActivation(formData);
-            if (missing.length > 0) {
-                toast.error(
-                    <div>
-                        <p className="font-black text-[10px] uppercase mb-2">Requisitos de Ativação Pendentes:</p>
-                        <ul className="list-disc list-inside text-[9px] font-bold space-y-1">
-                            {missing.map((m, i) => <li key={i}>{m}</li>)}
-                        </ul>
-                    </div>,
-                    { autoClose: 8000 }
-                );
-                return;
-            }
+    const handleToggleErpActive = () => {
+        if (!formData.active && !erpStatus.isLegible) {
+            showActivationErrors('ERP', erpStatus.errors);
+            return;
         }
-        setFormData({ ...formData, active: !formData.active });
+        setFormData(prev => ({ ...prev, active: !prev.active }));
+    };
+
+    const handleToggleCatalogPublished = () => {
+        const isPublished = formData.status === 'published';
+        if (!isPublished && !ecomStatus.isLegible) {
+            showActivationErrors('Catálogo Digital', ecomStatus.errors);
+            return;
+        }
+        setFormData(prev => ({ ...prev, status: prev.status === 'published' ? 'draft' : 'published' }));
     };
 
     const regenerateAllVariationSkus = () => {
@@ -1110,37 +1102,37 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         toast.info("SKUs das variações regenerados com exclusividade.");
     };
 
-    const handleSubmit = async (isDraft: boolean = false): Promise<boolean> => {
-        let finalDescription = formData.description;
-
+    const handleSubmit = async (showResult = true, saveAsDraft = false): Promise<boolean> => {
+        if (!hasProductName) {
+            toast.error("Informe o nome do produto antes de cadastrar.");
+            return false;
+        }
         const erpVal = checkERPLegibility(formData);
         const ecomVal = checkEcomLegibility(formData);
 
-        if (!isDraft && !erpVal.isLegible) {
-            toast.error("O produto não cumpre os requisitos mínimos do ERP para ser cadastrado como ativo. Complete os campos obrigatórios.");
+        if (formData.active && !erpVal.isLegible) {
+            toast.error("Desative o ERP antes de remover ou alterar um campo obrigatório.");
             return false;
         }
-
-        if (isDraft && !finalDescription) {
-            finalDescription = `[RASCUNHO S-TÍTULO] ${new Date().toLocaleDateString()}`;
+        if (formData.status === 'published' && !ecomVal.isLegible) {
+            toast.error("Despublique o Catálogo Digital antes de remover ou alterar um campo obrigatório.");
+            return false;
         }
         
         setLoading(true);
         try {
-            const ecomPublished = !isDraft && ecomVal.isLegible;
-
             const normalizedData = { 
                 ...formData, 
-                description: finalDescription,
-                isDraft: isDraft, // Se chamou via auto-save ou rascunho, marca como rascunho
-                status: ecomPublished ? 'published' : 'draft', // Salva como publicado ou rascunho no e-commerce
-                lastAutoSave: isDraft ? new Date().toISOString() : undefined
+                isDraft: saveAsDraft,
+                active: formData.active ?? false,
+                status: formData.status || 'draft'
             } as Product;
 
             await saveProduct(normalizedData);
+            setFormData(prev => ({ ...prev, isDraft: saveAsDraft }));
             hasChanged.current = false;
             
-            if (!isDraft) {
+            if (showResult) {
                 setSaveResult({
                     erpLegible: erpVal.isLegible,
                     ecomLegible: ecomVal.isLegible,
@@ -1148,11 +1140,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     checksEcom: ecomVal.checks,
                     product: normalizedData
                 });
-            } else {
-                toast.info("Rascunho salvo com sucesso.");
-                if (onSuccess) onSuccess(normalizedData);
-                onClose();
             }
+            if (onSuccess) onSuccess(normalizedData);
             return true;
         } catch (error: any) {
             toast.error(`Erro ao salvar: ${error.message || "Erro desconhecido"}`);
@@ -1163,16 +1152,32 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     };
 
-    const handleCloseWithAutoSave = async () => {
-        const isNewOrDraft = !formData.id || formData.isDraft;
+    // Durante a criação, cada alteração é salva automaticamente após uma breve
+    // pausa. Produtos em edição permanecem exclusivamente com salvamento manual.
+    useEffect(() => {
+        if (!isOpen || product || !hasProductName || !hasChanged.current || loading) return;
 
-        if (hasChanged.current && !loading && isNewOrDraft) {
-            // Se o usuário clicar fora ou fechar, tentamos salvar como rascunho
-            const saved = await handleSubmit(true);
+        const timer = window.setTimeout(() => {
+            handleSubmit(false, formData.isDraft !== false);
+        }, 700);
+
+        return () => window.clearTimeout(timer);
+    }, [formData, hasProductName, isOpen, loading, product]);
+
+    const handleSaveAndClose = async () => {
+        const saved = await handleSubmit(false, !product && formData.isDraft !== false);
+        if (saved) onClose();
+    };
+
+    const handleCloseWithAutoSave = async () => {
+        if (!product && hasChanged.current && !loading) {
+            const saved = await handleSubmit(false, true);
             if (!saved) {
-                if (window.confirm("Não foi possível salvar o rascunho. Deseja sair e descartar as alterações?")) {
+                if (window.confirm("Não foi possível salvar o produto. Deseja sair e descartar as alterações?")) {
                     onClose();
                 }
+            } else {
+                onClose();
             }
         } else {
             onClose();
@@ -1199,9 +1204,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         <div className="flex items-center gap-2">
                             {/* ERP Indicator */}
                             <div className="relative group cursor-help">
-                                <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${erpStatus.isLegible ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'}`}>
+                                <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${formData.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}>
                                     <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 mr-0.5 select-none">ERP</span>
-                                    <span>{erpStatus.isLegible ? 'Ativo' : 'Rascunho'}</span>
+                                    <span>{formData.active ? 'Ativo' : 'Inativo'}</span>
                                 </div>
                                 
                                 {/* Tooltip ERP */}
@@ -1211,50 +1216,36 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                     <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
                                         <li onClick={() => navigateToRequirementField('description')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.description ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.description ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Nome do Produto (Interno)</span>
-                                            </div>
-                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
-                                        </li>
-                                        <li onClick={() => navigateToRequirementField('code')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
-                                            <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.code ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.code ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Código/SKU do Produto</span>
+                                                <i className={`bi ${erpStatus.checks.description ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={erpStatus.checks.description ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Nome do Produto (Interno)</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('unitPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.unitPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.unitPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Venda &gt; R$ 0</span>
+                                                <i className={`bi ${erpStatus.checks.unitPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={erpStatus.checks.unitPrice ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Preço de Venda &gt; R$ 0</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('categories')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.categories ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.categories ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Pelo menos 1 Categoria</span>
+                                                <i className={`bi ${erpStatus.checks.categories ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={erpStatus.checks.categories ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Pelo menos 1 Categoria</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('supplier')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.supplier ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.supplier ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Fornecedor Principal</span>
-                                            </div>
-                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
-                                        </li>
-                                        <li onClick={() => navigateToRequirementField('stock')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
-                                            <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.stock ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.stock ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Estoque Atual cadastrado</span>
+                                                <i className={`bi ${erpStatus.checks.supplier ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={erpStatus.checks.supplier ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Fornecedor Principal</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('costPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${erpStatus.checks.costPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={erpStatus.checks.costPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Custo Final &gt; R$ 0</span>
+                                                <i className={`bi ${erpStatus.checks.costPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={erpStatus.checks.costPrice ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Preço de Custo Final &gt; R$ 0</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
@@ -1264,49 +1255,48 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
                             {/* Catálogo Indicator */}
                             <div className="relative group cursor-help">
-                                <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${ecomStatus.isLegible ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'}`}>
-                                    <CatalogDigitalIcon className={`w-3.5 h-3.5 ${ecomStatus.isLegible ? 'text-purple-600 dark:text-purple-400' : 'text-amber-600 dark:text-amber-400'}`} />
-                                    <span>Catálogo: {ecomStatus.isLegible ? 'Cadastrado' : 'Rascunho'}</span>
+                                <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${formData.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}>
+                                    <span>Catálogo Digital: {formData.status === 'published' ? 'Publicado' : 'Despublicado'}</span>
                                 </div>
                                 
                                 {/* Tooltip Catálogo */}
                                 <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Requisitos do Catálogo</p>
-                                    <p className="text-[9px] text-purple-600 dark:text-purple-400 font-bold mb-3">💡 Clique em qualquer item pendente para ir direto ao campo.</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Requisitos do Catálogo Digital</p>
+                                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold mb-3">💡 Clique em qualquer item pendente para ir direto ao campo.</p>
                                     <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
                                         <li onClick={() => navigateToRequirementField('marketplaceTitle')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${ecomStatus.checks.marketplaceTitle ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={ecomStatus.checks.marketplaceTitle ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Título do Produto (Catálogo)</span>
+                                                <i className={`bi ${ecomStatus.checks.marketplaceTitle ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={ecomStatus.checks.marketplaceTitle ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Título do Produto (Catálogo Digital)</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('unitPrice')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${ecomStatus.checks.unitPrice ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={ecomStatus.checks.unitPrice ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Preço de Venda &gt; R$ 0</span>
+                                                <i className={`bi ${ecomStatus.checks.unitPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={ecomStatus.checks.unitPrice ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Preço de Venda &gt; R$ 0</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('images')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${ecomStatus.checks.images ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={ecomStatus.checks.images ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Pelo menos 1 Foto principal</span>
+                                                <i className={`bi ${ecomStatus.checks.images ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={ecomStatus.checks.images ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Pelo menos 1 Foto principal</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         <li onClick={() => navigateToRequirementField('categories')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${ecomStatus.checks.categories ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                <span className={ecomStatus.checks.categories ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Pelo menos 1 Categoria</span>
+                                                <i className={`bi ${ecomStatus.checks.categories ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                <span className={ecomStatus.checks.categories ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Pelo menos 1 Categoria</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
                                         {!isService && (
                                             <li onClick={() => navigateToRequirementField('dimensions')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                                 <div className="flex items-center gap-2">
-                                                    <i className={`bi ${ecomStatus.checks.dimensions ? 'bi-check-circle-fill text-purple-500' : 'bi-x-circle-fill text-amber-500'}`}></i>
-                                                    <span className={ecomStatus.checks.dimensions ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Dimensões físicas (L x A x P)</span>
+                                                    <i className={`bi ${ecomStatus.checks.dimensions ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
+                                                    <span className={ecomStatus.checks.dimensions ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Dimensões físicas (L x A x P)</span>
                                                 </div>
                                             </li>
                                         )}
@@ -1421,7 +1411,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             isGeneratingDescription={isGeneratingDescription}
                             handleGenerateMarketplaceTitle={handleGenerateMarketplaceTitle}
                             isGeneratingTitle={isGeneratingTitle}
-                            handleToggleActive={handleToggleActive}
+                            handleToggleActive={handleToggleErpActive}
                         />
                     )}
 
@@ -1437,30 +1427,32 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
                 {/* Footer Buttons */}
                 <div className="p-4 md:p-6 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3 shrink-0">
+                    {!product && (
+                        <div className="mr-auto flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            <i className="bi bi-cloud-check-fill text-emerald-500 text-sm" />
+                            <span>Salvamento automático: alterações são salvas automaticamente.</span>
+                        </div>
+                    )}
                     <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
-                        <button
-                            onClick={handleCloseWithAutoSave}
-                            className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 flex-1 md:flex-initial justify-center"
-                        >
-                            <i className="bi bi-pencil-square"></i> Salvar Rascunho
-                        </button>
+                        {product && (
+                            <>
+                                <button
+                                    onClick={onClose}
+                                    className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 flex-1 md:flex-initial text-center"
+                                >
+                                    Descartar alterações
+                                </button>
+                            </>
+                        )}
 
                         <button
-                            onClick={onClose}
-                            className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 flex-1 md:flex-initial text-center"
-                        >
-                            Sair
-                        </button>
-
-                        <button
-                            onClick={() => handleSubmit(false)}
-                            disabled={loading || !erpStatus.isLegible}
-                            className={`px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center ${erpStatus.isLegible ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none' : 'bg-slate-400 dark:bg-slate-800 shadow-none'}`}
-                            title={!erpStatus.isLegible ? "O produto deve atender a todos os requisitos do ERP para ser finalizado/cadastrado como ativo." : ""}
+                            onClick={() => handleSubmit()}
+                            disabled={loading || (!product && !erpStatus.isLegible)}
+                            className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none"
                         >
                             {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                             <i className="bi bi-check-circle-fill"></i>
-                            {product && !product.isDraft ? "Salvar" : "Cadastrar"}
+                            {product ? "Salvar alterações" : "Cadastrar produto"}
                         </button>
                     </div>
                 </div>
@@ -1647,8 +1639,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 flex flex-col gap-4">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Canal ERP</span>
-                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.erpLegible ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'}`}>
-                                            {saveResult.erpLegible ? 'Ativo' : 'Rascunho'}
+                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.product.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                                            {saveResult.product.active ? 'Ativo' : 'Inativo'}
                                         </span>
                                     </div>
                                     
@@ -1657,13 +1649,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                             <div className="flex items-center gap-2">
                                                 <i className={`bi ${saveResult.checksErp.description ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
                                                 <span className={saveResult.checksErp.description ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Nome do Produto</span>
-                                            </div>
-                                            <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
-                                        </li>
-                                        <li onClick={() => navigateToRequirementField('code')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
-                                            <div className="flex items-center gap-2">
-                                                <i className={`bi ${saveResult.checksErp.code ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
-                                                <span className={saveResult.checksErp.code ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Código/SKU do Produto</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
                                         </li>
@@ -1694,19 +1679,19 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                 {/* Coluna E-commerce */}
                                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 flex flex-col gap-4">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-black text-purple-600 uppercase tracking-widest flex items-center gap-1">
-                                            <i className="bi bi-shop text-xs"></i> E-commerce
+                                        <span className="text-xs font-black text-purple-600 uppercase tracking-widest">
+                                            Catálogo Digital
                                         </span>
-                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.ecomLegible ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'}`}>
-                                            {saveResult.ecomLegible ? 'Publicado' : 'Rascunho'}
+                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.product.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                                            {saveResult.product.status === 'published' ? 'Publicado' : 'Despublicado'}
                                         </span>
                                     </div>
                                     
                                     <ul className="space-y-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
                                         <li onClick={() => navigateToRequirementField('marketplaceTitle')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
                                             <div className="flex items-center gap-2">
-                                                <i className={`bi ${saveResult.checksEcom.title ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}></i>
-                                                <span className={saveResult.checksEcom.title ? 'text-slate-700 dark:text-slate-200' : 'text-amber-600 dark:text-amber-400 font-bold'}>Título do Site</span>
+                                                <i className={`bi ${saveResult.checksEcom.marketplaceTitle ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-slate-400'}`}></i>
+                                                <span className={saveResult.checksEcom.marketplaceTitle ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Título do Catálogo Digital</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
                                         </li>

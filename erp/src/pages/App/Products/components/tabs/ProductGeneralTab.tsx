@@ -1,7 +1,6 @@
 import React from 'react';
 import { Product } from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { CatalogDigitalIcon } from '@/components/shared/CatalogDigitalIcon';
 
 interface ProductGeneralTabProps {
     onOpenCategorySearch: () => void;
@@ -94,9 +93,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <div id="field-marketplace-title" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                         <span>Título</span>
-                        <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                            <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        </span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                     </label>
                     <input
                         value={formData.title || formData.marketplaceTitle || ''}
@@ -123,9 +120,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
                                     <span>Categoria(s)</span>
                                     <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                    <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                                        <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                    </span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                                 </label>
                                 <button
                                     type="button"
@@ -234,9 +229,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                         <span>Oportunidade</span>
                         <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                        <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                            <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        </span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                     </label>
                     <select
                         value={formData.opportunityId || ''}

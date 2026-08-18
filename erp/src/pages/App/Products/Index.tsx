@@ -6,7 +6,6 @@ import ProductFormModal from "./ProductFormModal";
 import Product, { ProductVisibilitySettings } from "../../types/product.type";
 import { Link, useSearchParams } from "react-router-dom";
 import PriceHistoryModal from "./PriceHistoryModal";
-import { cleanupOldDrafts } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
 import VariationFormModal from "./VariationFormModal";
 import StockLaunchModal from "../Stock/components/StockLaunchModal";
@@ -26,7 +25,6 @@ interface ProductFiltersData {
 const Products = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
-    const [isDraftOpen, setIsDraftOpen] = useState(false);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [showSettings, setShowSettings] = useState(false);
@@ -47,7 +45,6 @@ const Products = () => {
     const [initialFormData, setInitialFormData] = useState<any>(null);
 
     useEffect(() => {
-        cleanupOldDrafts();
         localStorage.removeItem('local_products');
     }, []);
 
@@ -114,9 +111,8 @@ const Products = () => {
         }));
     };
 
-    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: false }), [filters]);
-    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, isDraft: false, activeOnly: undefined }), [filters]);
-    const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true, activeOnly: undefined }), [filters]);
+    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false }), [filters]);
+    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, activeOnly: undefined }), [filters]);
 
     const handleDuplicate = (product: Product) => {
         // Deep clone to avoid mutating the original product
@@ -131,8 +127,9 @@ const Products = () => {
         // Reset stock and status
         duplicate.stock = 0;
         duplicate.initialStock = 0;
-        duplicate.isDraft = true;
-        duplicate.active = true;
+        duplicate.isDraft = false;
+        duplicate.active = false;
+        duplicate.status = 'draft';
         duplicate.description = `${duplicate.description} (Cópia)`;
         
         // Clear variation specific identifiers
@@ -231,7 +228,7 @@ const Products = () => {
                             </button>
 
                             <button
-                                onClick={() => { setIsTrashOpen(true); setIsDraftOpen(false); }}
+                                onClick={() => setIsTrashOpen(true)}
                                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isTrashOpen ? 'bg-amber-600 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:text-amber-500'}`}
                                 title="Produtos Desativados"
                             >
@@ -239,17 +236,6 @@ const Products = () => {
                                 <span className="hidden sm:inline">Desativados</span>
                             </button>
 
-                            <button
-                                onClick={() => { setIsDraftOpen(!isDraftOpen); setIsTrashOpen(false); }}
-                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isDraftOpen
-                                    ? 'bg-amber-500 text-white border-amber-400'
-                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800'
-                                    }`}
-                                title="Rascunhos"
-                            >
-                                <i className={`bi ${isDraftOpen ? 'bi-file-earmark-text-fill' : 'bi-file-earmark-text'}`}></i>
-                                <span className="hidden sm:inline">Rascunhos</span>
-                            </button>
                         </div>
 
                         <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
@@ -312,7 +298,7 @@ const Products = () => {
 
                     <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                 <ProductList
-                    filters={isTrashOpen ? trashFilters : isDraftOpen ? draftFilters : activeFilters}
+                    filters={isTrashOpen ? trashFilters : activeFilters}
                     visibilitySettings={visibilitySettings}
                     onEdit={(p: any) => {
                         if (p.isVariation) {

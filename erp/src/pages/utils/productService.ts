@@ -58,7 +58,10 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.id !== undefined && product.id !== '') data.id = product.id;
     if (product.code !== undefined) data.code = product.code;
     if (product.name !== undefined) data.name = product.name;
+    // `title` is the persisted catalog title. Keep accepting marketplaceTitle
+    // from legacy form state, but never let it be lost on save.
     if (product.title !== undefined) data.title = product.title;
+    else if (product.marketplaceTitle !== undefined) data.title = product.marketplaceTitle;
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
     if (product.category !== undefined) data.category = product.category;
@@ -157,16 +160,6 @@ const mapToDB = (product: Partial<Product>) => {
 };
 
 export const mapFromDB = (data: any, index?: number): Product => {
-    // Verificar se possui campos essenciais do ERP (Fornecedor, NCM ou Preço de Custo)
-    const hasFiscalOrErpData = Boolean(
-        data.supplier_id || 
-        (data.fiscal && (data.fiscal.ncm || data.fiscal.cest)) || 
-        (Number(data.cost_price || 0) > 0)
-    );
-
-    // Se veio do e-commerce sem preenchimento dos campos do ERP, fica como Rascunho no ERP
-    const isDraft = data.is_draft !== undefined ? Boolean(data.is_draft) : !hasFiscalOrErpData;
-
     const rawName = data.name || data.title || (data.description ? data.description.split('\n')[0].substring(0, 120) : '');
 
     // Coletar imagens (da tabela relacionada product_images, data.images, ou variações)
@@ -206,6 +199,16 @@ export const mapFromDB = (data: any, index?: number): Product => {
         primaryCategory = data.product_categories[0]?.categories?.name || '';
     }
 
+    // A flag armazenada nunca deve manter ativo no ERP um produto importado que
+    // ainda não possui os dados internos exigidos para operar nesse canal.
+    const isErpEligible = Boolean(
+        data.description && String(data.description).trim().length >= 2 &&
+        Number(data.unit_price ?? data.price ?? 0) > 0 &&
+        Number(data.cost_price || 0) > 0 &&
+        data.main_supplier_id &&
+        Array.isArray(data.product_categories) && data.product_categories.length > 0
+    );
+
     // Extrair dimensões (height, width, depth) com parsing numérico robusto e fallback para string measures
     let parsedWidth = data.width !== null && data.width !== undefined && String(data.width).trim() !== '' ? parseFloat(String(data.width).replace(',', '.')) : undefined;
     let parsedHeight = data.height !== null && data.height !== undefined && String(data.height).trim() !== '' ? parseFloat(String(data.height).replace(',', '.')) : undefined;
@@ -241,6 +244,9 @@ export const mapFromDB = (data: any, index?: number): Product => {
         code: parentCode,
         name: rawName,
         title: data.title || rawName,
+        // The ERP form still uses marketplaceTitle internally. Products coming
+        // from the catalog persist this same value in `title`.
+        marketplaceTitle: data.title || rawName,
         description: data.description || '',
         brand: data.brand || '',
         category: primaryCategory,
@@ -258,8 +264,8 @@ export const mapFromDB = (data: any, index?: number): Product => {
         stock: Number(data.stock || 0),
         minStock: Number(data.min_stock || 0),
         unit: data.unit || 'UN',
-        active: data.active ?? true,
-        isDraft: isDraft,
+        active: Boolean(data.active) && isErpEligible,
+        isDraft: Boolean(data.is_draft),
         deleted: data.deleted ?? false,
         supplierId: data.supplier_id || '',
         images: productImages,
@@ -311,7 +317,10 @@ export const mapFromDB = (data: any, index?: number): Product => {
                     unitPrice: v.use_parent_price ? Number(data.unit_price || 0) : Number(v.price || 0),
                     promoPrice: v.use_parent_promo_price ? Number(data.promo_price || 0) : Number(v.promo_price || 0),
                     costPrice: Number(v.cost_price || 0),
-                    active: true,
+                    // Variações não possuem status de ERP próprio no banco.
+                    // Elas devem refletir a elegibilidade do produto-pai, em vez
+                    // de sempre aparecerem como ativas na lista.
+                    active: Boolean(data.active) && isErpEligible,
                     condition: data.condition || 'novo',
                     attributes: attributesList,
                     images: varImages,
@@ -571,7 +580,8 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         use_parent_promo_price: v.syncUnitPrice !== false,
                         use_parent_dimensions: v.syncDescription !== false,
                         use_parent_description: v.syncDescription !== false,
-                        use_parent_name: true
+                        use_parent_name: true,
+                        status: v.status || 'published'
                     };
                 });
 
@@ -605,7 +615,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 
     const products = getLocalProducts();
 
-    if (product.id && !forceInsert) {
+    if (product.id && !forceInsert && products.some(item => String(item.id) === String(product.id))) {
         await updateProduct(product.id, product);
         return String(product.id);
     }
@@ -698,7 +708,20 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
 
     const products = getLocalProducts();
     const index = products.findIndex(p => String(p.id) === String(id));
-    if (index === -1) throw new Error("Produto não encontrado.");
+    if (index === -1) {
+        // A lista do ERP pode estar usando dados carregados diretamente do
+        // Supabase, sem uma cópia no cache local. Nesse caso, a ação não pode
+        // depender do localStorage para persistir a alteração.
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .update(mapToDB(productToUpdate))
+            .eq('id', id)
+            .select('id')
+            .single();
+
+        if (error) throw error;
+        return;
+    }
 
     const currentItem = products[index];
 
@@ -1043,7 +1066,8 @@ export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> =>
                 images: whatsappProduct.image_url ? [whatsappProduct.image_url] : [],
                 whatsappDescription: whatsappProduct.description,
                 isDraft: true,
-                active: true,
+                active: false,
+                status: 'draft',
                 itemType: 'product',
                 brand: 'Móveis Morante',
                 condition: 'novo',

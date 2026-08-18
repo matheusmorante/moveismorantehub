@@ -109,24 +109,23 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
     };
 
     const generateVariationName = (attrs: { name: string, value: string, showName?: boolean }[]) => {
-        const sortedKeys = attrs.filter(a => a.name).sort((a, b) => a.name.localeCompare(b.name));
-        const attrParts = sortedKeys.map(a => {
-            const val = a.value.toUpperCase() || '?';
-            return a.showName !== false ? `${a.name.toUpperCase()}:${val}` : val;
-        }).join(' ');
+        const attributeValues = attrs.map(attribute => attribute.value).filter(Boolean);
         const baseTitle = parentProduct?.description || '';
-        return attrParts ? `${baseTitle} ${attrParts}`.toUpperCase() : baseTitle.toUpperCase();
+        return [baseTitle, ...attributeValues].filter(Boolean).join(' ') || 'Padrão';
     };
 
     const handleAttributesChange = (nextAttrs: any[]) => {
-        const newName = generateVariationName(nextAttrs);
         setLocalVariation(prev => {
             if (!prev) return null;
             const parentCode = (parentProduct as any)?.code || '000000';
             const currentSku = prev.sku || '';
             const matchSuffix = currentSku.match(/-(\d{2})$/);
             const varIndex = matchSuffix ? parseInt(matchSuffix[1], 10) - 1 : 0;
-            const next = { ...prev, attributes: nextAttrs, name: newName, sku: generateVariationSku(parentCode, varIndex) };
+            const previousAutoName = generateVariationName(prev.attributes || []);
+            const name = !prev.name || prev.name === previousAutoName
+                ? generateVariationName(nextAttrs)
+                : prev.name;
+            const next = { ...prev, attributes: nextAttrs, name, sku: generateVariationSku(parentCode, varIndex) };
             return next;
         });
     };
@@ -297,6 +296,17 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                             </div>
                                         );
                                     })}
+                                </div>
+
+                                <div className="space-y-2 pt-2 border-t border-slate-150 dark:border-slate-800">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-450">Título da Variação</label>
+                                    <input
+                                        value={localVariation.name || ''}
+                                        onChange={(e) => handleChange('name', e.target.value)}
+                                        className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
+                                        placeholder="Título da variação"
+                                    />
+                                    <p className="text-[9px] text-slate-400">Gerado com o nome do produto e os valores dos atributos; você pode editar livremente.</p>
                                 </div>
 
                                 <div className="space-y-2 pt-2 border-t border-slate-150 dark:border-slate-800">

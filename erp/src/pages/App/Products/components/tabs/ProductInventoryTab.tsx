@@ -3,7 +3,6 @@ import { Product } from '@/pages/types/product.type';
 import { Person } from '../../../../types/person.type';
 import InitialStockList from '../InitialStockList';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import { CatalogDigitalIcon } from '@/components/shared/CatalogDigitalIcon';
 
 interface ProductInventoryTabProps {
     formData: Partial<Product>;
@@ -211,9 +210,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                                  <span>Preço de Venda (Original)</span>
                                                  <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                                 </span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                                              </label>
                                              <div className="relative">
                                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
@@ -232,9 +229,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                          <div className="flex flex-col gap-2">
                                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                                  <span>Desconto (%)</span>
-                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                                 </span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                                              </label>
                                              <div className="relative">
                                                  <input
@@ -252,9 +247,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                          <div className="flex flex-col gap-2">
                                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                                  <span>Desconto (R$)</span>
-                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                                 </span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                                              </label>
                                              <div className="relative">
                                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
@@ -273,9 +266,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                          <div className="flex flex-col gap-2">
                                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                                  <span>Preço Promocional Final</span>
-                                                 <span className="inline-flex items-center bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 select-none" title="Catálogo">
-                                                     <CatalogDigitalIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                                 </span>
+                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                                              </label>
                                              <div className="relative">
                                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
