@@ -140,6 +140,11 @@ export async function GET(request: Request) {
       // Caso tenha variações, cada variação vira uma linha do feed
       if (p.product_variations && p.product_variations.length > 0) {
         for (const v of p.product_variations) {
+          // Ignorar variações ocultas ou rascunhos no catálogo Meta
+          if (v.status && v.status !== "published") {
+            continue
+          }
+
           const isParentPrice = v.use_parent_price !== false
           const isParentPromo = v.use_parent_promo_price !== false
           const isParentDesc = v.use_parent_description !== false

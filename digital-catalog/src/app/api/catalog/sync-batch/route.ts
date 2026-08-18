@@ -39,6 +39,18 @@ export async function POST(req: Request) {
       )
     }
 
+    // Se o produto foi ocultado ou excluído logicamente, remova-o do catálogo da Meta
+    if (product.status !== "published" || product.deleted_at) {
+      const requests: MetaBatchRequest[] = [
+        {
+          method: "DELETE",
+          retailer_id: productId,
+        },
+      ]
+      const result = await sendMetaCatalogBatch(requests)
+      return NextResponse.json(result)
+    }
+
     // Buscar a imagem principal ou qualquer imagem do produto
     const { data: images } = await supabase
       .from("product_images")
