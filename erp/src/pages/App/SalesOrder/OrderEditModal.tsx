@@ -9,6 +9,7 @@ import OrderStatusTimeline from "./OrderStatusTimeline";
 import OrderStepper from "./OrderStepper";
 import SellerSearchModal from "./SellerSearchModal";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 
 interface OrderEditModalProps {
     order?: Order;
@@ -44,34 +45,36 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
     const [pendingOrderData, setPendingOrderData] = useState<any>(null);
 
     const applyOrderData = useCallback((orderData: any) => {
-        if (orderData.seller) {
-            form.actions.setSeller(orderData.seller);
+        const migrated = migrateOrderHandlings(orderData);
+        if (migrated.seller) {
+            form.actions.setSeller(migrated.seller);
         }
-        if (orderData.observation) {
-            form.actions.setObservation(orderData.observation);
+        if (migrated.observation) {
+            form.actions.setObservation(migrated.observation);
         }
-        if (orderData.date) {
-            form.actions.setOrderDate(parseStorageDateToLocal(orderData.date));
+        if (migrated.date) {
+            form.actions.setOrderDate(parseStorageDateToLocal(migrated.date));
         }
-        if (orderData.shipping) {
+        if (migrated.shipping) {
             form.actions.setShipping((prev: any) => ({
                 ...prev,
-                deliveryMethod: orderData.shipping.deliveryMethod || prev.deliveryMethod,
-                value: typeof orderData.shipping.value === 'number' ? orderData.shipping.value : prev.value,
-                scheduling: orderData.shipping.scheduling ? {
-                    notInformed: !!orderData.shipping.scheduling.notInformed,
-                    dateType: orderData.shipping.scheduling.dateType || "fixed",
-                    date: orderData.shipping.scheduling.date || "",
-                    endDate: orderData.shipping.scheduling.endDate || "",
-                    type: orderData.shipping.scheduling.type || "fixed",
-                    time: orderData.shipping.scheduling.time || "",
-                    startTime: orderData.shipping.scheduling.startTime || "",
-                    endTime: orderData.shipping.scheduling.endTime || ""
+                deliveryMethod: migrated.shipping.deliveryMethod || prev.deliveryMethod,
+                orderType: migrated.shipping.orderType || prev.orderType,
+                value: typeof migrated.shipping.value === 'number' ? migrated.shipping.value : prev.value,
+                scheduling: migrated.shipping.scheduling ? {
+                    notInformed: !!migrated.shipping.scheduling.notInformed,
+                    dateType: migrated.shipping.scheduling.dateType || "fixed",
+                    date: migrated.shipping.scheduling.date || "",
+                    endDate: migrated.shipping.scheduling.endDate || "",
+                    type: migrated.shipping.scheduling.type || "fixed",
+                    time: migrated.shipping.scheduling.time || "",
+                    startTime: migrated.shipping.scheduling.startTime || "",
+                    endTime: migrated.shipping.scheduling.endTime || ""
                 } : prev.scheduling
             }));
         }
-        if (orderData.items && Array.isArray(orderData.items)) {
-            const mappedItems = orderData.items.map((item: any) => ({
+        if (migrated.items && Array.isArray(migrated.items)) {
+            const mappedItems = migrated.items.map((item: any) => ({
                 productId: item.productId || undefined,
                 variationId: item.variationId || undefined,
                 code: item.code || "",
@@ -84,8 +87,8 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
             }));
             form.actions.setItems(mappedItems);
         }
-        if (orderData.payments && Array.isArray(orderData.payments)) {
-            const mappedPayments = orderData.payments.map((pay: any) => ({
+        if (migrated.payments && Array.isArray(migrated.payments)) {
+            const mappedPayments = migrated.payments.map((pay: any) => ({
                 method: pay.method || "",
                 amount: typeof pay.amount === 'number' ? pay.amount : 0,
                 status: pay.status || ""

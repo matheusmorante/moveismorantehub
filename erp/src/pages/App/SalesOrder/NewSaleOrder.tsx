@@ -7,6 +7,7 @@ import Order from "../../types/order.type";
 import SellerSearchModal from "./SellerSearchModal";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
 import { toast } from "react-toastify";
+import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 
 interface NewSaleOrderProps {
     onClose?: () => void;
@@ -43,34 +44,36 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
     const [pendingOrderData, setPendingOrderData] = React.useState<any>(null);
 
     const applyOrderData = useCallback((order: any) => {
-        if (order.seller) {
-            form.actions.setSeller(order.seller);
+        const migrated = migrateOrderHandlings(order);
+        if (migrated.seller) {
+            form.actions.setSeller(migrated.seller);
         }
-        if (order.observation) {
-            form.actions.setObservation(order.observation);
+        if (migrated.observation) {
+            form.actions.setObservation(migrated.observation);
         }
-        if (order.date) {
-            form.actions.setOrderDate(parseStorageDateToLocal(order.date));
+        if (migrated.date) {
+            form.actions.setOrderDate(parseStorageDateToLocal(migrated.date));
         }
-        if (order.shipping) {
+        if (migrated.shipping) {
             form.actions.setShipping(prev => ({
                 ...prev,
-                deliveryMethod: order.shipping.deliveryMethod || prev.deliveryMethod,
-                value: typeof order.shipping.value === 'number' ? order.shipping.value : prev.value,
-                scheduling: order.shipping.scheduling ? {
-                    notInformed: !!order.shipping.scheduling.notInformed,
-                    dateType: order.shipping.scheduling.dateType || "fixed",
-                    date: order.shipping.scheduling.date || "",
-                    endDate: order.shipping.scheduling.endDate || "",
-                    type: order.shipping.scheduling.type || "fixed",
-                    time: order.shipping.scheduling.time || "",
-                    startTime: order.shipping.scheduling.startTime || "",
-                    endTime: order.shipping.scheduling.endTime || ""
+                deliveryMethod: migrated.shipping.deliveryMethod || prev.deliveryMethod,
+                orderType: migrated.shipping.orderType || prev.orderType,
+                value: typeof migrated.shipping.value === 'number' ? migrated.shipping.value : prev.value,
+                scheduling: migrated.shipping.scheduling ? {
+                    notInformed: !!migrated.shipping.scheduling.notInformed,
+                    dateType: migrated.shipping.scheduling.dateType || "fixed",
+                    date: migrated.shipping.scheduling.date || "",
+                    endDate: migrated.shipping.scheduling.endDate || "",
+                    type: migrated.shipping.scheduling.type || "fixed",
+                    time: migrated.shipping.scheduling.time || "",
+                    startTime: migrated.shipping.scheduling.startTime || "",
+                    endTime: migrated.shipping.scheduling.endTime || ""
                 } : prev.scheduling
             }));
         }
-        if (order.items && Array.isArray(order.items)) {
-            const mappedItems = order.items.map((item: any) => ({
+        if (migrated.items && Array.isArray(migrated.items)) {
+            const mappedItems = migrated.items.map((item: any) => ({
                 productId: item.productId || undefined,
                 variationId: item.variationId || undefined,
                 code: item.code || "",
@@ -83,8 +86,8 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
             }));
             form.actions.setItems(mappedItems);
         }
-        if (order.payments && Array.isArray(order.payments)) {
-            const mappedPayments = order.payments.map((pay: any) => ({
+        if (migrated.payments && Array.isArray(migrated.payments)) {
+            const mappedPayments = migrated.payments.map((pay: any) => ({
                 method: pay.method || "",
                 amount: typeof pay.amount === 'number' ? pay.amount : 0,
                 status: pay.status || ""

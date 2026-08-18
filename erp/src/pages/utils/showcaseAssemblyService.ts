@@ -20,7 +20,14 @@ export const getShowcaseAssemblies = async () => {
         .eq('deleted', false)
         .order('date', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+        // Tabela pode não existir ainda (404 do PostgREST)
+        if (error.code === '42P01' || error.message?.includes('does not exist') || (error as any)?.details?.includes('does not exist')) {
+            console.warn(`Tabela '${TABLE_NAME}' não existe. Retornando lista vazia.`);
+            return [] as ShowcaseAssembly[];
+        }
+        throw error;
+    }
     return data as ShowcaseAssembly[];
 };
 

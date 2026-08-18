@@ -711,16 +711,17 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     </div>
                                 </div>
 
-                                 {/* Estoque Atual */}
+                                           {/* Estoque Atual */}
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-450 h-6 flex items-center gap-1.5">
                                         Estoque Atual (Físico)
                                     </label>
                                     <input
                                         type="number"
+                                        disabled={!!parentProduct?.id}
                                         value={(localVariation.stock === null || localVariation.stock === undefined) ? 0 : localVariation.stock}
                                         onChange={(e) => handleChange('stock', parseInt(e.target.value) || 0)}
-                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 text-emerald-600 dark:text-emerald-400"
+                                        className={`w-full px-4 py-2.5 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 ${!!parentProduct?.id ? 'bg-slate-100 dark:bg-slate-800 text-slate-450 dark:text-slate-500 cursor-not-allowed opacity-75' : 'bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400'}`}
                                         placeholder="0"
                                     />
                                 </div>

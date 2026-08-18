@@ -1,5 +1,10 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ImportConfig, BLING_PRODUCT_DEFAULTS, BLING_VARIATION_DEFAULTS, BLING_CUSTOMER_DEFAULTS, BLING_SUPPLIER_DEFAULTS, BLING_ORDER_DEFAULTS, BLING_RECEIVABLE_DEFAULTS } from './importMappingTypes';
+import {
+    MORANTE_DELIVERY_HANDLING_OPTIONS,
+    MORANTE_PICKUP_HANDLING_OPTIONS,
+    settingsUseGenericDefaults,
+} from './handlingMigration';
 
 export interface OrderStatusConfig {
     id: string;
@@ -253,8 +258,13 @@ const migrateSettings = (settings: any): AppSettings => {
         }));
     }
 
-    // O usuário gerenciará as opções de manuseio através da interface de configurações
-    // Não forçamos mais a remoção automática de 'Montagem no Local' aqui.
+    // Restaura manuseios reais da Morante se as configurações ainda usam os padrões genéricos
+    if (settingsUseGenericDefaults(settings.deliveryHandlingOptions)) {
+        settings.deliveryHandlingOptions = MORANTE_DELIVERY_HANDLING_OPTIONS;
+    }
+    if (settingsUseGenericDefaults(settings.pickupHandlingOptions)) {
+        settings.pickupHandlingOptions = MORANTE_PICKUP_HANDLING_OPTIONS;
+    }
 
     if (!settings.googleMapsApiKey) {
         settings.googleMapsApiKey = 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
@@ -296,18 +306,8 @@ export const getDefaultSettings = (): AppSettings => ({
         budget: 'blue',
         return: 'amber'
     },
-    deliveryHandlingOptions: [
-        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false, isAssemblyOutside: false },
-        { label: 'Já Montado', includeInAssemblySchedule: false, isAssemblyOutside: false },
-        { label: 'Montagem Fora', includeInAssemblySchedule: true, isAssemblyOutside: true },
-        { label: 'Manuseio Especial', includeInAssemblySchedule: false, isAssemblyOutside: false }
-    ],
-    pickupHandlingOptions: [
-        { label: 'Para Montar (Desmontado)', includeInAssemblySchedule: false, isAssemblyOutside: false },
-        { label: 'Já Montado', includeInAssemblySchedule: false, isAssemblyOutside: false },
-        { label: 'Montagem Fora', includeInAssemblySchedule: true, isAssemblyOutside: true },
-        { label: 'Manuseio Especial', includeInAssemblySchedule: false, isAssemblyOutside: false }
-    ],
+    deliveryHandlingOptions: MORANTE_DELIVERY_HANDLING_OPTIONS,
+    pickupHandlingOptions: MORANTE_PICKUP_HANDLING_OPTIONS,
     cardFlagRules: [
         { flag: 'VISA', interestRates: [{ installments: 10, rate: 0 }] },
         { flag: 'MASTERCARD', interestRates: [{ installments: 10, rate: 0 }] },

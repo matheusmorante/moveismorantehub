@@ -33,16 +33,27 @@ const AssemblyList = ({ onClose }: Props) => {
 
     const fetchAssemblies = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('assemblies')
-            .select('*')
-            .order('date', { ascending: true });
-        
-        if (error) {
-            console.error("Erro ao buscar montagens:", error);
-            toast.error("Erro ao carregar lista de montagens");
-        } else {
-            setAssemblies(data || []);
+        try {
+            const { data, error } = await supabase
+                .from('assemblies')
+                .select('*')
+                .order('date', { ascending: true });
+            
+            if (error) {
+                // Tabela pode não existir ainda (404)
+                if (error.code === '42P01' || error.message?.includes('does not exist') || (error as any).details?.includes('does not exist')) {
+                    console.warn("Tabela 'assemblies' não existe. Exibindo lista vazia.");
+                    setAssemblies([]);
+                } else {
+                    console.error("Erro ao buscar montagens:", error);
+                    toast.error("Erro ao carregar lista de montagens");
+                }
+            } else {
+                setAssemblies(data || []);
+            }
+        } catch (err: any) {
+            console.error("Erro ao buscar montagens:", err);
+            setAssemblies([]);
         }
         setLoading(false);
     };

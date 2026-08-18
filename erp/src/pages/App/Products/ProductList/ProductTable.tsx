@@ -45,7 +45,7 @@ const COLUMNS_DEF: ColumnDef[] = [
     { key: 'category', label: 'Categoria' },
     { key: 'unitPrice', label: 'Preço Venda', align: 'text-right' },
     { key: 'stock', label: 'Estoque', align: 'text-center' },
-    { key: 'status', label: 'Status', align: 'text-center' },
+    { key: 'status', label: 'Canais', align: 'text-center' },
     { key: 'actions', label: 'Ações', align: 'text-center' },
 ];
 

@@ -119,7 +119,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 <div id="field-main-supplier" className="md:col-span-2 flex flex-col gap-2 relative p-2 rounded-2xl" ref={supplierInputRef}>
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                         <span>Fornecedor Principal</span>
-                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                     </label>
                     <div className="relative">
                         <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
@@ -181,7 +180,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <div className="flex flex-col gap-2 p-2 rounded-2xl">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                             <span>Estoque Mínimo</span>
-                            <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                         </label>
                         <input
                             type="number"
@@ -209,9 +207,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             {/* Preço de Venda */}
                             <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                    <span>Preço de Venda (Original)</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                    <span>Preço de Venda</span>
                                 </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
@@ -293,7 +289,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <div id="field-cost-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Preço de Custo Base</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                                 </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
@@ -307,7 +302,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <div className="flex flex-col gap-2 p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Taxa de IPI</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                                 </label>
                                 <div className="relative">
                                     <input type="number" 
@@ -321,7 +315,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <div className="flex flex-col gap-2 p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Frete</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                                 </label>
                                 <div className="relative flex items-center">
                                     <input type="number" 
@@ -347,7 +340,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <div className="flex flex-col gap-1 p-4 bg-blue-600 rounded-xl text-white shadow-xl shadow-blue-500/30 justify-center">
                                 <label className="text-[8px] font-black uppercase tracking-widest text-blue-200 flex items-center gap-1 h-6">
                                     <span>Preço de Custo Final</span>
-                                    <span className="inline-flex items-center text-[6px] font-black bg-blue-500 text-white px-1 py-0.2 rounded uppercase select-none">ERP</span>
                                 </label>
                                 <div className="flex items-center gap-1 text-xl font-black truncate">
                                     <span className="text-xs">R$</span>

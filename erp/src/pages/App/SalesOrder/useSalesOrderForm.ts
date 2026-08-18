@@ -15,6 +15,7 @@ import Shipping from "../../types/Shipping.type";
 import CustomerData from "../../types/customerData.type";
 import { autoCalculateRouteDistance } from "../../utils/maps";
 import { getSettings } from '@/pages/utils/settingsService';
+import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 
 const getCurrentDatetimeLocal = () => {
     const now = new Date();
@@ -211,7 +212,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     }, [items, shipping, payments, customerData, observation, seller, marketingOrigin, orderDate, getOrderData, status, currentOrderId]);
 
     const loadOrderForEditing = useCallback((order: Order) => {
-        setItems(order.items || []);
+        const migratedOrder = migrateOrderHandlings(order);
+        setItems(migratedOrder.items || []);
         const defaultScheduling = {
             date: "",
             endDate: "",
@@ -241,17 +243,17 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             }
         };
 
-        if (order.shipping) {
+        if (migratedOrder.shipping) {
             setShipping({
                 ...defaultShipping,
-                ...order.shipping,
+                ...migratedOrder.shipping,
                 scheduling: {
                     ...defaultScheduling,
-                    ...(order.shipping.scheduling || {})
+                    ...(migratedOrder.shipping.scheduling || {})
                 },
                 deliveryAddress: {
                     ...defaultShipping.deliveryAddress!,
-                    ...(order.shipping.deliveryAddress || {})
+                    ...(migratedOrder.shipping.deliveryAddress || {})
                 }
             });
         } else {
@@ -293,9 +295,9 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         setStatus(order.status || 'draft');
         setErrors({});
         // Update refs to reflect loaded data and prevent immediate sync triggers/resets
-        prevDeliveryMethodRef.current = order.shipping?.deliveryMethod || 'delivery';
-        prevGlobalOrderTypeRef.current = order.shipping?.orderType || '';
-        prevFirstItemHandlingRef.current = order.items?.[0]?.handlingType || '';
+        prevDeliveryMethodRef.current = migratedOrder.shipping?.deliveryMethod || 'delivery';
+        prevGlobalOrderTypeRef.current = migratedOrder.shipping?.orderType || '';
+        prevFirstItemHandlingRef.current = migratedOrder.items?.[0]?.handlingType || '';
     }, [setItems, setShipping, setPayments, setCustomerData, setObservation, setSeller, setMarketingOrigin]);
 
     const handleAutoCalculateDistance = useCallback(async (address: CustomerData['fullAddress']) => {

@@ -31,84 +31,33 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     formData,
     setFormData
 }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Fechar ao clicar fora
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
+                setIsDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Sincroniza termo de busca com o NCM no formData
-    useEffect(() => {
-        const currentNcm = formData.fiscal?.ncm || '';
-        const match = COMMON_NCMS.find(item => item.code === currentNcm);
-        if (match) {
-            setSearchTerm(`${match.code} - ${match.description}`);
-        } else {
-            setSearchTerm(currentNcm);
-        }
-    }, [formData.fiscal?.ncm]);
-
     const filteredNcms = useMemo(() => {
-        if (!searchTerm) return COMMON_NCMS;
-        const cleanSearch = searchTerm.toLowerCase();
-        
-        // Se o termo já contiver ' - ', filtramos usando apenas o código inicial
-        const searchVal = cleanSearch.includes(' - ') ? cleanSearch.split(' - ')[0] : cleanSearch;
-
+        const q = searchQuery.toLowerCase().trim();
+        if (!q) return COMMON_NCMS;
         return COMMON_NCMS.filter(item => 
-            item.code.includes(searchVal) || 
-            item.description.toLowerCase().includes(cleanSearch)
+            item.code.includes(q) || 
+            item.description.toLowerCase().includes(q)
         );
-    }, [searchTerm]);
+    }, [searchQuery]);
 
-    const handleSelectNcm = (ncmCode: string, ncmDesc: string) => {
-        setFormData(prev => ({
-            ...prev,
-            fiscal: {
-                ...prev.fiscal!,
-                ncm: ncmCode,
-                ncmDescription: ncmDesc
-            }
-        }));
-        setSearchTerm(`${ncmCode} - ${ncmDesc}`);
-        setIsOpen(false);
-    };
-
-    const handleInputChange = (val: string) => {
-        setSearchTerm(val);
-        setIsOpen(true);
-
-        const numbersOnly = val.replace(/\D/g, '').slice(0, 8);
-        if (numbersOnly.length === 8) {
-            const match = COMMON_NCMS.find(item => item.code === numbersOnly);
-            setFormData(prev => ({
-                ...prev,
-                fiscal: {
-                    ...prev.fiscal!,
-                    ncm: numbersOnly,
-                    ncmDescription: match ? match.description : (prev.fiscal?.ncmDescription || '')
-                }
-            }));
-        } else if (!val) {
-            setFormData(prev => ({
-                ...prev,
-                fiscal: {
-                    ...prev.fiscal!,
-                    ncm: '',
-                    ncmDescription: ''
-                }
-            }));
-        }
-    };
+    const selectedNcmObj = useMemo(() => {
+        const currentNcm = formData.fiscal?.ncm || '';
+        return COMMON_NCMS.find(item => item.code === currentNcm);
+    }, [formData.fiscal?.ncm]);
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -133,37 +82,64 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         </div>
                     ) : (
                         <>
-                            {/* NCM autocomplete select pesquisavel */}
+                            {/* NCM input pesquisável */}
                             <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Código NCM (Selecione ou digite) *</label>
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label>
                                 <div className="relative">
                                     <input
-                                        value={searchTerm}
-                                        onChange={(e) => handleInputChange(e.target.value)}
-                                        onFocus={() => setIsOpen(true)}
-                                        className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-250 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200 pr-10"
-                                        placeholder="Pesquise por código NCM ou descrição (ex: Dormitório)..."
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSearchQuery(val);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                fiscal: {
+                                                    ...prev.fiscal!,
+                                                    ncm: val
+                                                }
+                                            }));
+                                            setIsDropdownOpen(true);
+                                        }}
+                                        onFocus={() => setIsDropdownOpen(true)}
+                                        placeholder="Digite ou pesquise o NCM..."
+                                        className="w-full pl-4 pr-10 py-4 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono"
                                     />
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                        <i className="bi bi-search"></i>
-                                    </div>
+                                    <i className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`} />
                                 </div>
 
-                                {isOpen && (
-                                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-55 max-h-60 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-850">
+                                {isDropdownOpen && (
+                                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
                                         {filteredNcms.map(item => (
                                             <div
                                                 key={item.code}
-                                                onClick={() => handleSelectNcm(item.code, item.description)}
-                                                className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        fiscal: {
+                                                            ...prev.fiscal!,
+                                                            ncm: item.code,
+                                                            ncmDescription: item.description
+                                                        }
+                                                    }));
+                                                    setSearchQuery(item.code);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl"
                                             >
-                                                <div className="text-xs font-black text-blue-600 dark:text-blue-400 tracking-wider font-mono">{item.code}</div>
-                                                <div className="text-[10px] text-slate-550 dark:text-slate-400 font-medium mt-0.5">{item.description}</div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 tracking-wider font-mono">{item.code}</span>
+                                                    {formData.fiscal?.ncm === item.code && (
+                                                        <i className="bi bi-check text-xs text-emerald-500 font-bold" />
+                                                    )}
+                                                </div>
+                                                <div className="text-[9px] text-slate-550 dark:text-slate-400 font-medium mt-0.5 leading-tight">{item.description}</div>
                                             </div>
                                         ))}
                                         {filteredNcms.length === 0 && (
-                                            <div className="px-4 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                                Nenhum NCM padrão encontrado. Digite 8 dígitos para usar personalizado.
+                                            <div className="px-3 py-4 text-center text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                                Nenhum NCM encontrado
                                             </div>
                                         )}
                                     </div>
@@ -181,18 +157,6 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             </div>
                         </>
                     )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        {formData.itemType === 'service' ? 'Descrição Fiscal do Serviço' : 'Descrição do NCM'}
-                    </label>
-                    <input
-                        value={formData.fiscal?.ncmDescription || ''}
-                        onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, ncmDescription: e.target.value } })}
-                        className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
-                        placeholder={formData.itemType === 'service' ? 'Ex: Serviços de manutenção e reparo...' : 'Ex: Móveis de cozinha, de madeira...'}
-                    />
                 </div>
             </div>
 

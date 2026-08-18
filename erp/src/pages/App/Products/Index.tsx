@@ -46,6 +46,7 @@ const Products = () => {
 
     useEffect(() => {
         localStorage.removeItem('local_products');
+        localStorage.removeItem('product_table_column_order');
     }, []);
 
     // Stock Launch Modal State
@@ -166,41 +167,6 @@ const Products = () => {
             {isSidebarOpen && <div className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
             <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
-                <div className="flex justify-between items-center mb-4 md:mb-6 gap-4">
-                    <div className="flex items-center gap-4 xl:gap-6">
-                        <div>
-                            <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Produtos
-                            </h1>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs xl:text-sm hidden sm:block">
-                                Gerencie o cadastro de produtos
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 relative">
-                        <Link
-                            to="/app/configuracoes"
-                            className="flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
-                            title="Configurar Campos Obrigatórios"
-                        >
-                            <i className="bi bi-gear-fill text-base" />
-                        </Link>
-                        <button
-                            onClick={() => {
-                                setEditingProduct(null);
-                                setInitialFormData(null);
-                                setIsFormModalOpen(true);
-                            }}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-lg shadow-emerald-600/30 font-bold text-xs whitespace-nowrap active:scale-95"
-                        >
-                            <i className="bi bi-plus-circle-fill text-sm"></i>
-                            <span className="hidden sm:inline">Novo Produto</span>
-                        </button>
-
-                    </div>
-                </div>
-
                 <div className="flex flex-col gap-6">
                     {/* Header Actions Container */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 px-2">
@@ -228,13 +194,7 @@ const Products = () => {
                                 <span className="hidden sm:inline">Opções</span>
                             </button>
 
-                            <Link
-                                to="/registrations/variations"
-                                className="flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 shrink-0"
-                            >
-                                <i className="bi bi-ui-radios"></i>
-                                <span>Atributos</span>
-                            </Link>
+
 
                             <div className="relative shrink-0">
                                 <button
@@ -261,7 +221,7 @@ const Products = () => {
                                                     { key: 'createdAt', label: 'Data Criação' },
                                                     { key: 'unitPrice', label: 'Preço de Venda' },
                                                     { key: 'stock', label: 'Estoque' },
-                                                    { key: 'status', label: 'Status' },
+                                                    { key: 'status', label: 'Canais' },
                                                     { key: 'actions', label: 'Ações' },
                                                 ].map((col) => (
                                                     <button
@@ -282,10 +242,31 @@ const Products = () => {
                                     </>
                                 )}
                             </div>
+
+                            <div className="flex gap-2 ml-auto shrink-0">
+                                <Link
+                                    to="/app/configuracoes"
+                                    className="flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
+                                    title="Configurar Campos Obrigatórios"
+                                >
+                                    <i className="bi bi-gear-fill text-base" />
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        setEditingProduct(null);
+                                        setInitialFormData(null);
+                                        setIsFormModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all shadow-lg shadow-emerald-600/30 font-bold text-xs whitespace-nowrap active:scale-95"
+                                >
+                                    <i className="bi bi-plus-circle-fill text-sm"></i>
+                                    <span>Novo Produto</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
+                    <div className="w-full overflow-x-auto">
                 <ProductList
                     filters={isTrashOpen ? trashFilters : activeFilters}
                     visibilitySettings={visibilitySettings}

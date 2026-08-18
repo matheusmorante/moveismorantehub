@@ -264,7 +264,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         stock: Number(data.stock || 0),
         minStock: Number(data.min_stock || 0),
         unit: data.unit || 'UN',
-        active: Boolean(data.active) && isErpEligible,
+        active: Boolean(data.active),
         isDraft: Boolean(data.is_draft),
         deleted: data.deleted ?? false,
         supplierId: data.supplier_id || '',
@@ -320,7 +320,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
                     // Variações não possuem status de ERP próprio no banco.
                     // Elas devem refletir a elegibilidade do produto-pai, em vez
                     // de sempre aparecerem como ativas na lista.
-                    active: Boolean(data.active) && isErpEligible,
+                    active: Boolean(data.active),
                     condition: data.condition || 'novo',
                     attributes: attributesList,
                     images: varImages,
@@ -514,6 +514,8 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         const dbData = mapToDB(product);
         // Remover propriedades que não são colunas diretas da tabela products
         delete dbData.variations;
+        delete dbData.brand;
+        delete dbData.category;
         
         // Upsert no Supabase
         const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
