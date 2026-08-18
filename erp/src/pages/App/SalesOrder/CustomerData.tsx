@@ -178,10 +178,15 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
     }, [customerData.fullName]);
 
     const filteredCustomers = customers.filter(c => {
-        const s = searchTerm.toLowerCase();
-        return (c.fullName || '').toLowerCase().includes(s) ||
-            (c.tradeName || '').toLowerCase().includes(s) ||
-            (c.phone || '').includes(searchTerm);
+        const s = searchTerm.toLowerCase().trim();
+        const cleanSearch = s.replace(/\D/g, '');
+        const cleanPhone = (c.phone || '').replace(/\D/g, '');
+        
+        const matchesName = (c.fullName || '').toLowerCase().includes(s) ||
+            (c.tradeName || '').toLowerCase().includes(s);
+        const matchesPhone = cleanSearch.length > 0 && cleanPhone.includes(cleanSearch);
+        
+        return matchesName || matchesPhone;
     });
 
     const isNameError = !!errors['customer_fullName'];

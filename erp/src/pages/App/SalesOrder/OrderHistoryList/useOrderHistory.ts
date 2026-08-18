@@ -194,17 +194,20 @@ export const useOrderHistory = (filters?: any) => {
     const handleDelete = async (id: string) => {
         await moveToTrash(id);
         toast.info("Pedido movido para a lixeira.");
+        refresh();
     };
 
     const handleRestore = async (id: string) => {
         await restoreOrder(id);
         toast.success("Pedido restaurado com sucesso!");
+        refresh();
     };
 
     const handlePermanentDelete = async (id: string) => {
         if (window.confirm("Certeza que deseja excluir DEFINITIVAMENTE este pedido? Esta ação não pode ser desfeita.")) {
             await permanentDeleteOrder(id);
             toast.success("Pedido excluído permanentemente.");
+            refresh();
         }
     };
 
@@ -215,6 +218,7 @@ export const useOrderHistory = (filters?: any) => {
             await Promise.all(selectedOrders.map(id => moveToTrash(id)));
             toast.info(`${selectedOrders.length} pedido(s) movido(s) para a lixeira.`);
             setSelectedOrders([]);
+            refresh();
         } catch (error) {
             toast.error("Erro ao mover alguns pedidos para a lixeira.");
         } finally {
@@ -229,6 +233,7 @@ export const useOrderHistory = (filters?: any) => {
             await Promise.all(selectedOrders.map(id => restoreOrder(id)));
             toast.success(`${selectedOrders.length} pedido(s) restaurado(s) com sucesso!`);
             setSelectedOrders([]);
+            refresh();
         } catch (error) {
             toast.error("Erro ao restaurar alguns pedidos.");
         } finally {
@@ -244,6 +249,7 @@ export const useOrderHistory = (filters?: any) => {
                 await Promise.all(selectedOrders.map(id => permanentDeleteOrder(id)));
                 toast.success(`${selectedOrders.length} pedido(s) excluído(s) permanentemente.`);
                 setSelectedOrders([]);
+                refresh();
             } catch (error) {
                 toast.error("Erro ao excluir alguns pedidos.");
             } finally {

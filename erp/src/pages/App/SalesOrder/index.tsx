@@ -536,7 +536,11 @@ const SalesOrder = () => {
             {orderModalType && orderModalType !== 'assistance' && (
                 <NewSaleOrder
                     orderType={orderModalType}
-                    onClose={() => setOrderModalType(null)}
+                    onClose={() => {
+                        setOrderModalType(null);
+                        orderListRef.current?.refresh();
+                        draftsListRef.current?.refresh();
+                    }}
                     onSaveSuccess={(id, order) => {
                         setOrderModalType(null);
                         if (id) {
@@ -555,7 +559,11 @@ const SalesOrder = () => {
 
             {orderModalType === 'assistance' && (
                 <AssistanceOrderModal
-                    onClose={() => setOrderModalType(null)}
+                    onClose={() => {
+                        setOrderModalType(null);
+                        orderListRef.current?.refresh();
+                        draftsListRef.current?.refresh();
+                    }}
                     onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);
@@ -572,7 +580,11 @@ const SalesOrder = () => {
                 <OrderEditModal
                     order={editingOrder}
                     orderId={editingOrder.id}
-                    onClose={() => setEditingOrder(null)}
+                    onClose={() => {
+                        setEditingOrder(null);
+                        orderListRef.current?.refresh();
+                        draftsListRef.current?.refresh();
+                    }}
                     onSaveSuccess={(id, order) => {
                         setEditingOrder(null);
                         if (id) {
@@ -592,7 +604,11 @@ const SalesOrder = () => {
             {editingOrder && editingOrder.orderType === 'assistance' && (
                 <AssistanceOrderModal
                     order={editingOrder}
-                    onClose={() => setEditingOrder(null)}
+                    onClose={() => {
+                        setEditingOrder(null);
+                        orderListRef.current?.refresh();
+                        draftsListRef.current?.refresh();
+                    }}
                     onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);
@@ -608,7 +624,11 @@ const SalesOrder = () => {
             {duplicatingOrder && duplicatingOrder.orderType === 'assistance' && (
                 <AssistanceOrderModal
                     order={duplicatingOrder}
-                    onClose={() => setDuplicatingOrder(null)}
+                    onClose={() => {
+                        setDuplicatingOrder(null);
+                        orderListRef.current?.refresh();
+                        draftsListRef.current?.refresh();
+                    }}
                     onSaveSuccess={(id, order) => {
                         if (id) {
                             setHighlightOrderId(id);

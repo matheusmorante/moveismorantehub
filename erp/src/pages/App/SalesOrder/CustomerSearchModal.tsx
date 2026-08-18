@@ -173,13 +173,16 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
         }
 
         if (!search.trim()) return list;
-        const s = search.toLowerCase();
-        return list.filter(c =>
-            c.fullName.toLowerCase().includes(s) ||
-            c.phone.includes(s) ||
-            (c.customerData.fullAddress.city || '').toLowerCase().includes(s) ||
-            (c.customerData.fullAddress.neighborhood || '').toLowerCase().includes(s)
-        );
+        const s = search.toLowerCase().trim();
+        const cleanSearch = s.replace(/\D/g, '');
+        return list.filter(c => {
+            const cleanPhone = (c.phone || '').replace(/\D/g, '');
+            const matchesPhone = cleanSearch.length > 0 && cleanPhone.includes(cleanSearch);
+            return c.fullName.toLowerCase().includes(s) ||
+                matchesPhone ||
+                (c.customerData.fullAddress.city || '').toLowerCase().includes(s) ||
+                (c.customerData.fullAddress.neighborhood || '').toLowerCase().includes(s);
+        });
     }, [customerList, search, selectedType, people]);
 
     const isLoading = loadingPeople || loadingOrders;
