@@ -33,6 +33,7 @@ interface ProductRowProps {
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
     onToggleActive: (id: string, currentStatus: boolean) => void;
+    onDeactivateCatalog: (id: string) => void;
     onShowHistory?: (product: Product) => void;
     onLaunchStock?: (product: any) => void;
     visibilitySettings: ProductVisibilitySettings;
@@ -52,6 +53,7 @@ const ProductRow = ({
     onRestore,
     onPermanentDelete,
     onToggleActive,
+    onDeactivateCatalog,
     onShowHistory,
     onLaunchStock,
     visibilitySettings,
@@ -157,10 +159,18 @@ const ProductRow = ({
                                             </span>
                                         )}
                                         {product.isDraft && (
-                                            <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-900/40 shadow-sm">
+                                            <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700">
                                                 <i className="bi bi-file-earmark-text"></i> Rascunho
                                             </span>
                                         )}
+                                        <button disabled={!product.active} onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                            ERP · {product.active ? 'Ativo' : 'Inativo'}
+                                        </button>
+                                        <button disabled={product.status !== 'published'} onClick={(e) => { e.stopPropagation(); if (product.status === 'published') onDeactivateCatalog(product.id!); }} title={product.status === 'published' ? 'Clique para ocultar no Catálogo Digital' : 'Produto ocultado no Catálogo Digital'} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                            {product.status === 'published' ? 'Publicado' : 'Ocultado'}
+                                        </button>
                                         {product.itemType === 'service' ? (
                                             <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">
                                                 <i className="bi bi-tools"></i> Serviço
@@ -172,9 +182,11 @@ const ProductRow = ({
                                                         <i className="bi bi-layers-fill"></i> Combo/Jogo
                                                     </span>
                                                 )}
-                                                <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-900/30">
-                                                    <i className="bi bi-box-seam"></i> Produto
-                                                </span>
+                                                {!isChildVariation && (
+                                                    <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-900/30">
+                                                        <i className="bi bi-box-seam"></i> Produto
+                                                    </span>
+                                                )}
                                                 {oppName && (
                                                     <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-300 dark:border-amber-700/80 shadow-xs">
                                                         <i className="bi bi-fire text-amber-600 dark:text-amber-400"></i> {oppName}
@@ -199,13 +211,7 @@ const ProductRow = ({
                     </td>
                 );
             case 'unitPrice':
-                if (product.isParent) {
-                    return (
-                        <td key="unitPrice" className={`px-6 py-4 text-right ${firstCellBorder}`}>
-                            <span className="text-sm font-bold text-slate-400 dark:text-slate-500">-</span>
-                        </td>
-                    );
-                }
+                if (product.isParent) return <td key="unitPrice" className={`px-6 py-4 ${firstCellBorder}`}></td>;
                 const displayPrice = product.unitPrice || 
                     (product.variations?.length 
                         ? Math.min(...product.variations.map(v => v.unitPrice || 0).filter(p => p > 0).concat(0))
@@ -218,13 +224,7 @@ const ProductRow = ({
                     </td>
                 );
             case 'stock':
-                if (product.isParent) {
-                    return (
-                        <td key="stock" className={`px-6 py-4 text-center ${firstCellBorder}`}>
-                            <span className="text-sm font-bold text-slate-400 dark:text-slate-500">-</span>
-                        </td>
-                    );
-                }
+                if (product.isParent) return <td key="stock" className={`px-6 py-4 ${firstCellBorder}`}></td>;
                 const isLowStock = (product.stock || 0) <= (product.minStock || 0);
                 return (
                     <td key="stock" className={`px-6 py-4 text-center ${firstCellBorder}`}>
@@ -234,7 +234,7 @@ const ProductRow = ({
                     </td>
                 );
             case 'category':
-                if (product.isParent) return <td key="category" className={`px-6 py-4 ${firstCellBorder}`}></td>;
+                if (isChildVar) return <td key="category" className={`px-6 py-4 ${firstCellBorder}`}></td>;
                 const categoryDisplay = getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || (product as any).category_name || (product as any).category || (product as any).categoryName || "-";
                 return (
                     <td key="category" className={`px-6 py-4 text-left ${firstCellBorder}`}>
@@ -276,24 +276,12 @@ const ProductRow = ({
                             ) : (
                                 <>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); onToggleActive(product.id!, product.active); }}
-                                        className={`p-2 rounded-xl transition-all shadow-sm border ${product.active
-                                            ? 'text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30'
-                                            : 'text-slate-400 hover:text-slate-500 bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}
-                                        title={product.active ? "Desativar Produto" : "Ativar Produto"}
+                                        onClick={(e) => { e.stopPropagation(); onEdit(product); }}
+                                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-blue-100 dark:border-blue-900/30"
+                                        title="Editar produto"
                                     >
-                                        <i className={`bi ${product.active ? 'bi-toggle-on' : 'bi-toggle-off'} text-lg`} />
+                                        <i className="bi bi-pencil-fill text-sm" />
                                     </button>
-
-                                    {!product.isParent && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setIsSalesModalOpen(true); }}
-                                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                            title="Ver Pedidos Vinculados"
-                                        >
-                                            <i className="bi bi-receipt text-sm" />
-                                        </button>
-                                    )}
 
                                     <div className="relative">
                                         <button
@@ -315,14 +303,6 @@ const ProductRow = ({
                                                 className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
                                                 onMouseLeave={() => setIsMenuOpen(false)}
                                             >
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(product); }}
-                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
-                                                >
-                                                    <i className="bi bi-pencil-fill text-blue-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar Detalhes</span>
-                                                </button>
-
                                                 {!product.isVariation && onDuplicate && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDuplicate(product); }}
@@ -359,8 +339,11 @@ const ProductRow = ({
                                                             onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onLaunchStock?.(product); }}
                                                             className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
                                                         >
-                                                            <i className="bi bi-box-seam text-emerald-500" />
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Lançar Estoque</span>
+                                                            <span className="flex items-center gap-0.5 text-emerald-500">
+                                                                <i className="bi bi-box-seam-fill" />
+                                                                <i className="bi bi-arrow-left-right text-[9px]" />
+                                                            </span>
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
                                                         </button>
                                                         
                                                         <div className="border-t border-slate-50 dark:border-slate-800/50 mt-1 pt-1">

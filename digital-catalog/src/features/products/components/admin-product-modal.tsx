@@ -130,6 +130,11 @@ export function AdminProductModal({ productId, isOpen, onOpenChange, onSuccess, 
   const [varDiscountPercent, setVarDiscountPercent] = useState("")
   const [varDiscountFixed, setVarDiscountFixed] = useState("")
 
+  const getDefaultVariationName = (attributes: Record<string, string> = {}) => {
+    const attributeValues = Object.values(attributes).filter((value): value is string => Boolean(value?.trim()))
+    return [formData.name?.trim(), ...attributeValues].filter(Boolean).join(" ") || "Padrão"
+  }
+
   const parsePrice = (val: string): number => {
     if (!val) return 0
     let cleaned = val.replace(/[^\d.,-]/g, "")
@@ -834,7 +839,7 @@ export function AdminProductModal({ productId, isOpen, onOpenChange, onSuccess, 
     }
 
     if (varFormState.use_parent_name !== false) {
-      updatedVar.name = formData.name || "Padrão"
+      updatedVar.name = getDefaultVariationName(updatedAttributes)
     } else {
       updatedVar.name = varFormState.name || "Padrão"
     }
@@ -2078,7 +2083,7 @@ export function AdminProductModal({ productId, isOpen, onOpenChange, onSuccess, 
                                     return { 
                                       ...prev, 
                                       use_parent_name: nextUse,
-                                      name: nextUse ? (formData.name || "") : prev.name || ""
+                                      name: nextUse ? getDefaultVariationName(prev.attributes) : prev.name || ""
                                     }
                                   })}
                                   className={`p-1.5 rounded-lg transition-all ${varFormState.use_parent_name !== false ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-gray-400 bg-gray-50 hover:bg-gray-100'}`}
@@ -2097,7 +2102,7 @@ export function AdminProductModal({ productId, isOpen, onOpenChange, onSuccess, 
                                 />
                               ) : (
                                 <div className="text-xs text-muted-foreground bg-gray-50 p-2.5 rounded-lg border italic">
-                                  {formData.name || "Sem nome (Herdado do produto principal)"}
+                                  {getDefaultVariationName(varFormState.attributes)}
                                 </div>
                               )}
                             </div>

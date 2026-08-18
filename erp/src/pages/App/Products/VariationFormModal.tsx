@@ -38,6 +38,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
     const [varDiscountPercent, setVarDiscountPercent] = useState("");
     const [varDiscountFixed, setVarDiscountFixed] = useState("");
 
+    const getDefaultVariationTitle = (attributes: Variation['attributes'] = []) => {
+        const parentTitle = parentProduct.name || parentProduct.description || '';
+        const attributeValues = attributes.map(attribute => attribute.value).filter(Boolean);
+        return [parentTitle, ...attributeValues].filter(Boolean).join(' ') || 'Padrão';
+    };
+
     const fetchDbAttributes = async () => {
         try {
             const [attrRes, valRes] = await Promise.all([
@@ -103,7 +109,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 setFormData({
                     id: crypto.randomUUID(),
                     sku: generateVariationSku(parentCode, varIndex),
-                    name: "",
+                    name: getDefaultVariationTitle(),
                     stock: 0,
                     unitPrice: parentProduct.unitPrice || 0,
                     costPrice: parentProduct.costPrice || 0,
@@ -425,47 +431,15 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                         <div className="space-y-6 animate-in fade-in duration-300">
                             {/* Nome / Título da Variante */}
                             <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-500">Título da Variante</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const nextUse = !formData.syncDescription;
-                                            const comboName = (formData.attributes || [])
-                                                .map(a => a.value)
-                                                .filter(Boolean)
-                                                .join(" / ");
-                                            const autoName = comboName || "Padrão";
-                                            setFormData(prev => prev ? {
-                                                ...prev,
-                                                syncDescription: nextUse,
-                                                name: nextUse ? autoName : prev.name
-                                            } : null);
-                                        }}
-                                        className={`px-2 py-1 text-[10px] font-bold rounded-lg ${formData.syncDescription ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20" : "bg-slate-100 text-slate-700 dark:bg-slate-800"}`}
-                                    >
-                                        {formData.syncDescription ? "Gerar Automático" : "Personalizado"}
-                                    </button>
-                                </div>
-                                {!formData.syncDescription ? (
-                                    <input
-                                        type="text"
-                                        placeholder="Título personalizado da variante"
-                                        value={formData.name || ""}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-100"
-                                    />
-                                ) : (
-                                    <div className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border italic font-bold">
-                                        {(() => {
-                                            const comboName = (formData.attributes || [])
-                                                .map(a => a.value)
-                                                .filter(Boolean)
-                                                .join(" / ");
-                                            return comboName || "Padrão";
-                                        })()}
-                                    </div>
-                                )}
+                                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Título da Variante</label>
+                                <input
+                                    type="text"
+                                    placeholder="Título personalizado da variante"
+                                    value={formData.name || ""}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-100"
+                                />
+                                <p className="text-[10px] text-slate-400">Por padrão: nome do produto seguido pelos valores dos atributos.</p>
                             </div>
 
                             {/* Atributos Selector */}
@@ -544,14 +518,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                                 const val = e.target.value;
                                                                 setFormData(prev => {
                                                                     if (!prev) return null;
+                                                                    const previousAutoTitle = getDefaultVariationTitle(prev.attributes);
                                                                     const updated = [...prev.attributes];
                                                                     updated[idx] = { ...updated[idx], value: val };
-                                                                    
-                                                                    // Se herda o título, atualiza o nome
-                                                                    let newName = prev.name;
-                                                                    if (prev.syncDescription) {
-                                                                        newName = updated.map(a => a.value).filter(Boolean).join(" / ") || "Padrão";
-                                                                    }
+                                                                    const newName = !prev.name || prev.name === previousAutoTitle
+                                                                        ? getDefaultVariationTitle(updated)
+                                                                        : prev.name;
                                                                     
                                                                     return { ...prev, attributes: updated, name: newName };
                                                                 });

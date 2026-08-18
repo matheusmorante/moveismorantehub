@@ -70,7 +70,13 @@ const ProductTitleTab: React.FC<ProductTitleTabProps> = ({
 
     const applyTitle = () => {
         const title = previewTitle();
-        setFormData(prev => ({ ...prev, description: title }));
+        setFormData(prev => ({
+            ...prev,
+            description: title,
+            name: title,
+            title,
+            marketplaceTitle: title
+        }));
         toast.info("Título montado e aplicado!");
     };
 

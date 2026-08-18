@@ -13,6 +13,7 @@ interface ProductCardProps {
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
     onToggleActive: (id: string, currentStatus: boolean) => void;
+    onDeactivateCatalog: (id: string) => void;
     onShowHistory?: (product: Product) => void;
     showTrash?: boolean;
     isSelected?: boolean;
@@ -30,6 +31,7 @@ const ProductCard = ({
     onRestore,
     onPermanentDelete,
     onToggleActive,
+    onDeactivateCatalog,
     onShowHistory,
     showTrash,
     isSelected,
@@ -44,6 +46,7 @@ const ProductCard = ({
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
+    const isCatalogActive = product.status === 'published';
 
     return (
         <div
@@ -77,9 +80,11 @@ const ProductCard = ({
                 </div>
 
                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${product.itemType === 'service' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>
-                        {product.itemType === 'service' ? 'Serviço' : 'Produto'}
-                    </span>
+                    {!isVariation && (
+                        <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${product.itemType === 'service' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>
+                            {product.itemType === 'service' ? 'Serviço' : 'Produto'}
+                        </span>
+                    )}
                     {(product.opportunityName || product.opportunity?.name) && (
                         <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
                             <i className="bi bi-fire text-amber-600" />
@@ -119,12 +124,30 @@ const ProductCard = ({
                     }`}>
                         {product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-")}
                     </h3>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 leading-relaxed">
-                        {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
-                    </p>
+                    {!isVariation && (
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 leading-relaxed">
+                            {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
+                        </p>
+                    )}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                        {product.isDraft && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                                <i className="bi bi-file-earmark-text" /> Rascunho
+                            </span>
+                        )}
+                        <button disabled={!product.active} onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            ERP · {product.active ? 'Ativo' : 'Inativo'}
+                        </button>
+                        <button disabled={!isCatalogActive} onClick={(e) => { e.stopPropagation(); if (isCatalogActive) onDeactivateCatalog(product.id!); }} title={isCatalogActive ? 'Clique para ocultar no Catálogo Digital' : 'Produto ocultado no Catálogo Digital'} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            {isCatalogActive ? 'Publicado' : 'Ocultado'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
+            {!isParent && (
             <div className="flex justify-between items-end border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
                 <div className="flex flex-col">
                     <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
@@ -153,8 +176,9 @@ const ProductCard = ({
                     </div>
                 )}
             </div>
+            )}
 
-            <div className={`grid ${(!showTrash && !product.isParent) ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 mt-3`} onClick={(e) => e.stopPropagation()}>
+            <div className="grid grid-cols-3 gap-1.5 mt-3" onClick={(e) => e.stopPropagation()}>
                 {showTrash ? (
                     <button
                         onClick={() => onRestore(product.id!)}
@@ -166,32 +190,12 @@ const ProductCard = ({
                 ) : (
                     <>
                         <button
-                            onClick={() => onToggleActive(product.id!, product.active)}
-                            className={`flex flex-col items-center justify-center gap-1 py-2 rounded-lg border transition-all ${product.active
-                                ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400'}`}
-                        >
-                            <i className={`bi ${product.active ? 'bi-toggle-on' : 'bi-toggle-off'} text-base`} />
-                            <span className="text-[8px] font-black uppercase">{product.active ? 'Ativo' : 'Inativo'}</span>
-                        </button>
-
-                        <button
                             onClick={() => onEdit(product)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                            className="col-start-2 flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                         >
                             <i className="bi bi-pencil-fill text-base" />
                             <span className="text-[8px] font-black uppercase">Editar</span>
                         </button>
-
-                        {!product.isParent && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setIsSalesModalOpen(true); }}
-                                className="flex flex-col items-center justify-center gap-1 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
-                            >
-                                <i className="bi bi-cart-check text-base" />
-                                <span className="text-[8px] font-black uppercase">Vendas</span>
-                            </button>
-                        )}
 
                         <div className="relative">
                             <button
@@ -200,7 +204,6 @@ const ProductCard = ({
                                 className={`flex flex-col items-center justify-center gap-1 py-2 w-full rounded-lg border transition-all ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}
                             >
                                 <i className="bi bi-three-dots text-base" />
-                                <span className="text-[8px] font-black uppercase">Mais</span>
                             </button>
 
                             <DropdownPortal
@@ -248,8 +251,11 @@ const ProductCard = ({
                                             onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onLaunchStock?.(product); }}
                                             className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
                                         >
-                                            <i className="bi bi-box-seam text-emerald-500" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Lançar Estoque</span>
+                                            <span className="flex items-center gap-0.5 text-emerald-500">
+                                                <i className="bi bi-box-seam-fill" />
+                                                <i className="bi bi-arrow-left-right text-[9px]" />
+                                            </span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
                                         </button>
                                     )}
 

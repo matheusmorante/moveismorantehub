@@ -45,6 +45,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
         handleBulkRestore,
         handleBulkPermanentDelete,
         toggleActive,
+        deactivateCatalog,
         refresh
     } = useProducts(filters);
 
@@ -124,6 +125,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                     onRestore={handleRestore}
                     onPermanentDelete={handlePermanentDelete}
                     onToggleActive={toggleActive}
+                    onDeactivateCatalog={deactivateCatalog}
                     visibilitySettings={visibilitySettings}
                     onToggleColumn={onToggleColumn}
                     showTrash={filters?.showTrash}

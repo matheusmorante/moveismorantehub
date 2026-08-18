@@ -150,14 +150,15 @@ export function ProductTable({
                     <Button
                       type="button"
                       onClick={() => onToggleStatus(product)}
-                      className={`text-[10px] font-bold h-6 px-2.5 rounded-full transition-all active:scale-95 shadow-sm border ${
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-bold h-6 px-2.5 rounded-full transition-all active:scale-95 shadow-sm border ${
                         product.status === 'published'
                           ? 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200'
                           : product.status === 'hidden'
-                            ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200'
+                            ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200'
                       }`}
                     >
+                      <span className={`h-1.5 w-1.5 rounded-full ${product.status === 'published' ? 'bg-green-500' : product.status === 'hidden' ? 'bg-red-500' : 'bg-gray-400'}`} />
                       {product.status === 'published' ? 'Publicado' : product.status === 'hidden' ? 'Ocultado' : 'Rascunho'}
                     </Button>
                   )}
@@ -272,14 +273,15 @@ export function ProductTable({
                       <Button
                         type="button"
                         onClick={() => onToggleVariationStatus(product.id, variation.id, variation.status)}
-                        className={`text-[10px] font-bold h-6 px-2.5 rounded-full transition-all active:scale-95 shadow-sm border ${
+                        className={`inline-flex items-center gap-1.5 text-[10px] font-bold h-6 px-2.5 rounded-full transition-all active:scale-95 shadow-sm border ${
                           (variation.status || 'published') === 'published'
                             ? 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200'
                             : (variation.status || 'published') === 'hidden'
-                              ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200'
+                              ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200'
                               : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200'
                         }`}
                       >
+                        <span className={`h-1.5 w-1.5 rounded-full ${(variation.status || 'published') === 'published' ? 'bg-green-500' : (variation.status || 'published') === 'hidden' ? 'bg-red-500' : 'bg-gray-400'}`} />
                         {(variation.status || 'published') === 'published' ? 'Publicado' : (variation.status || 'published') === 'hidden' ? 'Ocultado' : 'Rascunho'}
                       </Button>
                     </TableCell>
