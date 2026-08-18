@@ -433,7 +433,7 @@ const initializeProductsIfEmpty = async (): Promise<Product[]> => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
-            .order('name', { ascending: true });
+            .order('created_at', { ascending: false });
             
         if (error) {
             console.error("[ProductService] Erro ao buscar produtos do Supabase:", error);

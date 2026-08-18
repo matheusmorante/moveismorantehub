@@ -93,9 +93,10 @@ const Products = () => {
         description: true,
         category: true,
         unitPrice: true,
-        costPrice: true,
+        costPrice: false,
         stock: true,
-        createdAt: true,
+        status: true,
+        createdAt: false,
         actions: true,
     });
 
@@ -203,7 +204,7 @@ const Products = () => {
                 <div className="flex flex-col gap-6">
                     {/* Header Actions Container */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 px-2">
-                        <div className="flex flex-1 items-center gap-3 w-full lg:w-auto">
+                        <div className="flex flex-wrap items-center gap-3 w-full">
                             <div className="relative flex-1 min-w-[200px] max-w-md">
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                                 <input
@@ -227,27 +228,15 @@ const Products = () => {
                                 <span className="hidden sm:inline">Opções</span>
                             </button>
 
-                            <button
-                                onClick={() => setIsTrashOpen(true)}
-                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isTrashOpen ? 'bg-amber-600 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:text-amber-500'}`}
-                                title="Produtos Desativados"
-                            >
-                                <i className="bi bi-power"></i>
-                                <span className="hidden sm:inline">Desativados</span>
-                            </button>
-
-                        </div>
-
-                        <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
                             <Link
                                 to="/registrations/variations"
-                                className="flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                className="flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border bg-white text-indigo-600 border-indigo-200 dark:bg-slate-900 dark:border-indigo-900/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 shrink-0"
                             >
                                 <i className="bi bi-ui-radios"></i>
-                                <span className="hidden xl:inline">Gerenciar Variações</span>
+                                <span>Atributos</span>
                             </Link>
 
-                            <div className="relative">
+                            <div className="relative shrink-0">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     className={`flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
@@ -256,7 +245,7 @@ const Products = () => {
                                         }`}
                                 >
                                     <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
-                                    <span className="hidden sm:inline">Visualização</span>
+                                    <span>Visualização</span>
                                 </button>
 
                                 {showSettings && (
@@ -270,9 +259,9 @@ const Products = () => {
                                                     { key: 'description', label: 'Título do Produto' },
                                                     { key: 'category', label: 'Categoria' },
                                                     { key: 'createdAt', label: 'Data Criação' },
-                                                    { key: 'costPrice', label: 'Preço de Custo' },
                                                     { key: 'unitPrice', label: 'Preço de Venda' },
                                                     { key: 'stock', label: 'Estoque' },
+                                                    { key: 'status', label: 'Status' },
                                                     { key: 'actions', label: 'Ações' },
                                                 ].map((col) => (
                                                     <button

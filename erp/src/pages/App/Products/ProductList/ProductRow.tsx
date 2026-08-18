@@ -93,12 +93,12 @@ const ProductRow = ({
 
         const isFirst = !firstCellRendered;
         if (isFirst) firstCellRendered = true;
-        const firstCellBorder = (isFirst && isChildVar) ? 'border-l-4 border-l-blue-500 dark:border-l-blue-400' : '';
+        const firstCellBorder = '';
 
         switch (key) {
             case 'id':
                 return (
-                    <td key="id" className={`px-6 py-4 text-left w-[1%] whitespace-nowrap ${firstCellBorder}`}>
+                    <td key="id" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${firstCellBorder}`}>
                         <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                             {product.id || "-"}
                         </span>
@@ -106,7 +106,7 @@ const ProductRow = ({
                 );
             case 'sku':
                 return (
-                    <td key="sku" className={`px-6 py-4 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
+                    <td key="sku" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
                         <span className="font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
                             {product.sku || product.code || "-"}
                         </span>
@@ -114,17 +114,31 @@ const ProductRow = ({
                 );
             case 'code':
                 return (
-                    <td key="code" className={`px-6 py-4 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
-                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg inline-block">
+                    <td key="code" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
+                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg inline-block font-mono">
                             {product.sku || product.code || "-"}
                         </span>
                     </td>
                 );
             case 'description':
-                const displayName = product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-");
+                let displayName = product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-");
                 const isChildVariation = product.isVariation || !!product.parentId;
+                if (isChildVariation) {
+                    let variationName = '';
+                    if (product.attributes && Array.isArray(product.attributes)) {
+                        variationName = product.attributes.map((attr: any) => attr.value).filter(Boolean).join(' ');
+                    } else if (product.attributes && typeof product.attributes === 'object') {
+                        variationName = Object.values(product.attributes).filter(Boolean).join(' ');
+                    }
+                    if (!variationName) {
+                        variationName = (product as any).displayName || product.name || '';
+                    }
+                    if (variationName) {
+                        displayName = variationName;
+                    }
+                }
                 return (
-                    <td key="description" className={`px-6 py-4 text-left ${firstCellBorder}`}>
+                    <td key="description" className={`px-3 py-3 text-left ${firstCellBorder}`}>
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-3 transition-all duration-300">
                                 {/* Thumbnail da Imagem - Apenas Filhos / Produtos sem variação */}
@@ -154,7 +168,7 @@ const ProductRow = ({
                                     </span>
                                     <div className="flex items-center gap-2 mt-1">
                                         {isChildVariation && (
-                                            <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider border border-blue-200 dark:border-blue-800/80 shadow-xs">
+                                            <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-955/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider border border-blue-200 dark:border-blue-800/80 shadow-xs">
                                                 <i className="bi bi-arrow-return-right"></i> VARIANTE
                                             </span>
                                         )}
@@ -163,14 +177,6 @@ const ProductRow = ({
                                                 <i className="bi bi-file-earmark-text"></i> Rascunho
                                             </span>
                                         )}
-                                        <button disabled={!product.active} onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                            ERP · {product.active ? 'Ativo' : 'Inativo'}
-                                        </button>
-                                        <button disabled={product.status !== 'published'} onClick={(e) => { e.stopPropagation(); if (product.status === 'published') onDeactivateCatalog(product.id!); }} title={product.status === 'published' ? 'Clique para ocultar no Catálogo Digital' : 'Produto ocultado no Catálogo Digital'} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                            {product.status === 'published' ? 'Publicado' : 'Ocultado'}
-                                        </button>
                                         {product.itemType === 'service' ? (
                                             <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">
                                                 <i className="bi bi-tools"></i> Serviço
@@ -188,7 +194,7 @@ const ProductRow = ({
                                                     </span>
                                                 )}
                                                 {oppName && (
-                                                    <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-300 dark:border-amber-700/80 shadow-xs">
+                                                    <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-300 dark:border-amber-700/80 shadow-xs">
                                                         <i className="bi bi-fire text-amber-600 dark:text-amber-400"></i> {oppName}
                                                     </span>
                                                 )}
@@ -202,67 +208,91 @@ const ProductRow = ({
                 );
 
             case 'costPrice':
-                if (product.isParent) return <td key="costPrice" className={`px-6 py-4 ${firstCellBorder}`}></td>;
+                if (product.isParent) return <td key="costPrice" className={`px-3 py-3 ${firstCellBorder}`}></td>;
                 return (
-                    <td key="costPrice" className={`px-6 py-4 text-right ${firstCellBorder}`}>
+                    <td key="costPrice" className={`px-3 py-3 text-right ${firstCellBorder}`}>
                         <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
                             {formatCurrency(product.costPrice || 0)}
                         </span>
                     </td>
                 );
             case 'unitPrice':
-                if (product.isParent) return <td key="unitPrice" className={`px-6 py-4 ${firstCellBorder}`}></td>;
+                if (product.isParent) return <td key="unitPrice" className={`px-3 py-3 ${firstCellBorder}`}></td>;
                 const displayPrice = product.unitPrice || 
                     (product.variations?.length 
                         ? Math.min(...product.variations.map(v => v.unitPrice || 0).filter(p => p > 0).concat(0))
                         : 0);
                 return (
-                    <td key="unitPrice" className={`px-6 py-4 text-right ${firstCellBorder}`}>
+                    <td key="unitPrice" className={`px-3 py-3 text-right ${firstCellBorder}`}>
                         <span className="text-sm font-black text-blue-600 dark:text-blue-400">
                             {displayPrice > 0 ? formatCurrency(displayPrice) : '-'}
                         </span>
                     </td>
                 );
             case 'stock':
-                if (product.isParent) return <td key="stock" className={`px-6 py-4 ${firstCellBorder}`}></td>;
+                if (product.isParent) return <td key="stock" className={`px-3 py-3 ${firstCellBorder}`}></td>;
                 const isLowStock = (product.stock || 0) <= (product.minStock || 0);
                 return (
-                    <td key="stock" className={`px-6 py-4 text-center ${firstCellBorder}`}>
+                    <td key="stock" className={`px-3 py-3 text-center ${firstCellBorder}`}>
                         <span className={`text-sm font-black ${isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
                             {product.itemType === 'service' ? '-' : (product.stock ?? 0)}
                         </span>
                     </td>
                 );
             case 'category':
-                if (isChildVar) return <td key="category" className={`px-6 py-4 ${firstCellBorder}`}></td>;
+                if (isChildVar) return <td key="category" className={`px-3 py-3 ${firstCellBorder}`}></td>;
                 const categoryDisplay = getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || (product as any).category_name || (product as any).category || (product as any).categoryName || "-";
+                const leafCategories = categoryDisplay.split(' | ').map(path => {
+                    const parts = path.split(' > ');
+                    return parts[parts.length - 1];
+                }).join(' | ');
                 return (
-                    <td key="category" className={`px-6 py-4 text-left ${firstCellBorder}`}>
+                    <td key="category" className={`px-3 py-3 text-left ${firstCellBorder}`}>
                         <div className="flex flex-wrap gap-x-2 gap-y-1 max-w-[250px]">
-                            {categoryDisplay.split(' | ').map((path, idx) => {
-                                const [parents, catName] = path.includes(' > ') ? path.split(' > ') : ["", path];
-                                return (
-                                    <div key={idx} className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                                        {parents && <span className="text-slate-400 dark:text-slate-600 font-medium">{parents} &gt; </span>}
-                                        <span className="text-slate-600 dark:text-slate-300">{catName}</span>
-                                        {idx < categoryDisplay.split(' | ').length - 1 && <span className="ml-2 text-blue-500 opacity-50">|</span>}
-                                    </div>
-                                );
-                            })}
+                            {leafCategories.split(' | ').map((catName, idx) => (
+                                <div key={idx} className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                                    <span className="text-slate-600 dark:text-slate-300">{catName}</span>
+                                    {idx < leafCategories.split(' | ').length - 1 && <span className="ml-2 text-blue-500 opacity-50">|</span>}
+                                </div>
+                            ))}
                         </div>
                     </td>
                 );
             case 'createdAt':
                 return (
-                    <td key="createdAt" className={`px-6 py-4 text-left ${firstCellBorder}`}>
+                    <td key="createdAt" className={`px-3 py-3 text-left ${firstCellBorder}`}>
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-955 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800">
                             {product.createdAt ? new Date(product.createdAt).toLocaleDateString('pt-BR') : '-'}
                         </span>
                     </td>
                 );
+            case 'status':
+                return (
+                    <td key="status" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-1.5">
+                            <button 
+                                disabled={!product.active} 
+                                onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} 
+                                title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} 
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-955/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}
+                            >
+                                <span className={`w-1 h-1 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                ERP · {product.active ? 'Ativo' : 'Inativo'}
+                            </button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} 
+                                title="Clique para alternar status no Catálogo" 
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${product.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-955/20 dark:text-red-400 dark:border-red-900/30'}`}
+                            >
+                                <span className={`w-1 h-1 rounded-full ${product.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                Catálogo · {product.status === 'published' ? 'Publicado' : 'Ocultado'}
+                            </button>
+                        </div>
+                    </td>
+                );
             case 'actions':
                 return (
-                    <td key="actions" className={`px-6 py-4 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
+                    <td key="actions" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                             {showTrash ? (
                                 <button
@@ -277,7 +307,7 @@ const ProductRow = ({
                                 <>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onEdit(product); }}
-                                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-blue-100 dark:border-blue-900/30"
+                                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-955 border border-blue-100 dark:border-blue-900/30"
                                         title="Editar produto"
                                     >
                                         <i className="bi bi-pencil-fill text-sm" />
@@ -316,7 +346,7 @@ const ProductRow = ({
                                                 {onShowHistory && !product.isParent && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onShowHistory(product); }}
-                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
                                                     >
                                                         <i className="bi bi-clock-history text-amber-500" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
@@ -335,21 +365,11 @@ const ProductRow = ({
 
                                                 {product.itemType !== 'service' && !product.isParent && (
                                                     <>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onLaunchStock?.(product); }}
-                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
-                                                        >
-                                                            <span className="flex items-center gap-0.5 text-emerald-500">
-                                                                <i className="bi bi-box-seam-fill" />
-                                                                <i className="bi bi-arrow-left-right text-[9px]" />
-                                                            </span>
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
-                                                        </button>
-                                                        
-                                                        <div className="border-t border-slate-50 dark:border-slate-800/50 mt-1 pt-1">
-                                                            <div className="px-4 py-1.5">
-                                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Imprimir Etiqueta</span>
-                                                            </div>
+                                                        <div className="h-px bg-slate-50 dark:bg-slate-800 my-1"></div>
+                                                        <div className="px-4 py-1.5">
+                                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Etiquetas</span>
+                                                        </div>
+                                                        <div className="flex flex-col w-full">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setLabelModal({ open: true, type: 'identification' }); }}
                                                                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full"
@@ -359,7 +379,7 @@ const ProductRow = ({
                                                             </button>
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setLabelModal({ open: true, type: 'price' }); }}
-                                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full"
+                                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group w-full"
                                                             >
                                                                 <i className="bi bi-tag-fill text-emerald-500" />
                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Etiq. de Preço</span>
@@ -402,7 +422,7 @@ const ProductRow = ({
                 product.isParent 
                     ? 'bg-blue-50/30 dark:bg-blue-900/10' 
                     : isChildVar 
-                    ? 'bg-slate-50/40 dark:bg-slate-900/40 border-l-4 border-l-blue-500 dark:border-l-blue-400' 
+                    ? 'bg-slate-50/40 dark:bg-slate-900/40' 
                     : 'bg-slate-50/50 dark:bg-slate-900/30'
             } hover:bg-blue-50/40 dark:hover:bg-slate-800/50`}
             onClick={() => onEdit(product)}
@@ -413,6 +433,7 @@ const ProductRow = ({
                     {renderCell('description')}
                     {renderCell('unitPrice')}
                     {renderCell('stock')}
+                    {renderCell('status')}
                     {renderCell('actions')}
                 </>
             )}

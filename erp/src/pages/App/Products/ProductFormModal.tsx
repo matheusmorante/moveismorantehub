@@ -91,17 +91,6 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                 />
             </td>
             <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                    <input
-                        type="number"
-                        value={v.costPrice}
-                        readOnly
-                        title="O preço de custo é definido pelas entradas de estoque"
-                        className="bg-transparent border-none outline-none text-sm font-medium w-24 text-slate-400 cursor-not-allowed"
-                    />
-                </div>
-            </td>
-            <td className="px-6 py-4">
                 <input
                     type="number"
                     value={v.stock}
@@ -191,6 +180,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
     const [isGeneratingNCM, setIsGeneratingNCM] = useState(false);
     const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+    const [isImprovingDescription, setIsImprovingDescription] = useState(false);
     const [isSuggestingPrices, setIsSuggestingPrices] = useState(false);
     const [suggestPricesResults, setSuggestPricesResults] = useState<{ low: any, medium: any, high: any } | null>(null);
     const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
@@ -532,12 +522,18 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     ...INITIAL_FORM_DATA,
                     id: generatedId,
                     code: generatedSku,
+                    description: "Sem nome",
+                    isDraft: true,
+                    active: false,
                     ...initialData
                 };
                 initialFormDataRef.current = JSON.stringify(nextFormData);
                 setFormData(nextFormData);
                 setDiscountFixed("");
                 setDiscountPercent("");
+                
+                // Salvar o rascunho temporario imediatamente para aparecer na lista
+                await saveProduct(nextFormData as Product);
             }
             setActiveTab('geral');
         };
@@ -843,6 +839,33 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     };
 
+    const handleImproveDescriptionWithAI = async () => {
+        setIsImprovingDescription(true);
+        try {
+            const result = await aiService.improveProductDescription({
+                currentDescription: formData.description || "",
+                title: formData.name || "",
+                material: formData.material,
+                brand: formData.brand,
+                line: formData.line,
+                width: formData.width,
+                height: formData.height,
+                depth: formData.depth,
+                weight: formData.weight
+            });
+
+            setFormData(prev => ({
+                ...prev,
+                description: result.improvedDescription
+            }));
+            toast.success("Descrição aperfeiçoada com sucesso! ✨");
+        } catch (error: any) {
+            toast.error(error.message || "Erro ao aperfeiçoar descrição");
+        } finally {
+            setIsImprovingDescription(false);
+        }
+    };
+
     const handleSuggestPrices = async () => {
         if (!formData.description) return toast.warning("O produto precisa de um título");
         if (!formData.finalPurchasePrice || formData.finalPurchasePrice <= 0) 
@@ -1059,7 +1082,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const handleToggleCatalogPublished = () => {
         const isPublished = formData.status === 'published';
         if (!isPublished && !ecomStatus.isLegible) {
-            showActivationErrors('Catálogo Digital', ecomStatus.errors);
+            showActivationErrors('Catálogo', ecomStatus.errors);
             return;
         }
         setFormData(prev => ({ ...prev, status: prev.status === 'published' ? 'draft' : 'published' }));
@@ -1115,7 +1138,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             return false;
         }
         if (formData.status === 'published' && !ecomVal.isLegible) {
-            toast.error("Despublique o Catálogo Digital antes de remover ou alterar um campo obrigatório.");
+            toast.error("Despublique o Catálogo antes de remover ou alterar um campo obrigatório.");
             return false;
         }
         
@@ -1256,18 +1279,18 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             {/* Catálogo Indicator */}
                             <div className="relative group cursor-help">
                                 <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${formData.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}>
-                                    <span>Catálogo Digital: {formData.status === 'published' ? 'Publicado' : 'Despublicado'}</span>
+                                    <span>Catálogo: {formData.status === 'published' ? 'Publicado' : 'Despublicado'}</span>
                                 </div>
                                 
                                 {/* Tooltip Catálogo */}
                                 <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Requisitos do Catálogo Digital</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Requisitos do Catálogo</p>
                                     <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold mb-3">💡 Clique em qualquer item pendente para ir direto ao campo.</p>
                                     <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
                                         <li onClick={() => navigateToRequirementField('marketplaceTitle')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item">
                                             <div className="flex items-center gap-2">
                                                 <i className={`bi ${ecomStatus.checks.marketplaceTitle ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}></i>
-                                                <span className={ecomStatus.checks.marketplaceTitle ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Título do Produto (Catálogo Digital)</span>
+                                                <span className={ecomStatus.checks.marketplaceTitle ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Título do Produto (Catálogo)</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                                         </li>
@@ -1352,6 +1375,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                         <ProductTechnicalTab
                             formData={formData}
                             setFormData={setFormData}
+                            handleImproveDescriptionWithAI={handleImproveDescriptionWithAI}
+                            isImprovingDescription={isImprovingDescription}
                         />
                     )}
 
@@ -1680,7 +1705,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 flex flex-col gap-4">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-black text-purple-600 uppercase tracking-widest">
-                                            Catálogo Digital
+                                            Catálogo
                                         </span>
                                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${saveResult.product.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                                             {saveResult.product.status === 'published' ? 'Publicado' : 'Despublicado'}
@@ -1691,7 +1716,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                         <li onClick={() => navigateToRequirementField('marketplaceTitle')} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-colors group/res">
                                             <div className="flex items-center gap-2">
                                                 <i className={`bi ${saveResult.checksEcom.marketplaceTitle ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-slate-400'}`}></i>
-                                                <span className={saveResult.checksEcom.marketplaceTitle ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Título do Catálogo Digital</span>
+                                                <span className={saveResult.checksEcom.marketplaceTitle ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 font-bold'}>Título do Catálogo</span>
                                             </div>
                                             <i className="bi bi-arrow-right-short text-slate-400 group-hover/res:translate-x-1 transition-transform"></i>
                                         </li>

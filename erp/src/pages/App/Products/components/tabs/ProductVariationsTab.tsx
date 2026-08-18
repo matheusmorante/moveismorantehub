@@ -71,7 +71,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                 <div className="flex flex-col gap-4 animate-in fade-in duration-200">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex flex-wrap items-center gap-3">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Catálogo de Variações ({variations.length})</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Variações ({variations.length})</h4>
                         </div>
                         <div className="flex items-center gap-2.5 w-full md:w-auto">
                             <button
@@ -84,7 +84,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-[2.5rem] bg-white dark:bg-slate-950/20 shadow-sm">
+                    <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-[2.5rem] bg-white dark:bg-slate-955/20 shadow-sm">
                         <table className="w-full text-left border-collapse min-w-[1000px]">
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-900/50">
@@ -92,7 +92,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Código (SKU)</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço Venda (R$)</th>
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Custo (R$)</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">Estoque</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
                                 </tr>
@@ -111,7 +110,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                 ))}
                                 {variations.length === 0 && (
                                     <tr className="px-6 py-20 text-center text-slate-400">
-                                        <td colSpan={7} className="px-6 py-20 text-center text-slate-400">
+                                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400">
                                             <i className="bi bi-stack text-4xl mb-3 block opacity-20"></i>
                                             <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma variação definida ainda.</p>
                                         </td>

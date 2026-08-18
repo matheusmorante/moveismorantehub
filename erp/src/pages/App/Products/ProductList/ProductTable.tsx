@@ -41,12 +41,11 @@ interface ColumnDef {
 
 const COLUMNS_DEF: ColumnDef[] = [
     { key: 'code', label: 'SKU' },
-    { key: 'description', label: 'Nome do Produto' },
+    { key: 'description', label: 'Produto/Variação' },
     { key: 'category', label: 'Categoria' },
-    { key: 'createdAt', label: 'Data Criação' },
-    { key: 'costPrice', label: 'Preço Custo', align: 'text-right' },
     { key: 'unitPrice', label: 'Preço Venda', align: 'text-right' },
     { key: 'stock', label: 'Estoque', align: 'text-center' },
+    { key: 'status', label: 'Status', align: 'text-center' },
     { key: 'actions', label: 'Ações', align: 'text-center' },
 ];
 
@@ -77,7 +76,9 @@ const ProductTable = ({
         if (savedOrder) {
             try {
                 const keys = JSON.parse(savedOrder) as string[];
-                return keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
+                const existingColumns = keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
+                const missingColumns = COLUMNS_DEF.filter(c => !keys.includes(c.key));
+                return [...existingColumns, ...missingColumns];
             } catch (e) {
                 return COLUMNS_DEF;
             }
@@ -169,7 +170,7 @@ const ProductTable = ({
                             <tr className="border-b border-slate-100 dark:border-slate-800 transition-colors">
                                 {orderedColumns.map((col) => {
                                     const isVisible = visibilitySettings[col.key];
-                                    const sortableKeys = ['code', 'description', 'unitPrice', 'stock', 'createdAt', 'category'];
+                                    const sortableKeys = ['code', 'description', 'unitPrice', 'stock', 'status', 'category'];
                                     const isSortable = sortableKeys.includes(col.key);
                                     const isSorted = filters?.sortBy === col.key;
                                     const sortOrder = filters?.sortOrder || 'asc';
@@ -184,7 +185,7 @@ const ProductTable = ({
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, col.key as string)}
                                             onDragEnd={() => setDraggedColumn(null)}
-                                            className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'} ${col.key === 'code' ? 'w-[1%] whitespace-nowrap' : ''}`}
+                                            className={`px-3 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'} ${col.key === 'code' ? 'w-[1%] whitespace-nowrap' : ''}`}
                                         >
                                             <div className={`flex items-center gap-2 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
                                                 <div className="flex items-center group/header w-fit cursor-grab active:cursor-grabbing">
@@ -257,26 +258,28 @@ const ProductTable = ({
                             <p className="text-sm font-bold uppercase tracking-widest">Nenhum produto encontrado</p>
                         </div>
                     ) : (
-                        finalProducts.map((product) => (
-                            <ProductCard
-                                key={product.id}
-                                product={product}
-                                onEdit={onEdit}
-                                onShowHistory={onShowHistory}
-                                onLaunchStock={onLaunchStock}
-                                onDelete={onDelete}
-                                onRestore={onRestore}
-                                onPermanentDelete={onPermanentDelete}
-                                onToggleActive={onToggleActive}
-                                onDeactivateCatalog={onDeactivateCatalog}
-                                showTrash={showTrash}
-                                isSelected={selectedProducts.includes(product.id!)}
-                                onToggleSelection={() => onToggleSelection(product.id!)}
-                                categoryTree={categoryTree}
-                                onRefresh={onRefresh}
-                                onDuplicate={onDuplicate}
-                            />
-                        ))
+                        finalProducts
+                            .filter(product => !product.parentId && !product.isVariation)
+                            .map((product) => (
+                                <ProductCard
+                                    key={product.id}
+                                    product={product}
+                                    onEdit={onEdit}
+                                    onShowHistory={onShowHistory}
+                                    onLaunchStock={onLaunchStock}
+                                    onDelete={onDelete}
+                                    onRestore={onRestore}
+                                    onPermanentDelete={onPermanentDelete}
+                                    onToggleActive={onToggleActive}
+                                    onDeactivateCatalog={onDeactivateCatalog}
+                                    showTrash={showTrash}
+                                    isSelected={selectedProducts.includes(product.id!)}
+                                    onToggleSelection={() => onToggleSelection(product.id!)}
+                                    categoryTree={categoryTree}
+                                    onRefresh={onRefresh}
+                                    onDuplicate={onDuplicate}
+                                />
+                            ))
                     )}
                 </div>
             )}

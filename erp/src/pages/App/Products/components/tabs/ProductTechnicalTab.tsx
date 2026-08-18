@@ -4,11 +4,15 @@ import { Product } from '../../../../types/product.type';
 interface ProductTechnicalTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+    handleImproveDescriptionWithAI?: () => void;
+    isImprovingDescription?: boolean;
 }
 
 const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     formData,
-    setFormData
+    setFormData,
+    handleImproveDescriptionWithAI,
+    isImprovingDescription
 }) => {
     const handleFieldChange = (field: keyof Product, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -16,22 +20,39 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Descrição para E-commerce */}
+            {/* Descrição Detalhada */}
             <div className="flex flex-col gap-2 bg-white dark:bg-slate-900/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center justify-between">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-[#file-text] text-blue-600"></i> Descrição Detalhada para E-commerce
+                        <i className="bi bi-file-text text-blue-600"></i> Descrição Detalhada
                     </h4>
+                    {handleImproveDescriptionWithAI && (
+                        <button
+                            type="button"
+                            onClick={handleImproveDescriptionWithAI}
+                            disabled={isImprovingDescription}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isImprovingDescription ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md shadow-purple-500/10 active:scale-95'}`}
+                        >
+                            {isImprovingDescription ? (
+                                <>
+                                    <div className="w-2.5 h-2.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                                    Aperfeiçoando...
+                                </>
+                            ) : (
+                                <>
+                                    <i className="bi bi-sparkles"></i>
+                                    Aperfeiçoar com IA
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
-                    Esta descrição será exibida na página do produto no E-commerce / Marketplace.
-                </p>
                 <textarea
-                    rows={6}
+                    rows={8}
                     value={formData.description || ''}
                     onChange={(e) => handleFieldChange('description', e.target.value)}
                     placeholder="Escreva a descrição detalhada do produto, diferenciais, especificações técnicas..."
-                    className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 resize-none dark:text-slate-200"
+                    className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 resize-none dark:text-slate-200"
                 />
             </div>
 
@@ -39,69 +60,99 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
             <div id="field-product-dimensions" className="flex flex-col gap-4 bg-white dark:bg-slate-900/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center justify-between">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-ruler text-blue-600"></i> Dimensões Físicas do Produto (Sem Embalagem)
+                        <i className="bi bi-ruler text-blue-600"></i> Medidas
                     </h4>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-                    {/* Largura */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-450">Largura</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                            <span>Altura (cm)</span>
+                            {formData.noHeight && <span className="text-[8px] text-amber-500 font-bold lowercase">Ocultado</span>}
+                        </label>
                         <div className="relative">
                             <input
                                 type="number"
                                 step="0.1"
-                                value={formData.width !== undefined && formData.width !== null ? formData.width : ''}
-                                onChange={(e) => handleFieldChange('width', e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                                className="w-full pl-3 pr-8 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
+                                disabled={formData.noHeight}
+                                value={formData.height || ''}
+                                onChange={(e) => handleFieldChange('height', e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
                                 placeholder="0"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold pointer-events-none">cm</span>
+                            <button
+                                type="button"
+                                onClick={() => handleFieldChange('noHeight', !formData.noHeight)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${formData.noHeight ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/25' : 'text-slate-400 hover:text-slate-600'}`}
+                                title={formData.noHeight ? "Mostrar no e-commerce" : "Ocultar no e-commerce"}
+                            >
+                                <i className={`bi ${formData.noHeight ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Profundidade / Comprimento */}
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-450 flex items-center gap-1.5">
-                                <span>{formData.depthUseLength ? 'Comprimento' : 'Profundidade'}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => handleFieldChange('depthUseLength' as any, !formData.depthUseLength)}
-                                    className="text-blue-600 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/30 p-1 rounded-md transition-colors flex items-center gap-1 text-[9px] font-semibold"
-                                    title={`Alternar para ${formData.depthUseLength ? 'Profundidade' : 'Comprimento'}`}
-                                >
-                                    <i className="bi bi-arrow-repeat text-xs"></i>
-                                </button>
-                            </label>
-                        </div>
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                            <span>Largura (cm)</span>
+                            {formData.noWidth && <span className="text-[8px] text-amber-500 font-bold lowercase">Ocultado</span>}
+                        </label>
                         <div className="relative">
                             <input
                                 type="number"
                                 step="0.1"
-                                value={formData.depth !== undefined && formData.depth !== null ? formData.depth : ''}
-                                onChange={(e) => handleFieldChange('depth', e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                                className="w-full pl-3 pr-8 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
+                                disabled={formData.noWidth}
+                                value={formData.width || ''}
+                                onChange={(e) => handleFieldChange('width', e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
                                 placeholder="0"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold pointer-events-none">cm</span>
+                            <button
+                                type="button"
+                                onClick={() => handleFieldChange('noWidth', !formData.noWidth)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${formData.noWidth ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/25' : 'text-slate-400 hover:text-slate-600'}`}
+                                title={formData.noWidth ? "Mostrar no e-commerce" : "Ocultar no e-commerce"}
+                            >
+                                <i className={`bi ${formData.noWidth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Altura */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-450">Altura</label>
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                            <span>Profundidade (cm)</span>
+                            {formData.noDepth && <span className="text-[8px] text-amber-500 font-bold lowercase">Ocultado</span>}
+                        </label>
                         <div className="relative">
                             <input
                                 type="number"
                                 step="0.1"
-                                value={formData.height !== undefined && formData.height !== null ? formData.height : ''}
-                                onChange={(e) => handleFieldChange('height', e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                                className="w-full pl-3 pr-8 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
+                                disabled={formData.noDepth}
+                                value={formData.depth || ''}
+                                onChange={(e) => handleFieldChange('depth', e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
                                 placeholder="0"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-450 font-bold pointer-events-none">cm</span>
+                            <button
+                                type="button"
+                                onClick={() => handleFieldChange('noDepth', !formData.noDepth)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${formData.noDepth ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/25' : 'text-slate-400 hover:text-slate-600'}`}
+                                title={formData.noDepth ? "Mostrar no e-commerce" : "Ocultar no e-commerce"}
+                            >
+                                <i className={`bi ${formData.noDepth ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                            </button>
                         </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Peso (kg)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={formData.weight || ''}
+                            onChange={(e) => handleFieldChange('weight', e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                            placeholder="0,00"
+                        />
                     </div>
                 </div>
             </div>

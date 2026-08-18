@@ -11,3 +11,6 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 - Ajustado o arquivo CSV para manter quebras de linha e emojis no catálogo do WhatsApp.
 - Removido o cache da API para sincronização imediata.
 - Fixada a quantidade padrão para vender em `1` item no CSV.
+
+## Credenciais e APIs
+- **Gemini API Key**: `AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ` (Salvo para futura integração com IA no Catálogo/ERP)

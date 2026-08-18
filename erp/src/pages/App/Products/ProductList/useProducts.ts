@@ -106,7 +106,7 @@ export const useProducts = (filters?: any) => {
             })
             .sort((a, b) => {
                 let comparison = 0;
-                const sortBy = filters?.sortBy || 'description';
+                const sortBy = filters?.sortBy || 'createdAt';
 
                 if (sortBy === "description") {
                     comparison = (a.description || "").localeCompare(b.description || "");
@@ -122,7 +122,7 @@ export const useProducts = (filters?: any) => {
                     comparison = (a.category || "").localeCompare(b.category || "");
                 }
 
-                const sortOrder = filters?.sortOrder || 'asc';
+                const sortOrder = filters?.sortOrder || 'desc';
                 return sortOrder === "asc" ? comparison : -comparison;
             });
     }, [products, filters]);
@@ -142,11 +142,63 @@ export const useProducts = (filters?: any) => {
             const actuallyHasVariations = Boolean(product.hasVariations) || hasJsonVariations || variationsFromIndependent.length > 0;
             const parentSku = product.sku || product.code || String(pIdx + 1).padStart(6, '0');
 
+            const allVars: any[] = [];
+            // 1. Child Rows from JSON field
+            if (product.hasVariations && product.variations) {
+                product.variations.forEach((v: any, index: number) => {
+                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
+                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+
+                    allVars.push({
+                        ...product,
+                        id: `${product.id}_${varSku || index}`,
+                        sku: varSku,
+                        code: varSku, // Garantir que a coluna 'SKU/Código' use o SKU real da variação
+                        description: v.name,
+                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
+                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
+                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
+                        active: v.active,
+                        status: v.status || product.status,
+                        images: parseVariationImages(v.image_url, v.images),
+                        parentImages: product.images || [],
+                        isVariation: true,
+                        parentId: product.id,
+                        categoryIds: product.categoryIds,
+                        category: product.category,
+                        unit: product.unit,
+                        attributes: v.attributes,
+                        displayName: v.name
+                    });
+                });
+            }
+
+            // 2. Child Rows from independent items (e.g. from imports)
+            if (!hasJsonVariations && variationsFromIndependent.length > 0) {
+                variationsFromIndependent.forEach(v => {
+                    const vCode = v.code || v.sku; 
+                    if (product.variations?.some((jv: any) => jv.sku === vCode || String(jv.id) === String(v.id))) return;
+
+                    allVars.push({
+                        ...v,
+                        sku: vCode, 
+                        code: vCode,
+                        isVariation: true,
+                        parentId: product.id,
+                        description: v.description,
+                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase()) 
+                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '')
+                            : v.description
+                    });
+                });
+            }
+
             flattened.push({ 
                 ...product, 
                 sku: parentSku,
                 code: parentSku,
                 isParent: actuallyHasVariations,
+                allVariations: allVars
             });
 
             // 1. Child Rows from JSON field
@@ -161,9 +213,9 @@ export const useProducts = (filters?: any) => {
                         sku: varSku,
                         code: varSku, // Garantir que a coluna 'SKU/Código' use o SKU real da variação
                         description: v.name,
-                        unitPrice: typeof v.unitPrice !== 'undefined' ? v.unitPrice : v.unit_price,
-                        costPrice: typeof v.costPrice !== 'undefined' ? v.costPrice : (typeof v.cost_price !== 'undefined' ? v.cost_price : product.costPrice),
-                        stock: v.stock,
+                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
+                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
+                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
                         active: v.active,
                         status: v.status || product.status,
                         images: parseVariationImages(v.image_url, v.images),
@@ -401,17 +453,43 @@ export const useProducts = (filters?: any) => {
             const newActive = !currentStatus;
 
             if (newActive) {
-                const productToActivate = products.find(product => String(product.id) === String(id));
-                const isErpEligible = productToActivate &&
-                    (productToActivate.description || '').trim().length >= 2 &&
-                    Number(productToActivate.unitPrice || 0) > 0 &&
-                    (productToActivate.categoryIds || []).length > 0 &&
-                    Boolean(productToActivate.mainSupplierId) &&
-                    Number(productToActivate.costPrice || 0) > 0;
+                if (id.includes('_')) {
+                    const [parentId, ...skuParts] = id.split('_');
+                    const targetSku = skuParts.join('_');
+                    const parent = products.find(p => p.id === parentId);
+                    if (parent && parent.variations) {
+                        const v = parent.variations.find((item: any, idx: number) => {
+                            const sku = item.sku || `${parent.sku || parent.code}-${String(idx + 1).padStart(2, '0')}`;
+                            return String(sku) === targetSku;
+                        });
+                        if (v) {
+                            const isVPriceValid = (v.syncUnitPrice || Number(v.unitPrice || 0) > 0 || Number(parent.unitPrice || 0) > 0);
+                            const isVCostPriceValid = (v.syncCostPrice || Number(v.costPrice || 0) > 0 || Number(parent.costPrice || 0) > 0);
+                            const isVarEligible = (parent.description || '').trim().length >= 2 &&
+                                isVPriceValid &&
+                                (parent.categoryIds || []).length > 0 &&
+                                Boolean(parent.mainSupplierId) &&
+                                isVCostPriceValid;
 
-                if (!isErpEligible) {
-                    toast.error('Preencha os requisitos do ERP antes de ativar este produto.');
-                    return;
+                            if (!isVarEligible) {
+                                toast.error('Preencha os requisitos do ERP (preço de custo, preço de venda, fornecedor e categoria no pai) antes de ativar esta variação.');
+                                return;
+                            }
+                        }
+                    }
+                } else {
+                    const productToActivate = products.find(product => String(product.id) === String(id));
+                    const isErpEligible = productToActivate &&
+                        (productToActivate.description || '').trim().length >= 2 &&
+                        Number(productToActivate.unitPrice || 0) > 0 &&
+                        (productToActivate.categoryIds || []).length > 0 &&
+                        Boolean(productToActivate.mainSupplierId) &&
+                        Number(productToActivate.costPrice || 0) > 0;
+
+                    if (!isErpEligible) {
+                        toast.error('Preencha os requisitos do ERP (preço de custo, preço de venda, fornecedor e categoria) antes de ativar este produto.');
+                        return;
+                    }
                 }
             }
 
@@ -481,8 +559,47 @@ export const useProducts = (filters?: any) => {
                 ? products.find(product => String(product.id) === String(possibleParentId))
                 : products.find(product => String(product.id) === String(id));
 
-            // Variações internas têm o ID visual "idDoPai_SKU", que não é um
-            // ID da tabela products. Atualize a variação, não o produto-pai.
+            let currentStatus = 'published';
+
+            if (isEmbeddedVariation && parentProduct?.variations) {
+                const variation = parentProduct.variations.find((item: any, index: number) => {
+                    const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
+                    return String(sku) === targetSku;
+                });
+                currentStatus = variation?.status || 'published';
+            } else if (parentProduct) {
+                currentStatus = parentProduct.status || 'published';
+            }
+
+            const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
+
+            if (newStatus === 'published') {
+                if (isEmbeddedVariation && parentProduct?.variations) {
+                    const variation = parentProduct.variations.find((item: any, index: number) => {
+                        const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
+                        return String(sku) === targetSku;
+                    });
+                    const hasImages = (variation?.images && variation.images.length > 0) || (parentProduct.images && parentProduct.images.length > 0);
+                    const hasPrice = (variation?.syncUnitPrice || Number(variation?.unitPrice || 0) > 0 || Number(parentProduct.unitPrice || 0) > 0);
+                    const isEligible = hasPrice && hasImages && (parentProduct.description || '').trim().length >= 2;
+
+                    if (!isEligible) {
+                        toast.error('Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar esta variação.');
+                        return;
+                    }
+                } else if (parentProduct) {
+                    const hasImages = parentProduct.images && parentProduct.images.length > 0;
+                    const hasPrice = Number(parentProduct.unitPrice || 0) > 0;
+                    const isEligible = hasPrice && hasImages && (parentProduct.description || '').trim().length >= 2;
+
+                    if (!isEligible) {
+                        toast.error('Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar este produto.');
+                        return;
+                    }
+                }
+            }
+
+            // Variações internas têm o ID visual "idDoPai_SKU"
             if (isEmbeddedVariation && parentProduct?.variations) {
                 const variation = parentProduct.variations.find((item: any, index: number) => {
                     const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
@@ -492,53 +609,53 @@ export const useProducts = (filters?: any) => {
 
                 await updateProduct(parentProduct.id!, {
                     variations: parentProduct.variations.map((item: any) =>
-                        String(item.id) === String(variation.id) ? { ...item, status: 'hidden' } : item
+                        String(item.id) === String(variation.id) ? { ...item, status: newStatus } : item
                     )
                 });
                 const { error } = await supabase
                     .from('product_variations')
-                    .update({ status: 'hidden' })
+                    .update({ status: newStatus })
                     .eq('id', variation.id);
                 if (error) throw error;
 
-                toast.success('Variação ocultada do Catálogo Digital.');
+                toast.success(`Variação ${newStatus === 'published' ? 'publicada no' : 'ocultada do'} Catálogo Digital.`);
                 refresh();
                 return;
             }
 
             const { error: productError } = await supabase
                 .from('products')
-                .update({ status: 'hidden' })
+                .update({ status: newStatus })
                 .eq('id', id)
                 .select('id')
                 .single();
             if (productError) throw productError;
 
             // Mantém o cache da lista coerente enquanto ela é recarregada.
-            await updateProduct(id, { status: 'hidden' });
+            await updateProduct(id, { status: newStatus });
 
             if (parentProduct?.variations?.length) {
                 await updateProduct(id, {
-                    variations: parentProduct.variations.map((variation: any) => ({ ...variation, status: 'hidden' }))
+                    variations: parentProduct.variations.map((variation: any) => ({ ...variation, status: newStatus }))
                 });
             }
 
             const { error: variationsError } = await supabase
                 .from('product_variations')
-                .update({ status: 'hidden' })
+                .update({ status: newStatus })
                 .eq('product_id', id);
             if (variationsError) throw variationsError;
 
             const independentChildren = products.filter(product => String(product.parentId) === String(id));
             await Promise.all(independentChildren
                 .filter(child => child.id)
-                .map(child => updateProduct(child.id!, { status: 'hidden' })));
+                .map(child => updateProduct(child.id!, { status: newStatus })));
 
-            toast.success('Produto ocultado do Catálogo Digital.');
+            toast.success(`Produto ${newStatus === 'published' ? 'publicado no' : 'ocultado do'} Catálogo Digital.`);
             refresh();
         } catch (error) {
-            console.error('Erro ao desativar catálogo:', error);
-            toast.error('Erro ao desativar o produto no Catálogo Digital.');
+            console.error('Erro ao alternar catálogo:', error);
+            toast.error('Erro ao alterar status no Catálogo Digital.');
         }
     };
 

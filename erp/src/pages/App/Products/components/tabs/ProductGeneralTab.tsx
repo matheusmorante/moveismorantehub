@@ -75,16 +75,15 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                     </label>
                     <input
-                        value={formData.description || formData.name || ''}
+                        value={formData.name || ''}
                         onChange={(e) => {
-                            const val = e.target.value.toUpperCase();
+                            const val = e.target.value;
                             setFormData(prev => ({ 
                                 ...prev, 
-                                description: val, 
                                 name: val 
                             }));
                         }}
-                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
                         placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
                     />
                 </div>
@@ -93,19 +92,19 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <div id="field-marketplace-title" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                         <span>Título</span>
-                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                     </label>
                     <input
                         value={formData.title || formData.marketplaceTitle || ''}
                         onChange={(e) => {
-                            const val = e.target.value.toUpperCase();
+                            const val = e.target.value;
                             setFormData(prev => ({ 
                                 ...prev, 
                                 title: val, 
                                 marketplaceTitle: val 
                             }));
                         }}
-                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
                         placeholder="Digite o título no catálogo..."
                     />
                 </div>
@@ -120,7 +119,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
                                     <span>Categoria(s)</span>
                                     <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                 </label>
                                 <button
                                     type="button"
@@ -229,7 +228,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                         <span>Oportunidade</span>
                         <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                     </label>
                     <select
                         value={formData.opportunityId || ''}

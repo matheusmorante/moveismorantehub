@@ -144,5 +144,188 @@ export const aiService = {
     async suggestPrices(data: { description: string, costPrice: number, material?: string, differential?: string }) {
         if (!data.description || !data.costPrice) throw new Error("Título e Preço de Custo são obrigatórios");
         return await callAIBackend("suggest-prices", data);
+    },
+
+    async generateFiscalData(productData: {
+        title: string;
+        description: string;
+        companyName: string;
+        companyAddress: string;
+    }): Promise<{
+        ncm: string;
+        cest: string;
+        ncmDescription: string;
+        cfop: string;
+        icmsPercent: number;
+        cst: string;
+        origem: string;
+    }> {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        
+        const prompt = `Você é um especialista tributário do Brasil. 
+Sua tarefa é analisar os dados do produto e da empresa abaixo e sugerir a classificação fiscal e tributária exata para a emissão de Nota Fiscal Eletrônica (NF-e).
+
+DADOS DO PRODUTO:
+- Título/Nome: ${productData.title}
+- Descrição Detalhada: ${productData.description || "Não informada"}
+
+DADOS DA EMPRESA EMITENTE:
+- Razão Social/Nome: ${productData.companyName || "Não informado"}
+- Endereço/Localização: ${productData.companyAddress || "Não informado"}
+
+RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`\`json), sem saudações ou explicações:
+{
+  "ncm": "string com 8 dígitos numéricos do NCM correto para o produto",
+  "cest": "string com 7 dígitos do CEST correto (ou string vazia se não aplicável)",
+  "ncmDescription": "descrição oficial resumida do NCM (máx 100 caracteres)",
+  "cfop": "CFOP correto para venda interna (geralmente 5102 para mercadoria geral, ou outro aplicável se houver Substituição Tributária)",
+  "cst": "CST ou CSOSN de ICMS mais adequado (ex: 102 para Simples Nacional sem permissão de crédito, ou outro adequado para o tipo de produto e empresa)",
+  "icmsPercent": alíquota padrão de ICMS sugerida como número (ex: 12 ou 18),
+  "origem": "origem da mercadoria de 0 a 8 (geralmente 0 para Nacional)"
+}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    text: prompt
+                                }
+                            ]
+                        }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("Erro na resposta do Gemini API");
+            }
+
+            const resJson = await response.json();
+            const textResponse = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            let cleanJson = textResponse.trim();
+            if (cleanJson.startsWith('```json')) {
+                cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+            } else if (cleanJson.startsWith('```')) {
+                cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+            }
+            
+            const parsed = JSON.parse(cleanJson);
+            return {
+                ncm: String(parsed.ncm || '').replace(/\D/g, '').slice(0, 8),
+                cest: String(parsed.cest || '').replace(/\D/g, '').slice(0, 7),
+                ncmDescription: String(parsed.ncmDescription || ''),
+                cfop: String(parsed.cfop || '').replace(/\D/g, '').slice(0, 4),
+                cst: String(parsed.cst || ''),
+                icmsPercent: Number(parsed.icmsPercent || 0),
+                origem: String(parsed.origem || '0')
+            };
+        } catch (error) {
+            console.error("Erro na classificação tributária automática:", error);
+            throw new Error("Falha ao gerar dados fiscais com Gemini.");
+        }
+    },
+
+    async improveProductDescription(data: {
+        currentDescription: string;
+        title: string;
+        material?: string;
+        brand?: string;
+        line?: string;
+        width?: string | number;
+        height?: string | number;
+        depth?: string | number;
+        weight?: string | number;
+    }): Promise<{ improvedDescription: string }> {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        
+        const prompt = `Você é um redator profissional de e-commerce especializado em móveis e decoração no Brasil.
+Sua tarefa é aperfeiçoar a descrição de um produto para torná-la mais profissional, atraente e vendedora.
+
+Você deve usar exatamente esta estrutura de resposta:
+1. Um parágrafo descritivo e persuasivo explicando os benefícios e características do móvel.
+2. Uma linha vazia.
+3. O título "Características:" (com a inicial maiúscula).
+4. Uma lista de características com marcadores simples de texto (sem asteriscos ou hífens no início de cada linha, apenas a característica direta, ex: Material em MDP, 6 Portas, 2 Gavetas, etc.), cada uma em sua linha.
+5. Uma linha vazia.
+6. O título "Dimensões:" (com a inicial maiúscula).
+7. Altura, Largura, Profundidade e Peso (se informados) formatados exatamente como no exemplo.
+
+Exemplo de formato esperado:
+O Guarda Roupa Solteiro 6 Portas 2 Gavetas Sidney Doripel é um produto compacto porém funcional para atender as necessidades diarias, oferece espaço para armazenar as roupa e acessórios com maior organização. O móvel é fabricado em MDP o que garante uma maior durabilidade ao produto.
+
+Características:
+Material em MDP
+6 Portas
+2 Gavetas
+Cabideiro madeira revestido com plástico
+Corrediças plásticas
+Dobradiças metálica
+Puxadores PVC
+Prateleira suporta até 3kg
+Gavetas suporta até 5kg
+
+Dimensões:
+Altura: 175 cm
+Largura: 137 cm
+Profundidade: 38 cm
+Peso: 62,00 kg
+
+DADOS ATUAIS DO PRODUTO PARA SE BASEAR:
+- Nome/Título do Produto: ${data.title}
+- Descrição digitada pelo usuário: ${data.currentDescription || "Não informada"}
+- Material do Produto: ${data.material || "Não informado"}
+- Marca/Fornecedor: ${data.brand || "Não informado"}
+- Linha/Modelo: ${data.line || "Não informado"}
+- Altura: ${data.height ? data.height + ' cm' : "Não informada"}
+- Largura: ${data.width ? data.width + ' cm' : "Não informada"}
+- Profundidade: ${data.depth ? data.depth + ' cm' : "Não informada"}
+- Peso: ${data.weight ? data.weight + ' kg' : "Não informado"}
+
+IMPORTANTE: 
+- Retorne apenas o texto final da descrição aperfeiçoada. 
+- Não inclua blocos de código markdown como \`\`\` nem saudações, notas explicativas ou introduções. Apenas a descrição no formato solicitado.`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    text: prompt
+                                }
+                            ]
+                        }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("Erro na resposta do Gemini API");
+            }
+
+            const resJson = await response.json();
+            const textResponse = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            return {
+                improvedDescription: textResponse.trim()
+            };
+        } catch (error) {
+            console.error("Erro ao aperfeiçoar descrição:", error);
+            throw new Error("Falha ao aperfeiçoar descrição com o Gemini.");
+        }
     }
 };

@@ -64,7 +64,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Initial Stock Toggle - ONLY IN CREATION */}
+            {/* Lançar Estoque Inicial Toggle - ONLY IN CREATION */}
             {!isEditing && (
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-4">
@@ -72,7 +72,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <i className="bi bi-box-seam-fill text-blue-600 text-lg"></i>
                         </div>
                         <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Entrada Inicial?</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançar Estoque Inicial?</h4>
                             <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Deseja cadastrar o saldo inicial e custos agora?</p>
                         </div>
                     </div>
@@ -86,11 +86,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 </div>
             )}
 
-            {/* Cost Composition / Batch List - ONLY IF LAUNCHING INITIAL STOCK */}
+            {/* Cost Composition / Batch List - ONLY IF LAUNCHING STOCK INITIAL */}
             {(!isEditing && formData.launchInitialStock && !formData.hasVariations) && (
                 <div className="flex flex-col gap-4 animate-in zoom-in-95 duration-300">
                     <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançamento de Entrada Inicial</h4>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançamento de Estoque Inicial</h4>
                         <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Lançamento múltiplo de quantidades e seus respectivos custos</p>
                     </div>
 
@@ -113,250 +113,251 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 </div>
             )}
 
-            {/* Informações de Estoque e Custos */}
-            <div className="flex flex-col gap-6">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                    <i className="bi bi-box-seam text-blue-600"></i> Informações de Estoque e Custos
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Fornecedor Principal */}
-                    <div id="field-main-supplier" className={`flex flex-col gap-2 relative transition-all p-2 rounded-2xl ${!(isEditing || formData.launchInitialStock) ? 'md:col-span-3' : 'md:col-span-2'}`} ref={supplierInputRef}>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                            <span>Fornecedor Principal</span>
-                            <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                        </label>
-                        <div className="relative">
-                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                            <input
-                                type="text"
-                                value={supplierSearch}
-                                onChange={(e) => {
-                                    setSupplierSearch(e.target.value);
-                                    setIsSupplierDropdownOpen(true);
-                                }}
-                                onFocus={() => setIsSupplierDropdownOpen(true)}
-                                placeholder="Digite o nome do fornecedor..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
-                            />
-                        </div>
-
-                        <DropdownPortal anchorRef={supplierInputRef} isOpen={isSupplierDropdownOpen && filteredSuppliers.length > 0}>
-                            <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">
-                                {filteredSuppliers.map(s => (
-                                    <button
-                                        key={s.id}
-                                        type="button"
-                                        onClick={() => {
-                                            updateCost({ 
-                                                mainSupplierId: s.id,
-                                                ipiPercent: s.defaultIpiPercent !== undefined ? s.defaultIpiPercent : formData.ipiPercent,
-                                                freightCost: s.defaultFreightCost !== undefined ? s.defaultFreightCost : formData.freightCost,
-                                                freightType: s.defaultFreightType || formData.freightType
-                                            });
-                                            setSupplierSearch(s.fullName || '');
-                                            setIsSupplierDropdownOpen(false);
-                                        }}
-                                        className="w-full text-left p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-b-0"
-                                    >
-                                        <p className="text-xs font-black text-slate-800 dark:text-slate-200">{s.fullName}</p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">{s.cpfCnpj || 'Sem documento'}</p>
-                                            {(s.leadTime ?? 0) > 0 && (
-                                                <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[8px] font-black uppercase">LT: {s.leadTime}d</span>
-                                            )}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </DropdownPortal>
+            {/* Fornecedor e Estoque Mínimo - Sempre Visíveis */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Fornecedor Principal */}
+                <div id="field-main-supplier" className="md:col-span-2 flex flex-col gap-2 relative p-2 rounded-2xl" ref={supplierInputRef}>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                        <span>Fornecedor Principal</span>
+                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                    </label>
+                    <div className="relative">
+                        <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input
+                            type="text"
+                            value={supplierSearch}
+                            onChange={(e) => {
+                                setSupplierSearch(e.target.value);
+                                setIsSupplierDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsSupplierDropdownOpen(true)}
+                            placeholder="Digite o nome do fornecedor..."
+                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                        />
                     </div>
 
-                    {(isEditing || formData.launchInitialStock) && (
-                        formData.hasVariations ? (
-                            <div className="md:col-span-1 flex items-center">
-                                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-3 w-full h-full">
-                                    <i className="bi bi-exclamation-triangle-fill text-amber-600 text-lg shrink-0"></i>
-                                    <p className="text-[9px] font-bold text-amber-800 dark:text-amber-400 leading-tight uppercase tracking-widest">
-                                        Estoque e custos de variações gerenciados na aba "Grade".
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <>
-                                {/* Estoque Mínimo */}
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                        <span>Estoque Mínimo</span>
-                                        <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                    </label>
+                    <DropdownPortal anchorRef={supplierInputRef} isOpen={isSupplierDropdownOpen && filteredSuppliers.length > 0}>
+                        <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">
+                            {filteredSuppliers.map(s => (
+                                <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => {
+                                        updateCost({ 
+                                            mainSupplierId: s.id,
+                                            ipiPercent: s.defaultIpiPercent !== undefined ? s.defaultIpiPercent : formData.ipiPercent,
+                                            freightCost: s.defaultFreightCost !== undefined ? s.defaultFreightCost : formData.freightCost,
+                                            freightType: s.defaultFreightType || formData.freightType
+                                        });
+                                        setSupplierSearch(s.fullName || '');
+                                        setIsSupplierDropdownOpen(false);
+                                    }}
+                                    className="w-full text-left p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-b-0"
+                                >
+                                    <p className="text-xs font-black text-slate-800 dark:text-slate-200">{s.fullName}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">{s.cpfCnpj || 'Sem documento'}</p>
+                                        {(s.leadTime ?? 0) > 0 && (
+                                            <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[8px] font-black uppercase">LT: {s.leadTime}d</span>
+                                        )}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </DropdownPortal>
+                </div>
+
+                {formData.hasVariations ? (
+                    <div className="md:col-span-1 flex items-center">
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-3 w-full h-full">
+                            <i className="bi bi-exclamation-triangle-fill text-amber-600 text-lg shrink-0"></i>
+                            <p className="text-[9px] font-bold text-amber-800 dark:text-amber-400 leading-tight uppercase tracking-widest">
+                                Grade de variações gerenciada na aba "Grade".
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    /* Estoque Mínimo */
+                    <div className="flex flex-col gap-2 p-2 rounded-2xl">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                            <span>Estoque Mínimo</span>
+                            <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                        </label>
+                        <input
+                            type="number"
+                            value={(formData.minStock === null || formData.minStock === undefined || isNaN(formData.minStock as number)) ? '' : formData.minStock}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
+                            }}
+                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                            placeholder="0"
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Precificação e Custo - Sempre Visíveis se NÃO tiver variações */}
+            {!formData.hasVariations && (
+                <>
+                    {/* Precificação e Desconto */}
+                    <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
+                            <i className="bi bi-tag-fill"></i> Precificação e Descontos
+                        </h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Preço de Venda */}
+                            <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Preço de Venda (Original)</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                                     <input
                                         type="number"
-                                        value={(formData.minStock === null || formData.minStock === undefined || isNaN(formData.minStock as number)) ? '' : formData.minStock}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            setFormData({ ...formData, minStock: isNaN(val) ? 0 : val });
-                                        }}
-                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                                        placeholder="0"
+                                        step="0.01"
+                                        placeholder="0,00"
+                                        value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
+                                        onChange={(e) => handlePriceChange(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
                                     />
                                 </div>
-                                {/* Precificação e Desconto */}
-                                <div className="md:col-span-3 border-t border-slate-150 dark:border-slate-800/80 my-2 pt-4">
-                                    <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Precificação e Descontos</h5>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                                         {/* Preço de Venda */}
-                                         <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Preço de Venda (Original)</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                                             </label>
-                                             <div className="relative">
-                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                                 <input
-                                                     type="number"
-                                                     step="0.01"
-                                                     placeholder="0,00"
-                                                     value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
-                                                     onChange={(e) => handlePriceChange(e.target.value)}
-                                                     className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
-                                                 />
-                                             </div>
-                                         </div>
+                            </div>
 
-                                         {/* Desconto % */}
-                                         <div className="flex flex-col gap-2">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Desconto (%)</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                                             </label>
-                                             <div className="relative">
-                                                 <input
-                                                     type="number"
-                                                     placeholder="0"
-                                                     value={discountPercent}
-                                                     onChange={(e) => handleDiscountPercentChange(e.target.value)}
-                                                     className="w-full pl-4 pr-8 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
-                                                 />
-                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                                             </div>
-                                         </div>
+                            {/* Desconto % */}
+                            <div className="flex flex-col gap-2 p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Desconto (%)</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={discountPercent}
+                                        onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                                        className="w-full pl-4 pr-8 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">%</span>
+                                </div>
+                            </div>
 
-                                         {/* Desconto R$ */}
-                                         <div className="flex flex-col gap-2">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Desconto (R$)</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                                             </label>
-                                             <div className="relative">
-                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                                 <input
-                                                     type="number"
-                                                     step="0.01"
-                                                     placeholder="0,00"
-                                                     value={discountFixed}
-                                                     onChange={(e) => handleDiscountFixedChange(e.target.value)}
-                                                     className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
-                                                 />
-                                             </div>
-                                         </div>
+                            {/* Desconto R$ */}
+                            <div className="flex flex-col gap-2 p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Desconto (R$)</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0,00"
+                                        value={discountFixed}
+                                        onChange={(e) => handleDiscountFixedChange(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                    />
+                                </div>
+                            </div>
 
-                                         {/* Preço Promocional Final */}
-                                         <div className="flex flex-col gap-2">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Preço Promocional Final</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                                             </label>
-                                             <div className="relative">
-                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                                 <input
-                                                     type="number"
-                                                     step="0.01"
-                                                     placeholder="Sem desconto"
-                                                     value={(formData.promoPrice === null || formData.promoPrice === undefined || isNaN(formData.promoPrice as number)) ? '' : formData.promoPrice}
-                                                     onChange={(e) => handlePromoPriceFieldChange(e.target.value)}
-                                                     className="w-full pl-8 pr-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                                                 />
-                                             </div>
-                                         </div>
+                            {/* Preço Promocional Final */}
+                            <div className="flex flex-col gap-2 p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Preço Promocional Final</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="Sem desconto"
+                                        value={(formData.promoPrice === null || formData.promoPrice === undefined || isNaN(formData.promoPrice as number)) ? '' : formData.promoPrice}
+                                        onChange={(e) => handlePromoPriceFieldChange(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Composição de Custo */}
+                    <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
+                            <i className="bi bi-wallet2"></i> Composição de Custo
+                        </h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                            <div id="field-cost-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Preço de Custo Base</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                    <input type="number" 
+                                        value={formData.costPrice || ''} 
+                                        onChange={e => updateCost({ costPrice: Number(e.target.value) })}
+                                        className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Taxa de IPI</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                </label>
+                                <div className="relative">
+                                    <input type="number" 
+                                        value={formData.ipiPercent || ''}
+                                        onChange={e => updateCost({ ipiPercent: Number(e.target.value) })}
+                                        className="w-full pl-3 pr-8 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">%</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 p-2 rounded-2xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                    <span>Frete</span>
+                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                </label>
+                                <div className="relative flex items-center">
+                                    <input type="number" 
+                                        value={formData.freightCost || ''}
+                                        onChange={e => updateCost({ freightCost: Number(e.target.value) })}
+                                        className="w-full pl-3 pr-16 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    />
+                                    <div className="absolute right-1 top-1 bottom-1">
+                                        <select 
+                                            value={formData.freightType || 'fixed'}
+                                            onChange={e => updateCost({ freightType: e.target.value as any })}
+                                            className="h-full px-2 bg-slate-100 dark:bg-slate-855 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-[10px] font-black text-slate-600 dark:text-slate-300 rounded-lg outline-none cursor-pointer appearance-none text-center"
+                                            style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                                        >
+                                            <option value="fixed">R$</option>
+                                            <option value="percentage">%</option>
+                                        </select>
+                                        <i className="bi bi-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 pointer-events-none"></i>
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Composição de Custo */}
-                                <div className="md:col-span-3 border-t border-slate-150 dark:border-slate-800/80 my-2 pt-4">
-                                     <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Composição de Custo</h5>
-                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                                         <div id="field-cost-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Preço de Custo Base</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                             </label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                                <input type="number" 
-                                                    value={formData.costPrice || ''} 
-                                                    onChange={e => updateCost({ costPrice: Number(e.target.value) })}
-                                                    className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                                            </div>
-                                         </div>
-                                         <div className="flex flex-col gap-2">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Taxa de IPI</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                             </label>
-                                            <div className="relative">
-                                                <input type="number" 
-                                                    value={formData.ipiPercent || ''}
-                                                    onChange={e => updateCost({ ipiPercent: Number(e.target.value) })}
-                                                    className="w-full pl-3 pr-8 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">%</span>
-                                            </div>
-                                         </div>
-
-                                         <div className="flex flex-col gap-2">
-                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                                 <span>Frete</span>
-                                                 <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                             </label>
-                                            <div className="relative flex items-center">
-                                                <input type="number" 
-                                                    value={formData.freightCost || ''}
-                                                    onChange={e => updateCost({ freightCost: Number(e.target.value) })}
-                                                    className="w-full pl-3 pr-16 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" 
-                                                />
-                                                <div className="absolute right-1 top-1 bottom-1">
-                                                    <select 
-                                                        value={formData.freightType || 'fixed'}
-                                                        onChange={e => updateCost({ freightType: e.target.value as any })}
-                                                        className="h-full px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-[10px] font-black text-slate-600 dark:text-slate-300 rounded-lg outline-none cursor-pointer appearance-none text-center"
-                                                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
-                                                    >
-                                                        <option value="fixed">R$</option>
-                                                        <option value="percentage">%</option>
-                                                    </select>
-                                                    <i className="bi bi-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 pointer-events-none"></i>
-                                                </div>
-                                            </div>
-                                         </div>
-
-                                         <div className="flex flex-col gap-1 p-4 bg-blue-600 rounded-xl text-white shadow-xl shadow-blue-500/30 justify-center">
-                                             <label className="text-[8px] font-black uppercase tracking-widest text-blue-200 flex items-center gap-1 h-6">
-                                                 <span>Preço de Custo Final</span>
-                                                 <span className="inline-flex items-center text-[6px] font-black bg-blue-500 text-white px-1 py-0.2 rounded uppercase select-none">ERP</span>
-                                             </label>
-                                            <div className="flex items-center gap-1 text-xl font-black truncate">
-                                                <span className="text-xs">R$</span>
-                                                {(formData.finalPurchasePrice || formData.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </div>
-                                         </div>
-                                     </div>
-                                 </div>
-                            </>
-                        )
-                    )}
-                </div>
-            </div>
+                            <div className="flex flex-col gap-1 p-4 bg-blue-600 rounded-xl text-white shadow-xl shadow-blue-500/30 justify-center">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-blue-200 flex items-center gap-1 h-6">
+                                    <span>Preço de Custo Final</span>
+                                    <span className="inline-flex items-center text-[6px] font-black bg-blue-500 text-white px-1 py-0.2 rounded uppercase select-none">ERP</span>
+                                </label>
+                                <div className="flex items-center gap-1 text-xl font-black truncate">
+                                    <span className="text-xs">R$</span>
+                                    {(formData.finalPurchasePrice || formData.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Info Box */}
             <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl">

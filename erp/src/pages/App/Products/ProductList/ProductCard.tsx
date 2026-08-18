@@ -42,20 +42,35 @@ const ProductCard = ({
 }: ProductCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
+    const [showVariations, setShowVariations] = React.useState(false);
+    const [activeVarMenuId, setActiveVarMenuId] = React.useState<string | null>(null);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
+    const varMenuRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
     const isCatalogActive = product.status === 'published';
 
+    // Process attributes text if variation
+    let variationName = '';
+    if (isVariation) {
+        if (product.attributes && Array.isArray(product.attributes)) {
+            variationName = product.attributes.map((attr: any) => attr.value).filter(Boolean).join(' ');
+        } else if (product.attributes && typeof product.attributes === 'object') {
+            variationName = Object.values(product.attributes).filter(Boolean).join(' ');
+        }
+        if (!variationName) {
+            variationName = (product as any).displayName || product.name || '';
+        }
+    }
+
     return (
         <div
-            className={`border rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative
+            className={`border rounded-xl p-3 shadow-sm transition-all relative
                 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 
-                  isParent ? 'border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10' :
-                  isVariation ? 'border-l-4 border-l-blue-500 dark:border-l-blue-400 border-slate-200 dark:border-slate-800 ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
+                  isParent ? 'border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/10' :
+                  isVariation ? 'border-slate-200 dark:border-slate-800 ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
                   'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
-            onClick={() => onEdit(product)}
         >
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
@@ -64,146 +79,37 @@ const ProductCard = ({
                             {product.code}
                         </span>
                     ) : null}
-                    {/* Parent / Variation indicator */}
-                    {isParent && (
-                        <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-blue-600 text-white flex items-center gap-1">
-                            <i className="bi bi-diagram-3-fill" />
-                            Pai
-                        </span>
-                    )}
-                    {isVariation && (
-                        <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
-                            <i className="bi bi-arrow-return-right" />
-                            Variação
-                        </span>
-                    )}
-                </div>
-
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     {!isVariation && (
                         <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${product.itemType === 'service' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>
                             {product.itemType === 'service' ? 'Serviço' : 'Produto'}
                         </span>
                     )}
+                </div>
+
+                <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
                     {(product.opportunityName || product.opportunity?.name) && (
                         <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
                             <i className="bi bi-fire text-amber-600" />
                             {product.opportunityName || product.opportunity?.name}
                         </span>
                     )}
-                </div>
-            </div>
+                    {!showTrash && (
+                        <div className="relative flex items-center gap-1">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(product); }}
+                                className="w-8 h-8 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0"
+                                title="Editar Produto"
+                            >
+                                <i className="bi bi-pencil text-xs" />
+                            </button>
 
-            <div className="mb-3 flex items-center gap-3">
-                {!isParent && (
-                    <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
-                        {product.images && product.images.length > 0 && product.images[0] ? (
-                            <img 
-                                src={product.images[0]} 
-                                alt={product.name || product.title || ''} 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                    (e.target as HTMLElement).style.display = 'none';
-                                    if ((e.target as HTMLElement).parentElement) {
-                                        (e.target as HTMLElement).parentElement!.innerHTML = '<i class="bi bi-image text-slate-400 text-lg"></i>';
-                                    }
-                                }}
-                            />
-                        ) : (
-                            <i className="bi bi-image text-slate-400 text-lg" />
-                        )}
-                    </div>
-                )}
-                <div className="flex-1 min-w-0">
-                    <h3 className={`leading-tight line-clamp-2 ${
-                        isParent
-                            ? 'text-sm font-black text-blue-700 dark:text-blue-400 uppercase tracking-tight'
-                            : isVariation
-                            ? 'text-xs font-bold text-slate-700 dark:text-slate-300 pl-3 border-l-2 border-indigo-200 dark:border-indigo-800'
-                            : 'text-sm font-bold text-slate-800 dark:text-slate-100'
-                    }`}>
-                        {product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-")}
-                    </h3>
-                    {!isVariation && (
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 leading-relaxed">
-                            {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
-                        </p>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                        {product.isDraft && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                                <i className="bi bi-file-earmark-text" /> Rascunho
-                            </span>
-                        )}
-                        <button disabled={!product.active} onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            ERP · {product.active ? 'Ativo' : 'Inativo'}
-                        </button>
-                        <button disabled={!isCatalogActive} onClick={(e) => { e.stopPropagation(); if (isCatalogActive) onDeactivateCatalog(product.id!); }} title={isCatalogActive ? 'Clique para ocultar no Catálogo Digital' : 'Produto ocultado no Catálogo Digital'} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            {isCatalogActive ? 'Publicado' : 'Ocultado'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {!isParent && (
-            <div className="flex justify-between items-end border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
-                <div className="flex flex-col">
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
-                        Preço
-                    </span>
-                    <span className={`text-base font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : 'text-blue-600 dark:text-blue-400'}`}>
-                        {isParent ? '-' : formatCurrency(product.unitPrice || 0)}
-                    </span>
-                </div>
-
-                {product.itemType !== 'service' && (
-                    <div className="flex flex-col items-end">
-                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5 text-right">
-                            Estoque
-                        </span>
-                        <div className="flex items-baseline gap-1">
-                            <span className={`text-sm font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                {isParent ? '-' : (product.stock ?? 0)}
-                            </span>
-                            {!isParent && (
-                                <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase">
-                                    {product.unit}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-1.5 mt-3" onClick={(e) => e.stopPropagation()}>
-                {showTrash ? (
-                    <button
-                        onClick={() => onRestore(product.id!)}
-                        className="flex flex-col items-center justify-center gap-1 py-2 col-span-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors font-bold"
-                    >
-                        <i className="bi bi-check-circle-fill text-base" />
-                        <span className="text-[9px] font-black uppercase">Ativar Produto</span>
-                    </button>
-                ) : (
-                    <>
-                        <button
-                            onClick={() => onEdit(product)}
-                            className="col-start-2 flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-                        >
-                            <i className="bi bi-pencil-fill text-base" />
-                            <span className="text-[8px] font-black uppercase">Editar</span>
-                        </button>
-
-                        <div className="relative">
                             <button
                                 ref={menuAnchorRef}
                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                                className={`flex flex-col items-center justify-center gap-1 py-2 w-full rounded-lg border transition-all ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border shrink-0 ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                                title="Opções"
                             >
-                                <i className="bi bi-three-dots text-base" />
+                                <i className="bi bi-three-dots text-xs" />
                             </button>
 
                             <DropdownPortal
@@ -216,6 +122,14 @@ const ProductCard = ({
                                     className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
                                     onMouseLeave={() => setIsMenuOpen(false)}
                                 >
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(product); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                    >
+                                        <i className="bi bi-pencil-fill text-blue-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
+                                    </button>
+
                                     {onShowHistory && !product.isParent && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onShowHistory(product); }}
@@ -275,15 +189,248 @@ const ProductCard = ({
                                 </div>
                             </DropdownPortal>
                         </div>
-                    </>
+                    )}
+                </div>
+            </div>
+
+            <div className="mb-3 flex items-center gap-3">
+                {!isParent && (
+                    <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
+                        {product.images && product.images.length > 0 && product.images[0] ? (
+                            <img 
+                                src={product.images[0]} 
+                                alt={product.name || product.title || ''} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                    if ((e.target as HTMLElement).parentElement) {
+                                        (e.target as HTMLElement).parentElement!.innerHTML = '<i class="bi bi-image text-slate-400 text-lg"></i>';
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <i className="bi bi-image text-slate-400 text-lg" />
+                        )}
+                    </div>
+                )}
+                <div className="flex-1 min-w-0">
+                    <h3 className={`leading-tight line-clamp-2 ${
+                        isParent
+                            ? 'text-sm font-black text-blue-700 dark:text-blue-400 uppercase tracking-tight'
+                            : isVariation
+                            ? 'text-xs font-bold text-slate-700 dark:text-slate-300 pl-3 border-l-2 border-indigo-200 dark:border-indigo-800'
+                            : 'text-sm font-bold text-slate-800 dark:text-slate-100'
+                    }`}>
+                        {isVariation 
+                            ? (variationName || product.name || product.title || "-")
+                            : (product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-"))}
+                    </h3>
+                    {!isVariation && (
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 leading-relaxed">
+                            {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
+                        </p>
+                    )}
+                    <div className="flex justify-between items-center gap-2 mt-2 w-full">
+                        <div className="flex flex-wrap gap-1.5">
+                            {product.isDraft && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                                    <i className="bi bi-file-earmark-text" /> Rascunho
+                                </span>
+                            )}
+                            <button disabled={!product.active} onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                ERP · {product.active ? 'Ativo' : 'Inativo'}
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
+                            </button>
+                        </div>
+                        {isParent && (product as any).allVariations && (product as any).allVariations.length > 0 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowVariations(!showVariations); }}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border transition-all shrink-0 ${showVariations ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/30'}`}
+                            >
+                                <i className={`bi ${showVariations ? 'bi-chevron-up' : 'bi-chevron-down'}`} />
+                                Variações ({(product as any).allVariations.length})
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {!isParent && (
+            <div className="flex justify-between items-end border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
+                <div className="flex flex-col">
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
+                        Preço
+                    </span>
+                    <span className={`text-base font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : 'text-blue-600 dark:text-blue-400'}`}>
+                        {isParent ? '-' : formatCurrency(product.unitPrice || 0)}
+                    </span>
+                </div>
+
+                {product.itemType !== 'service' && (
+                    <div className="flex flex-col items-end">
+                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5 text-right">
+                            Estoque
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-sm font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                                {isParent ? '-' : (product.stock ?? 0)}
+                            </span>
+                            {!isParent && (
+                                <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase">
+                                    {product.unit}
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 )}
             </div>
+            )}
+
+            {showTrash && (
+                <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        onClick={() => onRestore(product.id!)}
+                        className="flex flex-col items-center justify-center gap-1 py-2 w-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors font-bold"
+                    >
+                        <i className="bi bi-check-circle-fill text-base" />
+                        <span className="text-[9px] font-black uppercase">Ativar Produto</span>
+                    </button>
+                </div>
+            )}
 
             {isSalesModalOpen && (
                 <ProductSalesModal 
                     product={product}
                     onClose={() => setIsSalesModalOpen(false)}
                 />
+            )}
+
+            {/* Se for pai e showVariations for true, renderiza a lista de filhos */}
+            {isParent && showVariations && (product as any).allVariations && (product as any).allVariations.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-2">
+                    {(product as any).allVariations.map((v: any) => {
+                        const varName = v.attributes && Array.isArray(v.attributes)
+                            ? v.attributes.map((attr: any) => attr.value).filter(Boolean).join(' ')
+                            : v.attributes && typeof v.attributes === 'object'
+                            ? Object.values(v.attributes).filter(Boolean).join(' ')
+                            : v.displayName || v.name || '';
+
+                        return (
+                            <div 
+                                key={v.id} 
+                                className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-xl transition-colors group/var"
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/40">
+                                        {v.images && v.images.length > 0 && v.images[0] ? (
+                                            <img src={v.images[0]} alt={varName} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <i className="bi bi-image text-slate-400 text-xs" />
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                                {varName}
+                                            </span>
+                                            <div className="flex gap-1 shrink-0">
+                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border ${v.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
+                                                    <span className={`w-1 h-1 rounded-full ${v.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                                    ERP · {v.active ? 'Ativo' : 'Inativo'}
+                                                </span>
+                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border ${v.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
+                                                    <span className={`w-1 h-1 rounded-full ${v.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                                    Catálogo · {v.status === 'published' ? 'Publicado' : 'Ocultado'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span className="text-[9px] font-mono text-slate-400">
+                                            {v.sku}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                                            {formatCurrency(v.unitPrice || 0)}
+                                        </span>
+                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                                            Estoque: {v.stock ?? 0} {v.unit}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onEdit(v); }}
+                                            className="w-8 h-8 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0"
+                                            title="Editar Variação"
+                                        >
+                                            <i className="bi bi-pencil text-xs" />
+                                        </button>
+
+                                        <div className="relative flex items-center">
+                                            <button
+                                                ref={el => varMenuRefs.current[v.id] = el}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveVarMenuId(activeVarMenuId === v.id ? null : v.id);
+                                                }}
+                                                className="w-8 h-8 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0"
+                                                title="Opções da Variação"
+                                            >
+                                                <i className="bi bi-three-dots text-xs" />
+                                            </button>
+
+                                            <DropdownPortal
+                                                isOpen={activeVarMenuId === v.id}
+                                                onClose={() => setActiveVarMenuId(null)}
+                                                anchorRef={{ current: varMenuRefs.current[v.id] }}
+                                                className="min-w-[160px]"
+                                            >
+                                                <div 
+                                                    className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
+                                                    onMouseLeave={() => setActiveVarMenuId(null)}
+                                                >
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onEdit(v); }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                    >
+                                                        <i className="bi bi-pencil-fill text-blue-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
+                                                    </button>
+                                                    {onShowHistory && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onShowHistory(v); }}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                        >
+                                                            <i className="bi bi-clock-history text-amber-500" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
+                                                        </button>
+                                                    )}
+                                                    {product.itemType !== 'service' && onLaunchStock && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onLaunchStock?.(v); }}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                        >
+                                                            <span className="flex items-center gap-0.5 text-emerald-500">
+                                                                <i className="bi bi-box-seam-fill" />
+                                                                <i className="bi bi-arrow-left-right text-[9px]" />
+                                                            </span>
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </DropdownPortal>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             )}
         </div>
     );

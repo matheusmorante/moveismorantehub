@@ -240,6 +240,7 @@ export type ProductVisibilitySettings = {
     costPrice: boolean;
     unitPrice: boolean;
     stock: boolean;
+    status: boolean;
     createdAt: boolean;
     actions: boolean;
 };

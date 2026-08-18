@@ -65,7 +65,7 @@ const ProductTitleTab: React.FC<ProductTitleTabProps> = ({
                 }
             }
         });
-        return parts.join(' ').toUpperCase();
+        return parts.join(' ');
     };
 
     const applyTitle = () => {
