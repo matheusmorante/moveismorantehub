@@ -188,6 +188,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
     const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
     const [saveResult, setSaveResult] = useState<{ erpLegible: boolean; ecomLegible: boolean; checksErp: any; checksEcom: any; product: Product } | null>(null);
+    const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
 
     const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
     const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
@@ -715,7 +716,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             const uploadPromises = filesToProcess.map(async (file) => {
                 const compressed = await compressImageToFile(file, { maxMB: 0.1, maxWidth: 1200 });
                 const fileExt = file.name.split('.').pop() || 'jpg';
-                const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+                const fileName = `${crypto.randomUUID()}_${Date.now()}.${fileExt}`;
                 const path = `products/${fileName}`;
                 return uploadFile(compressed, path);
             });
@@ -938,7 +939,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         const newSku = generateVariationSku(parentCode, currentCount);
 
         const newVar: Variation = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             name: baseName,
             sku: newSku,
             unitPrice: formData.unitPrice || 0,
@@ -1025,7 +1026,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 const finalSku = generateVariationSku(parentCode, idx);
                 
                 return {
-                    id: Math.random().toString(36).substr(2, 9),
+                    id: crypto.randomUUID(),
                     name,
                     sku: finalSku,
                     unitPrice: formData.unitPrice || 0,
@@ -1131,18 +1132,28 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const handleSubmit = async (showResult = true, saveAsDraft = false): Promise<boolean> => {
         if (!saveAsDraft) {
+            const errors: Record<string, boolean> = {};
             if (!(formData.name || formData.description)?.trim()) {
-                toast.error("Informe o nome do produto.");
-                return false;
+                errors.name = true;
             }
             if (!formData.unitPrice || Number(formData.unitPrice) <= 0) {
-                toast.error("Informe o preço de venda do produto.");
-                return false;
+                errors.unitPrice = true;
             }
             if (!formData.categoryIds || formData.categoryIds.length === 0) {
-                toast.error("Selecione ao menos uma categoria para o produto.");
+                errors.categoryIds = true;
+            }
+
+            if (Object.keys(errors).length > 0) {
+                setValidationErrors(errors);
+                if (errors.name || errors.categoryIds) {
+                    setActiveTab('geral');
+                } else if (errors.unitPrice) {
+                    setActiveTab('estoque');
+                }
+                toast.error("Preencha todos os campos obrigatórios.");
                 return false;
             }
+            setValidationErrors({});
         } else {
             if (!hasProductName) {
                 return false;
@@ -1311,16 +1322,26 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             !isService && { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
                             !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
-                        ] as any[]).filter(Boolean).map((tab: any) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            >
-                                <i className={`bi ${tab.icon}`}></i>
-                                {tab.label}
-                            </button>
-                        ))}
+                        ] as any[]).filter(Boolean).map((tab: any) => {
+                            const hasTabErrors = 
+                                (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||
+                                (tab.id === 'estoque' && validationErrors.unitPrice);
+
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${
+                                        hasTabErrors 
+                                            ? (activeTab === tab.id ? 'border-red-500 text-red-600' : 'border-red-200 text-red-500') 
+                                            : (activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200')
+                                    }`}
+                                >
+                                    <i className={`bi ${tab.icon}`}></i>
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1336,6 +1357,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             availableCategories={availableCategories}
                             handleGenerateComboName={handleGenerateComboName}
                             isGeneratingComboName={isGeneratingComboName}
+                            validationErrors={validationErrors}
+                            setValidationErrors={setValidationErrors}
                         />
                     )}
 
@@ -1366,6 +1389,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             handleDiscountPercentChange={handleDiscountPercentChange}
                             handleDiscountFixedChange={handleDiscountFixedChange}
                             handlePromoPriceFieldChange={handlePromoPriceFieldChange}
+                            validationErrors={validationErrors}
+                            setValidationErrors={setValidationErrors}
                         />
                     )}
 

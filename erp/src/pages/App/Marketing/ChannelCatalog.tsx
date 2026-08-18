@@ -133,18 +133,18 @@ function ChannelCatalog() {
             }
 
             // Fallback de colunas para evitar erros de schema cache (400)
-            const COLUMNS = "id, code, description, brand, category, unit_price, stock, active, deleted, images, variations, environment, product_type_name, last_whatsapp_sync, line";
+            const COLUMNS = "id, code, description, brand, category, unit_price, stock, active, deleted_at, images, variations, environment, product_type_name, last_whatsapp_sync, line";
             
             let { data: productsData, error: pError } = await supabase
                 .from('products')
                 .select(COLUMNS)
-                .eq('deleted', false)
+                .is('deleted_at', null)
                 .order('description');
 
             // Caso falhe select específico, tenta o * como último recurso (ou vice-versa)
             if (pError) {
                 console.warn("[Catalog] Select específico falhou, tentando fallback '*'...", pError.message);
-                const res = await supabase.from('products').select('*').eq('deleted', false).order('description');
+                const res = await supabase.from('products').select('*').is('deleted_at', null).order('description');
                 productsData = res.data;
                 pError = res.error;
             }

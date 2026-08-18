@@ -138,7 +138,7 @@ const Products = () => {
         if (duplicate.variations && duplicate.variations.length > 0) {
             duplicate.variations = duplicate.variations.map((v: any) => ({
                 ...v,
-                id: Math.random().toString(36).substr(2, 9), // Temp ID for UI mapping
+                id: crypto.randomUUID(), // Temp ID for UI mapping
                 sku: "", // Clear SKU so user provides a new one
                 stock: 0,
                 initialStock: 0,

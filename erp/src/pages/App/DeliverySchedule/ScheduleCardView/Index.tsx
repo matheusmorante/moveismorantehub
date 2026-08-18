@@ -395,13 +395,13 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                 )}
 
                 {settings.showScheduleNoticeLabels && order.observation && (
-                    <div className="text-amber-800 dark:text-amber-200/70 bg-amber-50/50 dark:bg-amber-900/10 p-3 rounded-xl text-xs border border-amber-100/50 dark:border-amber-900/30 flex items-start gap-3 transition-colors">
-                        <i className="bi bi-info-circle-fill text-amber-500 mt-0.5" />
+                    <div className="text-red-800 dark:text-red-200/70 bg-red-50/50 dark:bg-red-900/10 p-3 rounded-xl text-xs border border-red-100/50 dark:border-red-900/30 flex items-start gap-3 transition-colors">
+                        <i className="bi bi-exclamation-octagon-fill text-red-500 mt-0.5" />
                         <div className="flex flex-col gap-1.5 w-full">
-                            <strong className="uppercase font-black text-[9px] tracking-widest text-amber-600 dark:text-amber-500">Observações:</strong>
+                            <strong className="uppercase font-black text-[9px] tracking-widest text-red-600 dark:text-red-500">Observações:</strong>
                             <div className="flex flex-wrap gap-1.5 w-full">
                                 {order.observation.split(';').filter((t: string) => t.trim() !== "").map((tag: string, i: number) => (
-                                    <span key={i} className="px-2 py-0.5 bg-amber-100/50 dark:bg-amber-900/40 text-[10px] font-bold rounded-lg border border-amber-200/50 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 capitalize">
+                                    <span key={i} className="px-2 py-0.5 bg-red-100/50 dark:bg-red-900/40 text-[10px] font-bold rounded-lg border border-red-200/50 dark:border-red-800/50 text-red-800 dark:text-red-200 uppercase tracking-tight">
                                         {tag}
                                     </span>
                                 ))}

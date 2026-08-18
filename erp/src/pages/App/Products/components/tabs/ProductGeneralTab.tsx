@@ -11,6 +11,8 @@ interface ProductGeneralTabProps {
     availableCategories: any[];
     handleGenerateComboName: () => void;
     isGeneratingComboName: boolean;
+    validationErrors?: Record<string, boolean>;
+    setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
@@ -18,7 +20,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     isService,
     formData,
     setFormData,
-    availableCategories
+    availableCategories,
+    validationErrors = {},
+    setValidationErrors
 }) => {
     const [availableMaterials, setAvailableMaterials] = React.useState<{id: string, name: string}[]>([]);
     const [opportunities, setOpportunities] = React.useState<{id: string, name: string}[]>([]);
@@ -72,6 +76,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <div id="field-product-name" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                         <span>Nome</span>
+                        <span className="text-red-500 ml-0.5">*</span>
                     </label>
                     <input
                         value={formData.name || ''}
@@ -82,7 +87,20 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 name: val 
                             }));
                         }}
-                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                        onBlur={() => {
+                            if ((formData.name || '').trim() && setValidationErrors) {
+                                setValidationErrors(prev => {
+                                    const next = { ...prev };
+                                    delete next.name;
+                                    return next;
+                                });
+                            }
+                        }}
+                        className={`w-full px-4 py-2.5 bg-white dark:bg-slate-955 border rounded-xl outline-none text-xs font-bold dark:text-slate-100 shadow-sm transition-all font-mono ${
+                            validationErrors?.name 
+                                ? 'border-red-500 focus:ring-4 focus:ring-red-500/10 text-red-600' 
+                                : 'border-slate-200 dark:border-slate-800 text-slate-800 focus:ring-4 focus:ring-blue-500/10'
+                        }`}
                         placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
                     />
                 </div>
@@ -117,6 +135,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             <div className="flex items-center gap-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
                                     <span>Categoria(s)</span>
+                                    <span className="text-red-500 ml-0.5">*</span>
                                     <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                 </label>
                                 <button
@@ -135,7 +154,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 </button>
                             </div>
                         </div>
-                        <div className="max-h-80 min-h-[200px] overflow-y-auto py-1 space-y-0.5 custom-scrollbar w-full">
+                        <div className={`max-h-80 min-h-[200px] overflow-y-auto py-1 space-y-0.5 custom-scrollbar w-full border-2 rounded-2xl p-2 transition-all ${
+                            validationErrors?.categoryIds 
+                                ? 'border-red-500 bg-red-50/10 dark:bg-red-950/5' 
+                                : 'border-transparent'
+                        }`}>
                             {availableCategories
                                 .filter(cat => {
                                     const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
@@ -163,6 +186,13 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                                 checked={isChecked}
                                                 onChange={(e) => {
                                                     const checked = e.target.checked;
+                                                    if (checked && setValidationErrors) {
+                                                        setValidationErrors(prev => {
+                                                            const next = { ...prev };
+                                                            delete next.categoryIds;
+                                                            return next;
+                                                        });
+                                                    }
                                                     setFormData(prev => {
                                                         const ids = prev.categoryIds || [];
                                                         let nextIds;

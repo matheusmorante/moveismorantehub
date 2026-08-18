@@ -19,6 +19,8 @@ interface ProductInventoryTabProps {
     handleDiscountPercentChange: (valStr: string) => void;
     handleDiscountFixedChange: (valStr: string) => void;
     handlePromoPriceFieldChange: (valStr: string) => void;
+    validationErrors?: Record<string, boolean>;
+    setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
@@ -30,7 +32,9 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     handlePriceChange,
     handleDiscountPercentChange,
     handleDiscountFixedChange,
-    handlePromoPriceFieldChange
+    handlePromoPriceFieldChange,
+    validationErrors = {},
+    setValidationErrors
 }) => {
     const [supplierSearch, setSupplierSearch] = useState('');
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -208,6 +212,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                             <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Preço de Venda</span>
+                                    <span className="text-red-500 ml-0.5">*</span>
                                 </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
@@ -217,7 +222,20 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                         placeholder="0,00"
                                         value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
                                         onChange={(e) => handlePriceChange(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                                        onBlur={() => {
+                                            if (formData.unitPrice && Number(formData.unitPrice) > 0 && setValidationErrors) {
+                                                setValidationErrors(prev => {
+                                                    const next = { ...prev };
+                                                    delete next.unitPrice;
+                                                    return next;
+                                                });
+                                            }
+                                        }}
+                                        className={`w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border rounded-xl outline-none text-xs font-bold transition-all ${
+                                            validationErrors?.unitPrice 
+                                                ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 text-red-600' 
+                                                : 'border-slate-200 dark:border-slate-800 text-blue-600 focus:ring-2 focus:ring-blue-500/20'
+                                        }`}
                                     />
                                 </div>
                             </div>

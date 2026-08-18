@@ -87,7 +87,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 let dbQuery = supabase
                     .from('products')
                     .select('*, product_images(*)')
-                    .eq('deleted', false);
+                    .is('deleted_at', null);
 
                 // Se houver apenas uma palavra, busca por código OU descrição
                 if (words.length === 1) {

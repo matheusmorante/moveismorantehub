@@ -87,7 +87,7 @@ export default function ProductCatalogConfigSection() {
     const handleDeleteMaterial = async (item: BaseItem) => {
         if (!confirm(`Remover material "${item.name}"?`)) return;
         try {
-            const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('material', item.name).is('deleted', false);
+            const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('material', item.name).is('deleted_at', null);
             if (count && count > 0) return toast.error(`Não é possível remover: Uso detectado em ${count} produtos.`);
             await supabase.from('product_materials').delete().eq('id', item.id);
             toast.success("Material removido com sucesso!");
@@ -99,7 +99,7 @@ export default function ProductCatalogConfigSection() {
         if (!confirm(`Remover categoria "${item.name}"?`)) return;
         try {
             // Verificar se existem produtos usando esta categoria
-            const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('product_type_id', item.id).is('deleted', false);
+            const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('product_type_id', item.id).is('deleted_at', null);
             if (count && count > 0) return toast.error(`Não é possível remover: Esta categoria está vinculada a ${count} produtos.`);
             
             const { error } = await supabase.from('product_types').delete().eq('id', item.id);

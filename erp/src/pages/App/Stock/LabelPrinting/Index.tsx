@@ -413,7 +413,7 @@ const LabelPrinting: React.FC = () => {
         const { data, error } = await supabase
             .from('products')
             .select('id, description, unitPrice, costPrice, stock, active, hasVariations, variations, images, categoryIds, category, unit')
-            .eq('deleted', false)
+            .is('deleted_at', null)
             .order('description', { ascending: true })
             .range(from, to);
 

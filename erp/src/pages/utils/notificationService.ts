@@ -203,7 +203,7 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
         const { data: pData, error: pError } = await supabase
             .from(TABLE_NAME)
             .select('*')
-            .eq('deleted', false)
+            .is('deleted_at', null)
             .eq('active', true);
 
         // Fetch Orders - somente status para notificações de rascunho (campo mínimo)

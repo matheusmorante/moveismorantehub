@@ -612,24 +612,31 @@ export const useProducts = (filters?: any) => {
                         String(item.id) === String(variation.id) ? { ...item, status: newStatus } : item
                     )
                 });
-                const { error } = await supabase
-                    .from('product_variations')
-                    .update({ status: newStatus })
-                    .eq('id', variation.id);
-                if (error) throw error;
+                
+                const isVarIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variation.id);
+                if (isVarIdUUID) {
+                    const { error } = await supabase
+                        .from('product_variations')
+                        .update({ status: newStatus })
+                        .eq('id', variation.id);
+                    if (error) throw error;
+                }
 
                 toast.success(`Variação ${newStatus === 'published' ? 'publicada no' : 'ocultada do'} Catálogo Digital.`);
                 refresh();
                 return;
             }
 
-            const { error: productError } = await supabase
-                .from('products')
-                .update({ status: newStatus })
-                .eq('id', id)
-                .select('id')
-                .single();
-            if (productError) throw productError;
+            const isProdIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            if (isProdIdUUID) {
+                const { error: productError } = await supabase
+                    .from('products')
+                    .update({ status: newStatus })
+                    .eq('id', id)
+                    .select('id')
+                    .single();
+                if (productError) throw productError;
+            }
 
             // Mantém o cache da lista coerente enquanto ela é recarregada.
             await updateProduct(id, { status: newStatus });
@@ -640,11 +647,13 @@ export const useProducts = (filters?: any) => {
                 });
             }
 
-            const { error: variationsError } = await supabase
-                .from('product_variations')
-                .update({ status: newStatus })
-                .eq('product_id', id);
-            if (variationsError) throw variationsError;
+            if (isProdIdUUID) {
+                const { error: variationsError } = await supabase
+                    .from('product_variations')
+                    .update({ status: newStatus })
+                    .eq('product_id', id);
+                if (variationsError) throw variationsError;
+            }
 
             const independentChildren = products.filter(product => String(product.parentId) === String(id));
             await Promise.all(independentChildren

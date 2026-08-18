@@ -57,16 +57,26 @@ const mapToDB = (product: Partial<Product>) => {
 
     if (product.id !== undefined && product.id !== '') data.id = product.id;
     if (product.code !== undefined) data.code = product.code;
-    if (product.name !== undefined) data.name = product.name;
-    // `title` is the persisted catalog title. Keep accepting marketplaceTitle
-    // from legacy form state, but never let it be lost on save.
-    if (product.title !== undefined) data.title = product.title;
-    else if (product.marketplaceTitle !== undefined) data.title = product.marketplaceTitle;
+    if (product.name !== undefined) {
+        data.name = product.name;
+        data.slug = product.name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/--+/g, '-')
+            .trim();
+    }
+    // Removido o campo legada title pois o banco novo usa exclusivamente 'name'
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
     if (product.category !== undefined) data.category = product.category;
     if (product.condition !== undefined) data.condition = product.condition;
-    if (product.unitPrice !== undefined) data.unit_price = product.unitPrice;
+    if (product.unitPrice !== undefined) {
+        data.unit_price = product.unitPrice;
+        data.price = product.unitPrice;
+    }
     if (product.costPrice !== undefined) data.cost_price = product.costPrice;
     if (product.freightType !== undefined) data.freight_type = product.freightType;
     if (product.freightCost !== undefined) data.freight_cost = product.freightCost;
@@ -484,7 +494,7 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
     return product || null;
 };
 
-export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?: string): Promise<{ [sku: string]: string }> => {
+export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?: string, legacyId?: string): Promise<{ [sku: string]: string }> => {
     const uniqueSkus = Array.from(new Set(skus.filter(s => s && s.trim() !== "")));
     if (uniqueSkus.length === 0) return {};
 
@@ -493,6 +503,7 @@ export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?
 
     products.forEach(p => {
         if (excludeProductId && String(p.id) === String(excludeProductId)) return;
+        if (legacyId && String(p.id) === String(legacyId)) return;
 
         if (p.code && uniqueSkus.includes(p.code)) {
             duplicates[p.code] = p.description;
@@ -511,6 +522,31 @@ export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?
 
 const syncProductToSupabase = async (product: Product): Promise<void> => {
     try {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '');
+        if (!isUUID && product.id) {
+            const oldId = product.id;
+            const newId = crypto.randomUUID();
+            console.log(`[ProductService] Convertendo ID legado ${oldId} para UUID ${newId}`);
+            
+            product.id = newId;
+            
+            if (product.variations) {
+                product.variations.forEach(v => {
+                    v.product_id = newId;
+                    if (!v.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.id)) {
+                        v.id = crypto.randomUUID();
+                    }
+                });
+            }
+            
+            const localProducts = getLocalProducts();
+            const idx = localProducts.findIndex(p => String(p.id) === String(oldId));
+            if (idx !== -1) {
+                localProducts[idx] = product;
+                saveLocalProducts(localProducts);
+            }
+        }
+
         const dbData = mapToDB(product);
         // Remover propriedades que não são colunas diretas da tabela products
         delete dbData.variations;
@@ -598,7 +634,51 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
     }
 };
 
+const ensureUuidFormat = (product: Partial<Product>): string => {
+    if (!product.id) return crypto.randomUUID();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id);
+    if (isUUID) return product.id;
+
+    const oldId = product.id;
+    const newId = crypto.randomUUID();
+    console.log(`[ProductService] ensureUuidFormat: Normalizando ID legado ${oldId} para UUID ${newId}`);
+    
+    product.id = newId;
+    if (product.variations) {
+        product.variations.forEach(v => {
+            v.product_id = newId;
+            if (!v.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.id)) {
+                v.id = crypto.randomUUID();
+            }
+        });
+    }
+
+    let localProducts = getLocalProducts();
+    // Limpar qualquer duplicata no cache local com o mesmo SKU (exceto o ID legado que estamos migrando) para evitar conflitos de SKU em uso
+    if (product.code) {
+        localProducts = localProducts.filter(p => String(p.id) === String(oldId) || p.code !== product.code);
+    }
+    const idx = localProducts.findIndex(p => String(p.id) === String(oldId));
+    if (idx !== -1) {
+        localProducts[idx] = {
+            ...localProducts[idx],
+            ...product,
+            id: newId
+        };
+    } else {
+        localProducts.push({
+            ...product,
+            id: newId
+        } as Product);
+    }
+    saveLocalProducts(localProducts);
+    return newId;
+};
+
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
+    const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '') ? product.id : undefined;
+    const resolvedId = ensureUuidFormat(product);
+
     const skusToValidate: string[] = [];
     if (product.code) skusToValidate.push(product.code);
     if (product.variations?.length) {
@@ -606,7 +686,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     }
 
     if (skusToValidate.length > 0) {
-        const duplicates = await checkSkusUniquenessBatch(skusToValidate, product.id);
+        const duplicates = await checkSkusUniquenessBatch(skusToValidate, resolvedId, legacyId);
         const duplicateSkus = Object.keys(duplicates);
         if (duplicateSkus.length > 0) {
             const firstSku = duplicateSkus[0];
@@ -617,15 +697,14 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 
     const products = getLocalProducts();
 
-    if (product.id && !forceInsert && products.some(item => String(item.id) === String(product.id))) {
-        await updateProduct(product.id, product);
-        return String(product.id);
+    if (resolvedId && !forceInsert && products.some(item => String(item.id) === String(resolvedId))) {
+        await updateProduct(resolvedId, product);
+        return String(resolvedId);
     }
 
-    const newId = product.id || String(Date.now() + Math.floor(Math.random() * 1000));
     const newProduct: Product = {
         ...product,
-        id: newId,
+        id: resolvedId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
@@ -634,12 +713,12 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     saveLocalProducts(products);
     notifySubscribers();
     
-    // Sincronizar com Supabase em background
-    syncProductToSupabase(newProduct).catch(console.error);
+    // Sincronizar com Supabase e aguardar conclusão
+    await syncProductToSupabase(newProduct);
 
     if (product.launchInitialStock && Number(product.stock) > 0) {
         saveInventoryMove({
-            productId: newId,
+            productId: resolvedId,
             productDescription: product.description || "Estoque Inicial",
             type: 'entry',
             quantity: Number(product.stock),
@@ -654,7 +733,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         for (const entry of product.initialStockEntries) {
             if (entry.quantity > 0) {
                 saveInventoryMove({
-                    productId: newId,
+                    productId: resolvedId,
                     productDescription: product.description || "Estoque Inicial",
                     type: 'entry',
                     quantity: entry.quantity,
@@ -671,7 +750,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         for (const v of product.variations) {
             if (v.launchInitialStock && Number(v.initialStock) > 0) {
                 saveInventoryMove({
-                    productId: newId,
+                    productId: resolvedId,
                     variationId: v.id,
                     productDescription: `${product.description} (${v.name})`,
                     type: 'entry',
@@ -685,7 +764,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         }
     }
 
-    return newId;
+    return resolvedId;
 };
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
@@ -693,6 +772,11 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
 };
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
+    const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : undefined;
+    const dummyProduct = { ...productToUpdate, id };
+    const resolvedId = ensureUuidFormat(dummyProduct);
+    if (productToUpdate.id) productToUpdate.id = resolvedId;
+
     const skusToValidate: string[] = [];
     if (productToUpdate.code) skusToValidate.push(productToUpdate.code);
     if (productToUpdate.variations?.length) {
@@ -700,7 +784,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     }
 
     if (skusToValidate.length > 0) {
-        const duplicates = await checkSkusUniquenessBatch(skusToValidate, id);
+        const duplicates = await checkSkusUniquenessBatch(skusToValidate, resolvedId, legacyId);
         const duplicateSkus = Object.keys(duplicates);
         if (duplicateSkus.length > 0) {
             const firstSku = duplicateSkus[0];
@@ -709,7 +793,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     }
 
     const products = getLocalProducts();
-    const index = products.findIndex(p => String(p.id) === String(id));
+    const index = products.findIndex(p => String(p.id) === String(resolvedId));
     if (index === -1) {
         // A lista do ERP pode estar usando dados carregados diretamente do
         // Supabase, sem uma cópia no cache local. Nesse caso, a ação não pode
@@ -717,7 +801,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
         const { error } = await supabase
             .from(TABLE_NAME)
             .update(mapToDB(productToUpdate))
-            .eq('id', id)
+            .eq('id', resolvedId)
             .select('id')
             .single();
 
@@ -730,6 +814,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     const updatedProduct = {
         ...currentItem,
         ...productToUpdate,
+        id: resolvedId,
         updatedAt: new Date().toISOString()
     };
 
@@ -737,8 +822,8 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     saveLocalProducts(products);
     notifySubscribers();
 
-    // Sincronizar com Supabase em background
-    syncProductToSupabase(updatedProduct).catch(console.error);
+    // Sincronizar com Supabase e aguardar conclusão
+    await syncProductToSupabase(updatedProduct);
 
     const oldCode = currentItem.code;
     const newCode = productToUpdate.code;
@@ -752,6 +837,9 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
 export const checkProductHasMoves = async (productId: string, variationId?: string): Promise<boolean> => {
     try {
         const realId = String(productId).split('_')[0];
+        
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+        if (!isUUID) return false;
 
         // 1. Verificar movimentações de estoque (inventory_moves)
         let query = supabase
@@ -790,20 +878,24 @@ export const checkProductHasMoves = async (productId: string, variationId?: stri
 export const deleteProduct = async (id: string): Promise<{ success: boolean; message?: string }> => {
     try {
         const realId = String(id).split('_')[0];
-        const hasMoves = await checkProductHasMoves(realId);
-        if (hasMoves) {
-            return {
-                success: false,
-                message: "Este produto possui movimentações de estoque ou vendas vinculadas e não pode ser excluído para preservar o histórico. Você pode desativá-lo."
-            };
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+        
+        if (isUUID) {
+            const hasMoves = await checkProductHasMoves(realId);
+            if (hasMoves) {
+                return {
+                    success: false,
+                    message: "Este produto possui movimentações de estoque ou vendas vinculadas e não pode ser excluído para preservar o histórico. Você pode desativá-lo."
+                };
+            }
+
+            // Excluir variações vinculadas do Supabase
+            await supabase.from("product_variations").delete().eq("product_id", realId);
+
+            // Excluir produto principal do Supabase
+            const { error } = await supabase.from(TABLE_NAME).delete().eq("id", realId);
+            if (error) throw error;
         }
-
-        // Excluir variações vinculadas do Supabase
-        await supabase.from("product_variations").delete().eq("product_id", realId);
-
-        // Excluir produto principal do Supabase
-        const { error } = await supabase.from(TABLE_NAME).delete().eq("id", realId);
-        if (error) throw error;
 
         // Remover do cache / estado local
         let products = getLocalProducts();

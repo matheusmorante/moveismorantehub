@@ -237,24 +237,11 @@ const ProductCard = ({
                                     <i className="bi bi-file-earmark-text" /> Rascunho
                                 </span>
                             )}
-                            <button disabled={!product.active} onClick={(e) => { e.stopPropagation(); if (product.active) onToggleActive(product.id!, true); }} title={product.active ? 'Clique para desativar no ERP' : 'ERP inativo'} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border ${product.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 cursor-pointer hover:bg-emerald-100' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 cursor-default'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${product.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                ERP · {product.active ? 'Ativo' : 'Inativo'}
-                            </button>
                             <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                 Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
                             </button>
                         </div>
-                        {isParent && (product as any).allVariations && (product as any).allVariations.length > 0 && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setShowVariations(!showVariations); }}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border transition-all shrink-0 ${showVariations ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/30'}`}
-                            >
-                                <i className={`bi ${showVariations ? 'bi-chevron-up' : 'bi-chevron-down'}`} />
-                                Variações ({(product as any).allVariations.length})
-                            </button>
-                        )}
                     </div>
                 </div>
             </div>
@@ -288,6 +275,18 @@ const ProductCard = ({
                     </div>
                 )}
             </div>
+            )}
+
+            {isParent && (product as any).allVariations && (product as any).allVariations.length > 0 && (
+                <div className="flex justify-center border-t border-slate-50 dark:border-slate-800/50 pt-2.5 mt-2.5">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setShowVariations(!showVariations); }}
+                        className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
+                    >
+                        <span>Variações ({(product as any).allVariations.length})</span>
+                        <i className={`bi ${showVariations ? 'bi-chevron-double-up' : 'bi-chevron-double-down'} text-xs`} />
+                    </button>
+                </div>
             )}
 
             {showTrash && (
@@ -338,10 +337,6 @@ const ProductCard = ({
                                                 {varName}
                                             </span>
                                             <div className="flex gap-1 shrink-0">
-                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border ${v.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
-                                                    <span className={`w-1 h-1 rounded-full ${v.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                                    ERP · {v.active ? 'Ativo' : 'Inativo'}
-                                                </span>
                                                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border ${v.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
                                                     <span className={`w-1 h-1 rounded-full ${v.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                                     Catálogo · {v.status === 'published' ? 'Publicado' : 'Ocultado'}
