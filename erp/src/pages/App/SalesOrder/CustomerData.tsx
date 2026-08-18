@@ -76,6 +76,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
             fullName: customer.fullName || customer.tradeName || '',
             phone: customer.phone || '',
             noPhone: customer.noPhone || false,
+            noAddress: customer.noAddress || !!(customer.fullAddress as any)?.noAddress || false,
             fullAddress: customer.fullAddress || EMPTY_ADDRESS,
             additionalContacts: customer.additionalContacts || [],
         });
@@ -202,6 +203,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
             fullName: customerData.fullName || "",
             phone: customerData.phone || "",
             noPhone: customerData.noPhone || false,
+            noAddress: customerData.noAddress || !!(customerData.fullAddress as any)?.noAddress || false,
             fullAddress: customerData.fullAddress || EMPTY_ADDRESS,
             personType: 'PF', // Fallback
             type: 'customers',
@@ -446,8 +448,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                             <button
                                 type="button"
                                 onClick={() => setCustomerData(prev => ({ ...prev, noAddress: !prev.noAddress }))}
-                                disabled={isReadOnly}
-                                className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noAddress ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'} ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noAddress ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                             >
                                 {customerData.noAddress ? <><i className="bi bi-geo-alt-fill mr-1 text-[10px]"></i> S/ Endereço</> : 'Não informar'}
                             </button>
@@ -586,9 +587,10 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                 <CustomerSearchModal
                     onSelect={(selected: any) => {
                         setCustomerData({
-                        ...selected,
-                        fullAddress: selected.fullAddress || selected.address || EMPTY_ADDRESS,
-                        additionalContacts: selected.additionalContacts || []
+                            ...selected,
+                            noAddress: selected.noAddress || !!selected.fullAddress?.noAddress || !!selected.address?.noAddress || false,
+                            fullAddress: selected.fullAddress || selected.address || EMPTY_ADDRESS,
+                            additionalContacts: selected.additionalContacts || []
                         });
                         setSearchTerm(selected.fullName || '');
                     }}

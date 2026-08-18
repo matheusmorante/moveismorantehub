@@ -258,20 +258,28 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             setShipping(defaultShipping);
         }
         setPayments(order.payments || []);
-        setCustomerData(order.customerData || {
-            fullName: '',
-            phone: '',
-            noPhone: false,
-            fullAddress: {
-                cep: '',
-                street: '',
-                number: '',
-                complement: '',
-                observation: '',
-                neighborhood: '',
-                city: ''
-            }
-        });
+        if (order.customerData) {
+            setCustomerData({
+                ...order.customerData,
+                noAddress: order.customerData.noAddress || !!(order.customerData.fullAddress as any)?.noAddress
+            });
+        } else {
+            setCustomerData({
+                fullName: '',
+                phone: '',
+                noPhone: false,
+                noAddress: false,
+                fullAddress: {
+                    cep: '',
+                    street: '',
+                    number: '',
+                    complement: '',
+                    observation: '',
+                    neighborhood: '',
+                    city: ''
+                }
+            });
+        }
         setObservation(order.observation || "");
         setSeller((order.seller as string) || "");
         setMarketingOrigin(order.marketingOrigin === 'Tráfego Pago' ? 'paid' : (order.marketingOrigin === 'Direto na Loja' ? 'organic' : (order.marketingOrigin || 'organic')));

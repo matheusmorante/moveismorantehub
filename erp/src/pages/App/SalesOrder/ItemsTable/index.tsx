@@ -55,7 +55,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                 </div>
 
                 <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <Footer summary={summary} isMobile={true} />
+                    <Footer summary={summary} isMobile={true} isBudget={isBudget} />
                 </div>
             </div>
         );
@@ -86,7 +86,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                 </tr>
             </thead>
             <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} />
-            <Footer summary={summary} />
+            <Footer summary={summary} isBudget={isBudget} />
         </table>
     );
 };

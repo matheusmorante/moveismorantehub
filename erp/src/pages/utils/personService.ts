@@ -27,7 +27,7 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     if (p.marketingOrigin !== undefined) dbObj.marketing_origin = p.marketingOrigin;
 
     // Special handling for address
-    if (p.fullAddress || p.address || p.additionalContacts !== undefined) {
+    if (p.fullAddress || p.address || p.additionalContacts !== undefined || p.noAddress !== undefined) {
         let addressVal: any = p.fullAddress || p.address || {};
         if (typeof addressVal === 'string' && addressVal.trim().startsWith('{')) {
             try {
@@ -41,6 +41,9 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
             addressVal = { ...addressVal };
             if (p.additionalContacts !== undefined) {
                 addressVal.additionalContacts = p.additionalContacts;
+            }
+            if (p.noAddress !== undefined) {
+                addressVal.noAddress = p.noAddress;
             }
         }
         dbObj.address = addressVal;
@@ -92,6 +95,7 @@ const mapFromDB = (data: any): Person => {
         phone: data.phone || '',
         address: parsedAddress || {},
         fullAddress: typeof parsedAddress === 'object' && parsedAddress !== null ? parsedAddress : { street: parsedAddress || '' },
+        noAddress: (typeof parsedAddress === 'object' && parsedAddress !== null ? parsedAddress.noAddress : false) || false,
         observation: data.observation || '',
         active: data.active ?? true,
         isDraft: data.is_draft ?? false,

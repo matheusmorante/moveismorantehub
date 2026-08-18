@@ -1,14 +1,13 @@
 import { ItemsSummary } from "../../../types/items.type";
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
-import UnitDisplay from '../../../../components/UnitDisplay';
 
 interface Props {
     summary: ItemsSummary;
     isMobile?: boolean;
+    isBudget?: boolean;
 }
 
-const Footer = ({ summary, isMobile }: Props) => {
-
+const Footer = ({ summary, isMobile, isBudget }: Props) => {
     if (isMobile) {
         return (
             <div className="space-y-2">
@@ -28,10 +27,12 @@ const Footer = ({ summary, isMobile }: Props) => {
         );
     }
 
+    const colSpanValue = isBudget ? 5 : 6;
+
     return (
         <tfoot className="bg-slate-50/30 dark:bg-slate-800/20">
             <tr className="border-t border-slate-100 dark:border-slate-800">
-                <td colSpan={4} className="px-4 py-3 bg-transparent"></td>
+                <td colSpan={colSpanValue} className="px-4 py-3 bg-transparent"></td>
                 <td className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                     Subtotal:
                 </td>
@@ -44,7 +45,7 @@ const Footer = ({ summary, isMobile }: Props) => {
             </tr>
 
             <tr>
-                <td colSpan={4} className="px-4 py-3 bg-transparent"></td>
+                <td colSpan={colSpanValue} className="px-4 py-3 bg-transparent"></td>
                 <td className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-red-400 dark:text-red-500/50">
                     Total Desconto:
                 </td>
@@ -57,7 +58,7 @@ const Footer = ({ summary, isMobile }: Props) => {
             </tr>
 
             <tr className="bg-blue-50/30 dark:bg-blue-900/10">
-                <td colSpan={4} className="px-4 py-3 bg-transparent"></td>
+                <td colSpan={colSpanValue} className="px-4 py-3 bg-transparent"></td>
                 <td className="px-4 py-1 text-right text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
                     Total Final:
                 </td>
@@ -69,7 +70,7 @@ const Footer = ({ summary, isMobile }: Props) => {
                 <td></td>
             </tr>
         </tfoot>
-    )
-}
+    );
+};
 
-export default Footer;
+export default Footer;

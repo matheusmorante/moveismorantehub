@@ -6,11 +6,9 @@ import { calcItemTotalValue } from '../../../utils/calculations';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import UnitInput from './UnitInput';
 import CurrencyInput from '../../../../components/CurrencyInput';
-import ToggleValueTypeBtn from '../ToggleValueTypeBtn';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { ValidationErrors } from '../../../utils/validations';
 import { getSettings } from '@/pages/utils/settingsService';
-import { formatCurrency } from '../../../utils/formatters';
 
 interface Props {
     item: Item;
@@ -26,17 +24,38 @@ interface Props {
     isBudget?: boolean;
 }
 
-const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
+const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
     const handlingErrorKey = `item_${idx}_handlingType`;
     const handlingError = errors[handlingErrorKey];
     const settings = getSettings();
 
-    const initialSubtotal = item.unitPrice - (item.discountType === 'fixed' ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100));
+    // Valores calculados com arredondamento preciso para evitar dízimas de ponto flutuante
+    const discountInValue = item.discountType === "fixed" 
+        ? item.unitDiscount 
+        : Math.round(((item.unitPrice * item.unitDiscount) / 100) * 100) / 100;
+
+    const discountInPercent = item.discountType === "percentage" 
+        ? item.unitDiscount 
+        : (item.unitPrice > 0 ? Math.round(((item.unitDiscount / item.unitPrice) * 100) * 100) / 100 : 0);
+
+    const initialSubtotal = Math.round((item.unitPrice - discountInValue) * 100) / 100;
+
+    // Estados locais temporários para evitar cálculos reativos durante a digitação
+    const [tempDiscountValue, setTempDiscountValue] = React.useState(discountInValue);
+    const [tempDiscountPercent, setTempDiscountPercent] = React.useState(discountInPercent);
     const [tempSubtotal, setTempSubtotal] = React.useState(initialSubtotal);
 
-    // Sincronizar com mudanças externas (ex: alteração no preço unitário ou descontos)
+    // Sincronizar estados locais apenas quando os valores persistidos mudam externamente
+    React.useEffect(() => {
+        setTempDiscountValue(discountInValue);
+    }, [discountInValue]);
+
+    React.useEffect(() => {
+        setTempDiscountPercent(discountInPercent);
+    }, [discountInPercent]);
+
     React.useEffect(() => {
         setTempSubtotal(initialSubtotal);
     }, [initialSubtotal]);
@@ -46,17 +65,37 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
     };
 
     const commitSubtotal = () => {
-        const val = tempSubtotal;
+        const val = Math.round(tempSubtotal * 100) / 100;
         const currentUnitPrice = item.unitPrice || 0;
         if (val > currentUnitPrice) {
-            onChange(idx, 'unitPrice', val);
-            onChange(idx, 'discountType', 'fixed');
-            onChange(idx, 'unitDiscount', 0);
+            onBatchChange(idx, {
+                unitPrice: val,
+                discountType: 'fixed',
+                unitDiscount: 0
+            });
         } else {
-            const newDiscount = currentUnitPrice - val;
-            onChange(idx, 'discountType', 'fixed');
-            onChange(idx, 'unitDiscount', newDiscount);
+            const newDiscount = Math.round((currentUnitPrice - val) * 100) / 100;
+            onBatchChange(idx, {
+                discountType: 'fixed',
+                unitDiscount: newDiscount
+            });
         }
+    };
+
+    const commitDiscountValue = () => {
+        const val = Math.round(tempDiscountValue * 100) / 100;
+        onBatchChange(idx, { 
+            discountType: 'fixed', 
+            unitDiscount: val 
+        });
+    };
+
+    const commitDiscountPercent = () => {
+        const val = Math.round(tempDiscountPercent * 100) / 100;
+        onBatchChange(idx, { 
+            discountType: 'percentage', 
+            unitDiscount: val 
+        });
     };
 
     if (isMobile) {
@@ -130,7 +169,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
                                 title="Excluir item"
                             >
                                 <i className="bi bi-trash text-lg" />
-                            </button>
+                             </button>
                         )}
                     </div>
 
@@ -150,7 +189,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
                                 <CurrencyInput
                                     value={item.unitPrice}
                                     onChange={(value: number) => onChange(idx, 'unitPrice', value)}
-                                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none"
+                                    className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none"
                                 />
                             </div>
                         </div>
@@ -164,10 +203,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
                                     <div>
                                         <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto R$</label>
                                         <CurrencyInput
-                                            value={item.discountType === "fixed" ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100)}
-                                            onChange={(val: number) => {
-                                                onBatchChange(idx, { discountType: 'fixed', unitDiscount: val });
-                                            }}
+                                            value={tempDiscountValue}
+                                            onChange={(val: number) => setTempDiscountValue(val)}
+                                            onBlur={commitDiscountValue}
                                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
                                         />
                                     </div>
@@ -176,11 +214,10 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
                                         <CurrencyOrPercentInput
                                             prefix=""
                                             suffix=" %"
-                                            value={item.discountType === "percentage" ? item.unitDiscount : (item.unitPrice > 0 ? (item.unitDiscount / item.unitPrice) * 100 : 0)}
-                                            onChange={(val: number) => {
-                                                onBatchChange(idx, { discountType: 'percentage', unitDiscount: val });
-                                            }}
-                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
+                                            value={tempDiscountPercent}
+                                            onChange={(val: number) => setTempDiscountPercent(val)}
+                                            onBlur={commitDiscountPercent}
+                                            className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
                                         />
                                     </div>
                                 </div>
@@ -303,10 +340,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
             <td className="px-4 py-2 text-right">
                 {!item.isComboItem && (
                     <CurrencyInput
-                        value={item.discountType === "fixed" ? item.unitDiscount : ((item.unitPrice * item.unitDiscount) / 100)}
-                        onChange={(val: number) => {
-                            onBatchChange(idx, { discountType: 'fixed', unitDiscount: val });
-                        }}
+                        value={tempDiscountValue}
+                        onChange={(val: number) => setTempDiscountValue(val)}
+                        onBlur={commitDiscountValue}
                         className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none"
                     />
                 )}
@@ -317,10 +353,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onToggleDiscountType, onDelete
                         <CurrencyOrPercentInput
                             prefix=""
                             suffix=" %"
-                            value={item.discountType === "percentage" ? item.unitDiscount : (item.unitPrice > 0 ? (item.unitDiscount / item.unitPrice) * 100 : 0)}
-                            onChange={(val: number) => {
-                                onBatchChange(idx, { discountType: 'percentage', unitDiscount: val });
-                            }}
+                            value={tempDiscountPercent}
+                            onChange={(val: number) => setTempDiscountPercent(val)}
+                            onBlur={commitDiscountPercent}
                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
                         />
                     </div>
