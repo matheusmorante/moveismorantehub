@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { InitialStockEntry } from '../../../types/product.type';
+import CurrencyInput from '@/components/CurrencyInput';
 
 interface InitialStockListProps {
     entries: InitialStockEntry[];
@@ -53,13 +54,11 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 px-1">Custo Unit.</label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={entry.unitCost || ''}
-                                onChange={(e) => updateEntry('unitCost', parseFloat(e.target.value) || 0)}
-                                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
-                                placeholder="0.00"
+                            <CurrencyInput
+                                value={entry.unitCost}
+                                onChange={(val) => updateEntry('unitCost', val)}
+                                className="w-full text-left px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
+                                placeholder="0,00"
                             />
                         </div>
 
@@ -79,14 +78,23 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
                                     >$</button>
                                 </div>
                             </div>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={entry.ipiPercent || ''}
-                                onChange={(e) => updateEntry('ipiPercent', parseFloat(e.target.value) || 0)}
-                                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
-                                placeholder="0.00"
-                            />
+                            {entry.ipiType === 'fixed' ? (
+                                <CurrencyInput
+                                    value={entry.ipiPercent}
+                                    onChange={(val) => updateEntry('ipiPercent', val)}
+                                    className="w-full text-left px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
+                                    placeholder="0,00"
+                                />
+                            ) : (
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={entry.ipiPercent || ''}
+                                    onChange={(e) => updateEntry('ipiPercent', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
+                                    placeholder="0.00"
+                                />
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-1.5">
@@ -105,14 +113,23 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
                                     >$</button>
                                 </div>
                             </div>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={entry.freightCost || ''}
-                                onChange={(e) => updateEntry('freightCost', parseFloat(e.target.value) || 0)}
-                                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
-                                placeholder="0.00"
-                            />
+                            {entry.freightType === 'percentage' ? (
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={entry.freightCost || ''}
+                                    onChange={(e) => updateEntry('freightCost', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
+                                    placeholder="0.00"
+                                />
+                            ) : (
+                                <CurrencyInput
+                                    value={entry.freightCost}
+                                    onChange={(val) => updateEntry('freightCost', val)}
+                                    className="w-full text-left px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-blue-500/30 rounded-xl outline-none text-sm font-bold dark:text-slate-200"
+                                    placeholder="0,00"
+                                />
+                            )}
                         </div>
                     </div>
                     

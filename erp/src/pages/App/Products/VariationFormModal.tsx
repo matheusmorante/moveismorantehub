@@ -5,6 +5,7 @@ import { saveVariation, generateVariationSku, parseVariationImages } from '@/pag
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import CurrencyInput from '@/components/CurrencyInput';
 
 interface VariationFormModalProps {
     isOpen: boolean;
@@ -736,17 +737,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                disabled={formData.syncUnitPrice}
-                                                value={formData.syncUnitPrice ? (parentProduct.unitPrice || 0) : (formData.unitPrice || 0)}
-                                                onChange={e => handlePriceChange(e.target.value)}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
-                                            />
-                                        </div>
+                                        <CurrencyInput
+                                            disabled={formData.syncUnitPrice}
+                                            value={formData.syncUnitPrice ? (parentProduct.unitPrice || 0) : (formData.unitPrice || 0)}
+                                            onChange={val => handlePriceChange(String(val))}
+                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                                        />
                                     </div>
 
                                     {/* Desconto % */}
@@ -774,18 +770,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             <span>Desconto (R$)</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                disabled={formData.syncUnitPrice}
-                                                placeholder="0,00"
-                                                value={varDiscountFixed}
-                                                onChange={e => handleDiscountFixedChange(e.target.value)}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
-                                            />
-                                        </div>
+                                        <CurrencyInput
+                                            disabled={formData.syncUnitPrice}
+                                            value={varDiscountFixed}
+                                            onChange={val => handleDiscountFixedChange(String(val))}
+                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                        />
                                     </div>
 
                                     {/* Preço Promocional Final */}
@@ -794,18 +784,13 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             <span>Promo Final</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                disabled={formData.syncUnitPrice}
-                                                placeholder="Sem desconto"
-                                                value={formData.syncUnitPrice ? (parentProduct.promoPrice || "") : (formData.promoPrice || "")}
-                                                onChange={e => handlePromoPriceFieldChange(e.target.value)}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                                            />
-                                        </div>
+                                        <CurrencyInput
+                                            placeholder="Sem desconto"
+                                            disabled={formData.syncUnitPrice}
+                                            value={formData.syncUnitPrice ? (parentProduct.promoPrice || "") : (formData.promoPrice || "")}
+                                            onChange={val => handlePromoPriceFieldChange(String(val))}
+                                            className="w-full text-left px-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -840,16 +825,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             <span>Preço de Custo Base</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                                         </label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                disabled={formData.syncCostPrice}
-                                                value={formData.syncCostPrice ? (parentProduct.costPrice || "") : (formData.costPrice || "")}
-                                                onChange={e => updateCost({ costPrice: Number(e.target.value) })}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20"
-                                            />
-                                        </div>
+                                        <CurrencyInput
+                                            disabled={formData.syncCostPrice}
+                                            value={formData.syncCostPrice ? (parentProduct.costPrice || 0) : (formData.costPrice || 0)}
+                                            onChange={val => updateCost({ costPrice: val })}
+                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20"
+                                        />
                                     </div>
 
                                     <div className="flex flex-col gap-2">
@@ -875,13 +856,22 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
                                         </label>
                                         <div className="relative flex items-center">
-                                            <input
-                                                type="number"
-                                                disabled={formData.syncCostPrice}
-                                                value={formData.syncCostPrice ? (parentProduct.freightCost || "") : (formData.freightCost || "")}
-                                                onChange={e => updateCost({ freightCost: Number(e.target.value) })}
-                                                className="w-full pl-3 pr-16 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20"
-                                            />
+                                            {formData.freightType === 'percentage' ? (
+                                                <input
+                                                    type="number"
+                                                    disabled={formData.syncCostPrice}
+                                                    value={formData.syncCostPrice ? (parentProduct.freightCost || "") : (formData.freightCost || "")}
+                                                    onChange={e => updateCost({ freightCost: Number(e.target.value) })}
+                                                    className="w-full pl-3 pr-16 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20"
+                                                />
+                                            ) : (
+                                                <CurrencyInput
+                                                    disabled={formData.syncCostPrice}
+                                                    value={formData.syncCostPrice ? (parentProduct.freightCost || 0) : (formData.freightCost || 0)}
+                                                    onChange={val => updateCost({ freightCost: val })}
+                                                    className="w-full text-left pl-3 pr-16 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20"
+                                                />
+                                            )}
                                             <div className="absolute right-1 top-1 bottom-1">
                                                 <select
                                                     disabled={formData.syncCostPrice}

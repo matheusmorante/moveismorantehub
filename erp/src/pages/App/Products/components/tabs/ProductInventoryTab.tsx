@@ -3,6 +3,7 @@ import { Product } from '@/pages/types/product.type';
 import { Person } from '../../../../types/person.type';
 import InitialStockList from '../InitialStockList';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import CurrencyInput from '@/components/CurrencyInput';
 
 interface ProductInventoryTabProps {
     formData: Partial<Product>;
@@ -205,38 +206,31 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
                         <i className="bi bi-tag-fill"></i> Precificação e Descontos {formData.hasVariations && <span className="text-[9px] text-slate-400 font-bold">(Base Padrão para Variações)</span>}
-                    </h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                             {/* Preço de Venda */}
                             <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Preço de Venda</span>
                                     <span className="text-red-500 ml-0.5">*</span>
                                 </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="0,00"
-                                        value={(formData.unitPrice === null || formData.unitPrice === undefined || isNaN(formData.unitPrice as number)) ? '' : formData.unitPrice}
-                                        onChange={(e) => handlePriceChange(e.target.value)}
-                                        onBlur={() => {
-                                            if (formData.unitPrice && Number(formData.unitPrice) > 0 && setValidationErrors) {
-                                                setValidationErrors(prev => {
-                                                    const next = { ...prev };
-                                                    delete next.unitPrice;
-                                                    return next;
-                                                });
-                                            }
-                                        }}
-                                        className={`w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border rounded-xl outline-none text-xs font-bold transition-all ${
-                                            validationErrors?.unitPrice 
-                                                ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 text-red-600' 
-                                                : 'border-slate-200 dark:border-slate-800 text-blue-600 focus:ring-2 focus:ring-blue-500/20'
-                                        }`}
-                                    />
-                                </div>
+                                <CurrencyInput
+                                    value={formData.unitPrice}
+                                    onChange={(val) => handlePriceChange(String(val))}
+                                    onBlur={() => {
+                                        if (formData.unitPrice && Number(formData.unitPrice) > 0 && setValidationErrors) {
+                                            setValidationErrors(prev => {
+                                                const next = { ...prev };
+                                                delete next.unitPrice;
+                                                return next;
+                                            });
+                                        }
+                                    }}
+                                    className={`w-full text-left px-3 py-2.5 bg-white dark:bg-slate-955 border rounded-xl outline-none text-xs font-bold transition-all ${
+                                        validationErrors?.unitPrice 
+                                            ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 text-red-600' 
+                                            : 'border-slate-200 dark:border-slate-800 text-blue-600 focus:ring-2 focus:ring-blue-500/20'
+                                    }`}
+                                />
                             </div>
 
                             {/* Desconto % */}
@@ -263,17 +257,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                     <span>Desconto (R$)</span>
                                     <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                 </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="0,00"
-                                        value={discountFixed}
-                                        onChange={(e) => handleDiscountFixedChange(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
-                                    />
-                                </div>
+                                <CurrencyInput
+                                    value={discountFixed}
+                                    onChange={(val) => handleDiscountFixedChange(String(val))}
+                                    className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                />
                             </div>
 
                             {/* Preço Promocional Final */}
@@ -282,17 +270,12 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                     <span>Preço Promocional Final</span>
                                     <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                 </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="Sem desconto"
-                                        value={(formData.promoPrice === null || formData.promoPrice === undefined || isNaN(formData.promoPrice as number)) ? '' : formData.promoPrice}
-                                        onChange={(e) => handlePromoPriceFieldChange(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                                    />
-                                </div>
+                                <CurrencyInput
+                                    placeholder="Sem desconto"
+                                    value={formData.promoPrice}
+                                    onChange={(val) => handlePromoPriceFieldChange(String(val))}
+                                    className="w-full text-left px-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                />
                             </div>
                         </div>
                     </div>
@@ -307,13 +290,11 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Preço de Custo Base</span>
                                 </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                    <input type="number" 
-                                        value={formData.costPrice || ''} 
-                                        onChange={e => updateCost({ costPrice: Number(e.target.value) })}
-                                        className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                                </div>
+                                <CurrencyInput
+                                    value={formData.costPrice}
+                                    onChange={(val) => updateCost({ costPrice: val })}
+                                    className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 dark:text-slate-200"
+                                />
                             </div>
 
                             <div className="flex flex-col gap-2 p-2 rounded-2xl">
@@ -334,11 +315,20 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                                     <span>Frete</span>
                                 </label>
                                 <div className="relative flex items-center">
-                                    <input type="number" 
-                                        value={formData.freightCost || ''}
-                                        onChange={e => updateCost({ freightCost: Number(e.target.value) })}
-                                        className="w-full pl-3 pr-16 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" 
-                                    />
+                                    {formData.freightType === 'percentage' ? (
+                                        <input 
+                                            type="number" 
+                                            value={formData.freightCost || ''} 
+                                            onChange={e => updateCost({ freightCost: Number(e.target.value) })}
+                                            className="w-full pl-3 pr-16 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" 
+                                        />
+                                    ) : (
+                                        <CurrencyInput
+                                            value={formData.freightCost}
+                                            onChange={(val) => updateCost({ freightCost: val })}
+                                            className="w-full text-left pl-3 pr-16 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    )}
                                     <div className="absolute right-1 top-1 bottom-1">
                                         <select 
                                             value={formData.freightType || 'fixed'}
