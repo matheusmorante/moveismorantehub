@@ -151,23 +151,10 @@ export const updateCategoryChildren = async (parentId: string, childIds: string[
 export const getCategoryBreadcrumb = (categoryIds: string[], tree: { categories: any[], relations: any[] }) => {
     if (!tree || !categoryIds || categoryIds.length === 0) return "-";
 
-    const paths = categoryIds.map(cid => {
+    const names = categoryIds.map(cid => {
         const cat = tree.categories.find(c => c.id === cid);
-        if (!cat) return null;
-
-        const parents = tree.categories.filter(p => p.parents?.includes(cid)); // This logic seems inverted based on cid as child
-        // Correct logic: find parents of cid
-        const myParents = tree.relations
-            .filter(r => r.childId === cid)
-            .map(r => tree.categories.find(c => c.id === r.parentId)?.name)
-            .filter(Boolean)
-            .sort();
-
-        if (myParents.length > 0) {
-            return `${myParents.join(', ')} > ${cat.name}`;
-        }
-        return cat.name;
+        return cat ? cat.name : null;
     }).filter(Boolean);
 
-    return paths.join(' | ') || "-";
+    return names.join(' | ') || "-";
 };
