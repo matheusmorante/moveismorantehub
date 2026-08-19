@@ -15,7 +15,7 @@ export const getDefaultUserSettings = (): UserSettings => ({
     theme: 'system',
     compactMode: false,
     autoScroll: {
-        enabled: true,
+        enabled: false,
         speed: 20
     },
     defaultModule: '/',

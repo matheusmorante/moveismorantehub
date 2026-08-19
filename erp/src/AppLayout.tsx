@@ -62,7 +62,6 @@ export default function AppLayout() {
 
   return (
     <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
-      <GlobalAutoScroll />
       <ToastContainer
         position="top-right"
         autoClose={3000}

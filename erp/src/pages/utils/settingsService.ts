@@ -331,9 +331,9 @@ export const getDefaultSettings = (): AppSettings => ({
     googleReviewUrl: 'https://g.page/r/CctxeFYzY2o8EBE/review',
     defaultTheme: 'light',
     autoScroll: {
-        orderTable: true,
-        scheduleCards: true,
-        scheduleTable: true,
+        orderTable: false,
+        scheduleCards: false,
+        scheduleTable: false,
     },
     showScheduleNoticeLabels: false, // Por padrão não precisa de rótulos de aviso
     speed: 3,
