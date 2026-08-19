@@ -868,22 +868,45 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                             </div>
 
                             {/* Informações de Estoque */}
-                            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Informações de Estoque</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                            <span>Estoque Atual</span>
-                                            <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={formData.stock || 0}
-                                            onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black focus:ring-2 focus:ring-blue-500/20"
-                                        />
+                            <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between pb-2">
+                                    <div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Lançamento de Estoque Inicial</h4>
+                                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Informe a quantidade inicial e custo de compra desta variação</p>
                                     </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => prev ? { ...prev, launchInitialStock: !prev.launchInitialStock, stock: 0 } : null)}
+                                            className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.launchInitialStock ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                                        >
+                                            {formData.launchInitialStock ? 'Lançando Inicial' : 'Não Lançar'}
+                                        </button>
+                                    </div>
+                                </div>
 
+                                {formData.launchInitialStock && (
+                                    <InitialStockList
+                                        entries={formData.initialStockEntries || []}
+                                        onChange={(entries) => {
+                                            const totalStock = entries.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+                                            const avgCost = entries.length > 0
+                                                ? entries.reduce((acc, curr) => acc + (curr.finalUnitCost || 0), 0) / entries.length
+                                                : 0;
+
+                                            setFormData(prev => prev ? {
+                                                ...prev,
+                                                initialStockEntries: entries,
+                                                stock: totalStock,
+                                                initialStock: totalStock,
+                                                initialCost: avgCost,
+                                                ...(avgCost > 0 ? { costPrice: avgCost, syncCostPrice: false } : {})
+                                            } : null);
+                                        }}
+                                    />
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex flex-col gap-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Estoque Mínimo (Alerta)</span>
@@ -891,8 +914,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                         </label>
                                         <input
                                             type="number"
-                                            value={formData.minStock || 0}
+                                            value={formData.minStock || ''}
                                             onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                                            placeholder="0"
                                             className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>

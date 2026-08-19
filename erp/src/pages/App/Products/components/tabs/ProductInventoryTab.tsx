@@ -68,8 +68,8 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Lançar Estoque Inicial Toggle - ONLY IN CREATION */}
-            {!isEditing && (
+            {/* Lançar Estoque Inicial Toggle - ONLY IN CREATION AND WITHOUT VARIATIONS */}
+            {(!isEditing && !formData.hasVariations) && (
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
@@ -90,7 +90,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 </div>
             )}
 
-            {/* Cost Composition / Batch List - ONLY IF LAUNCHING STOCK INITIAL */}
+            {/* Cost Composition / Batch List - ONLY IF LAUNCHING STOCK INITIAL WITHOUT VARIATIONS */}
             {(!isEditing && formData.launchInitialStock && !formData.hasVariations) && (
                 <div className="flex flex-col gap-4 animate-in zoom-in-95 duration-300">
                     <div>
@@ -199,15 +199,14 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 )}
             </div>
 
-            {/* Precificação e Custo - Sempre Visíveis se NÃO tiver variações */}
-            {!formData.hasVariations && (
-                <>
-                    {/* Precificação e Desconto */}
-                    <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
-                        <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
-                            <i className="bi bi-tag-fill"></i> Precificação e Descontos
-                        </h5>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Precificação e Custo do Produto */}
+            <>
+                {/* Precificação e Desconto */}
+                <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
+                        <i className="bi bi-tag-fill"></i> Precificação e Descontos {formData.hasVariations && <span className="text-[9px] text-slate-400 font-bold">(Base Padrão para Variações)</span>}
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                             {/* Preço de Venda */}
                             <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
@@ -367,7 +366,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         </div>
                     </div>
                 </>
-            )}
 
             {/* Info Box */}
             <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl">
