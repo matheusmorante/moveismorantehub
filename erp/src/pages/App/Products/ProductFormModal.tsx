@@ -519,7 +519,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 }
             } else {
                 // If creating new, start with INITIAL_FORM_DATA then apply initialData, and auto-generate ID and 6-digit SKU (code)
-                const generatedId = String(Math.floor(Date.now() + Math.random() * 1000));
+                const generatedId = crypto.randomUUID();
                 const generatedSku = await getNextSequentialProductCode();
                 const nextFormData = {
                     ...INITIAL_FORM_DATA,
@@ -536,9 +536,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 setFormData(nextFormData);
                 setDiscountFixed("");
                 setDiscountPercent("");
-                
-                // Salvar o rascunho temporario imediatamente para aparecer na lista
-                await saveProduct(nextFormData as Product);
             }
             setActiveTab('geral');
         };

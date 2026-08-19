@@ -27,6 +27,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
 
     const {
         products,
+        paginatedProducts,
         loading,
         totalItems,
         currentPage,
@@ -117,7 +118,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
             <div className="p-4 md:p-8">
 
                 <ProductTable
-                    products={products}
+                    products={paginatedProducts}
                     onEdit={onEdit}
                     onShowHistory={onShowHistory}
                     onLaunchStock={onLaunchStock}

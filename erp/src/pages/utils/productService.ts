@@ -729,8 +729,9 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                 await supabase.from("product_variations").delete().eq("product_id", product.id);
             }
         }
-    } catch (err) {
+    } catch (err: any) {
         console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
+        throw new Error(err.message || "Erro ao salvar no Supabase");
     }
 };
 
