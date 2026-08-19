@@ -131,13 +131,13 @@ export function FilterContent({ filters, categories, environments, relationships
           <Filter className="h-5 w-5 text-primary" />
           Filtros
         </h3>
-        <Button variant="ghost" size="sm" onClick={reset} className="hidden xl:inline-flex text-xs font-bold text-muted-foreground hover:text-primary">
+        <Button variant="ghost" size="sm" onClick={reset} className="hidden lg:inline-flex text-xs font-bold text-muted-foreground hover:text-primary">
           Limpar filtros
         </Button>
       </div>
 
-      {/* ScrollArea apenas em telas mobile/drawer. No desktop xl+, usa o scroll da página geral */}
-      <div className="flex-1 overflow-y-auto xl:overflow-visible xl:h-auto h-[calc(100vh-200px)]">
+      {/* ScrollArea apenas em telas mobile/drawer. No desktop lg+, usa o scroll da página geral */}
+      <div className="flex-1 overflow-y-auto lg:overflow-visible lg:h-auto h-[calc(100vh-200px)]">
         <div className="p-6 space-y-10 pb-10">
           {/* Faixa de Preço */}
           <div className="space-y-6">
@@ -341,8 +341,8 @@ export function FilterContent({ filters, categories, environments, relationships
           </div>
         </div>
       </div>
-      {/* Rodapé fixado embaixo - Apenas em telas menores que xl (mobile/tablet/laptop pequeno) */}
-      <div className="xl:hidden border-t border-gray-100 p-4 bg-white flex items-center justify-between gap-4 shrink-0">
+      {/* Rodapé fixado embaixo - Apenas em telas menores que lg (mobile/tablet) */}
+      <div className="lg:hidden border-t border-gray-100 p-4 bg-white flex items-center justify-between gap-4 shrink-0">
         <Button 
           variant="outline" 
           onClick={reset} 

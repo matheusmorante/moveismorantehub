@@ -6,6 +6,8 @@ interface ProductFiscalTabProps {
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     handleGenerateNCM: () => void;
     isGeneratingNCM: boolean;
+    handleAutoFillFiscalWithAI?: () => void;
+    isFillingFiscalWithAI?: boolean;
 }
 
 const COMMON_NCMS = [
@@ -29,7 +31,11 @@ const COMMON_NCMS = [
 
 const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     formData,
-    setFormData
+    setFormData,
+    handleGenerateNCM,
+    isGeneratingNCM,
+    handleAutoFillFiscalWithAI,
+    isFillingFiscalWithAI
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -62,11 +68,35 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex flex-col gap-6">
-                <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-file-earmark-text text-blue-600"></i> Informações Fiscais para NF-e
-                    </h4>
-                    <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Dados essenciais para emissão de nota fiscal</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <i className="bi bi-file-earmark-text text-blue-600"></i> Informações Fiscais para NF-e
+                        </h4>
+                        <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Dados essenciais para emissão de nota fiscal e conformidade tributária</p>
+                    </div>
+
+                    {handleAutoFillFiscalWithAI && (
+                        <button
+                            type="button"
+                            disabled={isFillingFiscalWithAI}
+                            onClick={handleAutoFillFiscalWithAI}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                            title="Preencher NCM, CEST, CFOP, CSOSN e PIS/COFINS com base na IA e nas regras tributárias brasileiras"
+                        >
+                            {isFillingFiscalWithAI ? (
+                                <>
+                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Analisando Regras Fiscais...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <i className="bi bi-stars text-amber-300" />
+                                    <span>Preencher com IA</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

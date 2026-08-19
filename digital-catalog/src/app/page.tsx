@@ -227,12 +227,12 @@ function HomeContent() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               {/* Badges de filtros ativos */}
               <div className="flex-1 flex items-center gap-3 bg-white border-none p-3 rounded-2xl min-w-0 overflow-hidden shadow-xs">
-                {/* Botão de abrir drawer apenas em telas menores que xl */}
+                {/* Botão de abrir drawer apenas em telas menores que lg */}
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => setIsSidebarOpen(v => !v)}
-                  className={`xl:hidden h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
+                  className={`lg:hidden h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
                     isSidebarOpen
                       ? "bg-primary border-primary text-white hover:bg-primary/95"
                       : "border-primary/30 text-primary hover:border-primary hover:bg-primary/5"
@@ -288,10 +288,10 @@ function HomeContent() {
             </div>
           </div>
 
-          {/* Layout: Sidebar fixa à esquerda em telas XL (estilo Magazine Luiza) + Grade de produtos */}
+          {/* Layout: Sidebar fixa à esquerda em telas LG+ (estilo Magazine Luiza) + Grade de produtos */}
           <div className="flex gap-8 items-start relative">
-            {/* Sidebar Fixa Desktop XL */}
-            <aside className="hidden xl:block w-72 2xl:w-80 shrink-0 sticky top-24 self-start">
+            {/* Sidebar Fixa Desktop LG+ */}
+            <aside className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-24 self-start">
               <FilterContent
                 filters={filters}
                 categories={categories.filter(c => c.type === "category")}
@@ -311,19 +311,19 @@ function HomeContent() {
 
       <GoogleReviews />
 
-      {/* Overlay escuro — Apenas visível em telas menores que xl quando aberto */}
+      {/* Overlay escuro — Apenas visível em telas menores que lg quando aberto */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm xl:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar drawer — Apenas ativo em telas menores que xl (mobile/tablet) */}
+      {/* Sidebar drawer — Apenas ativo em telas menores que lg (mobile/tablet) */}
       <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out xl:hidden ${
+        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Painel de filtros"

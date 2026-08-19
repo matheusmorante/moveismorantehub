@@ -304,8 +304,11 @@ Retorne APENAS um JSON no formato:
     async generateFiscalData(productData: {
         title: string;
         description: string;
-        companyName: string;
-        companyAddress: string;
+        material?: string;
+        category?: string;
+        companyName?: string;
+        companyAddress?: string;
+        companyCnpj?: string;
     }): Promise<{
         ncm: string;
         cest: string;
@@ -314,27 +317,44 @@ Retorne APENAS um JSON no formato:
         icmsPercent: number;
         cst: string;
         origem: string;
+        pisCst: string;
+        cofinsCst: string;
     }> {
-        const prompt = `Você é um especialista tributário do Brasil. 
-Sua tarefa é analisar os dados do produto e da empresa abaixo e sugerir a classificação fiscal e tributária exata para a emissão de Nota Fiscal Eletrônica (NF-e).
+        const prompt = `Você é um contador e auditor tributário especialista em legislação fiscal brasileira atualizada (incluindo Simples Nacional, Regime Geral, ICMS, NCM e CEST para o comércio varejista e e-commerce).
+
+Sua tarefa é analisar os dados do produto e da empresa e determinar os dados fiscais e tributários mais adequados para a emissão de NF-e (Nota Fiscal Eletrônica).
 
 DADOS DO PRODUTO:
-- Título/Nome: ${productData.title}
-- Descrição Detalhada: ${productData.description || "Não informada"}
+- Nome/Título: ${productData.title}
+- Categoria: ${productData.category || "Móveis e Decoração"}
+- Material/Composição: ${productData.material || "Não informado"}
+- Descrição Completa: ${productData.description || "Não informada"}
 
-DADOS DA EMPRESA EMITENTE:
-- Razão Social/Nome: ${productData.companyName || "Não informado"}
-- Endereço/Localização: ${productData.companyAddress || "Não informado"}
+DADOS DA EMPRESA:
+- Razão Social: ${productData.companyName || "Móveis Morante"}
+- CNPJ: ${productData.companyCnpj || "Não informado"}
+- Localização/Estado: ${productData.companyAddress || "Paraná (PR)"}
 
-RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`\`json), sem saudações ou explicações:
+REGRAS E ORIENTAÇÕES TRIBUTÁRIAS:
+1. NCM: Escolha o código NCM oficial de 8 dígitos mais exato para o tipo de móvel/objeto (ex: 94035000 para dormitório de madeira, 94016100 para estofados/sofás, 94034000 para cozinhas, 94042100 para colchões).
+2. CEST: Se o NCM estiver no regime de Substituição Tributária (ex: colchões, plásticos), informe os 7 dígitos do CEST correspondente. Caso contrário, deixe string vazia "".
+3. CFOP: Use 5102 (venda de mercadoria adquirida de terceiros no estado) ou 5405 (se o item for sujeito a ST no estado).
+4. CST/CSOSN: Para empresa varejista optante pelo Simples Nacional, utilize CSOSN 102 (Tributada pelo Simples Nacional sem permissão de crédito) ou 500 (Cobrada anteriormente por ST), ou para regime normal CST 00/20.
+5. Alíquota ICMS: Indique a alíquota padrão interna correspondente (ex: 12%, 18% ou 19% conforme o estado ou 0 se isento/Simples).
+6. PIS/COFINS CST: Indique o CST de PIS/COFINS padrão para revenda (geralmente 49, 07 ou 01).
+7. Origem: 0 para Nacional, 1 ou 2 para Importados.
+
+RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`\`json), sem saudações ou comentários:
 {
-  "ncm": "string com 8 dígitos numéricos do NCM correto para o produto",
-  "cest": "string com 7 dígitos do CEST correto (ou string vazia se não aplicável)",
-  "ncmDescription": "descrição oficial resumida do NCM (máx 100 caracteres)",
-  "cfop": "CFOP correto para venda interna (geralmente 5102 para mercadoria geral, ou outro aplicável se houver Substituição Tributária)",
-  "cst": "CST ou CSOSN de ICMS mais adequado (ex: 102 para Simples Nacional sem permissão de crédito, ou outro adequado para o tipo de produto e empresa)",
-  "icmsPercent": alíquota padrão de ICMS sugerida como número (ex: 12 ou 18),
-  "origem": "origem da mercadoria de 0 a 8 (geralmente 0 para Nacional)"
+  "ncm": "8 dígitos numéricos do NCM",
+  "cest": "7 dígitos do CEST ou vazio",
+  "ncmDescription": "descrição oficial resumida da classificação do NCM (máx 80 caracteres)",
+  "cfop": "CFOP com 4 dígitos (ex: 5102)",
+  "cst": "CST ou CSOSN sugerido (ex: 102 ou 500)",
+  "icmsPercent": alíquota numérica (ex: 18),
+  "origem": "0 a 8",
+  "pisCst": "CST do PIS (ex: 49 ou 07)",
+  "cofinsCst": "CST do COFINS (ex: 49 ou 07)"
 }`;
 
         try {
@@ -352,14 +372,16 @@ RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`
                 ncm: String(parsed.ncm || '').replace(/\D/g, '').slice(0, 8),
                 cest: String(parsed.cest || '').replace(/\D/g, '').slice(0, 7),
                 ncmDescription: String(parsed.ncmDescription || ''),
-                cfop: String(parsed.cfop || '').replace(/\D/g, '').slice(0, 4),
-                cst: String(parsed.cst || ''),
+                cfop: String(parsed.cfop || '5102').replace(/\D/g, '').slice(0, 4),
+                cst: String(parsed.cst || '102'),
                 icmsPercent: Number(parsed.icmsPercent || 0),
-                origem: String(parsed.origem || '0')
+                origem: String(parsed.origem || '0'),
+                pisCst: String(parsed.pisCst || '49').replace(/\D/g, '').slice(0, 2),
+                cofinsCst: String(parsed.cofinsCst || '49').replace(/\D/g, '').slice(0, 2)
             };
         } catch (error: any) {
             console.error("Erro na classificação tributária automática:", error);
-            throw new Error(error?.message || "Falha ao gerar dados fiscais com Gemini.");
+            throw new Error(error?.message || "Falha ao gerar dados fiscais com IA.");
         }
     },
 

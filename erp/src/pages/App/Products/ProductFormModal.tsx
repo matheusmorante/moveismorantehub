@@ -830,6 +830,54 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     };
 
+    const [isFillingFiscalWithAI, setIsFillingFiscalWithAI] = useState(false);
+
+    const handleAutoFillFiscalWithAI = async () => {
+        const title = (formData.name || formData.description || '').trim();
+        if (!title) {
+            return toast.warning("Informe o nome ou título do produto para preenchimento fiscal.");
+        }
+
+        setIsFillingFiscalWithAI(true);
+        try {
+            const settings = getSettings();
+            const catName = availableCategories.find(c => formData.categoryIds?.includes(c.id))?.name || formData.category || '';
+            
+            const fiscalData = await aiService.generateFiscalData({
+                title,
+                description: formData.description || formData.ecommerceDescription || '',
+                material: formData.material || '',
+                category: catName,
+                companyName: settings.companyName || "Móveis Morante",
+                companyAddress: settings.companyAddress || "Curitiba - PR",
+                companyCnpj: settings.companyCnpj || ""
+            });
+
+            setFormData(prev => ({
+                ...prev,
+                fiscal: {
+                    ...(prev.fiscal || {}),
+                    ncm: fiscalData.ncm,
+                    cest: fiscalData.cest,
+                    ncmDescription: fiscalData.ncmDescription,
+                    cfop: fiscalData.cfop,
+                    cst: fiscalData.cst,
+                    icmsPercent: fiscalData.icmsPercent,
+                    origem: fiscalData.origem,
+                    pisCst: fiscalData.pisCst,
+                    cofinsCst: fiscalData.cofinsCst
+                }
+            }));
+
+            toast.success(`Dados fiscais preenchidos com IA! NCM: ${fiscalData.ncm}, CFOP: ${fiscalData.cfop}, CSOSN: ${fiscalData.cst}`);
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error?.message || "Erro ao preencher dados fiscais com IA.");
+        } finally {
+            setIsFillingFiscalWithAI(false);
+        }
+    };
+
     const handleGenerateNCM = async () => {
         if (!formData.description) return toast.warning("Título necessário para buscar NCM");
         setIsGeneratingNCM(true);
@@ -1483,6 +1531,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             setFormData={setFormData}
                             handleGenerateNCM={handleGenerateNCM}
                             isGeneratingNCM={isGeneratingNCM}
+                            handleAutoFillFiscalWithAI={handleAutoFillFiscalWithAI}
+                            isFillingFiscalWithAI={isFillingFiscalWithAI}
                         />
                     )}
                 </div>

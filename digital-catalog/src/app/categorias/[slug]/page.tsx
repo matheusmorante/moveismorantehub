@@ -117,10 +117,10 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         />
 
         <div className="pt-8 w-full">
-          {/* Layout: sidebar inline em xl+, drawer em <xl */}
+          {/* Layout: sidebar inline em lg+, drawer em <lg */}
           <div className="flex gap-8 items-start relative">
-            {/* Sidebar Desktop — apenas xl+ */}
-            <aside className="hidden xl:block w-72 2xl:w-80 shrink-0 sticky top-24 self-start">
+            {/* Sidebar Desktop — apenas lg+ */}
+            <aside className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-24 self-start">
               <FilterContent
                 filters={filters}
                 categories={categories.filter(c => c.type === "category")}
@@ -138,19 +138,19 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         </div>
       </div>
 
-      {/* Overlay — apenas em <xl */}
+      {/* Overlay — apenas em <lg */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm xl:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar drawer — <xl */}
+      {/* Sidebar drawer — <lg */}
       <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out xl:hidden ${
+        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Painel de filtros"
