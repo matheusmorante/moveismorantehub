@@ -39,9 +39,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
     const [varDiscountFixed, setVarDiscountFixed] = useState("");
 
     const getDefaultVariationTitle = (attributes: Variation['attributes'] = []) => {
-        const parentTitle = parentProduct.name || parentProduct.description || '';
+        const parentTitle = (parentProduct.name || parentProduct.description || '').trim();
         const attributeValues = attributes.map(attribute => attribute.value).filter(Boolean);
-        return [parentTitle, ...attributeValues].filter(Boolean).join(' ') || 'Padrão';
+        if (attributeValues.length > 0) {
+            return [parentTitle, ...attributeValues].filter(Boolean).join(' ');
+        }
+        return parentTitle || 'Variação';
     };
 
     const fetchDbAttributes = async () => {
@@ -110,12 +113,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 setFormData({
                     id: crypto.randomUUID(),
                     sku: generateVariationSku(parentCode, varIndex),
-                    name: getDefaultVariationTitle(),
+                    name: getDefaultVariationTitle([]),
                     stock: 0,
                     unitPrice: parentProduct.unitPrice || 0,
                     costPrice: parentProduct.costPrice || 0,
                     active: true,
-                    attributes: [],
+                    attributes: [{ name: "", value: "", showName: true }],
                     images: [],
                     syncUnitPrice: true,
                     syncDescription: true,
@@ -378,8 +381,8 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
                     <div>
                         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-                            {variation ? "Editar Variação" : "Nova Variação"}
-                            <span className="text-slate-400 text-xs font-normal">| {parentProduct.name || "Produto Pai"}</span>
+                            {variation ? "Editar Variação" : "Criar Variação"}
+                            <span className="text-slate-400 text-xs font-normal">| {parentProduct.name || parentProduct.description || "Produto Pai"}</span>
                         </h2>
                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">
                             Configure os dados específicos desta variação.
@@ -498,11 +501,13 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                                     if (!prev) return null;
                                                                     const updated = [...prev.attributes];
                                                                     updated[idx] = { ...updated[idx], name: newName, value: "" };
-                                                                    return { ...prev, attributes: updated };
+                                                                    const autoTitle = getDefaultVariationTitle(updated);
+                                                                    return { ...prev, attributes: updated, name: autoTitle };
                                                                 });
                                                             }}
                                                             className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
                                                         >
+                                                            <option value="">Selecione o atributo...</option>
                                                             {attr.name && !dbAttributes.some(a => a.name === attr.name) && (
                                                                 <option value={attr.name}>{attr.name}</option>
                                                             )}
@@ -522,20 +527,15 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                                 const val = e.target.value;
                                                                 setFormData(prev => {
                                                                     if (!prev) return null;
-                                                                    const previousAutoTitle = getDefaultVariationTitle(prev.attributes);
                                                                     const updated = [...prev.attributes];
                                                                     updated[idx] = { ...updated[idx], value: val };
-                                                                    const newName = !prev.name || prev.name === previousAutoTitle
-                                                                        ? getDefaultVariationTitle(updated)
-                                                                        : prev.name;
-                                                                    
-                                                                    return { ...prev, attributes: updated, name: newName };
+                                                                    const autoTitle = getDefaultVariationTitle(updated);
+                                                                    return { ...prev, attributes: updated, name: autoTitle };
                                                                 });
                                                             }}
-                                                            required
                                                             className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
                                                         >
-                                                            <option value="">Selecione...</option>
+                                                            <option value="">Selecione o valor...</option>
                                                             {attr.value && !attrVals.some(v => v.value === attr.value) && (
                                                                 <option value={attr.value}>{attr.value}</option>
                                                             )}
@@ -548,10 +548,16 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            setFormData(prev => prev ? {
-                                                                ...prev,
-                                                                attributes: prev.attributes.filter((_, i) => i !== idx)
-                                                            } : null);
+                                                            setFormData(prev => {
+                                                                if (!prev) return null;
+                                                                const updated = prev.attributes.filter((_, i) => i !== idx);
+                                                                const autoTitle = getDefaultVariationTitle(updated);
+                                                                return {
+                                                                    ...prev,
+                                                                    attributes: updated,
+                                                                    name: autoTitle
+                                                                };
+                                                            });
                                                         }}
                                                         className="h-9 w-9 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-700"
                                                     >
