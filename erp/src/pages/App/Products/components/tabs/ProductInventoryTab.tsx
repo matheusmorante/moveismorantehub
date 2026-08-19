@@ -206,8 +206,9 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
                         <i className="bi bi-tag-fill"></i> Precificação e Descontos {formData.hasVariations && <span className="text-[9px] text-slate-400 font-bold">(Base Padrão para Variações)</span>}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                            {/* Preço de Venda */}
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        {/* Preço de Venda */}
                             <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Preço de Venda</span>
