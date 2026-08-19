@@ -38,8 +38,17 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
     const [varDiscountPercent, setVarDiscountPercent] = useState("");
     const [varDiscountFixed, setVarDiscountFixed] = useState("");
 
+    const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
+        const parentName = (parentProduct.name || parentProduct.description || '').trim();
+        const attributeValues = attributes.map(attribute => attribute.value).filter(Boolean);
+        if (attributeValues.length > 0) {
+            return [parentName, ...attributeValues].filter(Boolean).join(' ');
+        }
+        return parentName || 'Variação';
+    };
+
     const getDefaultVariationTitle = (attributes: Variation['attributes'] = []) => {
-        const parentTitle = (parentProduct.name || parentProduct.description || '').trim();
+        const parentTitle = (parentProduct.title || parentProduct.marketplaceTitle || parentProduct.name || parentProduct.description || '').trim();
         const attributeValues = attributes.map(attribute => attribute.value).filter(Boolean);
         if (attributeValues.length > 0) {
             return [parentTitle, ...attributeValues].filter(Boolean).join(' ');
@@ -89,6 +98,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
             if (variation) {
                 setFormData({
                     ...variation,
+                    title: variation.title || variation.marketplaceTitle || '',
                     images: parseVariationImages((variation as any).image_url, variation.images),
                     syncUnitPrice: variation.syncUnitPrice ?? true,
                     syncDescription: variation.syncDescription ?? true,
@@ -113,7 +123,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 setFormData({
                     id: crypto.randomUUID(),
                     sku: generateVariationSku(parentCode, varIndex),
-                    name: getDefaultVariationTitle([]),
+                    name: getDefaultVariationName([]),
+                    title: getDefaultVariationTitle([]),
+                    marketplaceTitle: getDefaultVariationTitle([]),
                     stock: 0,
                     unitPrice: parentProduct.unitPrice || 0,
                     costPrice: parentProduct.costPrice || 0,
@@ -430,20 +442,37 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5 h-6">
-                                    <span>Título da Variante</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Título personalizado da variante"
-                                    value={formData.name || ""}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-100"
-                                />
-                                <p className="text-[10px] text-slate-400">Por padrão: nome do produto seguido pelos valores dos atributos.</p>
+                            {/* Linha com Nome (ERP) e Título (Catálogo) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Nome da Variação (ERP) */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+                                        <span>Nome</span>
+                                        <span className="text-red-500 ml-0.5">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Nome interno da variação (ERP)..."
+                                        value={formData.name || ""}
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                                    />
+                                </div>
+
+                                {/* Título da Variação (Catálogo) */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+                                        <span>Título</span>
+                                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Título exibido no catálogo digital..."
+                                        value={formData.title || formData.marketplaceTitle || ""}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value, marketplaceTitle: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                                    />
+                                </div>
                             </div>
 
                             <div className="space-y-3 bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100 dark:border-slate-850">
@@ -501,8 +530,15 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                                     if (!prev) return null;
                                                                     const updated = [...prev.attributes];
                                                                     updated[idx] = { ...updated[idx], name: newName, value: "" };
+                                                                    const autoName = getDefaultVariationName(updated);
                                                                     const autoTitle = getDefaultVariationTitle(updated);
-                                                                    return { ...prev, attributes: updated, name: autoTitle };
+                                                                    return { 
+                                                                        ...prev, 
+                                                                        attributes: updated, 
+                                                                        name: autoName,
+                                                                        title: autoTitle,
+                                                                        marketplaceTitle: autoTitle
+                                                                    };
                                                                 });
                                                             }}
                                                             className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
@@ -529,8 +565,15 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                                     if (!prev) return null;
                                                                     const updated = [...prev.attributes];
                                                                     updated[idx] = { ...updated[idx], value: val };
+                                                                    const autoName = getDefaultVariationName(updated);
                                                                     const autoTitle = getDefaultVariationTitle(updated);
-                                                                    return { ...prev, attributes: updated, name: autoTitle };
+                                                                    return { 
+                                                                        ...prev, 
+                                                                        attributes: updated, 
+                                                                        name: autoName,
+                                                                        title: autoTitle,
+                                                                        marketplaceTitle: autoTitle
+                                                                    };
                                                                 });
                                                             }}
                                                             className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold"
@@ -551,11 +594,14 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                             setFormData(prev => {
                                                                 if (!prev) return null;
                                                                 const updated = prev.attributes.filter((_, i) => i !== idx);
+                                                                const autoName = getDefaultVariationName(updated);
                                                                 const autoTitle = getDefaultVariationTitle(updated);
                                                                 return {
                                                                     ...prev,
                                                                     attributes: updated,
-                                                                    name: autoTitle
+                                                                    name: autoName,
+                                                                    title: autoTitle,
+                                                                    marketplaceTitle: autoTitle
                                                                 };
                                                             });
                                                         }}

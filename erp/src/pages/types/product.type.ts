@@ -11,7 +11,8 @@ export type InitialStockEntry = {
 export type Variation = {
     id: string;
     sku: string;
-    name: string; // e.g., "Cor: Azul, Tamanho: P"
+    name: string; // e.g., "SOFA 3 LUG AZUL" (Nome ERP)
+    title?: string; // e.g., "Sofá 3 Lugares Conforto Azul" (Título Catálogo)
     stock: number;
     unitPrice: number;
     promoPrice?: number; // Preço promocional
