@@ -669,7 +669,8 @@ export const useProducts = (filters?: any) => {
     };
 
     return {
-        products: paginatedProducts,
+        products,
+        paginatedProducts,
         totalItems,
         currentPage,
         itemsPerPage,

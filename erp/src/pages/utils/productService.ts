@@ -68,9 +68,6 @@ const mapToDB = (product: Partial<Product>) => {
             .replace(/--+/g, '-')
             .trim();
     }
-    if (product.title !== undefined || product.marketplaceTitle !== undefined) {
-        data.title = product.title || product.marketplaceTitle || product.name || null;
-    }
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
     if (product.category !== undefined) data.category = product.category;
@@ -150,7 +147,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.noBrand !== undefined) data.no_brand = product.noBrand;
     if (product.noColors !== undefined) data.no_colors = product.noColors;
     if (product.hasNoLine !== undefined) data.has_no_line = product.hasNoLine;
-    if (product.productTypeId !== undefined) data.product_type_id = product.productTypeId;
+    if (product.productTypeId !== undefined) data.product_type_id = product.productTypeId || null;
     if (product.productTypeName !== undefined) data.product_type_name = product.productTypeName;
     if (product.environment !== undefined) data.environment = product.environment;
     if (product.includeEnvironment !== undefined) data.include_environment = product.includeEnvironment;
@@ -625,6 +622,14 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         delete dbData.variations;
         delete dbData.brand;
         delete dbData.category;
+        delete dbData.ecommerce_description;
+        delete dbData.whatsapp_description;
+        delete dbData.whatsapp_template;
+        delete dbData.ecommerce_template;
+        delete dbData.initial_stock_entries;
+        delete dbData.meta_title;
+        delete dbData.meta_description;
+        delete dbData.seo_description;
         
         // Preencher category_id primário na tabela products se houver categorias selecionadas
         if (Array.isArray(product.categoryIds) && product.categoryIds.length > 0) {
