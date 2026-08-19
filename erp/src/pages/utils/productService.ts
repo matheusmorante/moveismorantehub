@@ -68,7 +68,9 @@ const mapToDB = (product: Partial<Product>) => {
             .replace(/--+/g, '-')
             .trim();
     }
-    // Removido o campo legada title pois o banco novo usa exclusivamente 'name'
+    if (product.title !== undefined || product.marketplaceTitle !== undefined) {
+        data.title = product.title || product.marketplaceTitle || product.name || null;
+    }
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
     if (product.category !== undefined) data.category = product.category;
