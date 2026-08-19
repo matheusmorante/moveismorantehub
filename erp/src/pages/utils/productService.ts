@@ -72,6 +72,12 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
     if (product.category !== undefined) data.category = product.category;
+    if (product.category_id !== undefined) data.category_id = product.category_id;
+    if (Array.isArray(product.categoryIds) && product.categoryIds.length > 0) {
+        data.category_id = product.categoryIds[0];
+    } else if (Array.isArray(product.categoryIds) && product.categoryIds.length === 0) {
+        data.category_id = null;
+    }
     if (product.condition !== undefined) data.condition = product.condition;
     if (product.unitPrice !== undefined) {
         data.unit_price = product.unitPrice;

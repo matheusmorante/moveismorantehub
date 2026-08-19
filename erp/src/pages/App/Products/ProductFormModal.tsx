@@ -218,104 +218,93 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     }, []);
 
     // Atualizar descontos ao alterar preço original
-    const handlePriceChange = useCallback((newPrice: string) => {
+    const handlePriceChange = useCallback((newPrice: string | number) => {
         const orig = parsePrice(newPrice);
-        setFormData(prev => ({ ...prev, unitPrice: orig }));
-        if (orig <= 0) {
-            setDiscountPercent("");
-            setDiscountFixed("");
-            setFormData(prev => ({ ...prev, promoPrice: undefined }));
-            return;
-        }
-
-        if (discountPercent) {
-            const pct = parseFloat(discountPercent);
-            if (!isNaN(pct)) {
-                const fixed = orig * (pct / 100);
-                setDiscountFixed(fixed.toFixed(2));
-                const promo = orig - fixed;
-                setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 }));
+        setFormData(prev => {
+            const next = { ...prev, unitPrice: orig };
+            if (orig <= 0) {
+                setDiscountPercent("");
+                setDiscountFixed("");
+                next.promoPrice = undefined;
+                return next;
             }
-        } else if (formData.promoPrice) {
-            const promo = formData.promoPrice;
-            if (promo < orig) {
-                const fixed = orig - promo;
+
+            if (discountPercent) {
+                const pct = parseFloat(discountPercent);
+                if (!isNaN(pct)) {
+                    const fixed = orig * (pct / 100);
+                    setDiscountFixed(fixed.toFixed(2));
+                    const promo = orig - fixed;
+                    next.promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
+                }
+            } else if (prev.promoPrice && prev.promoPrice < orig) {
+                const fixed = orig - prev.promoPrice;
                 const pct = (fixed / orig) * 100;
                 setDiscountFixed(fixed.toFixed(2));
                 setDiscountPercent(pct.toFixed(1));
             }
-        }
-    }, [discountPercent, formData.promoPrice, parsePrice]);
+            return next;
+        });
+    }, [discountPercent, parsePrice]);
 
     // Quando muda o desconto percentual (%)
     const handleDiscountPercentChange = useCallback((valStr: string) => {
         setDiscountPercent(valStr);
-        const orig = formData.unitPrice || 0;
-        if (orig <= 0 || valStr === "") {
-            setDiscountFixed("");
-            setFormData(prev => ({ ...prev, promoPrice: undefined }));
-            return;
-        }
+        setFormData(prev => {
+            const orig = prev.unitPrice || 0;
+            if (orig <= 0 || valStr === "") {
+                setDiscountFixed("");
+                return { ...prev, promoPrice: undefined };
+            }
 
-        const pct = parseFloat(valStr);
-        if (isNaN(pct) || pct < 0) {
-            setDiscountFixed("");
-            setFormData(prev => ({ ...prev, promoPrice: undefined }));
-            return;
-        }
+            const pct = parseFloat(valStr);
+            if (isNaN(pct) || pct < 0) {
+                setDiscountFixed("");
+                return { ...prev, promoPrice: undefined };
+            }
 
-        const fixed = orig * (pct / 100);
-        setDiscountFixed(fixed.toFixed(2));
-        const promo = orig - fixed;
-        setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 }));
-    }, [formData.unitPrice]);
+            const fixed = orig * (pct / 100);
+            setDiscountFixed(fixed.toFixed(2));
+            const promo = orig - fixed;
+            return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
+        });
+    }, []);
 
     // Quando muda o desconto fixo (R$)
-    const handleDiscountFixedChange = useCallback((valStr: string) => {
-        setDiscountFixed(valStr);
-        const orig = formData.unitPrice || 0;
-        if (orig <= 0 || valStr === "") {
-            setDiscountPercent("");
-            setFormData(prev => ({ ...prev, promoPrice: undefined }));
-            return;
-        }
-
+    const handleDiscountFixedChange = useCallback((valStr: string | number) => {
         const fixed = parsePrice(valStr);
-        if (fixed < 0) {
-            setDiscountPercent("");
-            setFormData(prev => ({ ...prev, promoPrice: undefined }));
-            return;
-        }
+        setDiscountFixed(String(valStr));
+        setFormData(prev => {
+            const orig = prev.unitPrice || 0;
+            if (orig <= 0 || !valStr || fixed <= 0) {
+                setDiscountPercent("");
+                return { ...prev, promoPrice: undefined };
+            }
 
-        const pct = (fixed / orig) * 150; // na verdade (fixed/orig)*100
-        const pctReal = (fixed / orig) * 100;
-        setDiscountPercent(pctReal.toFixed(1));
-        const promo = orig - fixed;
-        setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 }));
-    }, [formData.unitPrice, parsePrice]);
+            const pct = (fixed / orig) * 100;
+            setDiscountPercent(pct.toFixed(1));
+            const promo = orig - fixed;
+            return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
+        });
+    }, [parsePrice]);
 
     // Quando muda o preço promocional final (R$)
-    const handlePromoPriceFieldChange = useCallback((valStr: string) => {
+    const handlePromoPriceFieldChange = useCallback((valStr: string | number) => {
         const promo = parsePrice(valStr);
-        setFormData(prev => ({ ...prev, promoPrice: promo > 0 ? promo : undefined }));
-        const orig = formData.unitPrice || 0;
-        if (orig <= 0 || valStr === "") {
-            setDiscountPercent("");
-            setDiscountFixed("");
-            return;
-        }
-
-        if (promo < 0 || promo >= orig) {
-            setDiscountPercent("");
-            setDiscountFixed("");
-            return;
-        }
-
-        const fixed = orig - promo;
-        const pct = (fixed / orig) * 100;
-        setDiscountFixed(fixed.toFixed(2));
-        setDiscountPercent(pct.toFixed(1));
-    }, [formData.unitPrice, parsePrice]);
+        setFormData(prev => {
+            const orig = prev.unitPrice || 0;
+            if (orig > 0 && promo > 0 && promo < orig) {
+                const fixed = orig - promo;
+                const pct = (fixed / orig) * 100;
+                setDiscountFixed(fixed.toFixed(2));
+                setDiscountPercent(pct.toFixed(1));
+            } else if (promo <= 0) {
+                setDiscountFixed("");
+                setDiscountPercent("");
+            }
+            return { ...prev, promoPrice: promo > 0 ? promo : undefined };
+        });
+    }, [parsePrice]);
 
     const checkERPLegibility = useCallback((data: Partial<Product>) => {
         const errors: string[] = [];
