@@ -84,9 +84,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         </button>
                         {activeMenu === 'stock' && (
                             <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/stock?tab=balance" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-list-ul mr-2 text-emerald-500"></i> Lista
-                                </Link>
                                 <Link to="/stock?tab=history" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-arrow-left-right mr-2 text-emerald-500"></i> Movimentações
                                 </Link>

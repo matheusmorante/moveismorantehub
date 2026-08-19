@@ -340,6 +340,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
                     attributes: attributesList,
                     images: varImages,
                     syncUnitPrice: v.use_parent_price !== false,
+                    syncPromoPrice: v.use_parent_promo_price !== false,
                     syncDescription: v.use_parent_description !== false,
                     description: v.description || '',
                     width: v.width ? Number(v.width) : undefined,
@@ -714,13 +715,13 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         stock: v.stock ? parseInt(String(v.stock), 10) : 0,
                         image_url: v.images && v.images.length > 0 ? v.images.join(",") : null,
                         attributes: attributesObj,
-                        promo_price: v.syncUnitPrice ? null : (v.promoPrice ? Number(v.promoPrice) : null),
+                        promo_price: v.syncPromoPrice !== false ? null : (v.promoPrice ? Number(v.promoPrice) : null),
                         description: v.syncDescription ? null : (v.description || null),
                         width: v.width ? String(v.width) : null,
                         depth: v.depth ? String(v.depth) : null,
                         height: v.height ? String(v.height) : null,
                         use_parent_price: v.syncUnitPrice !== false,
-                        use_parent_promo_price: v.syncUnitPrice !== false,
+                        use_parent_promo_price: v.syncPromoPrice !== false,
                         use_parent_dimensions: v.syncDescription !== false,
                         use_parent_description: v.syncDescription !== false,
                         use_parent_name: true,
@@ -734,6 +735,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                 await supabase.from("product_variations").delete().eq("product_id", product.id);
             }
         }
+
+        // Sincronizar catálogo do Meta assincronamente (background) sempre que um produto é atualizado
+        fetch('/api/facebook-catalog/sync', { method: 'POST' }).catch(err => {
+            console.warn('[Meta Sync] Falha silenciosa ao sincronizar catálogo do Meta:', err);
+        });
     } catch (err: any) {
         console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
         throw new Error(err.message || "Erro ao salvar no Supabase");
@@ -843,6 +849,17 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
             label: 'ESTOQUE INICIAL',
             observation: 'Lançamento automático de estoque inicial.'
         }, 0).catch(console.error);
+    } else if (!product.variations?.length && product.minStock && Number(product.minStock) > 0) {
+        saveInventoryMove({
+            productId: resolvedId,
+            productDescription: product.description || "Ajuste de Saldo Inicial",
+            type: 'entry',
+            quantity: Number(product.minStock),
+            unitCost: product.finalPurchasePrice || product.costPrice || 0,
+            date: new Date().toISOString(),
+            label: 'ESTOQUE INICIAL',
+            observation: 'Ajuste de saldo inicial'
+        }, 0).catch(console.error);
     }
 
     if (product.initialStockEntries?.length) {
@@ -873,8 +890,20 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
                     quantity: Number(v.initialStock),
                     unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
                     date: new Date().toISOString(),
-                    label: 'ESTOCIAL INICIAL',
+                    label: 'ESTOQUE INICIAL',
                     observation: `Estoque da variação ${v.name}.`
+                }, 0).catch(console.error);
+            } else if (v.minStock && Number(v.minStock) > 0) {
+                saveInventoryMove({
+                    productId: resolvedId,
+                    variationId: v.id,
+                    productDescription: `${product.description} (${v.name})`,
+                    type: 'entry',
+                    quantity: Number(v.minStock),
+                    unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
+                    date: new Date().toISOString(),
+                    label: 'ESTOQUE INICIAL',
+                    observation: 'Ajuste de saldo inicial'
                 }, 0).catch(console.error);
             }
         }

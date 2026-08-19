@@ -23,6 +23,7 @@ export type Variation = {
     attributes: { name: string; value: string; showName?: boolean }[];
     syncWithParent?: boolean; // Legacy/Global
     syncUnitPrice?: boolean;
+    syncPromoPrice?: boolean;
     syncCostPrice?: boolean;
     syncCondition?: boolean;
     syncDescription?: boolean;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Product from '../../../../types/product.type';
+import { getSettings } from '@/pages/utils/settingsService';
 
 interface ProductFiscalTabProps {
     formData: Partial<Product>;
@@ -11,11 +12,11 @@ interface ProductFiscalTabProps {
 }
 
 const COMMON_NCMS = [
-    { code: "94035000", description: "Móveis de madeira para dormitórios (Guarda-roupa, Cama, Cômoda, Cabeceira)" },
     { code: "94036000", description: "Outros móveis de madeira (Rack, Painel, Aparador, Mesa de Centro, Estante)" },
     { code: "94016100", description: "Assentos com armação de madeira, estofados (Sofá, Poltrona, Cadeira Estofada)" },
-    { code: "94034000", description: "Móveis de madeira para cozinhas (Armário, Balcão, Paneleiro)" },
+    { code: "94035000", description: "Móveis de madeira para dormitórios (Guarda-roupa, Cama, Cômoda, Cabeceira)" },
     { code: "94033000", description: "Móveis de madeira para escritórios (Escrivaninha, Mesa de Reunião)" },
+    { code: "94034000", description: "Móveis de madeira para cozinhas (Armário, Balcão, Paneleiro)" },
     { code: "94016900", description: "Assentos com armação de madeira, não estofados (Cadeira de Madeira)" },
     { code: "94042100", description: "Colchões de espuma (borracha ou plástico alveolar)" },
     { code: "94042900", description: "Colchões de molas ou outros materiais" },
@@ -29,6 +30,52 @@ const COMMON_NCMS = [
     { code: "94051090", description: "Aparelhos de iluminação (Lustres, Luminárias de teto/parede)" }
 ];
 
+const CSOSN_OPTIONS = [
+    { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito (Venda padrão)' },
+    { value: '500', label: '500 - Simples Nacional - ICMS Cobrado Anteriormente por ST (Substituído)' },
+    { value: '101', label: '101 - Simples Nacional - Com permissão de crédito' },
+    { value: '201', label: '201 - Simples Nacional - Com permissão de crédito e ST' },
+    { value: '202', label: '202 - Simples Nacional - Sem permissão de crédito e ST' },
+    { value: '300', label: '300 - Simples Nacional - Imune' },
+    { value: '400', label: '400 - Simples Nacional - Não tributada' },
+    { value: '900', label: '900 - Simples Nacional - Outros' }
+];
+
+const CFOP_OPTIONS = [
+    { value: '5102', label: '5102 - Venda de mercadoria adquirida/recebida de terceiros' },
+    { value: '5405', label: '5405 - Venda de mercadoria sujeita a ST (Substituído)' },
+    { value: '5101', label: '5101 - Venda de produção do estabelecimento' },
+    { value: '5403', label: '5403 - Venda de produção do estabelecimento sujeita a ST' }
+];
+
+const PIS_COFINS_OPTIONS = [
+    { value: '49', label: '49 - Outras Operações de Saída' },
+    { value: '07', label: '07 - Operação Isenta da Contribuição' },
+    { value: '08', label: '08 - Operação Sem Incidência da Contribuição' },
+    { value: '04', label: '04 - Operação Tributável Monofásica (Alíquota Zero)' },
+    { value: '06', label: '06 - Operação Tributável com Alíquota Zero' },
+    { value: '01', label: '01 - Operação Tributável com Alíquota Básica' },
+    { value: '99', label: '99 - Outras Operações' }
+];
+
+const CEST_OPTIONS = [
+    { value: '', label: 'Sem Substituição Tributária (Nenhum / Nulo)' },
+    { value: '2806100', label: '28.061.00 - Colchões e box-springs (ST)' },
+    { value: '2806200', label: '28.062.00 - Suportes para camas (Estrados)' }
+];
+
+const ORIGEM_OPTIONS = [
+    { value: '0', label: '0 - Nacional' },
+    { value: '1', label: '1 - Estrangeira - Importação Direta' },
+    { value: '2', label: '2 - Estrangeira - Adquirida no Mercado Interno' },
+    { value: '3', label: '3 - Nacional, conteúdo de importação > 40%' },
+    { value: '4', label: '4 - Nacional, PPB' },
+    { value: '5', label: '5 - Nacional, conteúdo de importação <= 40%' },
+    { value: '6', label: '6 - Estrangeira - Importação Direta (CAMEX)' },
+    { value: '7', label: '7 - Estrangeira - Adquirida no Mercado Interno (CAMEX)' },
+    { value: '8', label: '8 - Nacional, conteúdo de importação > 70%' }
+];
+
 const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     formData,
     setFormData,
@@ -37,9 +84,35 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     handleAutoFillFiscalWithAI,
     isFillingFiscalWithAI
 }) => {
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Carrega os dados padrões fiscais das configurações se o formulário for novo e não tiver dados fiscais definidos
+    useEffect(() => {
+        if (!formData.fiscal || Object.keys(formData.fiscal).length === 0 || !formData.fiscal.ncm) {
+            const settings = getSettings();
+            if (settings.fiscalDefaults) {
+                setFormData(prev => ({
+                    ...prev,
+                    fiscal: {
+                        ncm: prev.fiscal?.ncm || settings.fiscalDefaults?.ncm || '94036000',
+                        cest: prev.fiscal?.cest || settings.fiscalDefaults?.cest || '',
+                        cst: prev.fiscal?.cst || settings.fiscalDefaults?.cst || '102',
+                        cfop: prev.fiscal?.cfop || (prev.itemType === 'service' ? '5933' : settings.fiscalDefaults?.cfop || '5102'),
+                        origem: prev.fiscal?.origem || settings.fiscalDefaults?.origem || '0',
+                        icmsPercent: prev.fiscal?.icmsPercent !== undefined ? prev.fiscal.icmsPercent : settings.fiscalDefaults?.icmsPercent || 0,
+                        pisCst: prev.fiscal?.pisCst || settings.fiscalDefaults?.pisCst || '49',
+                        cofinsCst: prev.fiscal?.cofinsCst || settings.fiscalDefaults?.cofinsCst || '49',
+                        codigoServico: prev.fiscal?.codigoServico || ''
+                    }
+                }));
+                if (settings.fiscalDefaults?.ncm) {
+                    setSearchQuery(settings.fiscalDefaults.ncm);
+                }
+            }
+        }
+    }, [formData.fiscal, setFormData, formData.itemType]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -59,11 +132,6 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
             item.description.toLowerCase().includes(q)
         );
     }, [searchQuery]);
-
-    const selectedNcmObj = useMemo(() => {
-        const currentNcm = formData.fiscal?.ncm || '';
-        return COMMON_NCMS.find(item => item.code === currentNcm);
-    }, [formData.fiscal?.ncm]);
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -164,7 +232,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                                         <i className="bi bi-check text-xs text-emerald-500 font-bold" />
                                                     )}
                                                 </div>
-                                                <div className="text-[9px] text-slate-550 dark:text-slate-400 font-medium mt-0.5 leading-tight">{item.description}</div>
+                                                <div className="text-[9px] text-slate-555 dark:text-slate-400 font-medium mt-0.5 leading-tight">{item.description}</div>
                                             </div>
                                         ))}
                                         {filteredNcms.length === 0 && (
@@ -176,14 +244,28 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                 )}
                             </div>
 
+                            {/* CEST como Select */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Código CEST (Opcional)</label>
-                                <input
-                                    value={formData.fiscal?.cest || ''}
-                                    onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value.replace(/\D/g, '') } })}
-                                    className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold tracking-[0.2em] dark:text-slate-200"
-                                    placeholder="Ex: 0100100"
-                                />
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Código CEST (ST)</label>
+                                <div className="flex flex-col gap-2">
+                                    <select
+                                        value={formData.fiscal?.cest || ''}
+                                        onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value } })}
+                                        className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                    >
+                                        {CEST_OPTIONS.map(c => (
+                                            <option key={c.value} value={c.value}>{c.label}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="text"
+                                        maxLength={7}
+                                        value={formData.fiscal?.cest || ''}
+                                        onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value.replace(/\D/g, '') } })}
+                                        placeholder="Ou digite outro CEST (7 dígitos)..."
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl outline-none text-[10px] font-mono font-bold dark:text-slate-300"
+                                    />
+                                </div>
                             </div>
                         </>
                     )}
@@ -200,81 +282,106 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             <select
                                 value={formData.fiscal?.origem || '0'}
                                 onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, origem: e.target.value } })}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
                             >
-                                <option value="0">0 - Nacional</option>
-                                <option value="1">1 - Estrangeira - Importação Direta</option>
-                                <option value="2">2 - Estrangeira - Adquirida no Mercado Interno</option>
-                                <option value="3">3 - Nacional, mercadoria ou bem com Conteúdo de Importação superior a 40%</option>
-                                <option value="4">4 - Nacional, cuja produção tenha sido feita em conformidade com os processos produtivos básicos</option>
-                                <option value="5">5 - Nacional, mercadoria ou bem com Conteúdo de Importação inferior ou igual a 40%</option>
+                                {ORIGEM_OPTIONS.map(o => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                ))}
                             </select>
                         </div>
                     )}
 
+                    {/* CST/CSOSN como Select */}
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                            {formData.itemType === 'service' ? 'CST / CSOSN ISSQN' : 'CST / CSOSN ICMS'}
+                            {formData.itemType === 'service' ? 'CST / CSOSN ISSQN' : 'CST / CSOSN ICMS (Simples Nacional)'}
                         </label>
-                        <input
-                            value={formData.fiscal?.cst || ''}
+                        <select
+                            value={formData.fiscal?.cst || '102'}
                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cst: e.target.value } })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
-                            placeholder="Ex: 102, 500, 00..."
-                        />
+                            className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                        >
+                            {CSOSN_OPTIONS.map(c => (
+                                <option key={c.value} value={c.value}>{c.label}</option>
+                            ))}
+                        </select>
                     </div>
 
+                    {/* CFOP como Select */}
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                             {formData.itemType === 'service' ? 'CFOP Padrão (Municipal)' : 'CFOP Padrão (Estadual)'}
                         </label>
-                        <input
-                            value={formData.fiscal?.cfop || (formData.itemType === 'service' ? '5933' : '5102')}
-                            onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cfop: e.target.value } })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
-                            placeholder={formData.itemType === 'service' ? 'Ex: 5933' : 'Ex: 5102'}
-                        />
+                        {formData.itemType === 'service' ? (
+                            <select
+                                value={formData.fiscal?.cfop || '5933'}
+                                onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cfop: e.target.value } })}
+                                className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                            >
+                                <option value="5933">5933 - Prestação de serviço dentro do Estado</option>
+                                <option value="6933">6933 - Prestação de serviço para fora do Estado</option>
+                            </select>
+                        ) : (
+                            <select
+                                value={formData.fiscal?.cfop || '5102'}
+                                onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cfop: e.target.value } })}
+                                className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                            >
+                                {CFOP_OPTIONS.map(cf => (
+                                    <option key={cf.value} value={cf.value}>{cf.label}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                            {formData.itemType === 'service' ? 'Aliquota ISS (%)' : 'Aliquota ICMS (%)'}
+                            {formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}
                         </label>
                         <input
                             type="number"
-                            value={formData.itemType === 'service' ? formData.fiscal?.issPercent : formData.fiscal?.icmsPercent}
+                            step="0.01"
+                            value={formData.itemType === 'service' ? (formData.fiscal?.issPercent ?? 0) : (formData.fiscal?.icmsPercent ?? 0)}
                             onChange={(e) => {
                                 const val = parseFloat(e.target.value);
-                                setFormData({ 
-                                    ...formData, 
+                                setFormData(prev => ({ 
+                                    ...prev, 
                                     fiscal: { 
-                                        ...formData.fiscal!, 
-                                        ...(formData.itemType === 'service' ? { issPercent: isNaN(val) ? 0 : val } : { icmsPercent: isNaN(val) ? 0 : val }) 
+                                        ...prev.fiscal!, 
+                                        ...(prev.itemType === 'service' ? { issPercent: isNaN(val) ? 0 : val } : { icmsPercent: isNaN(val) ? 0 : val }) 
                                     } 
-                                });
+                                }));
                             }}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
                         />
                     </div>
 
+                    {/* PIS CST como Select */}
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">PIS CST</label>
-                        <input
-                            value={formData.fiscal?.pisCst || ''}
+                        <select
+                            value={formData.fiscal?.pisCst || '49'}
                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, pisCst: e.target.value } })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
-                            placeholder="Ex: 01, 07, 49..."
-                        />
+                            className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                        >
+                            {PIS_COFINS_OPTIONS.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                            ))}
+                        </select>
                     </div>
 
+                    {/* COFINS CST como Select */}
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">COFINS CST</label>
-                        <input
-                            value={formData.fiscal?.cofinsCst || ''}
+                        <select
+                            value={formData.fiscal?.cofinsCst || '49'}
                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cofinsCst: e.target.value } })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
-                            placeholder="Ex: 01, 07, 49..."
-                        />
+                            className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                        >
+                            {PIS_COFINS_OPTIONS.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </div>

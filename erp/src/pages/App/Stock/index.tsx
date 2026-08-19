@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import StockList from "./components/StockList";
 import StockLaunchModal from "./components/StockLaunchModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
 import InventoryAudit from "./components/InventoryAudit";
@@ -16,20 +15,22 @@ const StockPage = () => {
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
-    const [activeTab, setActiveTab] = useState<'balance' | 'history' | 'audit' | 'purchases'>(
-        (searchParams.get('tab') as any) || 'balance'
+    const [activeTab, setActiveTab] = useState<'history' | 'audit' | 'purchases'>(
+        (searchParams.get('tab') as any) || 'history'
     );
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['balance', 'history', 'audit', 'purchases'].includes(tab)) {
+        if (tab && ['history', 'audit', 'purchases'].includes(tab)) {
             setActiveTab(tab as any);
+        } else if (!tab || tab === 'balance') {
+            setActiveTab('history');
         }
     }, [searchParams]);
 
-    const handleTabChange = (tab: 'balance' | 'history' | 'audit' | 'purchases') => {
+    const handleTabChange = (tab: 'history' | 'audit' | 'purchases') => {
         setActiveTab(tab);
         setSearchParams({ tab });
     };
@@ -84,9 +85,7 @@ const StockPage = () => {
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
-                    {activeTab === 'balance' ? (
-                        <StockList onLaunch={handleLaunch} />
-                    ) : activeTab === 'history' ? (
+                    {activeTab === 'history' ? (
                         <InventoryMovesHistory />
                     ) : activeTab === 'audit' ? (
                         <InventoryAudit />

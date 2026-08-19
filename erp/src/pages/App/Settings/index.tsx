@@ -29,6 +29,7 @@ import ScannerConfigSection from './components/ScannerConfigSection';
 import ProductMaterialsSection from './components/ProductMaterialsSection';
 import CardFlagSettings from './components/CardFlagSettings';
 import BlingConfigSection from './components/BlingConfigSection';
+import FiscalSettingsSection from './components/FiscalSettingsSection';
 // import SaveButton from './components/SaveButton'; // Removido para auto-save
 
 const categories: any[] = [
@@ -49,10 +50,11 @@ const categories: any[] = [
     { id: 'recibo', label: 'Configuração de Recibo', icon: 'bi-printer-fill', group: 'system', keywords: ['recibo', 'impressão', 'rodapé', 'vendedor', 'garantia'] },
     { id: 'estoqueAutomacao', label: 'Automação de Estoque', icon: 'bi-box-arrow-right', group: 'system', keywords: ['estoque', 'movimentação', 'venda', 'compra', 'automação'] },
     { id: 'materiais', label: 'Materiais de Móveis', icon: 'bi-hammer', group: 'system', keywords: ['material', 'mdp', 'mdf', 'madeira', 'vidro', 'metal', 'móvel'] },
-    { id: 'manuseio', label: 'Manuseio de Pedidos', icon: 'bi-hand-index-thumb', group: 'system', keywords: ['manuseio', 'montagem', 'entrega', 'retirada', 'padrão'] },
-    { id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
-    { id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
-    { id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
+    {id: 'manuseio', label: 'Manuseio de Pedidos', icon: 'bi-hand-index-thumb', group: 'system', keywords: ['manuseio', 'montagem', 'entrega', 'retirada', 'padrão'] },
+    {id: 'fiscal', label: 'Tributação Padrão (NF-e/NFC-e)', icon: 'bi-file-earmark-spreadsheet-fill', group: 'system', keywords: ['tributação', 'fiscal', 'nfe', 'nfce', 'ncm', 'cest', 'csosn', 'cfop', 'simples', 'nacional', 'origem', 'icms'] },
+    {id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
+    {id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
+    {id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
 ];
 
 /**
@@ -302,6 +304,10 @@ export default function Settings(): any {
 
                     <SettingsSection id="materiais" title="Materiais de Móveis" icon="bi-hammer" isVisible={isVisible('materiais')}>
                         <ProductMaterialsSection />
+                    </SettingsSection>
+
+                    <SettingsSection id="fiscal" title="Tributação Padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible={isVisible('fiscal')}>
+                        <FiscalSettingsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
                     <SettingsSection id="bandeiras" title="Bandeiras e Juros de Cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')}>

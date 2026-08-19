@@ -68,9 +68,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'stock' && (
                     <div className={dropdownClass}>
-                        <Link to="/stock?tab=balance" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-list-ul mr-1 text-emerald-500"></i> Lista
-                        </Link>
                         <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-arrow-left-right mr-1 text-emerald-500"></i> Movimentações
                         </Link>

@@ -9,6 +9,8 @@ import { subscribeToVariations } from "../../../utils/variationService";
 import AttributeSelectionModal from "./AttributeSelectionModal";
 import AttributeManagementModal from "./AttributeManagementModal";
 import { supabase } from '@/pages/utils/supabaseConfig';
+import InitialStockList from './InitialStockList';
+import CurrencyInput from '@/components/CurrencyInput';
 
 interface VariationEditModalProps {
     isOpen: boolean;
@@ -37,11 +39,22 @@ interface VariationEditModalProps {
 
 const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave, suppliers = [] }: VariationEditModalProps) => {
     const [localVariation, setLocalVariation] = useState<Variation | null>(null);
-    const [activeTab, setActiveTab] = useState<'geral' | 'fotos' | 'technical' | 'financeiro' | 'combo'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'fotos' | 'technical' | 'financeiro' | 'fiscal' | 'combo'>('geral');
     const [availableVariations, setAvailableVariations] = useState<VariationType[]>([]);
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
     const [isManagementModalOpen, setIsManagementModalOpen] = useState(false);
     const [allParentImages, setAllParentImages] = useState<string[]>(parentProduct?.images || []);
+    const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(false);
+    const [varDiscountPercent, setVarDiscountPercent] = useState("");
+    const [varDiscountFixed, setVarDiscountFixed] = useState("");
+
+    useEffect(() => {
+        if (localVariation && !diferenciarTitulo) {
+            if (localVariation.title !== localVariation.name) {
+                setLocalVariation(prev => prev ? ({ ...prev, title: prev.name, marketplaceTitle: prev.name }) : null);
+            }
+        }
+    }, [localVariation?.name, diferenciarTitulo]);
 
     useEffect(() => {
         const realParentId = (parentProduct as any)?.parentId || parentProduct?.id;
@@ -77,6 +90,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                 images: parseVariationImages((variation as any).image_url, variation.images),
                 // Sincronizações ativas por padrão
                 syncUnitPrice: variation.syncUnitPrice !== undefined ? variation.syncUnitPrice : true,
+                syncPromoPrice: variation.syncPromoPrice !== undefined ? variation.syncPromoPrice : true,
                 syncCostPrice: variation.syncCostPrice !== undefined ? variation.syncCostPrice : true,
                 syncDescription: variation.syncDescription !== undefined ? variation.syncDescription : true,
                 syncWidth: variation.syncWidth !== undefined ? variation.syncWidth : true,
@@ -84,8 +98,25 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                 syncDepth: variation.syncDepth !== undefined ? variation.syncDepth : true,
                 syncWeight: variation.syncWeight !== undefined ? variation.syncWeight : true,
                 syncIpi: variation.syncIpi !== undefined ? variation.syncIpi : true,
-                syncFreight: variation.syncFreight !== undefined ? variation.syncFreight : true
+                syncFreight: variation.syncFreight !== undefined ? variation.syncFreight : true,
+                syncFiscal: variation.syncFiscal !== undefined ? variation.syncFiscal : true
             });
+            setDiferenciarTitulo(
+                Boolean(variation.title && variation.title !== variation.name) || 
+                Boolean(variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
+            );
+
+            const orig = Number(variation.syncUnitPrice ? parentProduct?.unitPrice : variation.unitPrice || 0);
+            const promo = Number((variation.syncPromoPrice !== false) ? parentProduct?.promoPrice : variation.promoPrice || 0);
+            if (orig > 0 && promo > 0 && promo < orig) {
+                const fixed = orig - promo;
+                const pct = (fixed / orig) * 100;
+                setVarDiscountFixed(fixed.toFixed(2));
+                setVarDiscountPercent(pct.toFixed(1));
+            } else {
+                setVarDiscountPercent("");
+                setVarDiscountFixed("");
+            }
         } else {
             setLocalVariation(null);
         }
@@ -96,6 +127,103 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
     const handleChange = (field: keyof Variation, value: any) => {
         setLocalVariation(prev => prev ? ({ ...prev, [field]: value }) : null);
+    };
+
+    const handlePriceChange = (valStr: string) => {
+        if (!localVariation) return;
+        const newPrice = parseFloat(valStr) || 0;
+        setLocalVariation(prev => prev ? { ...prev, unitPrice: newPrice, syncUnitPrice: false } : null);
+        
+        const orig = newPrice;
+        if (orig <= 0) {
+            setVarDiscountPercent("");
+            setVarDiscountFixed("");
+            setLocalVariation(prev => prev ? { ...prev, promoPrice: undefined } : null);
+            return;
+        }
+
+        const isPromoSynced = localVariation.syncPromoPrice !== false;
+        const promoVal = isPromoSynced ? parentProduct?.promoPrice || 0 : localVariation.promoPrice || 0;
+
+        if (isPromoSynced) {
+            if (orig > 0 && promoVal > 0 && promoVal < orig) {
+                const fixed = orig - promoVal;
+                const pct = (fixed / orig) * 100;
+                setVarDiscountFixed(fixed.toFixed(2));
+                setVarDiscountPercent(pct.toFixed(1));
+            } else {
+                setVarDiscountPercent("");
+                setVarDiscountFixed("");
+            }
+        } else if (varDiscountPercent) {
+            const pct = parseFloat(varDiscountPercent);
+            if (!isNaN(pct)) {
+                const fixed = orig * (pct / 100);
+                setVarDiscountFixed(fixed.toFixed(2));
+                const promo = orig - fixed;
+                setLocalVariation(prev => prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 } : null);
+            }
+        }
+    };
+
+    const handleDiscountPercentChange = (valStr: string) => {
+        if (!localVariation) return;
+        setVarDiscountPercent(valStr);
+        const orig = Number(localVariation.syncUnitPrice ? parentProduct?.unitPrice : localVariation.unitPrice || 0);
+        if (orig <= 0 || valStr === "") {
+            setVarDiscountFixed("");
+            setLocalVariation(prev => prev ? { ...prev, promoPrice: undefined, syncPromoPrice: false } : null);
+            return;
+        }
+
+        const pct = parseFloat(valStr);
+        if (isNaN(pct) || pct < 0) {
+            setVarDiscountFixed("");
+            setLocalVariation(prev => prev ? { ...prev, promoPrice: undefined, syncPromoPrice: false } : null);
+            return;
+        }
+
+        const fixed = orig * (pct / 100);
+        setVarDiscountFixed(fixed.toFixed(2));
+        const promo = orig - fixed;
+        setLocalVariation(prev => prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0, syncPromoPrice: false } : null);
+    };
+
+    const handleDiscountFixedChange = (valStr: string) => {
+        if (!localVariation) return;
+        const fixed = parseFloat(valStr) || 0;
+        setVarDiscountFixed(valStr);
+        const orig = Number(localVariation.syncUnitPrice ? parentProduct?.unitPrice : localVariation.unitPrice || 0);
+        if (orig <= 0 || !valStr || fixed <= 0) {
+            setVarDiscountPercent("");
+            setLocalVariation(prev => prev ? { ...prev, promoPrice: undefined, syncPromoPrice: false } : null);
+            return;
+        }
+
+        const pct = (fixed / orig) * 100;
+        setVarDiscountPercent(pct.toFixed(1));
+        const promo = orig - fixed;
+        setLocalVariation(prev => prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0, syncPromoPrice: false } : null);
+    };
+
+    const handlePromoPriceFieldChange = (valStr: string) => {
+        if (!localVariation) return;
+        const promo = parseFloat(valStr) || 0;
+        setLocalVariation(prev => {
+            if (!prev) return null;
+            const orig = Number(prev.syncUnitPrice ? parentProduct?.unitPrice : prev.unitPrice || 0);
+            if (orig > 0 && promo > 0 && promo < orig) {
+                const fixed = orig - promo;
+                const pct = (fixed / orig) * 100;
+                setVarDiscountFixed(fixed.toFixed(2));
+                setVarDiscountPercent(pct.toFixed(1));
+                return { ...prev, promoPrice: promo, syncPromoPrice: false };
+            } else {
+                setVarDiscountPercent("");
+                setVarDiscountFixed("");
+                return { ...prev, promoPrice: undefined, syncPromoPrice: false };
+            }
+        });
     };
 
     const handleSave = () => {
@@ -150,11 +278,11 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
     const finalCalculatedCost = currentCostPrice + (currentCostPrice * (currentIpiPercent / 100)) + currentFreightCost;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+        <>
+            <div className="fixed inset-0 z-[110] flex items-center justify-center md:p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             <div 
-                className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden" 
-                style={{ height: 'min(85vh, 720px)' }}
+                className="relative bg-white dark:bg-slate-900 w-full max-w-full h-full md:max-w-[96vw] md:h-[96vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800" 
             >
                 {/* Header */}
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
@@ -179,6 +307,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                         { id: 'fotos', label: 'Fotos', icon: 'bi-images' },
                         { id: 'technical', label: 'Informações Técnicas', icon: 'bi-ruler' },
                         { id: 'financeiro', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
+                        { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ...(parentProduct?.isCombo ? [{ id: 'combo', label: 'Combo', icon: 'bi-layers' }] : [])
                     ].map(tab => (
                         <button
@@ -198,20 +327,30 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                     {activeTab === 'geral' && (
                         <div className="space-y-6">
                             <div className="space-y-4 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-2">
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Composição da Variação</h4>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const availableAttr = availableVariations.find(v => !(localVariation.attributes || []).some(a => a.name === v.name));
-                                            const newAttrName = availableAttr ? availableAttr.name : "";
-                                            const nextAttrs = [...(localVariation.attributes || []), { name: newAttrName, value: "", showName: true }];
-                                            handleAttributesChange(nextAttrs);
-                                        }}
-                                        className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 transition-colors"
-                                    >
-                                        + Adicionar Atributo
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const availableAttr = availableVariations.find(v => !(localVariation.attributes || []).some(a => a.name === v.name));
+                                                const newAttrName = availableAttr ? availableAttr.name : "";
+                                                const nextAttrs = [...(localVariation.attributes || []), { name: newAttrName, value: "", showName: true }];
+                                                handleAttributesChange(nextAttrs);
+                                            }}
+                                            className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 transition-colors"
+                                        >
+                                            + Adicionar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsManagementModalOpen(true)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-[9px] font-black uppercase tracking-widest"
+                                        >
+                                            <i className="bi bi-sliders2 text-[10px]"></i>
+                                            Gerenciar Atributos
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">
@@ -298,15 +437,64 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     })}
                                 </div>
 
-                                <div className="space-y-2 pt-2 border-t border-slate-150 dark:border-slate-800">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-450">Título da Variação</label>
-                                    <input
-                                        value={localVariation.name || ''}
-                                        onChange={(e) => handleChange('name', e.target.value)}
-                                        className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
-                                        placeholder="Título da variação"
-                                    />
-                                    <p className="text-[9px] text-slate-400">Gerado com o nome do produto e os valores dos atributos; você pode editar livremente.</p>
+                                <div className="space-y-4 pt-2 border-t border-slate-150 dark:border-slate-800">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {/* Nome (ERP) */}
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between h-6">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome (ERP)</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newValue = !diferenciarTitulo;
+                                                        setDiferenciarTitulo(newValue);
+                                                        if (!newValue) {
+                                                            setLocalVariation(prev => prev ? ({
+                                                                ...prev,
+                                                                title: prev.name,
+                                                                marketplaceTitle: prev.name
+                                                            }) : null);
+                                                        }
+                                                    }}
+                                                    className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors ${
+                                                        diferenciarTitulo 
+                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-955/40 dark:text-purple-300' 
+                                                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 hover:bg-slate-200'
+                                                    }`}
+                                                >
+                                                    {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título Catálogo'}
+                                                </button>
+                                            </div>
+                                            <input
+                                                value={localVariation.name || ''}
+                                                onChange={(e) => handleChange('name', e.target.value)}
+                                                className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
+                                                placeholder="Nome interno da variação (ERP)"
+                                            />
+                                        </div>
+
+                                        {/* Título no Catálogo */}
+                                        {diferenciarTitulo ? (
+                                            <div className="space-y-1.5 animate-in slide-in-from-right-2 duration-200">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 h-6 flex items-center gap-1">
+                                                    <span>Título no Catálogo</span>
+                                                    <span className="inline-flex items-center text-[8px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                                </label>
+                                                <input
+                                                    value={localVariation.title || localVariation.marketplaceTitle || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setLocalVariation(prev => prev ? ({ ...prev, title: val, marketplaceTitle: val }) : null);
+                                                    }}
+                                                    className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
+                                                    placeholder="Título da variação no catálogo"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="hidden sm:block p-2"></div>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-slate-400">Nome gerado com o nome do produto principal e os valores dos atributos; você pode editar livremente.</p>
                                 </div>
 
                             </div>
@@ -542,193 +730,489 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                             </div>
                         </div>
                     )}
-
                     {/* ABA ESTOQUE E PRECIFICAÇÃO */}
                     {activeTab === 'financeiro' && (
                         <div className="space-y-6 animate-in fade-in duration-200">
-                            {/* Preços e Composição de Custos */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Preço de Venda */}
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between h-6">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-450 flex items-center gap-1.5">
-                                            Preço de Venda
-                                        </label>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleChange('syncUnitPrice', !localVariation.syncUnitPrice)}
-                                            className={`p-1 rounded-lg transition-all ${localVariation.syncUnitPrice ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
-                                            title={localVariation.syncUnitPrice ? "Desvincular Preço do Pai" : "Sincronizar Preço com o Pai"}
-                                        >
-                                            <i className={`bi ${localVariation.syncUnitPrice ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
-                                        </button>
-                                    </div>
-                                    {localVariation.syncUnitPrice ? (
-                                        <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
-                                            <span>R$ {(parentProduct?.unitPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={localVariation.unitPrice || 0}
-                                                onChange={(e) => handleChange('unitPrice', parseFloat(e.target.value) || 0)}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                            />
-                                        </div>
-                                    )}
+                            {/* Precificação e Venda */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Precificação de Venda</h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const nextSync = !localVariation.syncUnitPrice;
+                                            setLocalVariation(prev => prev ? {
+                                                ...prev,
+                                                syncUnitPrice: nextSync,
+                                                unitPrice: nextSync ? parentProduct?.unitPrice : prev.unitPrice
+                                            } : null);
+                                        }}
+                                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all ${localVariation.syncUnitPrice ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"}`}
+                                    >
+                                        {localVariation.syncUnitPrice ? "Preço Herdado do Pai" : "Preço Personalizado"}
+                                    </button>
                                 </div>
 
-                                {/* Preço de Custo Base */}
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between h-6">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-455">
-                                            Preço de Custo Base
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {/* Preço de Venda */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                            <span>Preço de Venda</span>
+                                            <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
+                                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleChange('syncCostPrice', !localVariation.syncCostPrice)}
-                                            className={`p-1 rounded-lg transition-all ${localVariation.syncCostPrice ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
-                                            title={localVariation.syncCostPrice ? "Desvincular Custo do Pai" : "Sincronizar Custo com o Pai"}
-                                        >
-                                            <i className={`bi ${localVariation.syncCostPrice ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
-                                        </button>
+                                        {localVariation.syncUnitPrice ? (
+                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
+                                                <span>R$ {(parentProduct?.unitPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={localVariation.unitPrice || 0}
+                                                    onChange={(e) => handlePriceChange(e.target.value)}
+                                                    className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                    {localVariation.syncCostPrice ? (
-                                        <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
-                                            <span>R$ {(parentProduct?.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={localVariation.costPrice || 0}
-                                                onChange={(e) => handleChange('costPrice', parseFloat(e.target.value) || 0)}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                            />
-                                        </div>
-                                    )}
                                 </div>
 
-                                {/* Taxa de IPI */}
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between h-6">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-455">
-                                            Taxa de IPI
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 pt-4">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Descontos e Promoção</h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const nextSync = localVariation.syncPromoPrice === false ? true : false;
+                                            setLocalVariation(prev => {
+                                                if (!prev) return null;
+                                                const next = {
+                                                    ...prev,
+                                                    syncPromoPrice: nextSync,
+                                                    promoPrice: nextSync ? parentProduct?.promoPrice : prev.promoPrice
+                                                };
+                                                const orig = Number(next.syncUnitPrice ? parentProduct?.unitPrice : next.unitPrice || 0);
+                                                const promo = Number(nextSync ? parentProduct?.promoPrice : next.promoPrice || 0);
+                                                if (orig > 0 && promo > 0 && promo < orig) {
+                                                    const fixed = orig - promo;
+                                                    const pct = (fixed / orig) * 100;
+                                                    setVarDiscountFixed(fixed.toFixed(2));
+                                                    setVarDiscountPercent(pct.toFixed(1));
+                                                } else {
+                                                    setVarDiscountPercent("");
+                                                    setVarDiscountFixed("");
+                                                }
+                                                return next;
+                                            });
+                                        }}
+                                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all ${localVariation.syncPromoPrice !== false ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"}`}
+                                    >
+                                        {localVariation.syncPromoPrice !== false ? "Promoção Herdada do Pai" : "Promoção Personalizada"}
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {/* Desconto % */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                            <span>Desconto (%)</span>
+                                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleChange('syncIpi', !localVariation.syncIpi)}
-                                            className={`p-1 rounded-lg transition-all ${localVariation.syncIpi ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
-                                            title={localVariation.syncIpi ? "Desvincular IPI do Pai" : "Sincronizar IPI com o Pai"}
-                                        >
-                                            <i className={`bi ${localVariation.syncIpi ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
-                                        </button>
-                                    </div>
-                                    {localVariation.syncIpi ? (
-                                        <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
-                                            <span>{parentProduct?.ipiPercent || 0} %</span>
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
-                                        </div>
-                                    ) : (
                                         <div className="relative">
                                             <input
                                                 type="number"
-                                                step="0.1"
-                                                value={localVariation.ipiPercent || 0}
-                                                onChange={(e) => handleChange('ipiPercent', parseFloat(e.target.value) || 0)}
-                                                className="w-full pl-3 pr-8 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
+                                                disabled={localVariation.syncPromoPrice !== false}
+                                                placeholder="0"
+                                                value={varDiscountPercent}
+                                                onChange={e => handleDiscountPercentChange(e.target.value)}
+                                                className="w-full pl-4 pr-8 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-100 disabled:dark:bg-slate-900/50 disabled:text-slate-450"
                                             />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-450 font-bold text-xs pointer-events-none">%</span>
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Frete */}
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between h-6">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-455">
-                                            Frete Rateado
-                                        </label>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleChange('syncFreight', !localVariation.syncFreight)}
-                                            className={`p-1 rounded-lg transition-all ${localVariation.syncFreight ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
-                                            title={localVariation.syncFreight ? "Desvincular Frete do Pai" : "Sincronizar Frete com o Pai"}
-                                        >
-                                            <i className={`bi ${localVariation.syncFreight ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
-                                        </button>
                                     </div>
-                                    {localVariation.syncFreight ? (
-                                        <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
-                                            <span>R$ {(parentProduct?.freightCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={localVariation.freightCost || 0}
-                                                onChange={(e) => handleChange('freightCost', parseFloat(e.target.value) || 0)}
-                                                className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Preço de Custo Final (Calculado) */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-450 h-6 flex items-center">
-                                        Preço de Custo Final (Calculado)
+                                    {/* Desconto R$ */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                            <span>Desconto (R$)</span>
+                                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                        </label>
+                                        <CurrencyInput
+                                            disabled={localVariation.syncPromoPrice !== false}
+                                            value={varDiscountFixed}
+                                            onChange={val => handleDiscountFixedChange(String(val))}
+                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-100 disabled:dark:bg-slate-900/50 disabled:text-slate-450"
+                                        />
+                                    </div>
+
+                                    {/* Preço Promocional Final */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                            <span>Promo Final</span>
+                                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
+                                        </label>
+                                        {localVariation.syncPromoPrice !== false ? (
+                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between h-[38px]">
+                                                <span>{parentProduct?.promoPrice ? `R$ ${parentProduct.promoPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sem desconto'}</span>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                            </div>
+                                        ) : (
+                                            <CurrencyInput
+                                                placeholder="Sem desconto"
+                                                disabled={false}
+                                                value={localVariation.promoPrice || ""}
+                                                onChange={val => handlePromoPriceFieldChange(String(val))}
+                                                className="w-full text-left px-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Custo Base */}
+                            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between pb-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        Preço de Custo Base
                                     </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange('syncCostPrice', !localVariation.syncCostPrice)}
+                                        className={`p-1 rounded-lg transition-all ${localVariation.syncCostPrice ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
+                                        title={localVariation.syncCostPrice ? 'Desvincular Custo do Pai' : 'Sincronizar Custo com o Pai'}
+                                    >
+                                        <i className={`bi ${localVariation.syncCostPrice ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
+                                    </button>
+                                </div>
+                                {localVariation.syncCostPrice ? (
+                                    <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
+                                        <span>R$ {(parentProduct?.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                    </div>
+                                ) : (
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                                         <input
                                             type="number"
-                                            readOnly
-                                            value={finalCalculatedCost.toFixed(2)}
-                                            className="w-full pl-8 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-slate-500 cursor-not-allowed"
+                                            step="0.01"
+                                            value={localVariation.costPrice || 0}
+                                            onChange={(e) => handleChange('costPrice', parseFloat(e.target.value) || 0)}
+                                            className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>
-                                </div>
-
-                                           {/* Estoque Atual */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-450 h-6 flex items-center gap-1.5">
-                                        Estoque Atual (Físico)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        disabled={!!parentProduct?.id}
-                                        value={(localVariation.stock === null || localVariation.stock === undefined) ? 0 : localVariation.stock}
-                                        onChange={(e) => handleChange('stock', parseInt(e.target.value) || 0)}
-                                        className={`w-full px-4 py-2.5 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 ${!!parentProduct?.id ? 'bg-slate-100 dark:bg-slate-800 text-slate-450 dark:text-slate-500 cursor-not-allowed opacity-75' : 'bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400'}`}
-                                        placeholder="0"
-                                    />
-                                </div>
-
-                                {/* Estoque Mínimo */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-450 h-6 flex items-center gap-1.5">
-                                        Estoque Mínimo (Alerta)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={(localVariation.minStock === null || localVariation.minStock === undefined) ? '' : localVariation.minStock}
-                                        onChange={(e) => handleChange('minStock', parseInt(e.target.value) || 0)}
-                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 text-amber-600 dark:text-amber-400"
-                                        placeholder="0"
-                                    />
-                                </div>
+                                )}
                             </div>
+
+                            {/* Toggle Estoque Inicial */}
+                            {parentProduct?.isDraft && (
+                                <div className="border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange('launchInitialStock', !localVariation.launchInitialStock)}
+                                        className={`w-full flex items-center justify-between p-4 transition-all ${
+                                            localVariation.launchInitialStock
+                                                ? 'bg-blue-50 dark:bg-blue-900/10'
+                                                : 'bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                                localVariation.launchInitialStock
+                                                    ? 'bg-blue-600 shadow-lg shadow-blue-500/30'
+                                                    : 'bg-slate-200 dark:bg-slate-700'
+                                            }`}>
+                                                <i className={`bi bi-box-seam-fill text-sm ${
+                                                    localVariation.launchInitialStock ? 'text-white' : 'text-slate-400'
+                                                }`}></i>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className={`text-xs font-black uppercase tracking-widest ${
+                                                    localVariation.launchInitialStock
+                                                        ? 'text-blue-700 dark:text-blue-400'
+                                                        : 'text-slate-600 dark:text-slate-300'
+                                                }`}>Lançamento de Estoque Inicial</p>
+                                                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest mt-0.5">
+                                                    {localVariation.launchInitialStock
+                                                        ? 'Informe a quantidade e custo de compra desta variação'
+                                                        : 'Clique para cadastrar saldo inicial agora'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                            localVariation.launchInitialStock
+                                                ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                                                : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                                        }`}>
+                                            {localVariation.launchInitialStock ? 'Sim, Lançar' : 'Não Lançar'}
+                                        </span>
+                                    </button>
+
+                                    {localVariation.launchInitialStock && (
+                                        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 animate-in slide-in-from-top-2 duration-200">
+                                            <InitialStockList
+                                                entries={localVariation.initialStockEntries || []}
+                                                onChange={(entries) => {
+                                                    const totalStock = entries.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+                                                    const avgCost = entries.length > 0
+                                                        ? entries.reduce((acc, curr) => acc + (curr.finalUnitCost || 0), 0) / entries.length
+                                                        : 0;
+                                                    setLocalVariation(prev => prev ? ({
+                                                        ...prev,
+                                                        initialStockEntries: entries,
+                                                        stock: totalStock,
+                                                        costPrice: avgCost,
+                                                    }) : prev);
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Estoque Mínimo */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                    <i className="bi bi-exclamation-triangle-fill text-amber-500 text-[11px]"></i>
+                                    Estoque Mínimo (Alerta)
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={(localVariation.minStock === null || localVariation.minStock === undefined) ? '' : localVariation.minStock}
+                                    onChange={(e) => handleChange('minStock', parseInt(e.target.value) || 0)}
+                                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-amber-500/20 text-amber-600 dark:text-amber-400"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ABA TRIBUTÁRIO */}
+                    {activeTab === 'fiscal' && (
+                        <div className="space-y-6 animate-in fade-in duration-200">
+                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                                        <i className="bi bi-file-earmark-text-fill text-blue-600 text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Sincronizar Dados Fiscais com o Pai?</h4>
+                                        <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Herdar NCM, CEST, Origem e CST do produto principal</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleChange('syncFiscal', !localVariation.syncFiscal)}
+                                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${localVariation.syncFiscal ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                                >
+                                    {localVariation.syncFiscal ? 'Herdado do Pai' : 'Personalizado'}
+                                </button>
+                            </div>
+
+                            {localVariation.syncFiscal ? (
+                                <div className="p-4 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl flex items-center gap-3">
+                                    <i className="bi bi-info-circle-fill text-blue-500 text-sm"></i>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                        Esta variação está utilizando os dados tributários e fiscais herdados do produto pai ({parentProduct?.fiscal?.ncm || "Sem NCM"}). Quaisquer alterações nestes dados devem ser realizadas diretamente no cadastro do produto pai.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>Código NCM (8 Dígitos) *</span>
+                                            </label>
+                                            <div className="flex flex-col gap-2">
+                                                <select
+                                                    value={localVariation.fiscal?.ncm || '94036000'}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        const labels: Record<string, string> = {
+                                                            '94036000': 'Outros móveis de madeira (Aparadores, Racks)',
+                                                            '94016100': 'Assentos com armação de madeira, estofados (Cadeiras, Sofás)',
+                                                            '94035000': 'Móveis de madeira para dormitórios',
+                                                            '94033000': 'Móveis de madeira para escritórios',
+                                                            '94034000': 'Móveis de madeira para cozinhas',
+                                                            '94042100': 'Colchões de espuma'
+                                                        };
+                                                        handleChange('fiscal', {
+                                                            ...localVariation.fiscal!,
+                                                            ncm: val,
+                                                            ncmDescription: labels[val] || 'Móvel de madeira'
+                                                        });
+                                                    }}
+                                                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                                >
+                                                    <option value="94036000">9403.60.00 - Outros móveis de madeira (Aparadores, Mesas)</option>
+                                                    <option value="94016100">9401.61.00 - Assentos com armação de madeira, estofados</option>
+                                                    <option value="94035000">9403.50.00 - Móveis de madeira para quartos</option>
+                                                    <option value="94033000">9403.30.00 - Móveis de madeira para escritórios</option>
+                                                    <option value="94034000">9403.40.00 - Móveis de madeira para cozinhas</option>
+                                                    <option value="94042100">9404.21.00 - Colchões de espuma</option>
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    maxLength={8}
+                                                    value={localVariation.fiscal?.ncm || ''}
+                                                    onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, ncm: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                                                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-[10px] font-mono font-bold"
+                                                    placeholder="Ou digite outro NCM (8 dígitos)..."
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>Código CEST (ST)</span>
+                                            </label>
+                                            <div className="flex flex-col gap-2">
+                                                <select
+                                                    value={localVariation.fiscal?.cest || ''}
+                                                    onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, cest: e.target.value })}
+                                                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                                >
+                                                    <option value="">Sem Substituição Tributária (Nenhum)</option>
+                                                    <option value="2806100">28.061.00 - Colchões e box-springs</option>
+                                                    <option value="2806200">28.062.00 - Suportes para camas (Estrados)</option>
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    maxLength={7}
+                                                    value={localVariation.fiscal?.cest || ''}
+                                                    onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, cest: e.target.value.replace(/\D/g, '') })}
+                                                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-[10px] font-mono font-bold"
+                                                    placeholder="Ou digite outro CEST (7 dígitos)..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                            <span>Descrição do NCM</span>
+                                        </label>
+                                        <input
+                                            value={localVariation.fiscal?.ncmDescription || ''}
+                                            onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, ncmDescription: e.target.value })}
+                                            className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            placeholder="Ex: Móveis de cozinha, de madeira..."
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>Origem da Mercadoria</span>
+                                            </label>
+                                            <select
+                                                value={localVariation.fiscal?.origem || '0'}
+                                                onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, origem: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            >
+                                                <option value="0">0 - Nacional</option>
+                                                <option value="1">1 - Estrangeira - Importação Direta</option>
+                                                <option value="2">2 - Estrangeira - Adquirida no Mercado Interno</option>
+                                                <option value="3">3 - Nacional, superior a 40% importação</option>
+                                                <option value="4">4 - Nacional, processo produtivo básico</option>
+                                                <option value="5">5 - Nacional, inferior ou igual a 40% importação</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>CST / CSOSN ICMS</span>
+                                            </label>
+                                            <select
+                                                value={localVariation.fiscal?.cst || '102'}
+                                                onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, cst: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            >
+                                                <option value="102">102 - Simples Nacional - Sem permissão de crédito (Venda padrão)</option>
+                                                <option value="500">500 - Simples Nacional - ICMS Cobrado Anteriormente por ST</option>
+                                                <option value="101">101 - Simples Nacional - Com permissão de crédito</option>
+                                                <option value="201">201 - Simples Nacional - Com permissão de crédito e ST</option>
+                                                <option value="202">202 - Simples Nacional - Sem permissão de crédito e ST</option>
+                                                <option value="300">300 - Simples Nacional - Imune</option>
+                                                <option value="400">400 - Simples Nacional - Não tributada</option>
+                                                <option value="900">900 - Simples Nacional - Outros</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>CFOP Padrão (Estadual)</span>
+                                            </label>
+                                            <select
+                                                value={localVariation.fiscal?.cfop || '5102'}
+                                                onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, cfop: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            >
+                                                <option value="5102">5102 - Venda de mercadoria adquirida/recebida de terceiros</option>
+                                                <option value="5405">5405 - Venda de mercadoria sujeita a ST (Substituído)</option>
+                                                <option value="5101">5101 - Venda de produção do estabelecimento</option>
+                                                <option value="5403">5403 - Venda de produção do estabelecimento sujeita a ST</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>Alíquota ICMS (%)</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={localVariation.fiscal?.icmsPercent || 0}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value);
+                                                    handleChange('fiscal', {
+                                                        ...localVariation.fiscal!,
+                                                        icmsPercent: isNaN(val) ? 0 : val
+                                                    });
+                                                }}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>PIS CST</span>
+                                            </label>
+                                            <select
+                                                value={localVariation.fiscal?.pisCst || '49'}
+                                                onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, pisCst: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            >
+                                                <option value="49">49 - Outras Operações de Saída</option>
+                                                <option value="07">07 - Operação Isenta da Contribuição</option>
+                                                <option value="08">08 - Operação Sem Incidência</option>
+                                                <option value="04">04 - Operação Tributável Monofásica (Alíquota Zero)</option>
+                                                <option value="06">06 - Operação Tributável com Alíquota Zero</option>
+                                                <option value="01">01 - Operação Tributável com Alíquota Básica</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                                                <span>COFINS CST</span>
+                                            </label>
+                                            <select
+                                                value={localVariation.fiscal?.cofinsCst || '49'}
+                                                onChange={(e) => handleChange('fiscal', { ...localVariation.fiscal!, cofinsCst: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold"
+                                            >
+                                                <option value="49">49 - Outras Operações de Saída</option>
+                                                <option value="07">07 - Operação Isenta da Contribuição</option>
+                                                <option value="08">08 - Operação Sem Incidência</option>
+                                                <option value="04">04 - Operação Tributável Monofásica (Alíquota Zero)</option>
+                                                <option value="06">06 - Operação Tributável com Alíquota Zero</option>
+                                                <option value="01">01 - Operação Tributável com Alíquota Básica</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -765,6 +1249,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                     </button>
                 </div>
             </div>
+            </div>
 
             {/* Modals */}
             <AttributeSelectionModal
@@ -794,7 +1279,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                 isOpen={isManagementModalOpen}
                 onClose={() => setIsManagementModalOpen(false)}
             />
-        </div>
+        </>
     , document.body);
 };
 

@@ -1008,6 +1008,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             images: [],
             active: true,
             syncUnitPrice: true,
+            syncPromoPrice: true,
             syncCostPrice: true,
             syncDescription: true,
             syncDimensions: true,
@@ -1093,6 +1094,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     costPrice: formData.costPrice || 0,
                     stock: 0,
                     syncUnitPrice: true,
+                    syncPromoPrice: true,
                     syncCostPrice: true,
                     syncDescription: true,
                     images: [],
@@ -1329,11 +1331,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center md:p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={handleCloseWithAutoSave} />
             
-            <div onPaste={handlePaste} className="relative bg-white dark:bg-slate-900 w-full max-w-[96vw] h-[96vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
-                {/* Header */}
+            <div onPaste={handlePaste} className="relative bg-white dark:bg-slate-900 w-full max-w-full h-full md:max-w-[96vw] md:h-[96vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
                     <div className="flex items-center gap-4 flex-wrap">
@@ -1582,6 +1583,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     suppliers={suppliers}
                     parentProduct={{
                         id: formData.id,
+                        isDraft: !product || formData.isDraft,
                         description: formData.description || '',
                         unitPrice: formData.unitPrice || 0,
                         costPrice: formData.costPrice || 0,
