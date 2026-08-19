@@ -309,17 +309,6 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     <p className="text-[9px] text-slate-400">Gerado com o nome do produto e os valores dos atributos; você pode editar livremente.</p>
                                 </div>
 
-                                <div className="space-y-2 pt-2 border-t border-slate-150 dark:border-slate-800">
-                                    <div className="flex items-center justify-between h-6">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-450">Código SKU da Variação</label>
-                                    </div>
-                                    <input
-                                        value={localVariation.sku || ''}
-                                        onChange={(e) => handleChange('sku', e.target.value)}
-                                        className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
-                                        placeholder="SKU-VARIAÇÃO"
-                                    />
-                                </div>
                             </div>
                         </div>
                     )}

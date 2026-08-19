@@ -42,6 +42,56 @@ async function callAIBackend(endpoint: string, body: any) {
     }
 }
 
+/**
+ * Chama diretamente a API Gemini (sem backend intermediário).
+ * Lê o body de erro para expor o motivo real da falha (quota, chave inválida, etc.)
+ */
+async function callGeminiDirect(prompt: string): Promise<string> {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("VITE_GEMINI_API_KEY não configurada. Adicione a variável ao arquivo .env e reinicie o servidor.");
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+        })
+    });
+
+    if (!response.ok) {
+        let errDetail = `HTTP ${response.status}`;
+        try {
+            const errBody = await response.json();
+            const msg = errBody?.error?.message || JSON.stringify(errBody);
+            errDetail += `: ${msg}`;
+        } catch {
+            errDetail += `: ${response.statusText}`;
+        }
+
+        if (response.status === 429) {
+            throw new Error(`Limite de requisições da IA atingido. Aguarde um momento e tente novamente. (${errDetail})`);
+        } else if (response.status === 403 || response.status === 401) {
+            throw new Error(`Chave de API inválida ou sem permissão. Verifique VITE_GEMINI_API_KEY. (${errDetail})`);
+        } else if (response.status === 400) {
+            throw new Error(`Requisição inválida para a IA (prompt rejeitado). (${errDetail})`);
+        }
+        throw new Error(`Gemini API retornou erro. (${errDetail})`);
+    }
+
+    const resJson = await response.json();
+
+    // Verifica se a resposta foi bloqueada por safety filters
+    const finishReason = resJson?.candidates?.[0]?.finishReason;
+    if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+        throw new Error(`Resposta bloqueada pela IA (motivo: ${finishReason}). Tente reformular o conteúdo.`);
+    }
+
+    return resJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
 export const aiService = {
     async detectIntent(message: string, detectionPrompt: string, context?: any): Promise<AIIntentResponse> {
         try {
@@ -160,9 +210,6 @@ export const aiService = {
         cst: string;
         origem: string;
     }> {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ";
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        
         const prompt = `Você é um especialista tributário do Brasil. 
 Sua tarefa é analisar os dados do produto e da empresa abaixo e sugerir a classificação fiscal e tributária exata para a emissão de Nota Fiscal Eletrônica (NF-e).
 
@@ -186,38 +233,15 @@ RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`
 }`;
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [
-                                {
-                                    text: prompt
-                                }
-                            ]
-                        }
-                    ]
-                })
-            });
+            const textResponse = await callGeminiDirect(prompt);
 
-            if (!response.ok) {
-                throw new Error("Erro na resposta do Gemini API");
-            }
-
-            const resJson = await response.json();
-            const textResponse = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            
             let cleanJson = textResponse.trim();
             if (cleanJson.startsWith('```json')) {
                 cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
             } else if (cleanJson.startsWith('```')) {
                 cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
             }
-            
+
             const parsed = JSON.parse(cleanJson);
             return {
                 ncm: String(parsed.ncm || '').replace(/\D/g, '').slice(0, 8),
@@ -228,9 +252,9 @@ RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`
                 icmsPercent: Number(parsed.icmsPercent || 0),
                 origem: String(parsed.origem || '0')
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro na classificação tributária automática:", error);
-            throw new Error("Falha ao gerar dados fiscais com Gemini.");
+            throw new Error(error?.message || "Falha ao gerar dados fiscais com Gemini.");
         }
     },
 
@@ -245,45 +269,42 @@ RETORNE APENAS um objeto JSON no formato abaixo, sem nenhum bloco markdown (\`\`
         depth?: string | number;
         weight?: string | number;
     }): Promise<{ improvedDescription: string }> {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ";
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        
-        const prompt = `Você é um redator profissional de e-commerce especializado em móveis e decoração no Brasil.
-Sua tarefa é aperfeiçoar a descrição de um produto para torná-la mais profissional, atraente e vendedora.
+        const prompt = `Você é um redator expert em e-commerce de móveis e decoração no Brasil, com habilidade de criar textos que convertem visitantes em compradores.
 
-Você deve usar exatamente esta estrutura de resposta:
-1. Um parágrafo descritivo e persuasivo explicando os benefícios e características do móvel.
+═══════════════════════════════════════
+REGRA ABSOLUTA — NUNCA INVENTE NADA:
+• Use SOMENTE as informações fornecidas nos campos abaixo.
+• NÃO adicione características, materiais, funcionalidades ou especificações que NÃO estejam explicitamente nos dados fornecidos.
+• Se um campo estiver como "Não informado" ou "Não informada", IGNORE esse campo — não mencione e não deduza nada sobre ele.
+• Seu papel é REESCREVER com linguagem melhor, não CRIAR informações novas.
+═══════════════════════════════════════
+
+COMO INTERPRETAR O NOME DO PRODUTO (MUITO IMPORTANTE):
+• O nome do produto geralmente segue o padrão: [Tipo] [Linha/Modelo] [Complemento].
+• Exemplos de nomes e como interpretá-los:
+  - "Balcão Copa para Pia" → Tipo: Balcão | Linha/Modelo: Copa | Uso: para pia (ambiente: cozinha)
+  - "Guarda Roupa Sidney 6 Portas" → Tipo: Guarda Roupa | Linha/Modelo: Sidney | Especificações: 6 Portas
+  - "Cômoda Arizona 4 Gavetas" → Tipo: Cômoda | Linha/Modelo: Arizona | Especificações: 4 Gavetas
+• Palavras como "Copa", "Sidney", "Arizona", "Dallas" são NOMES DE LINHA/MODELO, não ambientes.
+• O ambiente real é inferido pelo tipo e uso do produto (pia → cozinha, guarda roupa → quarto, etc.).
+• NUNCA use o nome da linha como se fosse um ambiente.
+
+ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
+1. PRIMEIRO PARÁGRAFO — deve ser chamativo, envolvente e persuasivo:
+   • Comece diretamente pelo nome completo do produto.
+   • Destaque o diferencial principal que está nos dados (ex: funcionalidade, praticidade, organização).
+   • Use linguagem que crie desejo e conexão emocional com o cliente.
+   • Seja específico usando apenas o que está nos dados — sem invenções.
 2. Uma linha vazia.
-3. O título "Características:" (com a inicial maiúscula).
-4. Uma lista de características com marcadores simples de texto (sem asteriscos ou hífens no início de cada linha, apenas a característica direta, ex: Material em MDP, 6 Portas, 2 Gavetas, etc.), cada uma em sua linha.
-5. Uma linha vazia.
-6. O título "Dimensões:" (com a inicial maiúscula).
-7. Altura, Largura, Profundidade e Peso (se informados) formatados exatamente como no exemplo.
+3. A linha "Características:" (somente se houver características explícitas nos dados).
+4. Lista das características — apenas o que está nos dados (sem asteriscos, sem hífens no início de cada linha).
+5. Uma linha vazia (somente se houver dimensões informadas).
+6. A linha "Dimensões:" seguida de Altura, Largura, Profundidade e Peso — somente os campos que foram informados.
 
-Exemplo de formato esperado:
-O Guarda Roupa Solteiro 6 Portas 2 Gavetas Sidney Doripel é um produto compacto porém funcional para atender as necessidades diarias, oferece espaço para armazenar as roupa e acessórios com maior organização. O móvel é fabricado em MDP o que garante uma maior durabilidade ao produto.
-
-Características:
-Material em MDP
-6 Portas
-2 Gavetas
-Cabideiro madeira revestido com plástico
-Corrediças plásticas
-Dobradiças metálica
-Puxadores PVC
-Prateleira suporta até 3kg
-Gavetas suporta até 5kg
-
-Dimensões:
-Altura: 175 cm
-Largura: 137 cm
-Profundidade: 38 cm
-Peso: 62,00 kg
-
-DADOS ATUAIS DO PRODUTO PARA SE BASEAR:
-- Nome/Título do Produto: ${data.title}
-- Descrição digitada pelo usuário: ${data.currentDescription || "Não informada"}
-- Material do Produto: ${data.material || "Não informado"}
+DADOS DO PRODUTO (use SOMENTE estes):
+- Nome/Título: ${data.title}
+- Descrição atual: ${data.currentDescription || "Não informada"}
+- Material: ${data.material || "Não informado"}
 - Marca/Fornecedor: ${data.brand || "Não informado"}
 - Linha/Modelo: ${data.line || "Não informado"}
 - Altura: ${data.height ? data.height + ' cm' : "Não informada"}
@@ -291,41 +312,20 @@ DADOS ATUAIS DO PRODUTO PARA SE BASEAR:
 - Profundidade: ${data.depth ? data.depth + ' cm' : "Não informada"}
 - Peso: ${data.weight ? data.weight + ' kg' : "Não informado"}
 
-IMPORTANTE: 
-- Retorne apenas o texto final da descrição aperfeiçoada. 
-- Não inclua blocos de código markdown como \`\`\` nem saudações, notas explicativas ou introduções. Apenas a descrição no formato solicitado.`;
+REGRAS FINAIS:
+- Retorne apenas o texto da descrição, sem blocos markdown (\`\`\`), sem saudações, sem notas explicativas.
+- Se os dados forem insuficientes para criar uma lista de características, omita essa seção.
+- NUNCA escreva informações que não estejam nos dados acima.`;
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [
-                                {
-                                    text: prompt
-                                }
-                            ]
-                        }
-                    ]
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error("Erro na resposta do Gemini API");
+            const textResponse = await callGeminiDirect(prompt);
+            if (!textResponse.trim()) {
+                throw new Error("A IA retornou uma resposta vazia. Verifique se o produto tem título e descrição preenchidos.");
             }
-
-            const resJson = await response.json();
-            const textResponse = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            return {
-                improvedDescription: textResponse.trim()
-            };
-        } catch (error) {
+            return { improvedDescription: textResponse.trim() };
+        } catch (error: any) {
             console.error("Erro ao aperfeiçoar descrição:", error);
-            throw new Error("Falha ao aperfeiçoar descrição com o Gemini.");
+            throw new Error(error?.message || "Falha ao aperfeiçoar descrição com o Gemini.");
         }
     }
 };

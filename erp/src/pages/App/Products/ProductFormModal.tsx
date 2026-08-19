@@ -177,6 +177,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [activeTab, setActiveTab] = useState<'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal'>('geral');
     const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>('vitrine');
     const [loading, setLoading] = useState(false);
+    // Estado separado para o auto-save silencioso (não mostra spinner no botão)
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const isSavingDraftRef = useRef(false);
     const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
     const [isGeneratingComboName, setIsGeneratingComboName] = useState(false);
     const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
@@ -845,6 +848,21 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const handleImproveDescriptionWithAI = async () => {
+        // Validação de pré-requisitos
+        const nome = (formData.name || formData.description || '').trim();
+        const temMedida = Number(formData.width) > 0 || Number(formData.height) > 0 || Number(formData.depth) > 0;
+        const temCategoria = formData.categoryIds && formData.categoryIds.length > 0;
+
+        if (!nome) {
+            return toast.warning('Preencha o nome do produto antes de aperfeiçoar a descrição.', { icon: '📝' });
+        }
+        if (!temMedida) {
+            return toast.warning('Informe pelo menos uma medida (Altura, Largura ou Profundidade) antes de aperfeiçoar.', { icon: '📐' });
+        }
+        if (!temCategoria) {
+            return toast.warning('Selecione pelo menos uma categoria antes de aperfeiçoar a descrição.', { icon: '🏷️' });
+        }
+
         setIsImprovingDescription(true);
         try {
             const result = await aiService.improveProductDescription({
@@ -1130,6 +1148,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         toast.info("SKUs das variações regenerados com exclusividade.");
     };
 
+    /**
+     * Salva o produto manualmente (acionado pelo usuário).
+     * Exibe o spinner no botão e toasts de erro.
+     */
     const handleSubmit = async (showResult = true, saveAsDraft = false): Promise<boolean> => {
         if (!saveAsDraft) {
             const errors: Record<string, boolean> = {};
@@ -1165,7 +1187,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             toast.error("Despublique o Catálogo antes de remover ou alterar um campo obrigatório.");
             return false;
         }
-        
+
+        // Cancela qualquer auto-save pendente antes de salvar manualmente
+        isSavingDraftRef.current = true;
         setLoading(true);
         try {
             const normalizedData = { 
@@ -1203,20 +1227,48 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             return false;
         } finally {
             setLoading(false);
+            isSavingDraftRef.current = false;
         }
     };
 
+    /**
+     * Salva o rascunho silenciosamente (sem spinner no botão, sem toast de sucesso).
+     * Usa isSavingDraftRef como guard para evitar chamadas concorrentes.
+     */
+    const autoSaveDraft = useCallback(async (data: Partial<Product>) => {
+        if (isSavingDraftRef.current) return;
+        isSavingDraftRef.current = true;
+        setIsSavingDraft(true);
+        try {
+            const normalizedData = {
+                ...data,
+                isDraft: data.isDraft !== false,
+                active: true,
+                status: data.status || 'draft'
+            } as Product;
+            await saveProduct(normalizedData);
+            hasChanged.current = false;
+        } catch (error) {
+            // Auto-save silencioso: apenas loga, não mostra toast
+            console.error('[AutoSave] Falha ao salvar rascunho:', error);
+        } finally {
+            isSavingDraftRef.current = false;
+            setIsSavingDraft(false);
+        }
+    }, []);
+
     // Durante a criação, cada alteração é salva automaticamente após uma breve
     // pausa. Produtos em edição permanecem exclusivamente com salvamento manual.
+    // Não depende de `loading` para evitar loop de re-render.
     useEffect(() => {
-        if (!isOpen || product || !hasProductName || !hasChanged.current || loading) return;
+        if (!isOpen || product || !hasProductName || !hasChanged.current) return;
 
         const timer = window.setTimeout(() => {
-            handleSubmit(false, formData.isDraft !== false);
-        }, 700);
+            autoSaveDraft(formData);
+        }, 800);
 
         return () => window.clearTimeout(timer);
-    }, [formData, hasProductName, isOpen, loading, product]);
+    }, [formData, hasProductName, isOpen, product, autoSaveDraft]);
 
     const handleSaveAndClose = async () => {
         const saved = await handleSubmit(false, !product && formData.isDraft !== false);
@@ -1224,18 +1276,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const handleCloseWithAutoSave = async () => {
-        if (!product && hasChanged.current && !loading) {
-            const saved = await handleSubmit(false, true);
-            if (!saved) {
-                if (window.confirm("Não foi possível salvar o produto. Deseja sair e descartar as alterações?")) {
-                    onClose();
-                }
-            } else {
-                onClose();
-            }
-        } else {
-            onClose();
+        if (!product && hasChanged.current && !loading && !isSavingDraftRef.current) {
+            await autoSaveDraft(formData);
         }
+        onClose();
     };
 
 
@@ -1447,8 +1491,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 <div className="p-4 md:p-6 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3 shrink-0">
                     {!product && (
                         <div className="mr-auto flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                            <i className="bi bi-cloud-check-fill text-emerald-500 text-sm" />
-                            <span>as alterações são salvas automaticamente.</span>
+                            {isSavingDraft ? (
+                                <>
+                                    <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                                    <span>Salvando rascunho...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <i className="bi bi-cloud-check-fill text-emerald-500 text-sm" />
+                                    <span>alterações salvas automaticamente.</span>
+                                </>
+                            )}
                         </div>
                     )}
                     <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">

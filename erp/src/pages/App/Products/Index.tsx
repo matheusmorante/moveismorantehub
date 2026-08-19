@@ -4,7 +4,7 @@ import ProductFilters from "./ProductFilters";
 import ProductList from "./ProductList";
 import ProductFormModal from "./ProductFormModal";
 import Product, { ProductVisibilitySettings } from "../../types/product.type";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import PriceHistoryModal from "./PriceHistoryModal";
 import { toast } from "react-toastify";
 import VariationFormModal from "./VariationFormModal";
@@ -244,22 +244,15 @@ const Products = () => {
                             </div>
 
                             <div className="flex gap-2 ml-auto shrink-0">
-                                <Link
-                                    to="/app/configuracoes"
-                                    className="flex items-center justify-center p-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
-                                    title="Configurar Campos Obrigatórios"
-                                >
-                                    <i className="bi bi-gear-fill text-base" />
-                                </Link>
                                 <button
                                     onClick={() => {
                                         setEditingProduct(null);
                                         setInitialFormData(null);
                                         setIsFormModalOpen(true);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all shadow-lg shadow-emerald-600/30 font-bold text-xs whitespace-nowrap active:scale-95"
+                                    className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-2xl transition-all shadow-lg shadow-emerald-500/30 font-black text-xs tracking-wide whitespace-nowrap active:scale-95 border border-emerald-400/30"
                                 >
-                                    <i className="bi bi-plus-circle-fill text-sm"></i>
+                                    <i className="bi bi-plus-lg text-sm font-black" />
                                     <span>Novo Produto</span>
                                 </button>
                             </div>

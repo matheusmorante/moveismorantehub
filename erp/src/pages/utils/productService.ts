@@ -494,6 +494,42 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
     return product || null;
 };
 
+/**
+ * Gera um código (SKU) numérico único de 6 dígitos que não está em uso
+ * por nenhum outro produto no cache local.
+ * Estratégia: pega o maior valor numérico existente e incrementa.
+ */
+export const generateUniqueCode = (excludeProductId?: string): string => {
+    const products = getLocalProducts().filter(p => !p.deleted);
+    let maxNum = 0;
+    const usedCodes = new Set<string>();
+
+    products.forEach(p => {
+        if (excludeProductId && String(p.id) === String(excludeProductId)) return;
+        if (p.code) {
+            usedCodes.add(p.code);
+            const num = parseInt(p.code, 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+        (p.variations || []).forEach((v: any) => {
+            if (v.sku) {
+                usedCodes.add(v.sku);
+                const num = parseInt(v.sku, 10);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
+            }
+        });
+    });
+
+    let candidate = maxNum + 1;
+    let candidateStr = String(candidate).padStart(6, '0');
+    // Garante que não há colisão (por SKUs não-numéricos já presentes)
+    while (usedCodes.has(candidateStr)) {
+        candidate++;
+        candidateStr = String(candidate).padStart(6, '0');
+    }
+    return candidateStr;
+};
+
 export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?: string, legacyId?: string): Promise<{ [sku: string]: string }> => {
     const uniqueSkus = Array.from(new Set(skus.filter(s => s && s.trim() !== "")));
     if (uniqueSkus.length === 0) return {};
@@ -689,9 +725,19 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         const duplicates = await checkSkusUniquenessBatch(skusToValidate, resolvedId, legacyId);
         const duplicateSkus = Object.keys(duplicates);
         if (duplicateSkus.length > 0) {
-            const firstSku = duplicateSkus[0];
-            const desc = duplicates[firstSku];
-            throw new Error(`O código (SKU) "${firstSku}" já está em uso no produto: ${desc}`);
+            // Auto-corrige: gera um código único para substituir o SKU duplicado
+            if (product.code && duplicateSkus.includes(product.code)) {
+                product.code = generateUniqueCode(resolvedId);
+                console.warn(`[ProductService] SKU duplicado detectado. Novo código gerado automaticamente: ${product.code}`);
+            }
+            if (product.variations?.length) {
+                product.variations.forEach(v => {
+                    if (v.sku && duplicateSkus.includes(v.sku)) {
+                        v.sku = generateUniqueCode(resolvedId);
+                        console.warn(`[ProductService] SKU de variação duplicado. Novo SKU gerado: ${v.sku}`);
+                    }
+                });
+            }
         }
     }
 
@@ -787,8 +833,19 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
         const duplicates = await checkSkusUniquenessBatch(skusToValidate, resolvedId, legacyId);
         const duplicateSkus = Object.keys(duplicates);
         if (duplicateSkus.length > 0) {
-            const firstSku = duplicateSkus[0];
-            throw new Error(`O código (SKU) "${firstSku}" já está em uso no produto: ${duplicates[firstSku]}`);
+            // Auto-corrige: gera um código único para substituir o SKU duplicado
+            if (productToUpdate.code && duplicateSkus.includes(productToUpdate.code)) {
+                productToUpdate.code = generateUniqueCode(resolvedId);
+                console.warn(`[ProductService] SKU duplicado em updateProduct. Novo código: ${productToUpdate.code}`);
+            }
+            if (productToUpdate.variations?.length) {
+                productToUpdate.variations.forEach(v => {
+                    if (v.sku && duplicateSkus.includes(v.sku)) {
+                        v.sku = generateUniqueCode(resolvedId);
+                        console.warn(`[ProductService] SKU de variação duplicado em updateProduct. Novo SKU: ${v.sku}`);
+                    }
+                });
+            }
         }
     }
 

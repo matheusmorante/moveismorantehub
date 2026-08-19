@@ -119,7 +119,18 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
                     <div className="flex flex-col gap-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
-                            <span>Profundidade (cm)</span>
+                            <div className="flex items-center gap-1.5">
+                                <span>{formData.depthUseLength ? 'Comprimento (cm)' : 'Profundidade (cm)'}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFieldChange('depthUseLength', !formData.depthUseLength)}
+                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-900/30 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all border border-slate-200 dark:border-slate-700 hover:border-blue-300"
+                                    title={formData.depthUseLength ? 'Usar Profundidade' : 'Usar Comprimento'}
+                                >
+                                    <i className="bi bi-arrow-left-right text-[9px]" />
+                                    {formData.depthUseLength ? 'Prof.' : 'Comp.'}
+                                </button>
+                            </div>
                             {formData.noDepth && <span className="text-[8px] text-amber-500 font-bold lowercase">Ocultado</span>}
                         </label>
                         <div className="relative">
