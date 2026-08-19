@@ -200,15 +200,16 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 )}
             </div>
 
-            {/* Precificação e Custo do Produto */}
-            <>
-                {/* Precificação e Desconto */}
-                <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
-                        <i className="bi bi-tag-fill"></i> Precificação e Descontos {formData.hasVariations && <span className="text-[9px] text-slate-400 font-bold">(Base Padrão para Variações)</span>}
-                    </h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                        {/* Preço de Venda */}
+            {/* Precificação e Custo do Produto - APENAS PRODUTO SIMPLES */}
+            {!formData.hasVariations ? (
+                <>
+                    {/* Precificação e Desconto */}
+                    <div className="border-t border-slate-150 dark:border-slate-800/80 pt-6">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-1.5">
+                            <i className="bi bi-tag-fill"></i> Precificação e Descontos
+                        </h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Preço de Venda */}
                             <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                     <span>Preço de Venda</span>
@@ -357,6 +358,22 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                         </div>
                     </div>
                 </>
+            ) : (
+                /* Card explicativo para Produto Pai com Variações */
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 rounded-2xl flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                        <i className="bi bi-grid-3x3-gap-fill text-blue-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                            Produto com Variações (Produto Pai)
+                        </h4>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                            Os preços de venda, descontos promocionais, composição de custos e saldos de estoque inicial são configurados <strong>individualmente em cada variação</strong> na aba <strong>"Variações"</strong>.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Info Box */}
             <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl">

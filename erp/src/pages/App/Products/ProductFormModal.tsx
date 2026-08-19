@@ -308,11 +308,28 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const checkERPLegibility = useCallback((data: Partial<Product>) => {
         const errors: string[] = [];
+        const hasVars = Boolean(data.hasVariations) || (Array.isArray(data.variations) && data.variations.length > 0);
+
         if (!data.description || data.description.trim().length < 2) {
             errors.push("Nome do Produto (Interno) deve ter pelo menos 2 caracteres.");
         }
-        if (!data.unitPrice || data.unitPrice <= 0) {
-            errors.push("Preço de Venda deve ser maior que zero.");
+        if (!hasVars) {
+            if (!data.unitPrice || data.unitPrice <= 0) {
+                errors.push("Preço de Venda deve ser maior que zero.");
+            }
+            if (!data.costPrice || data.costPrice <= 0) {
+                errors.push("Preço de Custo Final deve ser maior que zero.");
+            }
+            if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
+                const up = data.unitPrice || 0;
+                if (data.promoPrice >= up) {
+                    errors.push("O preço promocional deve ser menor que o preço de venda.");
+                }
+            }
+        } else {
+            if (!data.variations || data.variations.length === 0) {
+                errors.push("Adicione pelo menos uma variação para o produto.");
+            }
         }
         if (!data.categoryIds || data.categoryIds.length === 0) {
             errors.push("Pelo menos uma categoria deve ser selecionada.");
@@ -320,37 +337,28 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         if (!data.mainSupplierId) {
             errors.push("Fornecedor Principal é obrigatório.");
         }
-        if (!data.costPrice || data.costPrice <= 0) {
-            errors.push("Preço de Custo Final deve ser maior que zero.");
-        }
-        
-        if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
-            const up = data.unitPrice || 0;
-            if (data.promoPrice >= up) {
-                errors.push("O preço promocional deve ser menor que o preço de venda.");
-            }
-        }
 
         return {
             isLegible: errors.length === 0,
             errors,
             checks: {
                 description: !!data.description && data.description.trim().length >= 2,
-                unitPrice: !!data.unitPrice && data.unitPrice > 0,
+                unitPrice: hasVars ? (data.variations && data.variations.length > 0) : (!!data.unitPrice && data.unitPrice > 0),
                 categories: !!data.categoryIds && data.categoryIds.length > 0,
                 supplier: !!data.mainSupplierId,
-                costPrice: !!data.costPrice && data.costPrice > 0
+                costPrice: hasVars ? true : (!!data.costPrice && data.costPrice > 0)
             }
         };
     }, []);
 
     const checkEcomLegibility = useCallback((data: Partial<Product>) => {
         const errors: string[] = [];
+        const hasVars = Boolean(data.hasVariations) || (Array.isArray(data.variations) && data.variations.length > 0);
         const catalogTitle = data.title || data.marketplaceTitle;
         if (!catalogTitle || catalogTitle.trim().length < 2) {
             errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
         }
-        if (!data.unitPrice || data.unitPrice <= 0) {
+        if (!hasVars && (!data.unitPrice || data.unitPrice <= 0)) {
             errors.push("Preço de Venda deve ser maior que zero.");
         }
         if (!data.categoryIds || data.categoryIds.length === 0) {
@@ -1195,7 +1203,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (!(formData.name || formData.description)?.trim()) {
                 errors.name = true;
             }
-            if (!formData.unitPrice || Number(formData.unitPrice) <= 0) {
+            const hasVars = Boolean(formData.hasVariations) || (Array.isArray(formData.variations) && formData.variations.length > 0);
+            if (!hasVars && (!formData.unitPrice || Number(formData.unitPrice) <= 0)) {
                 errors.unitPrice = true;
             }
             if (!formData.categoryIds || formData.categoryIds.length === 0) {
