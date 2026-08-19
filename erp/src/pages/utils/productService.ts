@@ -363,7 +363,9 @@ export const mapFromDB = (data: any, index?: number): Product => {
         notificationConfig: data.notification_config || {},
         isCombo: data.is_combo || false,
         comboItems: data.combo_items || [],
-        categoryIds: data.product_categories?.map((pc: any) => pc.category_id) || [],
+        categoryIds: (Array.isArray(data.product_categories) && data.product_categories.length > 0)
+            ? data.product_categories.map((pc: any) => pc.category_id || pc.id || pc).filter(Boolean)
+            : (data.category_id ? [data.category_id] : []),
         createdAt: data.created_at,
         updatedAt: data.updated_at,
         width: parsedWidth,
@@ -616,6 +618,13 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         delete dbData.brand;
         delete dbData.category;
         
+        // Preencher category_id primário na tabela products se houver categorias selecionadas
+        if (Array.isArray(product.categoryIds) && product.categoryIds.length > 0) {
+            dbData.category_id = product.categoryIds[0];
+        } else if (Array.isArray(product.categoryIds) && product.categoryIds.length === 0) {
+            dbData.category_id = null;
+        }
+
         // Upsert no Supabase
         const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
         if (prodErr) throw prodErr;
@@ -630,7 +639,10 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         product_id: product.id,
                         category_id: catId
                     }));
-                    await supabase.from("product_categories").insert(categoryRecords);
+                    const { error: catInsertErr } = await supabase.from("product_categories").insert(categoryRecords);
+                    if (catInsertErr) {
+                        console.warn("[ProductService] Aviso ao inserir product_categories:", catInsertErr);
+                    }
                 }
             } catch (catErr) {
                 console.error("[ProductService] Erro ao sincronizar product_categories:", catErr);
