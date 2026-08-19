@@ -489,6 +489,33 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, inc
 };
 
 export const getFullProduct = async (id: string): Promise<Product | null> => {
+    try {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        if (isUUID) {
+            const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+                .eq('id', id)
+                .maybeSingle();
+
+            if (!error && data) {
+                const mapped = mapFromDB(data);
+                // Atualiza cache local
+                const localProducts = getLocalProducts();
+                const idx = localProducts.findIndex(p => String(p.id) === String(id));
+                if (idx !== -1) {
+                    localProducts[idx] = mapped;
+                } else {
+                    localProducts.push(mapped);
+                }
+                saveLocalProducts(localProducts);
+                return mapped;
+            }
+        }
+    } catch (e) {
+        console.error("[ProductService] Erro ao buscar produto detalhado do Supabase:", e);
+    }
+
     const products = getLocalProducts();
     const product = products.find(p => String(p.id) === String(id));
     return product || null;
@@ -592,6 +619,23 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         // Upsert no Supabase
         const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
         if (prodErr) throw prodErr;
+
+        // Atualizar category_id primário e sincronizar tabela product_categories
+        if (product.id && Array.isArray(product.categoryIds)) {
+            try {
+                // Sincronizar na tabela intermediária N:N product_categories
+                await supabase.from("product_categories").delete().eq("product_id", product.id);
+                if (product.categoryIds.length > 0) {
+                    const categoryRecords = product.categoryIds.map(catId => ({
+                        product_id: product.id,
+                        category_id: catId
+                    }));
+                    await supabase.from("product_categories").insert(categoryRecords);
+                }
+            } catch (catErr) {
+                console.error("[ProductService] Erro ao sincronizar product_categories:", catErr);
+            }
+        }
 
         // Sincronizar imagens na tabela product_images
         if (product.id && Array.isArray(product.images) && product.images.length > 0) {
@@ -853,16 +897,13 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     const index = products.findIndex(p => String(p.id) === String(resolvedId));
     if (index === -1) {
         // A lista do ERP pode estar usando dados carregados diretamente do
-        // Supabase, sem uma cópia no cache local. Nesse caso, a ação não pode
-        // depender do localStorage para persistir a alteração.
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .update(mapToDB(productToUpdate))
-            .eq('id', resolvedId)
-            .select('id')
-            .single();
-
-        if (error) throw error;
+        // Supabase, sem uma cópia no cache local.
+        const fullProduct = { ...productToUpdate, id: resolvedId } as Product;
+        await syncProductToSupabase(fullProduct);
+        const currentProducts = getLocalProducts();
+        currentProducts.push(fullProduct);
+        saveLocalProducts(currentProducts);
+        notifySubscribers();
         return;
     }
 

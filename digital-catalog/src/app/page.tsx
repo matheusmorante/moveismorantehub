@@ -227,11 +227,12 @@ function HomeContent() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               {/* Badges de filtros ativos */}
               <div className="flex-1 flex items-center gap-3 bg-white border-none p-3 rounded-2xl min-w-0 overflow-hidden shadow-xs">
+                {/* Botão de abrir drawer apenas em telas menores que xl */}
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => setIsSidebarOpen(v => !v)}
-                  className={`h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
+                  className={`xl:hidden h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
                     isSidebarOpen
                       ? "bg-primary border-primary text-white hover:bg-primary/95"
                       : "border-primary/30 text-primary hover:border-primary hover:bg-primary/5"
@@ -287,11 +288,20 @@ function HomeContent() {
             </div>
           </div>
 
-          {/* Layout: Sidebar no botão de filtro para todos, grade de produtos em tela cheia */}
+          {/* Layout: Sidebar fixa à esquerda em telas XL (estilo Magazine Luiza) + Grade de produtos */}
           <div className="flex gap-8 items-start relative">
-            {/* O aside fixo da desktop foi removido para ficar embutido no botão de filtro em todos os breakpoints */}
+            {/* Sidebar Fixa Desktop XL */}
+            <aside className="hidden xl:block w-72 2xl:w-80 shrink-0 sticky top-24 self-start">
+              <FilterContent
+                filters={filters}
+                categories={categories.filter(c => c.type === "category")}
+                environments={environments}
+                relationships={relationships}
+                onApply={handleFilterChange}
+              />
+            </aside>
 
-            {/* Conteúdo do Catálogo (Grade de produtos menores) */}
+            {/* Conteúdo do Catálogo */}
             <div className="flex-1 min-w-0">
               <ProductGrid filters={{ ...filters, sortBy: filters.sortBy }} />
             </div>
@@ -301,19 +311,19 @@ function HomeContent() {
 
       <GoogleReviews />
 
-      {/* Overlay escuro — Visível para todos os tamanhos de tela se aberto */}
+      {/* Overlay escuro — Apenas visível em telas menores que xl quando aberto */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm xl:hidden animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar drawer — Ativo/flutuante em todos os tamanhos de tela, ocupando largura total no mobile e w-96 no desktop */}
+      {/* Sidebar drawer — Apenas ativo em telas menores que xl (mobile/tablet) */}
       <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out xl:hidden ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Painel de filtros"

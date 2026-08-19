@@ -96,30 +96,73 @@ export const aiService = {
     async detectIntent(message: string, detectionPrompt: string, context?: any): Promise<AIIntentResponse> {
         try {
             const finalPrompt = detectionPrompt.replace('{{context}}', JSON.stringify(context || {}));
-            return await callAIBackend("ai-detect-intent", { message, detectionPrompt: finalPrompt });
+            const systemPrompt = `Você é um assistente de inteligência artificial de ERP e PDV comercial.
+Analise a mensagem do usuário e responda EXCLUSIVAMENTE em formato JSON com a seguinte estrutura:
+{
+  "intent": "create_product" | "create_service" | "create_order" | "chat",
+  "status": "ready" | "incomplete",
+  "summary": "resumo amigável em português",
+  "data": { ... }
+}
+Sem blocos markdown (\`\`\`json), sem saudações antes ou depois.
+
+Instruções da Tarefa:
+${finalPrompt}
+
+Mensagem do Usuário:
+${message}`;
+
+            const textResponse = await callGeminiDirect(systemPrompt);
+            let cleanJson = textResponse.trim();
+            if (cleanJson.startsWith('```json')) {
+                cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+            } else if (cleanJson.startsWith('```')) {
+                cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+            }
+            return JSON.parse(cleanJson);
         } catch (error) {
-            console.error("AI Detect Intent Error:", error);
-            throw error;
+            console.warn("Falha no detectIntent direto via Gemini, tentando backend local ou fallback:", error);
+            try {
+                return await callAIBackend("ai-detect-intent", { message, detectionPrompt });
+            } catch (fallbackError) {
+                console.error("AI Detect Intent Error:", fallbackError);
+                throw error;
+            }
         }
     },
 
     async chat(message: string, chatPrompt: string, context?: any): Promise<AIChatResponse> {
         try {
-            let systemContext = chatPrompt || "";
+            let systemContext = chatPrompt || "Você é um assistente prestativo para uma loja de móveis e decoração.";
             if (context && Object.keys(context).length > 0) {
                 systemContext += `\nCONTEÚDO ATUAL DO PEDIDO EM ANDAMENTO: ${JSON.stringify(context)}`;
             }
-            return await callAIBackend("ai-chat", { message, systemPrompt: systemContext });
-        } catch (error) {
-            console.error("AI Chat Error:", error);
-            // Retorna um JSON stringificado que representa um erro, para não quebrar o JSON.parse
-            return { answer: JSON.stringify({ error: "Falha no processamento da IA", next_step: "Salvar relato bruto" }) };
+
+            const prompt = `${systemContext}\n\nUsuário: ${message}\nAssistente:`;
+            const textResponse = await callGeminiDirect(prompt);
+            return { answer: textResponse.trim() };
+        } catch (error: any) {
+            console.warn("Falha no chat direto via Gemini, tentando backend local:", error);
+            try {
+                return await callAIBackend("ai-chat", { message, systemPrompt: chatPrompt });
+            } catch (fallbackError) {
+                console.error("AI Chat Error:", fallbackError);
+                return { answer: "Desculpe, ocorreu uma falha ao conectar com o serviço de IA. Verifique as configurações de chave de API." };
+            }
         }
     },
 
-    async generateDescription(productData: { productName: string; category: string; unitPrice: number; promptTemplate: string }) {
+    async generateDescription(productData: { productName: string; category: string; unitPrice: number; promptTemplate?: string }) {
         if (!productData.productName) throw new Error("Nome do produto é obrigatório");
-        return await callAIBackend("generate-description", productData);
+        const prompt = `Gere uma descrição profissional para venda do produto abaixo para o catálogo da loja:
+Produto: ${productData.productName}
+Categoria: ${productData.category || "Móveis"}
+Preço: R$ ${productData.unitPrice || 0}
+${productData.promptTemplate ? `Diretriz: ${productData.promptTemplate}` : ''}
+Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
+
+        const textResponse = await callGeminiDirect(prompt);
+        return { description: textResponse.trim() };
     },
 
     async generateMarketplaceTitle(data: { 
@@ -128,11 +171,23 @@ export const aiService = {
         differential?: string;
     }) {
         if (!data.description) throw new Error("Título base/descrição é obrigatório");
-        const result = await callAIBackend("generate-marketplace-title", data);
-        if (result && result.title) {
-            result.title = result.title.toUpperCase();
+        const prompt = `Você é um especialista em SEO e títulos para e-commerce e catálogo de móveis.
+Gere um título atraente, claro e otimizado (em LETRAS MAIÚSCULAS) para o seguinte item:
+Produto / Descrição: ${data.description}
+Material: ${data.material || "Não informado"}
+Diferencial: ${data.differential || "Não informado"}
+
+Retorne APENAS um objeto JSON no formato exato: {"title": "TITULO DO PRODUTO AQUI EM MAIUSCULAS"}
+Nenhum texto fora do JSON.`;
+
+        try {
+            const textResponse = await callGeminiDirect(prompt);
+            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const parsed = JSON.parse(clean);
+            return { title: String(parsed.title || data.description).toUpperCase() };
+        } catch {
+            return { title: data.description.toUpperCase() };
         }
-        return result;
     },
 
     async generateProductDescription(data: { 
@@ -146,19 +201,55 @@ export const aiService = {
         notIncluded?: string;
         type: 'whatsapp' | 'ecommerce' 
     }) {
-        const result = await callAIBackend("generate-product-description", data);
-        if (result && result.description) {
-            result.description = result.description.toUpperCase();
-        }
-        return result;
+        const isWhatsapp = data.type === 'whatsapp';
+        const prompt = `Você é um redator de vendas para Móveis Morante.
+Escreva uma descrição atraente do produto para envio via ${isWhatsapp ? 'WhatsApp' : 'Catálogo Online'}.
+Produto: ${data.title}
+Material: ${data.material || 'Não informado'}
+Dimensões: ${data.dimensions || 'Não informado'}
+Marca/Fornecedor: ${data.brand || 'Não informado'}
+Linha: ${data.line || 'Não informado'}
+Diferencial: ${data.mainDifferential || 'Não informado'}
+Cores: ${data.colors || 'Não informado'}
+Não Acompanha: ${data.notIncluded || 'Não informado'}
+
+Formate com parágrafos curtos, emojis elegantes e liste características e medidas.
+Retorne apenas o texto da descrição.`;
+
+        const textResponse = await callGeminiDirect(prompt);
+        return { description: textResponse.trim() };
     },
 
     async suggestCategory(title: string, categories: string[]) {
-        return await callAIBackend("suggest-category", { title, categories });
+        const prompt = `Dada a lista de categorias disponíveis abaixo:
+${categories.join(', ')}
+
+Qual é a categoria mais adequada para o produto: "${title}"?
+Retorne APENAS um JSON no formato: {"category": "NOME DA CATEGORIA"}
+Se nenhuma for adequada, escolha a mais próxima da lista. Sem blocos markdown adicionais.`;
+
+        try {
+            const textResponse = await callGeminiDirect(prompt);
+            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const parsed = JSON.parse(clean);
+            return { category: parsed.category };
+        } catch {
+            return { category: categories[0] || "" };
+        }
     },
 
     async generateComboName(items: string) {
-        return await callAIBackend("generate-combo-name", { items });
+        const prompt = `Crie um nome comercial chamativo para um conjunto/combo composto pelos itens: ${items}.
+Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
+
+        try {
+            const textResponse = await callGeminiDirect(prompt);
+            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const parsed = JSON.parse(clean);
+            return { name: parsed.name };
+        } catch {
+            return { name: `COMBO ${items.toUpperCase()}` };
+        }
     },
 
     async findNCM(productName: string, material: string): Promise<{ ncm: string, description: string }> {
@@ -168,22 +259,16 @@ export const aiService = {
 
     async generateNCM(productName: string, material: string): Promise<{ ncm: string, desc: string }> {
         const prompt = `Você é um classificador fiscal (especialista tributário do Brasil). 
-        Sua tarefa é encontrar o NCM mais provável para o seguinte produto:
-        Produto: ${productName}
-        Material / Composição: ${material || "Não informado"}
-        
-        RETORNE APENAS um objeto JSON no formato exato: {"ncm": "8 digitos apenas numeros", "desc": "uma descricao curta de ate 50 caracteres que explica que tipo de produto eh"}
-        NÃO inclua markdown como \`\`\`json ou texto adicional. Se não souber exatamente, dê a melhor aproximação.`;
+Sua tarefa é encontrar o NCM mais provável para o seguinte produto:
+Produto: ${productName}
+Material / Composição: ${material || "Não informado"}
+
+RETORNE APENAS um objeto JSON no formato exato: {"ncm": "8 digitos apenas numeros", "desc": "uma descricao curta de ate 50 caracteres que explica que tipo de produto eh"}
+NÃO inclua markdown como \`\`\`json ou texto adicional. Se não souber exatamente, dê a melhor aproximação.`;
 
         try {
-            const result = await this.chat(prompt, "Sempre retorne apenas JSON. Sem explicações ou saudações.");
-            let ans = result.answer.trim();
-            // Fallback limpar o json caso venha blocos de markdown
-            if (ans.startsWith('```json')) {
-                ans = ans.replace(/^```json/, '').replace(/```$/, '').trim();
-            } else if (ans.startsWith('```')) {
-                ans = ans.replace(/^```/, '').replace(/```$/, '').trim();
-            }
+            const textResponse = await callGeminiDirect(prompt);
+            let ans = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             return JSON.parse(ans);
         } catch (error) {
             console.error("Erro extraindo o NCM", error);
@@ -193,7 +278,27 @@ export const aiService = {
 
     async suggestPrices(data: { description: string, costPrice: number, material?: string, differential?: string }) {
         if (!data.description || !data.costPrice) throw new Error("Título e Preço de Custo são obrigatórios");
-        return await callAIBackend("suggest-prices", data);
+        const prompt = `Você é um consultor financeiro de precificação para varejo de móveis no Brasil.
+Com base no custo de R$ ${data.costPrice} do produto "${data.description}" (Material: ${data.material || 'Geral'}), sugira 3 faixas de preço de venda (competitivo/baixo, padrão/médio, premium/alto).
+Retorne APENAS um JSON no formato:
+{
+  "low": { "price": número, "margin": porcentagem_numérica },
+  "medium": { "price": número, "margin": porcentagem_numérica },
+  "high": { "price": número, "margin": porcentagem_numérica }
+}`;
+
+        try {
+            const textResponse = await callGeminiDirect(prompt);
+            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            return JSON.parse(clean);
+        } catch {
+            const c = data.costPrice;
+            return {
+                low: { price: Number((c * 1.3).toFixed(2)), margin: 30 },
+                medium: { price: Number((c * 1.5).toFixed(2)), margin: 50 },
+                high: { price: Number((c * 1.8).toFixed(2)), margin: 80 }
+            };
+        }
     },
 
     async generateFiscalData(productData: {

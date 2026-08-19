@@ -11,8 +11,14 @@ export async function GET(request: Request) {
       return new Response("Parâmetro URL ausente", { status: 400 })
     }
 
-    // Apenas permite fazer proxy de imagens do nosso bucket R2 do Cloudflare ou domínios conhecidos por segurança
-    if (!imageUrl.includes("r2.dev") && !imageUrl.includes("moveismorante.com.br") && !imageUrl.includes("fbcdn.net")) {
+    // Permite fazer proxy de imagens do R2, Supabase Storage, Domínio próprio ou CDN do Facebook
+    if (
+      !imageUrl.includes("r2.dev") && 
+      !imageUrl.includes("supabase.co") && 
+      !imageUrl.includes("moveismorante.com.br") && 
+      !imageUrl.includes("fbcdn.net") &&
+      !imageUrl.startsWith("/")
+    ) {
       return new Response("Domínio não autorizado para proxy", { status: 403 })
     }
 

@@ -74,8 +74,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? mainImage 
     : `${baseUrl}${mainImage}`
 
-  // Passa imagens do R2 e do Facebook CDN pelo proxy próprio do site para evitar bloqueios de crawler do WhatsApp
-  const ogImageUrl = (imageUrl.includes("r2.dev") || imageUrl.includes("fbcdn.net"))
+  // Passa imagens externas pelo proxy para garantir headers e compressão amigáveis ao crawler do WhatsApp
+  const ogImageUrl = (imageUrl.includes("r2.dev") || imageUrl.includes("fbcdn.net") || imageUrl.includes("supabase.co"))
     ? `${baseUrl}/api/og-image?url=${encodeURIComponent(imageUrl)}`
     : imageUrl
 
@@ -90,9 +90,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [
         {
           url: ogImageUrl,
+          secureUrl: ogImageUrl,
           width: 800,
           height: 800,
           alt: product.name,
+          type: "image/jpeg"
         }
       ],
       siteName: "Móveis Morante",

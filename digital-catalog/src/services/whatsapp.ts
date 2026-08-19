@@ -30,7 +30,7 @@ export const getProductShareText = (
   
   let text = `${title}${oppText}\n${priceText}${measuresText}`;
   if (url) {
-    text += `\n\nClique no link do site abaixo para ver mais detalhes do produto: 🥰👇\n${url}`;
+    text += `\n\nConfira no site:\n${url}`;
   }
   return text;
 };
