@@ -47,15 +47,19 @@ async function callAIBackend(endpoint: string, body: any) {
  * Lê o body de erro para expor o motivo real da falha (quota, chave inválida, etc.)
  */
 async function callGeminiDirect(prompt: string): Promise<string> {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY : '');
+    const apiKey = (rawApiKey || '').trim();
     if (!apiKey) {
-        throw new Error("VITE_GEMINI_API_KEY não configurada. Adicione a variável ao arquivo .env e reinicie o servidor.");
+        throw new Error("VITE_GEMINI_API_KEY não configurada. Adicione a variável ao painel da Vercel / arquivo .env e faça novo deploy.");
     }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+        },
         body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }]
         })
