@@ -3,8 +3,6 @@ import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useDeliverySchedule, ScheduleFilter, OrderTypeFilter } from "./useDeliverySchedule";
 import OrderDetailsModal from "./OrderDetailsModal";
 import ScheduleCardView from "./ScheduleCardView/Index";
-import ScheduleTableView from "./ScheduleTableView/Index";
-import ScheduleTimelineView from "./TimelineView/Index";
 import ShowroomAssemblyModal from "./ShowroomAssemblyModal";
 import OrderEditModal from "../SalesOrder/OrderEditModal";
 import AssistanceOrderModal from "../SalesOrder/AssistanceOrderModal";
@@ -14,8 +12,6 @@ const DeliverySchedule = () => {
     const {
         schedule,
         loading,
-        viewMode: hookViewMode,
-        setViewMode: setHookViewMode,
         filter,
         setFilter,
         scheduleType,
@@ -33,14 +29,10 @@ const DeliverySchedule = () => {
         pendingOrders
     } = useDeliverySchedule();
 
-    const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("card");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<any>(null);
     const hasInitialScrolledCard = React.useRef(false);
-    const hasInitialScrolledTable = React.useRef(false);
-    const hasInitialScrolledTimeline = React.useRef(false);
     const location = useLocation();
-    const { state } = location;
 
     const isStandalone = location.pathname.includes("/schedule") && !location.pathname.includes("/delivery-schedule");
 
@@ -48,12 +40,6 @@ const DeliverySchedule = () => {
                             window.location.search.includes('auth_email') || 
                             window.location.pathname.includes('/schedule') ||
                             Boolean((window as any).ReactNativeWebView);
-
-    useEffect(() => {
-        if (state?.view === 'timeline') {
-            setViewMode('timeline');
-        }
-    }, [state]);
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -183,28 +169,6 @@ const DeliverySchedule = () => {
                         </div>
                     </div>
 
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
-                            <i className="bi bi-layout-text-sidebar" /> Visualização
-                        </p>
-                        <button
-                            onClick={() => {
-                                if (viewMode === 'table') setViewMode('card');
-                                else if (viewMode === 'card') setViewMode('timeline');
-                                else setViewMode('table');
-                            }}
-                            className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
-                        >
-                            <div className="flex items-center gap-3">
-                                <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-activity'} text-blue-600 dark:text-blue-400 text-lg`} />
-                                <span>{viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Linha Tempo'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-slate-400">
-                                <span className="text-[9px] uppercase tracking-widest font-bold">Alternar</span>
-                                <i className="bi bi-arrow-repeat text-base" />
-                            </div>
-                        </button>
-                    </div>
                 </div>
 
                 {/* Drawer footer */}
@@ -224,7 +188,7 @@ const DeliverySchedule = () => {
     );
 
     const renderHeader = () => (
-        <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-3 ${viewMode === 'table' ? 'px-2 sm:px-6' : ''} ${isStandalone ? 'bg-white dark:bg-slate-900 p-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
+        <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-3 ${isStandalone ? 'bg-white dark:bg-slate-900 p-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
             <div className="flex items-center gap-3 w-full xl:w-auto">
                 <div className="bg-blue-600 p-2.5 rounded-xl shadow-md shadow-blue-100 dark:shadow-blue-900/20 transition-all duration-500">
                     <i className="bi bi-truck text-white text-lg" />
@@ -238,33 +202,8 @@ const DeliverySchedule = () => {
                     </p>
                 </div>
 
-                {pendingOrders.length > 0 && (
-                    <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 rounded-xl border border-orange-100 dark:border-orange-800 animate-pulse">
-                        <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-black">
-                            {pendingOrders.length}
-                        </div>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-400 hidden sm:inline">
-                            Pendentes
-                        </span>
-                    </div>
-                )}
-
-
-
                 {/* Mobile: Filter button */}
                 <div className="flex items-center gap-2 lg:hidden">
-                    <button
-                        onClick={() => {
-                            if (viewMode === 'table') setViewMode('card');
-                            else if (viewMode === 'card') setViewMode('timeline');
-                            else setViewMode('table');
-                        }}
-                        className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-blue-600 dark:text-blue-400 shadow-sm active:scale-95 transition-all"
-                        title="Alternar Visualização"
-                    >
-                        <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-activity'} text-lg`} />
-                    </button>
-
                     <button
                         onClick={() => setSidebarOpen(true)}
                         className="relative flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-black text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95"
@@ -315,21 +254,6 @@ const DeliverySchedule = () => {
                     )}
                 </button>
 
-                <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 hidden xl:block" />
-
-                <button
-                    onClick={() => {
-                        if (viewMode === 'table') setViewMode('card');
-                        else if (viewMode === 'card') setViewMode('timeline');
-                        else setViewMode('table');
-                    }}
-                    className="flex items-center gap-3 px-6 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:shadow-premium-sm transition-all group"
-                >
-                    <i className={`bi ${viewMode === 'table' ? 'bi-table' : viewMode === 'card' ? 'bi-grid-fill' : 'bi-activity'} text-blue-600 dark:text-blue-400 text-base group-hover:rotate-12 transition-transform`} />
-                    Vista: {viewMode === 'table' ? 'Tabela' : viewMode === 'card' ? 'Grade' : 'Linha Tempo'}
-                    <i className="bi bi-chevron-right text-slate-400 ml-1" />
-                </button>
-
                 {!isStandalone && (
                     <div className="flex items-center gap-3">
                         <Link
@@ -364,10 +288,6 @@ const DeliverySchedule = () => {
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-widest">
                     <i className="bi bi-funnel-fill" /> {typeFilter.length} Tipos
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                    <i className={`bi ${viewMode === 'card' ? 'bi-grid-fill' : viewMode === 'table' ? 'bi-table' : 'bi-activity'}`} /> 
-                    {viewMode === 'card' ? 'Cards' : viewMode === 'table' ? 'Tabela' : 'Linha Tempo'}
                 </span>
                 {!isStandalone && (
                     <div className="flex items-center gap-2 ml-auto w-full sm:w-auto mt-2 sm:mt-0">
@@ -426,37 +346,19 @@ const DeliverySchedule = () => {
 
         return (
             <div className="transition-all duration-500 ease-in-out">
-                {isMobileAppView || viewMode === "card" ? (
-                    <ScheduleCardView
-                        schedule={schedule}
-                        onOrderClick={openOrderDetails}
-                        isReadOnly={isStandalone}
-                        hasInitialScrolled={hasInitialScrolledCard}
-                        pendingOrders={pendingOrders}
-                    />
-                ) : viewMode === "table" ? (
-                    <ScheduleTableView
-                        schedule={schedule}
-                        onOrderClick={openOrderDetails}
-                        isReadOnly={isStandalone}
-                        hasInitialScrolled={hasInitialScrolledTable}
-                        pendingOrders={pendingOrders}
-                    />
-                ) : (
-                    <ScheduleTimelineView
-                        schedule={schedule}
-                        onOrderClick={openOrderDetails}
-                        isReadOnly={isStandalone}
-                        hasInitialScrolled={hasInitialScrolledTimeline}
-                        pendingOrders={pendingOrders}
-                    />
-                )}
+                <ScheduleCardView
+                    schedule={schedule}
+                    onOrderClick={openOrderDetails}
+                    isReadOnly={isStandalone}
+                    hasInitialScrolled={hasInitialScrolledCard}
+                    pendingOrders={pendingOrders}
+                />
             </div>
         );
     };
 
     return (
-        <div className={`w-full mx-auto transition-all duration-300 ${isMobileAppView ? 'max-w-none p-1.5 sm:p-4 mt-0 pb-4' : `${viewMode === 'table' ? 'max-w-none mt-4 px-0 pb-0' : 'max-w-full mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}`}>
+        <div className={`w-full mx-auto transition-all duration-300 ${isMobileAppView ? 'max-w-none p-1.5 sm:p-4 mt-0 pb-4' : 'max-w-full mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}>
             {renderHeader()}
 
             <div className="relative">

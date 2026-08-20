@@ -115,7 +115,6 @@ const OrderHistoryCard = ({
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
     const hasAssemblyConfig = allOrderItems.some(isHandlingAssembly);
     const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
-    const isOnlyInternalAssembly = hasAssemblyConfig && !isAssemblyOutside;
 
     // Marketing Origin Logic
     const mOrigin1 = (order.marketingOrigin || "").toLowerCase();
@@ -284,9 +283,9 @@ const OrderHistoryCard = ({
                     )}
 
                     {hasAssemblyConfig && (
-                        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${isAssemblyOutside ? 'bg-rose-50 text-rose-600 border-rose-100 animate-pulse' : 'bg-amber-50 text-amber-700 border-amber-100'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem Depósito'}>
-                            <i className="bi bi-hammer text-[8px]" />
-                            <span>{isAssemblyOutside ? 'Mont. Fora' : 'Mont. Depósito'}</span>
+                        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${isAssemblyOutside ? 'bg-red-600 text-white border-red-700 animate-pulse' : 'bg-amber-50 text-amber-700 border-amber-100'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}>
+                            <i className={`bi bi-hammer text-[8px] ${isAssemblyOutside ? 'text-white' : ''}`} />
+                            <span>{isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}</span>
                         </span>
                     )}
 
@@ -313,24 +312,6 @@ const OrderHistoryCard = ({
                         <i className="bi bi-clock-history text-[10px]" />
                         <span className="text-[9px] font-black uppercase tracking-widest">
                             AGENDAMENTO PENDENTE
-                        </span>
-                    </div>
-                )}
-                
-                {isOnlyInternalAssembly && (
-                    <div className="mt-2 flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-2 rounded-lg border border-orange-100 dark:border-orange-900/30 animate-pulse shadow-sm">
-                        <i className="bi bi-hammer text-[10px]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                            MONTAGEM NO DEPÓSITO
-                        </span>
-                    </div>
-                )}
-                
-                {isAssemblyOutside && (
-                    <div className="mt-2 flex items-center gap-2 bg-red-600 text-white p-2 rounded-lg border border-red-700 animate-pulse shadow-sm">
-                        <i className="bi bi-hammer text-white text-[10px]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                            MONTAGEM FORA
                         </span>
                     </div>
                 )}

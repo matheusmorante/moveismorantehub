@@ -1,6 +1,5 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import OrderHistoryList from "./OrderHistoryList";
 import OrderEditModal from "./OrderEditModal";
 import NewSaleOrder from "./NewSaleOrder";
@@ -15,8 +14,6 @@ import ReturnOrderModal from "./OrderActions/ReturnOrderModal";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const SalesOrder = () => {
-    const { width } = useWindowSize();
-    const isMobile = width <= 900;
     const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | 'return' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
@@ -167,8 +164,8 @@ const SalesOrder = () => {
     return (
         <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
             {/* Sidebar for Filters */}
-            <div className={`transition-all duration-300 ease-in-out border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 absolute md:relative z-30 h-full ${isSidebarOpen ? 'w-[calc(100vw-32px)] md:w-80 shadow-2xl md:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'}`}>
-                <div className="md:hidden flex justify-end p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div className={`transition-all duration-300 ease-in-out border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'}`}>
+                <div className="lg:hidden flex justify-end p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                     <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 p-2">
                         <i className="bi bi-x-lg text-xl" />
                     </button>
@@ -176,7 +173,7 @@ const SalesOrder = () => {
                 <OrderFilters filters={filters} setFilters={setFilters} />
             </div>
             {/* Overlay for mobile sidebar */}
-            {isSidebarOpen && <div className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
+            {isSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 p-2 sm:p-4 lg:p-6">
@@ -194,46 +191,8 @@ const SalesOrder = () => {
 
                         {/* Top Control Bar on Mobile & Desktop */}
                         <div className="flex items-center justify-between w-full sm:w-auto gap-2 flex-wrap sm:flex-nowrap">
-                            {/* Select Dropdown para Tipo de Lista (Vendas, Orçamentos, Assistências, Devoluções) */}
-                            <div className="relative flex items-center shadow-sm rounded-xl flex-1 sm:flex-initial">
-                                <div className="absolute left-3 pointer-events-none text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                                    {isBudgetRoute ? (
-                                        <i className="bi bi-calculator-fill text-xs" />
-                                    ) : isAssistanceRoute ? (
-                                        <i className="bi bi-tools text-xs" />
-                                    ) : isReturnRoute ? (
-                                        <i className="bi bi-arrow-return-left text-xs font-black" />
-                                    ) : (
-                                        <i className="bi bi-cart-check-fill text-xs" />
-                                    )}
-                                </div>
-                                
-                                <select
-                                    value={isBudgetRoute ? '/budgets' : (isAssistanceRoute ? '/assistance-orders' : (isReturnRoute ? '/returns' : '/sales-order'))}
-                                    onChange={(e) => navigate(e.target.value)}
-                                    className="w-full appearance-none pl-8 pr-7 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-black uppercase tracking-wider outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                >
-                                    <option value="/sales-order">Pedidos</option>
-                                    <option value="/budgets">Orçamentos</option>
-                                    <option value="/assistance-orders">Assistências</option>
-                                    <option value="/returns">Devoluções</option>
-                                </select>
-                                
-                                <div className="absolute right-2 pointer-events-none text-slate-400 flex items-center justify-center">
-                                    <i className="bi bi-chevron-down text-[9px]" />
-                                </div>
-                            </div>
-
                             {/* Action Buttons */}
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <Link
-                                    to="/settings"
-                                    className="flex items-center justify-center p-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:text-slate-500 rounded-xl transition-all border border-slate-200 dark:border-slate-800"
-                                    title="Configurações do Sistema"
-                                >
-                                    <i className="bi bi-gear-fill text-base" />
-                                </Link>
-
+                            <div className="ml-auto flex items-center gap-1.5 shrink-0">
                                 {isBudgetRoute && (
                                     <button
                                         onClick={() => setOrderModalType('budget')}
@@ -329,8 +288,7 @@ const SalesOrder = () => {
                             )}
                         </div>
 
-                        {!isMobile && (
-                            <div className="relative">
+                        <div className="relative hidden lg:block">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     className={`flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest ${showSettings
@@ -376,8 +334,7 @@ const SalesOrder = () => {
                                         </div>
                                     </>
                                 )}
-                            </div>
-                        )}
+                        </div>
 
                     </div>
 

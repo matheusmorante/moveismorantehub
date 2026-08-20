@@ -118,7 +118,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'salesOrder' && (
                     <div className={dropdownClass}>
-                        <Link to="/sales-order" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Pedidos</Link>
+                        <Link to="/sales-order" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Pedidos de Venda</Link>
                         <Link to="/budgets" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Orçamentos</Link>
                         <Link to="/assistance-orders" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Assistências</Link>
                         <Link to="/returns" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Devoluções</Link>

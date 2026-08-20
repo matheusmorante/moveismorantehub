@@ -23,7 +23,6 @@ interface Props {
 const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialScrolled }: { order: Order; index: number; onOrderClick: (order: Order) => void; isReadOnly?: boolean; hasInitialScrolled?: React.MutableRefObject<boolean> }) => {
     const settings = getSettings();
     const [showStatusPicker, setShowStatusPicker] = React.useState(false);
-    const [showAssemblyTooltip, setShowAssemblyTooltip] = React.useState(false);
     const [showOrderTooltip, setShowOrderTooltip] = React.useState(false);
 
     const statuses = settings.orderStatuses?.map(s => ({
@@ -75,7 +74,6 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
 
     const isLinked = (order as any).hasLinkedAssembly;
     const hasLinkedDelivery = (order as any).hasLinkedDelivery;
-    const assemblyItems = (order as any).assemblyItems || [];
 
     const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     const colorKey = isAssemblyTask ? 'rose' : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
@@ -87,6 +85,20 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     ];
 
     const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
+
+    const normalizeHandling = (value?: string) => (value || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    const getItemAssemblyTone = (item: any) => {
+        const handling = normalizeHandling(item?.handlingType);
+        const option = allOptions.find(opt => normalizeHandling(opt?.label) === handling);
+        if (option?.isAssemblyOutside) return 'outside';
+        if (option?.includeInAssemblySchedule) return 'depot';
+        return undefined;
+    };
     
     const isAssemblyOutside = allItems.some(item => {
         if (!item) return false;
@@ -121,37 +133,6 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                         {isAssemblyOutside ? '🔨 Montagem Fora' : (isAssemblyTask || isOnlyInternalAssembly) ? '🔨 Montagem Depósito' : typeLabel}
                     </span>
                 </div>
-                {/* Hammer Button Overlay */}
-                {isLinked && (
-                    <div className="relative group/hammer">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowAssemblyTooltip(!showAssemblyTooltip);
-                            }}
-                            className={`${isAssemblyOutside ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-500 hover:bg-amber-600'} text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow flex items-center gap-1 transition-transform hover:scale-105 active:scale-95`}
-                        >
-                            <i className="bi bi-hammer text-xs" />
-                            <span>Ver Itens</span>
-                        </button>
-                        
-                        {showAssemblyTooltip && (
-                            <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-3 animate-slide-up-custom overflow-hidden">
-                                <div className="flex items-center gap-2 mb-2 border-b pb-2 dark:border-slate-800">
-                                    <i className={`bi bi-hammer ${isAssemblyOutside ? 'text-red-500' : 'text-amber-500'}`} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos para Montagem</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {assemblyItems.map((item: any, i: number) => (
-                                        <span key={i} className="text-[9px] font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
-                                            {item.description || item.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
 
                 {/* Order Button Overlay (on Assembly tasks) */}
@@ -283,29 +264,6 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                 )}
 
                 <div className="flex flex-col gap-2">
-                    {isOnlyInternalAssembly && (
-                        <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-4 rounded-[1.5rem] border-2 border-orange-100 dark:border-orange-900/30 animate-pulse shadow-lg">
-                            <i className="bi bi-hammer text-orange-500 text-xl shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
-                                    Montagem no Depósito
-                                </span>
-                                <span className="text-[9px] font-bold opacity-70 uppercase">Agendado para o depósito</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {isAssemblyOutside && (
-                        <div className="flex items-start gap-3 bg-red-600 text-white p-4 rounded-[1.5rem] border-2 border-red-700 animate-pulse shadow-lg">
-                            <i className="bi bi-hammer text-white text-xl shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
-                                    Montagem FORA
-                                </span>
-                                <span className="text-[9px] font-bold opacity-80 uppercase">Realizada no cliente</span>
-                            </div>
-                        </div>
-                    )}
                     {!isPickupTask && !isAssemblyTask && (
                         <>
                             <div className="flex items-start gap-4 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group/addr hover:bg-white dark:hover:bg-slate-950 transition-all duration-300">
@@ -353,11 +311,29 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                         {[...(order.items || []), ...(order.assistanceItems || [])].filter(Boolean).map((item, i) => (
-                            <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-white/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/40 rounded-lg shadow-sm">
-                                <span className={`text-[10px] font-black ${isAssemblyTask ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                            <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg shadow-sm border ${
+                                getItemAssemblyTone(item) === 'outside'
+                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'
+                                    : getItemAssemblyTone(item) === 'depot'
+                                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/50'
+                                        : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-700/40'
+                            }`}>
+                                <span className={`text-[10px] font-black ${
+                                    getItemAssemblyTone(item) === 'outside'
+                                        ? 'text-red-600 dark:text-red-400'
+                                        : getItemAssemblyTone(item) === 'depot'
+                                            ? 'text-amber-700 dark:text-amber-400'
+                                            : isAssemblyTask ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'
+                                }`}>
                                     {item.quantity}x
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-none">
+                                <span className={`text-[10px] font-bold uppercase leading-none ${
+                                    getItemAssemblyTone(item) === 'outside'
+                                        ? 'text-red-700 dark:text-red-300'
+                                        : getItemAssemblyTone(item) === 'depot'
+                                            ? 'text-amber-800 dark:text-amber-300'
+                                            : 'text-slate-700 dark:text-slate-300'
+                                }`}>
                                     {item.description}
                                 </span>
                             </div>
@@ -430,7 +406,7 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
                     {/* Tópico Flutuante com Acordeão de Entregas a Agendar */}
                     <div 
                         onClick={() => setIsPendingOpen(!isPendingOpen)}
-                        className="sticky top-0 z-30 py-2.5 bg-amber-50/95 dark:bg-amber-950/95 backdrop-blur-md flex items-center justify-between mb-3 px-4 py-3 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm cursor-pointer hover:bg-amber-100/70 dark:hover:bg-amber-900/70 transition-all select-none"
+                        className={`sticky ${isReadOnly ? 'top-0' : 'top-14 xl:top-16'} z-30 py-2.5 bg-amber-50/95 dark:bg-amber-950/95 backdrop-blur-md flex items-center justify-between mb-3 px-4 py-3 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm cursor-pointer hover:bg-amber-100/70 dark:hover:bg-amber-900/70 transition-all select-none`}
                     >
                         <div className="flex items-center gap-3">
                             <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
@@ -473,7 +449,7 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
             {Object.entries(schedule).map(([date, orders]) => (
                 <div key={date} id={`date-${date}`} className="w-full scroll-mt-4 relative">
                     {/* Tópico Flutuante da Data (Sticky Header idêntico ao Mobile) */}
-                    <div className="sticky top-0 z-20 py-2.5 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all">
+                    <div className={`sticky ${isReadOnly ? 'top-0' : 'top-14 xl:top-16'} z-20 py-2.5 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all`}>
                         <div className="flex items-center gap-2.5">
                             <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
                                 <i className="bi bi-calendar-event text-sm" />
