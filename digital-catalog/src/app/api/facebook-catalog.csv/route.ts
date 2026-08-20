@@ -34,7 +34,7 @@ function formatCsvValue(val: any): string {
 
 export async function GET(request: Request) {
   try {
-    // Buscar todos os produtos publicados e não deletados
+    // Buscar todos os produtos publicados, ativos e não deletados
     const { data: products, error } = await supabase
       .from("products")
       .select("*, product_categories(categories(name, type)), product_images(*), product_variations(*), opportunities(*)")
@@ -104,6 +104,11 @@ export async function GET(request: Request) {
     const rows: string[][] = []
 
     for (const p of (products || [])) {
+      // Garantia: ignorar produtos inativos ou rascunhos no ERP
+      if (p.active === false || p.status !== 'published' || p.is_draft || p.deleted || p.deleted_at) {
+        continue
+      }
+
       // Filtra apenas categorias reais (type = 'category') e ignora ambientes (type = 'environment')
       const parentCategories = p.product_categories
         ?.map((pc: any) => pc.categories)
@@ -131,17 +136,26 @@ export async function GET(request: Request) {
       // Ordena as imagens do produto de forma que a principal (is_main = true) fique em primeiro lugar
       const sortedImages = [...(p.product_images || [])].sort((a, b) => (b.is_main ? 1 : -1) - (a.is_main ? 1 : -1))
       const allImages = sortedImages.map((img: any) => img.image_url).filter(Boolean) || []
-      const parentImage = allImages[0] || ""
-      const additionalImages = allImages.slice(1).join(",")
+      const parentImage = allImages[0] || (Array.isArray(p.images) ? p.images[0] : "") || ""
+      const additionalImages = allImages.slice(1).join(",") || (Array.isArray(p.images) ? p.images.slice(1).join(",") : "")
 
-      const priceFormatted = `${Number(p.price).toFixed(2)} BRL`
+      const priceFormatted = `${Number(p.price || p.unit_price || 0).toFixed(2)} BRL`
       const salePriceFormatted = p.promo_price ? `${Number(p.promo_price).toFixed(2)} BRL` : ""
 
-      // Caso tenha variações, cada variação vira uma linha do feed
+      // Suporte a variações relacionais e variações no formato JSON
+      let variationsList: any[] = []
       if (p.product_variations && p.product_variations.length > 0) {
-        for (const v of p.product_variations) {
-          // Ignorar variações ocultas ou rascunhos no catálogo Meta
-          if (v.status && v.status !== "published") {
+        variationsList = p.product_variations.filter((v: any) => (v.status === "published" || !v.status) && v.active !== false)
+      } else if (p.variations) {
+        const rawVars = Array.isArray(p.variations) ? p.variations : (typeof p.variations === 'string' ? JSON.parse(p.variations || '[]') : [])
+        variationsList = rawVars.filter((v: any) => v.status !== "hidden" && v.active !== false)
+      }
+
+      // Caso tenha variações ativas e publicadas
+      if (variationsList.length > 0) {
+        for (const v of variationsList) {
+          // Ignorar variações ocultas ou inativas
+          if ((v.status && v.status !== "published" && v.status === "hidden") || v.active === false) {
             continue
           }
 

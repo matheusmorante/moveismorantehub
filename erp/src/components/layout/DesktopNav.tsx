@@ -51,6 +51,9 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-tag-fill mr-1 text-teal-500"></i> Ambientes e Categorias
                         </Link>
+                        <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta
+                        </Link>
                     </div>
                 )}
             </div>

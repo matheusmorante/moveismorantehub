@@ -7,12 +7,15 @@ import { toast } from "react-toastify";
 export const useOrderHistory = (filters?: any) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [displayLimit, setDisplayLimit] = useState(30);
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
+
+    const loadMore = () => {
+        setDisplayLimit(prev => prev + 30);
+    };
 
     useEffect(() => {
         let active = true; // Will be set to false on cleanup
@@ -183,13 +186,12 @@ export const useOrderHistory = (filters?: any) => {
             });
     }, [orders, filters]);
 
-    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
     const totalItems = filteredOrders.length;
+    const hasMore = displayLimit < filteredOrders.length;
 
-    const paginatedOrders = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return filteredOrders.slice(start, start + itemsPerPage);
-    }, [filteredOrders, currentPage, itemsPerPage]);
+    const displayedOrders = useMemo(() => {
+        return filteredOrders.slice(0, displayLimit);
+    }, [filteredOrders, displayLimit]);
 
     const handleDelete = async (id: string) => {
         await moveToTrash(id);
@@ -390,11 +392,14 @@ export const useOrderHistory = (filters?: any) => {
     };
 
     return {
-        orders: paginatedOrders,
+        orders: displayedOrders,
         totalItems,
+        displayLimit,
+        hasMore,
+        loadMore,
         currentPage,
         itemsPerPage,
-        totalPages,
+        totalPages: Math.ceil(totalItems / itemsPerPage),
         setCurrentPage,
         setItemsPerPage,
         loading,

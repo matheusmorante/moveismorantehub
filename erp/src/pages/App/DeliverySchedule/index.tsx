@@ -39,7 +39,10 @@ const DeliverySchedule = () => {
     const hasInitialScrolledCard = React.useRef(false);
     const hasInitialScrolledTable = React.useRef(false);
     const hasInitialScrolledTimeline = React.useRef(false);
-    const { state } = useLocation();
+    const location = useLocation();
+    const { state } = location;
+
+    const isStandalone = location.pathname.includes("/schedule") && !location.pathname.includes("/delivery-schedule");
 
     const isMobileAppView = isStandalone || 
                             window.location.search.includes('auth_email') || 
@@ -53,9 +56,6 @@ const DeliverySchedule = () => {
     }, [state]);
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
-
-    const location = useLocation();
-    const isStandalone = location.pathname.includes("/schedule") && !location.pathname.includes("/delivery-schedule");
 
     const filters: { id: ScheduleFilter; label: string; icon: string }[] = [
         { id: 'custom', label: 'Personalizado', icon: 'bi-calendar-range' },

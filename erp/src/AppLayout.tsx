@@ -60,6 +60,26 @@ export default function AppLayout() {
     return () => clearInterval(syncInterval);
   }, []);
 
+  const [isMobileWidth, setIsMobileWidth] = useState(
+    typeof window !== 'undefined' && window.innerWidth <= 1024
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileWidth(window.innerWidth <= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobileAppView = isMobileWidth || (
+    typeof window !== 'undefined' && (
+      window.location.search.includes('auth_email') || 
+      window.location.pathname.includes('/mobile') || 
+      Boolean((window as any).ReactNativeWebView)
+    )
+  );
+
   return (
     <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
       <ToastContainer
@@ -72,125 +92,126 @@ export default function AppLayout() {
         draggable
       />
 
-      {/* Header */}
-      <header className="w-full glass-header px-4 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 z-50 shadow-premium transition-all duration-500">
-        <div className="flex items-center gap-6 xl:gap-12 h-full">
-          <button
-            className="xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            <i className="bi bi-list text-2xl"></i>
-          </button>
-
-          <Link to="/" className="flex items-center gap-3 lg:gap-5 flex-shrink-0 group">
-            <div className="w-9 h-9 lg:w-11 lg:h-11 bg-white rounded-full shadow-premium border border-white/20 dark:border-slate-800 overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-              <img src={logoMorante} alt="ERP Móveis Morante" className="w-full h-full object-cover" />
-            </div>
-            <div className="flex flex-col">
-              <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tighter block uppercase italic whitespace-nowrap leading-none">ERP <span className="text-blue-600">Móveis Morante</span></h3>
-              <span className="text-[8px] font-black tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-1 animate-reveal">Hub de Inteligência</span>
-            </div>
-          </Link>
-
-          <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
-        </div>
-
-        <div className="flex items-center gap-3 lg:gap-8">
-          <div className="flex items-center gap-2 p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
-            <NotificationBell />
-            <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+      {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
+      {!isMobileAppView && (
+        <header className="w-full glass-header px-4 xl:px-12 h-14 xl:h-16 hidden xl:flex items-center justify-between sticky top-0 z-50 shadow-premium transition-all duration-500">
+          <div className="flex items-center gap-6 xl:gap-12 h-full">
             <button
-              onClick={toggleTheme}
-              className="w-10 h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-yellow-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm"
-              title={theme === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
+              className="xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              {theme === 'light' ? (
-                <i className="bi bi-moon-stars-fill text-base"></i>
-              ) : (
-                <i className="bi bi-sun-fill text-base"></i>
-              )}
+              <i className="bi bi-list text-2xl"></i>
             </button>
+
+            <Link to="/" className="flex items-center gap-3 lg:gap-5 flex-shrink-0 group">
+              <div className="w-9 h-9 lg:w-11 lg:h-11 bg-white rounded-full shadow-premium border border-white/20 dark:border-slate-800 overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                <img src={logoMorante} alt="ERP Móveis Morante" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tighter block uppercase italic whitespace-nowrap leading-none">ERP <span className="text-blue-600">Móveis Morante</span></h3>
+                <span className="text-[8px] font-black tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-1 animate-reveal">Hub de Inteligência</span>
+              </div>
+            </Link>
+
+            <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
           </div>
 
-          {/* Dropdown de Perfil */}
-          <div className="relative group">
-            <button className="flex items-center gap-3 p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-[1.25rem] transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 hover:shadow-premium-sm active:scale-95">
-              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-premium flex items-center justify-center">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+          <div className="flex items-center gap-3 lg:gap-8">
+            <div className="flex items-center gap-2 p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+              <NotificationBell />
+              <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+              <button
+                onClick={toggleTheme}
+                className="w-10 h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-yellow-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm"
+                title={theme === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
+              >
+                {theme === 'light' ? (
+                  <i className="bi bi-moon-stars-fill text-base"></i>
                 ) : (
-                  <span className="text-white font-black text-sm uppercase">
-                    {((profile?.full_name || user?.email || 'U') as any)[0]}
-                  </span>
+                  <i className="bi bi-sun-fill text-base"></i>
                 )}
-              </div>
-              <div className="hidden xl:block text-left">
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none mb-1">Conta Master</p>
-                <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
-                  {((profile?.full_name || 'Usuário') as any).split(' ')[0]}
-                </p>
-              </div>
-              <i className="bi bi-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition-transform hidden xl:block ml-1"></i>
-            </button>
+              </button>
+            </div>
 
-            {/* Menu Dropdown */}
-            <div className="absolute top-full pt-2 right-0 w-64 opacity-0 scale-95 origin-top-right translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-500 z-[60]">
-              <div className="bg-white/80 dark:bg-slate-900/80 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-premium-lg p-3 backdrop-blur-2xl">
-                <div className="p-5 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-3 text-center">
-                  <p className="text-xs font-black text-slate-800 dark:text-slate-100 mb-1">{profile?.full_name || 'Usuário'}</p>
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{user?.email}</p>
-                  <div className="mt-3 inline-flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest">
-                    {isAdmin ? 'Administrador' : 'Vendedor'}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Link to="/profile" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                    <i className="bi bi-person-circle text-lg"></i>
-                    Meu Perfil
-                  </Link>
-
-                  {isAdmin && (
-                    <>
-                      <Link to="/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                        <i className="bi bi-gear-fill text-lg"></i>
-                        Ajustes Gerais
-                      </Link>
-                      <Link to="/users" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                        <i className="bi bi-shield-lock-fill text-lg"></i>
-                        Controle de Acessos
-                      </Link>
-                      <Link to="/finance/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                        <i className="bi bi-bank2 text-lg"></i>
-                        Financeiro e Rede
-                      </Link>
-                      
-                      {/* Boto de Download do App Mobile */}
-                      <a 
-                        href="/mobile-app" 
-                        className="flex items-center gap-4 p-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest border border-blue-100 dark:border-blue-800 mt-2"
-                      >
-                        <i className="bi bi-phone-vibrate text-lg"></i>
-                        Baixar App Mobile
-                      </a>
-                    </>
+            {/* Dropdown de Perfil */}
+            <div className="relative group">
+              <button className="flex items-center gap-3 p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-[1.25rem] transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 hover:shadow-premium-sm active:scale-95">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-premium flex items-center justify-center">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white font-black text-sm uppercase">
+                      {((profile?.full_name || user?.email || 'U') as any)[0]}
+                    </span>
                   )}
                 </div>
+                <div className="hidden xl:block text-left">
+                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none mb-1">Conta Master</p>
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
+                    {((profile?.full_name || 'Usuário') as any).split(' ')[0]}
+                  </p>
+                </div>
+                <i className="bi bi-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition-transform hidden xl:block ml-1"></i>
+              </button>
 
-                <div className="h-px bg-slate-100 dark:bg-slate-800 my-3 mx-4"></div>
+              {/* Menu Dropdown */}
+              <div className="absolute top-full pt-2 right-0 w-64 opacity-0 scale-95 origin-top-right translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-500 z-[60]">
+                <div className="bg-white/80 dark:bg-slate-900/80 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-premium-lg p-3 backdrop-blur-2xl">
+                  <div className="p-5 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-3 text-center">
+                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 mb-1">{profile?.full_name || 'Usuário'}</p>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{user?.email}</p>
+                    <div className="mt-3 inline-flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest">
+                      {isAdmin ? 'Administrador' : 'Vendedor'}
+                    </div>
+                  </div>
 
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-4 p-4 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest"
-                >
-                  <i className="bi bi-box-arrow-right text-lg"></i>
-                  Encerrar Sessão
-                </button>
+                  <div className="space-y-1">
+                    <Link to="/profile" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
+                      <i className="bi bi-person-circle text-lg"></i>
+                      Meu Perfil
+                    </Link>
+
+                    {isAdmin && (
+                      <>
+                        <Link to="/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
+                          <i className="bi bi-gear-fill text-lg"></i>
+                          Ajustes Gerais
+                        </Link>
+                        <Link to="/users" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
+                          <i className="bi bi-shield-lock-fill text-lg"></i>
+                          Controle de Acessos
+                        </Link>
+                        <Link to="/finance/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
+                          <i className="bi bi-bank2 text-lg"></i>
+                          Financeiro e Rede
+                        </Link>
+                        
+                        <a 
+                          href="/mobile-app" 
+                          className="flex items-center gap-4 p-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest border border-blue-100 dark:border-blue-800 mt-2"
+                        >
+                          <i className="bi bi-phone-vibrate text-lg"></i>
+                          Baixar App Mobile
+                        </a>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-3 mx-4"></div>
+
+                  <button
+                    onClick={logout}
+                    className="w-full flex items-center gap-4 p-4 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest"
+                  >
+                    <i className="bi bi-box-arrow-right text-lg"></i>
+                    Encerrar Sessão
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
 
       {/* Mobile Nav */}
@@ -201,7 +222,7 @@ export default function AppLayout() {
         setActiveMenu={setActiveMenu}
       />
 
-      <main className="flex-1 p-4 xl:p-8 overflow-x-hidden">
+      <main className={`flex-1 ${isMobileAppView ? 'p-1 sm:p-4' : 'p-4 xl:p-8'} overflow-x-hidden`}>
         <Outlet />
       </main>
 

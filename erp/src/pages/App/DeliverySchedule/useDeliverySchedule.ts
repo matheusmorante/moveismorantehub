@@ -48,7 +48,7 @@ const processOrders = (
 
     const tasks: any[] = [];
     orders.forEach((o) => {
-        if (o.deleted) return;
+        if (o.deleted || (o as any).is_deleted || (o as any).status === 'deleted' || (o as any).order_data?.deleted) return;
         const isAssistance = o.orderType === 'assistance';
         const isShowroom = o.orderType === 'showroom';
         const isBudget = o.orderType === 'budget';
@@ -63,6 +63,9 @@ const processOrders = (
             : o.shipping?.scheduling?.date;
 
         const isPending = !!o.shipping?.scheduling?.pendingScheduling;
+
+        // Pedidos em Rascunho (draft) só devem aparecer no cronograma se tiverem agendamento preenchido
+        if (o.status === 'draft' && !rawDateStr && !isPending) return;
 
         if (!rawDateStr && !isPending) return;
         const orderDateStr = rawDateStr ? toISO(rawDateStr) : "";

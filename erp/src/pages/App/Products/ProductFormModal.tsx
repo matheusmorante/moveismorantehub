@@ -1266,27 +1266,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             hasChanged.current = false;
             
             if (showResult) {
-                if (normalizedData.status === 'published') {
-                    // Já publicado — apenas fecha com toast e dispara sincronização do catálogo da Meta
-                    toast.success("Alterações salvas com sucesso!");
-                    
-                    const syncMetaPromise = fetch('/api/facebook-catalog/sync', { method: 'POST' }).then(async res => {
-                        if (!res.ok) throw new Error("Falha na sincronização");
-                        return res;
-                    });
-
-                    toast.promise(
-                        syncMetaPromise,
-                        {
-                            pending: 'Atualizando catálogo da Meta (Facebook/Instagram)...',
-                            success: 'Catálogo da Meta atualizado com sucesso! 👌',
-                            error: 'Aviso: Alterações salvas, mas falhou ao sincronizar o catálogo da Meta. 🤯'
-                        }
-                    );
-
+                if (normalizedData.status === 'published' && normalizedData.active !== false) {
+                    toast.success("Produto publicado com sucesso! Feed Meta CSV (Facebook/Instagram) atualizado. 🛍️");
                     if (onSuccess) onSuccess(normalizedData);
                     onClose();
                 } else {
+                    toast.info("Produto salvo e mantido oculto do Feed Meta CSV.");
                     setSaveResult({
                         erpLegible: true,
                         ecomLegible: ecomVal.isLegible,

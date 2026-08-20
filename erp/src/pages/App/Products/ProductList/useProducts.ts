@@ -622,7 +622,7 @@ export const useProducts = (filters?: any) => {
                     if (error) throw error;
                 }
 
-                toast.success(`Variação ${newStatus === 'published' ? 'publicada no' : 'ocultada do'} Catálogo Digital.`);
+                toast.success(`Variação ${newStatus === 'published' ? 'publicada! Adicionada ao Feed Meta CSV.' : 'ocultada! Removida do Feed Meta CSV.'}`);
                 refresh();
                 return;
             }
@@ -660,11 +660,11 @@ export const useProducts = (filters?: any) => {
                 .filter(child => child.id)
                 .map(child => updateProduct(child.id!, { status: newStatus })));
 
-            toast.success(`Produto ${newStatus === 'published' ? 'publicado no' : 'ocultado do'} Catálogo Digital.`);
+            toast.success(`Produto ${newStatus === 'published' ? 'publicado! Adicionado ao Feed Meta CSV.' : 'ocultado! Removido do Feed Meta CSV.'}`);
             refresh();
         } catch (error) {
             console.error('Erro ao alternar catálogo:', error);
-            toast.error('Erro ao alterar status no Catálogo Digital.');
+            toast.error('Erro ao alterar status no Catálogo Digital / Feed Meta CSV.');
         }
     };
 

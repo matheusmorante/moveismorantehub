@@ -45,11 +45,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         handleAction,
         handleStatusUpdate,
         totalItems,
-        currentPage,
-        itemsPerPage,
-        totalPages,
-        setCurrentPage,
-        setItemsPerPage,
+        hasMore,
+        loadMore,
         selectedOrders,
         toggleSelection,
         selectAll,
@@ -61,6 +58,18 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         handleStockCheckUpdate,
         refresh
     } = useOrderHistory(filters);
+
+    const observerRef = React.useRef<IntersectionObserver | null>(null);
+    const sentinelRef = React.useCallback((node: HTMLDivElement | null) => {
+        if (loading) return;
+        if (observerRef.current) observerRef.current.disconnect();
+        observerRef.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                loadMore();
+            }
+        }, { threshold: 0.1 });
+        if (node) observerRef.current.observe(node);
+    }, [loading, hasMore, loadMore]);
     
     // Wrapped handlers for confirmation
     const handleDelete = (id: string) => {
@@ -247,97 +256,18 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onFilterByOrderId={onFilterByOrderId}
                 />
 
-                {/* Pagination Controls */}
-                <div className="flex flex-row items-center justify-between gap-2 py-1 border-t border-slate-100 dark:border-slate-800 mt-1 px-1">
-                    <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 transition-colors">
-                        <button
-                            onClick={() => setCurrentPage(1)}
-                            disabled={currentPage === 1}
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${currentPage === 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
-                            title="Primeira Página"
-                        >
-                            <i className="bi bi-chevron-double-left text-xs" />
-                        </button>
-                        <button
-                            onClick={() => setCurrentPage((prev: any) => (globalThis as any).Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${currentPage === 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
-                            title="Anterior"
-                        >
-                            <i className="bi bi-chevron-left text-xs" />
-                        </button>
-
-                        <div className="h-4 w-[1px] bg-slate-100 dark:bg-slate-800 mx-1 hidden sm:block" />
-
-                        <div className="flex gap-1 hidden sm:flex">
-                            {((getPageButtons() as any)).map((p: any) => (
-                                <button
-                                    key={p}
-                                    onClick={() => setCurrentPage(p)}
-                                    className={`w-7 h-7 flex items-center justify-center rounded-lg font-black text-[10px] transition-all ${currentPage === p ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none' : 'text-slate-500 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-950 hover:text-blue-600 dark:hover:text-blue-400'}`}
-                                >
-                                    {p}
-                                </button>
-                            ))}
+                {/* Infinite Scroll Sentinel */}
+                <div ref={sentinelRef} className="py-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-3">
+                    {hasMore ? (
+                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold animate-pulse">
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span>Carregando mais pedidos... ({orders.length} de {totalItems})</span>
                         </div>
-
-                        <div className="h-4 w-[1px] bg-slate-100 dark:bg-slate-800 mx-1 hidden sm:block" />
-
-                        <div className="flex items-center px-2 py-1 bg-slate-50/50 dark:bg-slate-950/50 rounded-lg border border-slate-50 dark:border-slate-800 transition-colors">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 mr-2">Pág</span>
-                            <div className="flex items-center gap-1 group">
-                                <input
-                                    type="text"
-                                    value={pageInput}
-                                    onChange={handlePageInputChange}
-                                    onBlur={handlePageInputBlur}
-                                    onKeyDown={handlePageInputKeyDown}
-                                    className="w-10 px-1 py-0.5 text-[10px] font-black text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 text-center shadow-sm transition-all"
-                                />
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 mx-0.5">/</span>
-                                <span className="text-[10px] font-black text-slate-800 dark:text-slate-200">{totalPages || 1}</span>
-                            </div>
-                        </div>
-
-                        <div className="h-4 w-[1px] bg-slate-100 dark:bg-slate-800 mx-1 hidden sm:block" />
-
-                        <button
-                            onClick={() => setCurrentPage((prev: any) => (globalThis as any).Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${currentPage === totalPages || totalPages === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
-                            title="Próxima"
-                        >
-                            <i className="bi bi-chevron-right text-xs" />
-                        </button>
-                        <button
-                            onClick={() => setCurrentPage(totalPages)}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${currentPage === totalPages || totalPages === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 bg-slate-50/50 dark:bg-slate-950/50'}`}
-                            title="Última Página"
-                        >
-                            <i className="bi bi-chevron-double-right text-xs" />
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div className="px-2 py-1 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 transition-colors">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 dark:text-blue-500">
-                                Total: <span className="text-blue-700 dark:text-blue-300 font-black">{totalItems}</span>
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
-                            <select
-                                value={itemsPerPage}
-                                onChange={(e: any) => setItemsPerPage((globalThis as any).Number(e.target.value))}
-                                className="bg-transparent text-[9px] font-black text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-                            >
-                                {(([10, 25, 50, 100] as any)).map((size: any) => (
-                                    <option key={size} value={size} className="dark:bg-slate-900">{size} p/ pág</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
+                    ) : (
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
+                            Todos os {totalItems} pedidos carregados 👌
+                        </span>
+                    )}
                 </div>
             </div>
         );

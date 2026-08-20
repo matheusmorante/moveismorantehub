@@ -28,6 +28,7 @@ import OrderRouteMap from './pages/App/SalesOrder/OrderRouteMap';
 import ShippingLabelPage from './pages/ShippingLabelPage';
 import CustomerDesiresPage from './pages/App/Customers/CustomerDesiresPage';
 import WhatsAppMarketplace from './pages/App/Products/WhatsAppMarketplace';
+import MetaCatalog from './pages/App/Products/MetaCatalog';
 import FinanceDashboard from './pages/App/Finance/Dashboard';
 import Payables from './pages/App/Finance/Payables';
 import Receivables from './pages/App/Finance/Receivables';
@@ -145,6 +146,7 @@ function Router() {
 
             {/* Registrations */}
             <Route path='/registrations/products' element={<Products />} />
+            <Route path='/registrations/meta-catalog' element={<MetaCatalog />} />
             <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />
             <Route path='/registrations/product-categories' element={<Categories />} />
             <Route path='/registrations/product-types' element={<ProductTypes />} />

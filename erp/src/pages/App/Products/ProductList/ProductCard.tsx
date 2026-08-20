@@ -239,10 +239,12 @@ const ProductCard = ({
                                     <i className="bi bi-file-earmark-text" /> Rascunho
                                 </span>
                             )}
-                            <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
-                            </button>
+                            {!isParent && (
+                                <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                    Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

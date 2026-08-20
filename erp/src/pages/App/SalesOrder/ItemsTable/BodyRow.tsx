@@ -68,6 +68,8 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         const val = Math.round(tempSubtotal * 100) / 100;
         const currentUnitPrice = item.unitPrice || 0;
         if (val > currentUnitPrice) {
+            setTempDiscountValue(0);
+            setTempDiscountPercent(0);
             onBatchChange(idx, {
                 unitPrice: val,
                 discountType: 'fixed',
@@ -75,6 +77,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
             });
         } else {
             const newDiscount = Math.round((currentUnitPrice - val) * 100) / 100;
+            const newPercent = currentUnitPrice > 0 ? Math.round(((newDiscount / currentUnitPrice) * 100) * 100) / 100 : 0;
+            setTempDiscountValue(newDiscount);
+            setTempDiscountPercent(newPercent);
             onBatchChange(idx, {
                 discountType: 'fixed',
                 unitDiscount: newDiscount
@@ -84,6 +89,13 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
 
     const commitDiscountValue = () => {
         const val = Math.round(tempDiscountValue * 100) / 100;
+        const currentUnitPrice = item.unitPrice || 0;
+        const calculatedPercent = currentUnitPrice > 0 ? Math.round(((val / currentUnitPrice) * 100) * 100) / 100 : 0;
+        const calculatedSubtotal = Math.round((currentUnitPrice - val) * 100) / 100;
+
+        setTempDiscountPercent(calculatedPercent);
+        setTempSubtotal(calculatedSubtotal);
+
         onBatchChange(idx, { 
             discountType: 'fixed', 
             unitDiscount: val 
@@ -91,10 +103,17 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
     };
 
     const commitDiscountPercent = () => {
-        const val = Math.round(tempDiscountPercent * 100) / 100;
+        const percentVal = Math.round(tempDiscountPercent * 100) / 100;
+        const currentUnitPrice = item.unitPrice || 0;
+        const calculatedDiscountVal = Math.round(((currentUnitPrice * percentVal) / 100) * 100) / 100;
+        const calculatedSubtotal = Math.round((currentUnitPrice - calculatedDiscountVal) * 100) / 100;
+
+        setTempDiscountValue(calculatedDiscountVal);
+        setTempSubtotal(calculatedSubtotal);
+
         onBatchChange(idx, { 
             discountType: 'percentage', 
-            unitDiscount: val 
+            unitDiscount: percentVal 
         });
     };
 

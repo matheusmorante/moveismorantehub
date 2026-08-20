@@ -278,16 +278,18 @@ const ProductRow = ({
             case 'status':
                 return (
                     <td key="status" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center">
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} 
-                                title="Clique para alternar status no Catálogo" 
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${product.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-955/20 dark:text-red-400 dark:border-red-900/30'}`}
-                            >
-                                <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                Catálogo · {product.status === 'published' ? 'Publicado' : 'Ocultado'}
-                            </button>
-                        </div>
+                        {!product.isParent && (
+                            <div className="flex items-center justify-center">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} 
+                                    title="Clique para alternar status no Catálogo" 
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${product.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-955/20 dark:text-red-400 dark:border-red-900/30'}`}
+                                >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                    Catálogo · {product.status === 'published' ? 'Publicado' : 'Ocultado'}
+                                </button>
+                            </div>
+                        )}
                     </td>
                 );
             case 'actions':

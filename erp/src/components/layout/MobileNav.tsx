@@ -69,6 +69,9 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                                 <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>
                                     <i className="bi bi-tag-fill mr-2 text-teal-500"></i> Ambientes e Categorias
                                 </Link>
+                                <Link to="/registrations/meta-catalog" onClick={onClose} className={mobileSubLinkClass}>
+                                    <i className="bi bi-meta mr-2 text-blue-600"></i> Catálogo Meta
+                                </Link>
                             </div>
                         )}
                     </div>
