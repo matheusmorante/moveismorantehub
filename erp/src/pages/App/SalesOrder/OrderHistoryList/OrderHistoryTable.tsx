@@ -57,7 +57,10 @@ const OrderHistoryTable = ({
     onFilterByOrderId
 }: OrderHistoryTableProps) => {
     const { width } = useWindowSize();
-    const isMobile = width <= 900;
+    const isMobile = width <= 1280 || 
+                     window.location.search.includes('auth_email') || 
+                     window.location.pathname.includes('/mobile') || 
+                     Boolean((window as any).ReactNativeWebView);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
     const allIdsOnPage = (orders || []).filter(o => o && o.id).map(o => o.id!) as string[];

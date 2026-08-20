@@ -251,11 +251,13 @@ const ProductCard = ({
             {!isParent && (
             <div className="flex justify-between items-end border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
                 <div className="flex flex-col">
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
-                        Preço
-                    </span>
+                    {product.promoPrice && Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice) ? (
+                        <span className="text-[10px] text-red-500 dark:text-red-400 line-through font-bold leading-tight">
+                            {formatCurrency(product.unitPrice || 0)}
+                        </span>
+                    ) : null}
                     <span className={`text-base font-black ${isParent ? 'text-slate-400 dark:text-slate-500' : 'text-blue-600 dark:text-blue-400'}`}>
-                        {isParent ? '-' : formatCurrency(product.unitPrice || 0)}
+                        {isParent ? '-' : formatCurrency((product.promoPrice && Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice)) ? product.promoPrice : (product.unitPrice || 0))}
                     </span>
                 </div>
 
@@ -340,8 +342,13 @@ const ProductCard = ({
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex flex-col items-end">
+                                        {v.promoPrice && Number(v.promoPrice) > 0 && Number(v.promoPrice) < Number(v.unitPrice) ? (
+                                            <span className="text-[9px] text-red-500 dark:text-red-400 line-through font-bold leading-tight">
+                                                {formatCurrency(v.unitPrice || 0)}
+                                            </span>
+                                        ) : null}
                                         <span className="text-xs font-black text-blue-600 dark:text-blue-400">
-                                            {formatCurrency(v.unitPrice || 0)}
+                                            {formatCurrency((v.promoPrice && Number(v.promoPrice) > 0 && Number(v.promoPrice) < Number(v.unitPrice)) ? v.promoPrice : (v.unitPrice || 0))}
                                         </span>
                                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
                                             Estoque: {v.stock ?? 0} {v.unit}

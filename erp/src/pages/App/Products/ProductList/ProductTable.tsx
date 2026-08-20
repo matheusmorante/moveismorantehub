@@ -57,7 +57,10 @@ const ProductTable = ({
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate
 }: ProductTableProps) => {
     const { width } = useWindowSize();
-    const isMobile = width < 1280; // Garantindo exibição em Cards para telas LG (< 1280px)
+    const isMobile = width < 1280 || 
+                     window.location.search.includes('auth_email') || 
+                     window.location.pathname.includes('/mobile') || 
+                     Boolean((window as any).ReactNativeWebView);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
 

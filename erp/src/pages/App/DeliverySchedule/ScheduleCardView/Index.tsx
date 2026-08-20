@@ -112,23 +112,23 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     return (
         <div
             onClick={() => onOrderClick(order)}
-            className={`group border rounded-[2rem] shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-1 hover:shadow-premium-lg ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
+            className={`group border rounded-2xl shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-0.5 hover:shadow-md ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
         >
             {/* Card Header: Type & Link Indicator */}
-            <div className={`px-5 py-3 border-b dark:border-slate-800 flex justify-between items-center ${isAssemblyTask ? 'bg-rose-50/50 dark:bg-rose-900/10' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
-                <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600 shadow-md shadow-rose-200' : cls.dotBg + ' shadow-md'}`}>
+            <div className={`px-3.5 py-2 border-b dark:border-slate-800 flex justify-between items-center ${isAssemblyTask ? 'bg-rose-50/50 dark:bg-rose-900/10' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
+                <div className="flex items-center gap-1.5">
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600 shadow-sm' : cls.dotBg + ' shadow-sm'}`}>
                         {typeLabel}
                     </span>
                     {isAssemblyOutside && (
-                        <div className="flex items-center gap-0.5 bg-red-600 text-white px-2 py-1 rounded-full shadow-md border border-white/20 ml-1 animate-blink" title="Montagem Fora - Realizada fora da morante">
-                            <i className="bi bi-hammer text-[10px]" />
+                        <div className="flex items-center gap-0.5 bg-red-600 text-white px-2 py-0.5 rounded-full shadow-sm border border-white/20 ml-0.5 animate-blink" title="Montagem Fora - Realizada fora da morante">
+                            <i className="bi bi-hammer text-[9px]" />
                             <i className="bi bi-house-door-fill text-[8px]" />
                         </div>
                     )}
                     {isOnlyInternalAssembly && (
-                        <div className="flex items-center gap-1 bg-yellow-500 text-white px-2 py-1 rounded-full shadow-md border border-white/20 ml-1 animate-blink" title="Montagem agendada">
-                            <i className="bi bi-hammer text-[10px]" />
+                        <div className="flex items-center gap-1 bg-yellow-500 text-white px-2 py-0.5 rounded-full shadow-sm border border-white/20 ml-0.5 animate-blink" title="Montagem agendada">
+                            <i className="bi bi-hammer text-[9px]" />
                         </div>
                     )}
                 </div>
@@ -140,20 +140,21 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                                 e.stopPropagation();
                                 setShowAssemblyTooltip(!showAssemblyTooltip);
                             }}
-                            className="bg-rose-600 text-white w-16 h-16 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-50"
+                            className="bg-rose-600 text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow flex items-center gap-1 transition-transform hover:scale-105 active:scale-95"
                         >
-                            <i className="bi bi-hammer text-2xl" />
+                            <i className="bi bi-hammer text-xs" />
+                            <span>Montagem</span>
                         </button>
                         
                         {showAssemblyTooltip && (
-                            <div className="absolute top-full right-0 mt-3 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-4 animate-slide-up-custom overflow-hidden">
-                                <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
+                            <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-3 animate-slide-up-custom overflow-hidden">
+                                <div className="flex items-center gap-2 mb-2 border-b pb-2 dark:border-slate-800">
                                     <i className="bi bi-hammer text-rose-500" />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos para Montagem</span>
                                 </div>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-1.5">
                                     {assemblyItems.map((item: any, i: number) => (
-                                        <div key={i} className="flex items-center gap-2 bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-800/50 px-2 py-1.5 rounded-xl">
+                                        <div key={i} className="flex items-center gap-1.5 bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-800/50 px-2 py-1 rounded-xl">
                                             <span className="text-[10px] font-black text-rose-700 dark:text-rose-400">
                                                 {item.quantity}x
                                             </span>
@@ -184,24 +185,25 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                                     e.stopPropagation();
                                     setShowOrderTooltip(!showOrderTooltip);
                                 }}
-                                className={`${linkedBtnBg} text-white w-10 h-10 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-50`}
+                                className={`${linkedBtnBg} text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow flex items-center gap-1 transition-transform hover:scale-105 active:scale-95`}
                                 title={`Ver ${linkedLabel.toLowerCase()}`}
                             >
-                                <i className={`bi ${linkedIcon} text-lg`} />
+                                <i className={`bi ${linkedIcon} text-xs`} />
+                                <span>{isLinkedPickup ? 'Retirada' : 'Entrega'}</span>
                             </button>
 
                             {showOrderTooltip && (
-                                <div className="absolute top-full right-0 mt-3 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-4 animate-slide-up-custom overflow-hidden">
-                                    <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
+                                <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-3 animate-slide-up-custom overflow-hidden">
+                                    <div className="flex items-center gap-2 mb-2 border-b pb-2 dark:border-slate-800">
                                         <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{linkedLabel}</span>
                                     </div>
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex flex-col gap-1 text-left">
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-0.5 text-left">
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cliente</span>
                                             <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase">{order.customerData?.fullName || "Consumidor"}</p>
                                         </div>
-                                        <div className="flex flex-col gap-1 mt-1 text-left">
+                                        <div className="flex flex-col gap-0.5 mt-0.5 text-left">
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Endereço</span>
                                             <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
                                                 {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
@@ -216,44 +218,39 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                 })()}
             </div>
 
-            {/* Card Header: Time */}
-            <div className={`px-5 py-4 border-b dark:border-slate-800 flex justify-between items-center transition-colors ${cls.headerBg}`}>
-                <div className="flex items-center gap-4">
-                    <div className="flex flex-col">
-                        <span className="font-black text-sm tracking-tight flex items-center text-slate-800 dark:text-slate-200">
-                            <i className={`bi bi-clock-fill mr-2 ${cls.timeText}`} />
-                            {displayTime}
+            {/* Combined Header: Time & Status Picker */}
+            <div className={`px-3.5 py-2.5 border-b dark:border-slate-800 flex justify-between items-center transition-colors ${cls.headerBg}`}>
+                <div className="flex items-center gap-2">
+                    <span className="font-black text-xs sm:text-sm tracking-tight flex items-center text-slate-800 dark:text-slate-200">
+                        <i className={`bi bi-clock-fill mr-1.5 ${cls.timeText}`} />
+                        {displayTime}
+                    </span>
+                    {scheduling?.dateType === 'range' && scheduling?.endDate && (
+                        <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30">
+                            Até {formatDate(scheduling.endDate)}
                         </span>
-                        {scheduling?.dateType === 'range' && scheduling?.endDate && (
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase mt-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30">
-                                Até {formatDate(scheduling.endDate)}
-                            </span>
-                        )}
-                    </div>
+                    )}
                 </div>
-            </div>
 
-            <div className="flex items-center justify-end px-5 pt-4">
-
-                <div className="relative ml-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={(e) => { e.stopPropagation(); setShowStatusPicker(!showStatusPicker); }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${order.status === 'fulfilled' 
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all active:scale-95 ${order.status === 'fulfilled' 
                             ? 'bg-emerald-500 text-white border-emerald-400' 
                             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'}`}
                     >
-                            <i className={`bi ${getStatusIcon(order.status || 'draft')} ${order.status === 'fulfilled' ? 'text-white' : `text-${currentStatus.color}-500`} text-[10px]`} />
-                            <span className="text-[9px] font-black uppercase tracking-widest">
-                                {currentStatus.label}
-                            </span>
-                            <i className="bi bi-chevron-down text-[8px] opacity-50" />
-                        </button>
+                        <i className={`bi ${getStatusIcon(order.status || 'draft')} ${order.status === 'fulfilled' ? 'text-white' : `text-${currentStatus.color}-500`} text-[9px]`} />
+                        <span className="text-[9px] font-black uppercase tracking-wider">
+                            {currentStatus.label}
+                        </span>
+                        <i className="bi bi-chevron-down text-[8px] opacity-50" />
+                    </button>
 
                     {!isReadOnly && showStatusPicker && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setShowStatusPicker(false)} />
-                            <div className="absolute top-full right-0 mt-3 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] shadow-2xl z-[100] p-3 flex flex-col gap-1.5 animate-slide-up">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Alterar Status do Pedido</p>
+                            <div className="absolute top-full right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-2 flex flex-col gap-1 animate-slide-up">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Status do Pedido</p>
                                 {statuses.map((s) => (
                                     <button
                                         key={s.id}
@@ -267,18 +264,13 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                                             }
                                             setShowStatusPicker(false);
                                         }}
-                                        className={`flex items-start gap-3 w-full p-3 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 ${order.status === s.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                        className={`flex items-start gap-2.5 w-full p-2 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 ${order.status === s.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                                     >
-                                        <i className={`bi ${getStatusIcon(s.id)} text-${s.color}-500 text-base mt-0.5`} />
+                                        <i className={`bi ${getStatusIcon(s.id)} text-${s.color}-500 text-sm mt-0.5`} />
                                         <div className="flex flex-col text-left">
                                             <span className={`text-[10px] font-black uppercase tracking-widest ${order.status === s.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>
                                                 {s.label}
                                             </span>
-                                            {s.description && (
-                                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">
-                                                    {s.description}
-                                                </span>
-                                            )}
                                         </div>
                                     </button>
                                 ))}
@@ -288,13 +280,10 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                 </div>
             </div>
 
-            <div className="p-5 text-sm flex flex-col gap-4 text-left">
+            <div className="p-3 sm:p-3.5 text-sm flex flex-col gap-2.5 text-left">
                 {!isAssemblyTask && (
                     <div>
-                        <span className="text-[9px] uppercase font-black text-slate-300 dark:text-slate-600 tracking-[0.2em] block mb-1">
-                            Cliente
-                        </span>
-                        <div className="font-black text-slate-900 dark:text-slate-100 text-xl leading-tight uppercase tracking-tighter transition-colors">
+                        <div className="font-black text-slate-900 dark:text-slate-100 text-base leading-tight uppercase tracking-tight transition-colors">
                             {order.customerData?.fullName || "Consumidor"}
                         </div>
                     </div>
@@ -451,24 +440,23 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
     }, [schedule, hasInitialScrolled]);
 
     return (
-        <div ref={scrollContainerRef} className="flex flex-col gap-12 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+        <div ref={scrollContainerRef} className="flex flex-col gap-6 w-full custom-scrollbar">
             {pendingOrders.length > 0 && (
                 <div className="w-full scroll-mt-4">
                     {/* Pending Section Header */}
-                    <div className="flex items-center gap-6 mb-8">
-                        <div className="h-0.5 flex-1 bg-gradient-to-r from-transparent to-orange-200 dark:to-orange-800"></div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-400 dark:text-orange-600 mb-2">
-                                Aguardando Definição
-                            </span>
-                            <h3 className="text-sm font-black uppercase text-orange-600 dark:text-orange-400 tracking-widest bg-orange-50 dark:bg-orange-900/20 px-6 py-2 rounded-2xl border-2 border-orange-100 dark:border-orange-900/30 shadow-sm shadow-orange-50 dark:shadow-none transition-colors">
+                    <div className="sticky top-0 z-20 py-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-3.5 py-2.5 rounded-2xl border border-orange-200/60 dark:border-orange-900/40 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+                            <h3 className="text-xs font-black uppercase text-orange-600 dark:text-orange-400 tracking-wider">
                                 Entregas a Agendar
                             </h3>
                         </div>
-                        <div className="h-0.5 flex-1 bg-gradient-to-l from-transparent to-orange-200 dark:to-orange-800"></div>
+                        <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-900/40 uppercase">
+                            {pendingOrders.length} {pendingOrders.length === 1 ? 'pendente' : 'pendentes'}
+                        </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         {pendingOrders.map((order, index) => (
                             <DeliveryOrderCard
                                 key={order.id || `pending-${index}`}
@@ -484,25 +472,24 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
 
             {Object.entries(schedule).map(([date, orders]) => (
                 <div key={date} id={`date-${date}`} className="w-full scroll-mt-4">
-                    {/* Date Divider */}
-                    <div className="flex items-center gap-6 mb-8">
-                        <div className="h-0.5 flex-1 bg-gradient-to-r from-transparent to-slate-200 dark:to-slate-800"></div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-600 mb-2">
-                                Cronograma Logístico
-                            </span>
-                            <h3 className="text-sm font-black uppercase text-blue-600 dark:text-blue-400 tracking-widest bg-blue-50 dark:bg-blue-900/20 px-6 py-2 rounded-2xl border-2 border-blue-100 dark:border-blue-900/30 shadow-sm shadow-blue-50 dark:shadow-none transition-colors">
+                    {/* Compact Sticky Date Divider */}
+                    <div className="sticky top-0 z-20 py-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-3.5 py-2 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <i className="bi bi-calendar-event text-blue-600 dark:text-blue-400 text-xs" />
+                            <h3 className="text-xs sm:text-sm font-black uppercase text-slate-800 dark:text-slate-100 tracking-wider">
                                 {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", {
-                                    weekday: 'long',
+                                    weekday: 'short',
                                     day: '2-digit',
-                                    month: 'long'
+                                    month: 'short'
                                 })}
                             </h3>
                         </div>
-                        <div className="h-0.5 flex-1 bg-gradient-to-l from-transparent to-slate-200 dark:to-slate-800"></div>
+                        <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/40 uppercase">
+                            {orders.length} {orders.length === 1 ? 'pedido' : 'pedidos'}
+                        </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         {orders.map((order, index) => (
                             <DeliveryOrderCard
                                 key={order.id || `order-${index}`}

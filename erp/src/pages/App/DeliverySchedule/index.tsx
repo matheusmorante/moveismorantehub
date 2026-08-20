@@ -33,13 +33,18 @@ const DeliverySchedule = () => {
         pendingOrders
     } = useDeliverySchedule();
 
-    const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("timeline");
+    const [viewMode, setViewMode] = useState<"card" | "table" | "timeline">("card");
     const [showShowroomModal, setShowShowroomModal] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<any>(null);
     const hasInitialScrolledCard = React.useRef(false);
     const hasInitialScrolledTable = React.useRef(false);
     const hasInitialScrolledTimeline = React.useRef(false);
     const { state } = useLocation();
+
+    const isMobileAppView = isStandalone || 
+                            window.location.search.includes('auth_email') || 
+                            window.location.pathname.includes('/schedule') ||
+                            Boolean((window as any).ReactNativeWebView);
 
     useEffect(() => {
         if (state?.view === 'timeline') {
@@ -219,27 +224,27 @@ const DeliverySchedule = () => {
     );
 
     const renderHeader = () => (
-        <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 ${viewMode === 'table' ? 'px-4 sm:px-6' : ''} ${isStandalone ? 'bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
-            <div className="flex items-center gap-4 w-full xl:w-auto">
-                <div className="bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-100 dark:shadow-blue-900/20 transition-all duration-500">
-                    <i className="bi bi-truck text-white text-2xl" />
+        <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-3 ${viewMode === 'table' ? 'px-2 sm:px-6' : ''} ${isStandalone ? 'bg-white dark:bg-slate-900 p-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
+            <div className="flex items-center gap-3 w-full xl:w-auto">
+                <div className="bg-blue-600 p-2.5 rounded-xl shadow-md shadow-blue-100 dark:shadow-blue-900/20 transition-all duration-500">
+                    <i className="bi bi-truck text-white text-lg" />
                 </div>
                 <div className="flex-1">
-                    <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">
+                    <h2 className="text-base sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">
                         Cronograma Logístico
                     </h2>
-                    <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-[0.2em] mt-2">
+                    <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-wider mt-1">
                         {isStandalone ? "Visualização em Tempo Real" : "Gestão Logística v2.0"}
                     </p>
                 </div>
 
                 {pendingOrders.length > 0 && (
-                    <div className="flex items-center gap-3 bg-orange-50 dark:bg-orange-900/20 px-4 py-2 rounded-2xl border border-orange-100 dark:border-orange-800 animate-pulse">
-                        <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-black">
+                    <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 rounded-xl border border-orange-100 dark:border-orange-800 animate-pulse">
+                        <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-black">
                             {pendingOrders.length}
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400">
-                            Pedidos p/ Agendar
+                        <span className="text-[9px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-400 hidden sm:inline">
+                            Pendentes
                         </span>
                     </div>
                 )}
@@ -421,7 +426,7 @@ const DeliverySchedule = () => {
 
         return (
             <div className="transition-all duration-500 ease-in-out">
-                {viewMode === "card" ? (
+                {isMobileAppView || viewMode === "card" ? (
                     <ScheduleCardView
                         schedule={schedule}
                         onOrderClick={openOrderDetails}
@@ -451,7 +456,7 @@ const DeliverySchedule = () => {
     };
 
     return (
-        <div className={`w-full mx-auto transition-all duration-300 ${isStandalone ? 'max-w-none p-2 sm:p-4' : `${viewMode === 'table' ? 'max-w-none mt-4 px-0 pb-0' : 'max-w-full mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}`}>
+        <div className={`w-full mx-auto transition-all duration-300 ${isMobileAppView ? 'max-w-none p-1.5 sm:p-4 mt-0 pb-4' : `${viewMode === 'table' ? 'max-w-none mt-4 px-0 pb-0' : 'max-w-full mt-4 sm:mt-8 px-4 sm:px-6 md:px-8 pb-10'}`}`}>
             {renderHeader()}
 
             <div className="relative">

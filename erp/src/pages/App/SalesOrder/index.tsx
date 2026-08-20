@@ -192,51 +192,34 @@ const SalesOrder = () => {
                             </p>
                         </div>
 
-                        {/* Inline Tab Navigation */}
-                        <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-white dark:border-slate-700/50 order-3 lg:order-none">
-                            <button
-                                onClick={() => navigate('/sales-order')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute
-                                    ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-premium-sm' 
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
-                            >
-                                <i className={`bi ${!isBudgetRoute && !isAssistanceRoute && !isReturnRoute ? 'bi-cart-check-fill' : 'bi-cart-check'} text-sm`} />
-                                Vendas
-                            </button>
+                        {/* Select Dropdown para Tipo de Lista (Vendas, Orçamentos, Assistências, Devoluções) */}
+                        <div className="relative flex items-center shadow-sm rounded-xl">
+                            <div className="absolute left-3 pointer-events-none text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                                {isBudgetRoute ? (
+                                    <i className="bi bi-calculator-fill text-sm" />
+                                ) : isAssistanceRoute ? (
+                                    <i className="bi bi-tools text-sm" />
+                                ) : isReturnRoute ? (
+                                    <i className="bi bi-arrow-return-left text-sm font-black" />
+                                ) : (
+                                    <i className="bi bi-cart-check-fill text-sm" />
+                                )}
+                            </div>
                             
-                            <button
-                                onClick={() => navigate('/budgets')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${isBudgetRoute
-                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-premium-sm' 
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
+                            <select
+                                value={isBudgetRoute ? '/budgets' : (isAssistanceRoute ? '/assistance-orders' : (isReturnRoute ? '/returns' : '/sales-order'))}
+                                onChange={(e) => navigate(e.target.value)}
+                                className="appearance-none pl-9 pr-8 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black uppercase tracking-wider outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 transition-all"
                             >
-                                <i className={`bi ${isBudgetRoute ? 'bi-calculator-fill' : 'bi-calculator'} text-sm`} />
-                                Orçamentos
-                            </button>
-
-                            <button
-                                onClick={() => navigate('/assistance-orders')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${isAssistanceRoute
-                                    ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-premium-sm' 
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
-                            >
-                                <i className={`bi ${isAssistanceRoute ? 'bi-tools' : 'bi-wrench'} text-sm`} />
-                                Assistências
-                            </button>
-
-                            <button
-                                onClick={() => navigate('/returns')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-black uppercase tracking-widest text-[10px] ${isReturnRoute
-                                    ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-premium-sm' 
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
-                            >
-                                <i className="bi bi-arrow-return-left text-sm font-black" />
-                                Devoluções
-                            </button>
+                                <option value="/sales-order">Pedidos de Venda</option>
+                                <option value="/budgets">Orçamentos</option>
+                                <option value="/assistance-orders">Assistências</option>
+                                <option value="/returns">Devoluções</option>
+                            </select>
+                            
+                            <div className="absolute right-2.5 pointer-events-none text-slate-400 flex items-center justify-center">
+                                <i className="bi bi-chevron-down text-[10px]" />
+                            </div>
                         </div>
 
                         {/* Action Buttons */}
