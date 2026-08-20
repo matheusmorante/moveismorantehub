@@ -183,7 +183,7 @@ const SalesOrder = () => {
                 <div className="flex flex-col gap-3 mb-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                         {/* Title (escondido em telas pequenas para economizar espaço) */}
-                        <div className="min-w-0 hidden sm:block">
+                        <div className="min-w-0 hidden lg:block">
                             <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all leading-tight">
                                 {isBudgetRoute ? 'Orçamentos' : (isAssistanceRoute ? 'Assistências' : (isReturnRoute ? 'Devoluções' : 'Pedidos de Venda'))}
                             </h1>
@@ -306,7 +306,7 @@ const SalesOrder = () => {
 
                             <Link
                                 to="/delivery-schedule"
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
+                                className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
                                 title="Cronograma"
                             >
                                 <i className="bi bi-calendar3 text-sm"></i>
@@ -314,7 +314,7 @@ const SalesOrder = () => {
                             </Link>
 
                             {!isBudgetRoute && !isAssistanceRoute && (
-                                <div className="hidden md:flex items-center gap-2 ml-4 border-l border-slate-200 dark:border-slate-800 pl-4">
+                                <div className="hidden lg:flex items-center gap-2 ml-4 border-l border-slate-200 dark:border-slate-800 pl-4">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">Legenda:</span>
                                     <div className="flex items-center gap-2 px-2.5 py-1 bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 border-l-[4px] border-l-green-600 rounded-lg">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-400 opacity-80">Entrega</span>

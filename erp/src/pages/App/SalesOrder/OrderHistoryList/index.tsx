@@ -56,7 +56,10 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         handleBulkPermanentDelete: onBulkPermanentDelete,
         handleBlingUpdate,
         handleStockCheckUpdate,
-        refresh
+        refresh,
+        currentPage,
+        totalPages,
+        setCurrentPage
     } = useOrderHistory(filters);
 
     const observerRef = React.useRef<IntersectionObserver | null>(null);
