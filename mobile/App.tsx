@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, StatusBar, Alert, ScrollView, Vibration, ActivityIndicator, Platform, TextInput, Modal, FlatList, RefreshControl, SectionList } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, StatusBar, Alert, ScrollView, Vibration, ActivityIndicator, Platform, TextInput, Modal, FlatList, RefreshControl, SectionList, PanResponder } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { ClipboardList, Bell, Hammer, ShoppingBag, Truck, BarChart3, AlertTriangle, Mail, Lock, ArrowRight, Eye, EyeOff, LayoutDashboard, Wrench, RotateCcw, RotateCw, Calendar, ChevronDown, Check, Moon, Sun, User, Settings, LogOut, ShieldCheck, X, Search, Clock, Sparkles, Volume2, Square, RefreshCw, Play, Pause } from 'lucide-react-native';
 
@@ -1269,6 +1269,60 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
                   {customerName}
                 </Text>
 
+                {/* Seção ITENS DO PEDIDO (Estilo idêntico à imagem enviada) */}
+                {(() => {
+                  const items = orderData.items || task.items || orderData.products || task.products || [];
+                  if (!Array.isArray(items) || items.length === 0) return null;
+
+                  return (
+                    <View style={{
+                      backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                      borderRadius: 14,
+                      padding: 10,
+                      marginTop: 6,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                      gap: 6
+                    }}>
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                        ITENS DO PEDIDO
+                      </Text>
+
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                        {items.map((prodItem: any, idx: number) => {
+                          const qty = prodItem.quantity || prodItem.qty || 1;
+                          const name = prodItem.description || prodItem.name || prodItem.productName || prodItem.title || 'Item';
+
+                          return (
+                            <View
+                              key={idx}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                                borderWidth: 1,
+                                borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                                borderRadius: 10,
+                                paddingVertical: 5,
+                                paddingHorizontal: 10,
+                                gap: 6
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '900', color: '#2563eb' }}>
+                                {qty}x
+                              </Text>
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: isDarkMode ? '#cbd5e1' : '#1e293b', textTransform: 'uppercase' }}>
+                                {name}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  );
+                })()}
+
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#334155' : '#f8fafc' }}>
                   <View>
                     <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>DATA PREVISTA</Text>
@@ -2074,12 +2128,15 @@ export default function App() {
     generateDeliveryAISummary('next5days');
   }, []);
 
-  // Estados para o Player de Áudio do Resumo Inteligente
+  // Estados para o Player de Áudio do Resumo Inteligente (Gemini TTS API + Draggable Slider)
   const [speechCurrentTime, setSpeechCurrentTime] = useState<number>(0);
   const [speechTotalDuration, setSpeechTotalDuration] = useState<number>(0);
   const [speechIsPaused, setSpeechIsPaused] = useState<boolean>(false);
+  const [isLoadingGeminiAudio, setIsLoadingGeminiAudio] = useState<boolean>(false);
   const speechIntervalRef = useRef<any>(null);
   const speechTextRef = useRef<string>('');
+  const geminiSoundRef = useRef<Audio.Sound | null>(null);
+  const timelineBarWidthRef = useRef<number>(280);
 
   const formatAudioTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -2113,12 +2170,110 @@ export default function App() {
     setSpeechCurrentTime(0);
   };
 
-  const playSpeechFromOffset = async (fullText: string, offsetSecs: number) => {
+  // Gerador de Áudio via Gemini API TTS (gemini-2.5-flash-preview-tts)
+  const fetchGeminiTTSAudio = async (textToSpeak: string): Promise<string | null> => {
     try {
-      await Speech.stop();
-    } catch (_) {}
+      const { data: settingsData } = await supabase.from('settings').select('*').eq('id', 'app').single();
+      const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
+      if (!geminiKey) return null;
+
+      // Chamada à API Gemini usando o modelo especificamente solicitado gemini-2.5-flash-preview-tts
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: textToSpeak }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Puck" }
+              }
+            }
+          }
+        })
+      });
+
+      if (res.ok) {
+        const resJson = await res.json();
+        const inlineData = resJson?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (inlineData && inlineData.data) {
+          const mimeType = inlineData.mimeType || 'audio/mp3';
+          return `data:${mimeType};base64,${inlineData.data}`;
+        }
+      }
+    } catch (err) {
+      console.warn('Fallback ativado para voz sintética nativa:', err);
+    }
+    return null;
+  };
+
+  const seekAudioToRatio = async (ratio: number) => {
+    const clampedRatio = Math.max(0, Math.min(1, ratio));
+    const targetSecs = clampedRatio * (speechTotalDuration || 15);
+    setSpeechCurrentTime(targetSecs);
+
+    if (geminiSoundRef.current) {
+      try {
+        await geminiSoundRef.current.setPositionAsync(targetSecs * 1000);
+      } catch (_) {}
+    } else {
+      const currentText = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryNext5Days;
+      if (currentText) {
+        playSpeechFromOffset(currentText, targetSecs);
+      }
+    }
+  };
+
+  const playSpeechFromOffset = async (fullText: string, offsetSecs: number) => {
+    if (geminiSoundRef.current) {
+      try { await geminiSoundRef.current.unloadAsync(); } catch (_) {}
+      geminiSoundRef.current = null;
+    }
+    try { await Speech.stop(); } catch (_) {}
     stopSpeechTimer();
 
+    setIsLoadingGeminiAudio(true);
+
+    try {
+      // 1. Tenta obter o áudio real gerado pela IA Gemini (gemini-2.5-flash-preview-tts)
+      const geminiAudioUri = await fetchGeminiTTSAudio(fullText);
+      setIsLoadingGeminiAudio(false);
+
+      if (geminiAudioUri) {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: geminiAudioUri },
+          { shouldPlay: true, positionMillis: offsetSecs * 1000 }
+        );
+        geminiSoundRef.current = sound;
+        setIsSpeakingSummary(true);
+        setSpeechIsPaused(false);
+
+        sound.setOnPlaybackStatusUpdate((status: any) => {
+          if (status.isLoaded) {
+            if (status.durationMillis) {
+              setSpeechTotalDuration(status.durationMillis / 1000);
+            }
+            if (status.positionMillis !== undefined) {
+              setSpeechCurrentTime(status.positionMillis / 1000);
+            }
+            if (status.didJustFinish) {
+              setIsSpeakingSummary(false);
+              setSpeechIsPaused(false);
+              setSpeechCurrentTime(0);
+            }
+          }
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('Usando voz sintética nativa de alta qualidade como fallback:', e);
+    } finally {
+      setIsLoadingGeminiAudio(false);
+    }
+
+    // 2. Fallback para voz sintética nativa com sincronização de tempo
     const charPerSec = 14;
     const charOffset = Math.floor(offsetSecs * charPerSec);
     const remainingText = fullText.slice(charOffset) || fullText;
@@ -2180,6 +2335,21 @@ export default function App() {
   const handleToggleSpeech = async (text: string) => {
     if (!text) return;
 
+    if (geminiSoundRef.current) {
+      if (isSpeakingSummary) {
+        if (!speechIsPaused) {
+          await geminiSoundRef.current.pauseAsync();
+          setSpeechIsPaused(true);
+        } else {
+          await geminiSoundRef.current.playAsync();
+          setSpeechIsPaused(false);
+        }
+      } else {
+        await playSpeechFromOffset(text, 0);
+      }
+      return;
+    }
+
     if (isSpeakingSummary) {
       if (!speechIsPaused) {
         try { await Speech.pause(); } catch (_) { await Speech.stop(); }
@@ -2200,7 +2370,7 @@ export default function App() {
     if (!text) return;
 
     const newTime = Math.max(0, Math.min(speechTotalDuration || 15, speechCurrentTime + offsetSecs));
-    playSpeechFromOffset(text, newTime);
+    seekAudioToRatio(newTime / (speechTotalDuration || 15));
   };
 
   // Estados do formulário de Login Nativo
@@ -3096,27 +3266,50 @@ export default function App() {
                 borderWidth: 1,
                 borderColor: isDarkMode ? '#334155' : '#e2e8f0'
               }}>
-                {/* Linha de Progresso Visual do Áudio Interativa */}
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={(e) => {
-                    const touchX = e.nativeEvent.locationX;
-                    // Calcula percentual baseado no toque (largura aproximada de 300px do container)
-                    const percent = Math.max(0, Math.min(1, touchX / 280));
-                    const newSecs = percent * (speechTotalDuration || 15);
-                    handleSeekOffset(newSecs - speechCurrentTime);
+                {/* Linha de Progresso Visual do Áudio Interativa com Deslizamento do Dedo (Scrubbing) */}
+                <View
+                  onLayout={(e) => {
+                    timelineBarWidthRef.current = e.nativeEvent.layout.width || 280;
                   }}
-                  style={{ height: 16, justifyContent: 'center' }}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={(e) => {
+                    const touchX = e.nativeEvent.locationX;
+                    const ratio = touchX / (timelineBarWidthRef.current || 280);
+                    seekAudioToRatio(ratio);
+                  }}
+                  onResponderMove={(e) => {
+                    const touchX = e.nativeEvent.locationX;
+                    const ratio = touchX / (timelineBarWidthRef.current || 280);
+                    seekAudioToRatio(ratio);
+                  }}
+                  style={{ height: 26, justifyContent: 'center', position: 'relative' }}
                 >
-                  <View style={{ height: 6, backgroundColor: isDarkMode ? '#334155' : '#cbd5e1', borderRadius: 3, overflow: 'hidden' }}>
+                  <View style={{ height: 8, backgroundColor: isDarkMode ? '#334155' : '#cbd5e1', borderRadius: 4, overflow: 'hidden' }}>
                     <View style={{
                       height: '100%',
                       width: `${Math.min(100, Math.max(0, (speechCurrentTime / (speechTotalDuration || 1)) * 100))}%`,
                       backgroundColor: '#2563eb',
-                      borderRadius: 3
+                      borderRadius: 4
                     }} />
                   </View>
-                </TouchableOpacity>
+                  {/* Marcador em Círculo (Thumb Handle) Deslizável */}
+                  <View style={{
+                    position: 'absolute',
+                    left: `${Math.min(94, Math.max(0, (speechCurrentTime / (speechTotalDuration || 1)) * 100))}%`,
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: '#2563eb',
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.25,
+                    elevation: 3,
+                    top: 5
+                  }} />
+                </View>
 
                 {/* Controles do Player: Voltar -5s, Play/Pause, Avançar +5s, Contador de Tempo */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

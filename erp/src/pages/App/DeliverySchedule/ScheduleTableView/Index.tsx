@@ -21,6 +21,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollParentRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const [isPendingOpen, setIsPendingOpen] = useState(false);
     
     const zoomState = useRef({
         scale: 1,
@@ -266,38 +267,58 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
     return (
         <div className={`flex flex-col bg-white dark:bg-slate-950 ${isMobile ? 'p-0 w-full h-[calc(100vh-140px)] overflow-hidden' : 'p-0 w-full h-[calc(100vh-280px)]'}`}>
             {pendingOrders.length > 0 && (
-                <div className="px-4 py-6 border-b border-orange-100 dark:border-orange-900/30 bg-orange-50/20">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
-                            <i className="bi bi-clock-history text-lg" />
+                <div className="px-4 py-3 border-b border-amber-100 dark:border-amber-900/30 bg-amber-50/20">
+                    <div 
+                        onClick={() => setIsPendingOpen(!isPendingOpen)}
+                        className="flex items-center justify-between cursor-pointer select-none p-2.5 rounded-2xl hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-all"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400">
+                                <i className="bi bi-clock-history text-lg" />
+                            </div>
+                            <div>
+                                <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">
+                                    Entregas a Agendar
+                                </h3>
+                                <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-[0.15em] mt-1">
+                                    {isPendingOpen ? 'Clique no tópico para recolher' : 'Aguardando agendamento de data (Clique para visualizar)'}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">Entregas a Agendar</h3>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Aguardando definição de data e horário</p>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800 uppercase">
+                                {pendingOrders.length} {pendingOrders.length === 1 ? 'pendente' : 'pendentes'}
+                            </span>
+                            <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-700 dark:text-amber-300 text-xs font-bold">
+                                <i className={`bi bi-chevron-${isPendingOpen ? 'up' : 'down'}`} />
+                            </div>
                         </div>
                     </div>
                     
-                    <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                        {pendingOrders.map(order => (
-                            <button
-                                key={order.id}
-                                onClick={() => onOrderClick(order)}
-                                className="flex-none w-64 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-orange-100 dark:border-orange-800/50 shadow-sm hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700 transition-all text-left group"
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className="text-[9px] font-black text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-lg border border-orange-100 dark:border-orange-800">
-                                        #{order.id?.slice(-6).toUpperCase()}
-                                    </span>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                        {new Date(order.date).toLocaleDateString('pt-BR')}
-                                    </span>
-                                </div>
-                                <h4 className="text-[11px] font-black text-slate-800 dark:text-slate-100 group-hover:text-orange-600 transition-colors uppercase truncate">
-                                    {order.customerData?.fullName || "Cliente não informado"}
-                                </h4>
-                            </button>
-                        ))}
-                    </div>
+                    {isPendingOpen && (
+                        <div className="flex gap-4 overflow-x-auto pt-3 pb-2 custom-scrollbar animate-slide-up">
+                            {pendingOrders.map(order => (
+                                <button
+                                    key={order.id}
+                                    onClick={() => onOrderClick(order)}
+                                    className="flex-none w-64 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-700 transition-all text-left group"
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-[9px] font-black text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-lg border border-amber-100 dark:border-amber-800">
+                                            #{order.id?.slice(-6).toUpperCase()}
+                                        </span>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            {new Date(order.date).toLocaleDateString('pt-BR')}
+                                        </span>
+                                    </div>
+                                    <h4 className="text-[11px] font-black text-slate-800 dark:text-slate-100 group-hover:text-amber-600 transition-colors uppercase truncate">
+                                        {order.customerData?.fullName || "Cliente não informado"}
+                                    </h4>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
             <div 

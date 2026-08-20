@@ -115,22 +115,11 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
             className={`group border rounded-2xl shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-0.5 hover:shadow-md ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
         >
             {/* Card Header: Type & Link Indicator */}
-            <div className={`px-3.5 py-2 border-b dark:border-slate-800 flex justify-between items-center ${isAssemblyTask ? 'bg-rose-50/50 dark:bg-rose-900/10' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
+            <div className={`px-3.5 py-2 border-b dark:border-slate-800 flex justify-between items-center ${isAssemblyOutside ? 'bg-red-50/50 dark:bg-red-950/20' : isOnlyInternalAssembly || isAssemblyTask ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
                 <div className="flex items-center gap-1.5">
-                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600 shadow-sm' : cls.dotBg + ' shadow-sm'}`}>
-                        {typeLabel}
+                    <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 ${isAssemblyOutside ? 'bg-red-600 shadow-sm' : (isAssemblyTask || isOnlyInternalAssembly) ? 'bg-amber-500 shadow-sm' : cls.dotBg + ' shadow-sm'}`}>
+                        {isAssemblyOutside ? '🔨 Montagem Fora' : (isAssemblyTask || isOnlyInternalAssembly) ? '🔨 Montagem Depósito' : typeLabel}
                     </span>
-                    {isAssemblyOutside && (
-                        <div className="flex items-center gap-0.5 bg-red-600 text-white px-2 py-0.5 rounded-full shadow-sm border border-white/20 ml-0.5 animate-blink" title="Montagem Fora - Realizada fora da morante">
-                            <i className="bi bi-hammer text-[9px]" />
-                            <i className="bi bi-house-door-fill text-[8px]" />
-                        </div>
-                    )}
-                    {isOnlyInternalAssembly && (
-                        <div className="flex items-center gap-1 bg-yellow-500 text-white px-2 py-0.5 rounded-full shadow-sm border border-white/20 ml-0.5 animate-blink" title="Montagem agendada">
-                            <i className="bi bi-hammer text-[9px]" />
-                        </div>
-                    )}
                 </div>
                 {/* Hammer Button Overlay */}
                 {isLinked && (
@@ -140,35 +129,30 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                                 e.stopPropagation();
                                 setShowAssemblyTooltip(!showAssemblyTooltip);
                             }}
-                            className="bg-rose-600 text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow flex items-center gap-1 transition-transform hover:scale-105 active:scale-95"
+                            className={`${isAssemblyOutside ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-500 hover:bg-amber-600'} text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow flex items-center gap-1 transition-transform hover:scale-105 active:scale-95`}
                         >
                             <i className="bi bi-hammer text-xs" />
-                            <span>Montagem</span>
+                            <span>Ver Itens</span>
                         </button>
                         
                         {showAssemblyTooltip && (
                             <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-3 animate-slide-up-custom overflow-hidden">
                                 <div className="flex items-center gap-2 mb-2 border-b pb-2 dark:border-slate-800">
-                                    <i className="bi bi-hammer text-rose-500" />
+                                    <i className={`bi bi-hammer ${isAssemblyOutside ? 'text-red-500' : 'text-amber-500'}`} />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos para Montagem</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
                                     {assemblyItems.map((item: any, i: number) => (
-                                        <div key={i} className="flex items-center gap-1.5 bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-800/50 px-2 py-1 rounded-xl">
-                                            <span className="text-[10px] font-black text-rose-700 dark:text-rose-400">
-                                                {item.quantity}x
-                                            </span>
-                                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-none">
-                                                {item.description}
-                                            </span>
-                                        </div>
+                                        <span key={i} className="text-[9px] font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
+                                            {item.description || item.name}
+                                        </span>
                                     ))}
                                 </div>
-                                <div className="absolute top-0 right-0 w-16 h-16 bg-rose-600/5 rotate-45 translate-x-8 -translate-y-8" />
                             </div>
                         )}
                     </div>
                 )}
+            </div>
 
                 {/* Order Button Overlay (on Assembly tasks) */}
                 {isAssemblyTask && hasLinkedDelivery && (() => {
@@ -216,7 +200,6 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                         </div>
                     );
                 })()}
-            </div>
 
             {/* Combined Header: Time & Status Picker */}
             <div className={`px-3.5 py-2.5 border-b dark:border-slate-800 flex justify-between items-center transition-colors ${cls.headerBg}`}>
@@ -417,6 +400,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
  */
 const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrolled, pendingOrders = [] }: Props) => {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+    const [isPendingOpen, setIsPendingOpen] = React.useState(false);
 
     React.useEffect(() => {
         if (hasInitialScrolled?.current) return;
@@ -443,48 +427,66 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
         <div ref={scrollContainerRef} className="flex flex-col gap-6 w-full custom-scrollbar">
             {pendingOrders.length > 0 && (
                 <div className="w-full scroll-mt-4">
-                    {/* Pending Section Header */}
-                    <div className="sticky top-0 z-20 py-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-3.5 py-2.5 rounded-2xl border border-orange-200/60 dark:border-orange-900/40 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
-                            <h3 className="text-xs font-black uppercase text-orange-600 dark:text-orange-400 tracking-wider">
-                                Entregas a Agendar
-                            </h3>
+                    {/* Tópico Flutuante com Acordeão de Entregas a Agendar */}
+                    <div 
+                        onClick={() => setIsPendingOpen(!isPendingOpen)}
+                        className="sticky top-0 z-30 py-2.5 bg-amber-50/95 dark:bg-amber-950/95 backdrop-blur-md flex items-center justify-between mb-3 px-4 py-3 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm cursor-pointer hover:bg-amber-100/70 dark:hover:bg-amber-900/70 transition-all select-none"
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
+                            <div>
+                                <h3 className="text-xs sm:text-sm font-black uppercase text-amber-800 dark:text-amber-300 tracking-wider">
+                                    Entregas a Agendar
+                                </h3>
+                                <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                                    {isPendingOpen ? 'Clique no tópico para recolher' : 'Aguardando agendamento de data (Clique para visualizar)'}
+                                </p>
+                            </div>
                         </div>
-                        <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-900/40 uppercase">
-                            {pendingOrders.length} {pendingOrders.length === 1 ? 'pendente' : 'pendentes'}
-                        </span>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800 uppercase shadow-xs">
+                                {pendingOrders.length} {pendingOrders.length === 1 ? 'pendente' : 'pendentes'}
+                            </span>
+                            <div className="w-7 h-7 rounded-xl bg-amber-200/60 dark:bg-amber-900/50 flex items-center justify-center text-amber-800 dark:text-amber-200 text-xs font-bold transition-transform">
+                                <i className={`bi bi-chevron-${isPendingOpen ? 'up' : 'down'}`} />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                        {pendingOrders.map((order, index) => (
-                            <DeliveryOrderCard
-                                key={order.id || `pending-${index}`}
-                                order={order}
-                                index={index}
-                                onOrderClick={onOrderClick}
-                                isReadOnly={isReadOnly}
-                            />
-                        ))}
-                    </div>
+                    {isPendingOpen && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 animate-slide-up">
+                            {pendingOrders.map((order, index) => (
+                                <DeliveryOrderCard
+                                    key={order.id || `pending-${index}`}
+                                    order={order}
+                                    index={index}
+                                    onOrderClick={onOrderClick}
+                                    isReadOnly={isReadOnly}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
             {Object.entries(schedule).map(([date, orders]) => (
-                <div key={date} id={`date-${date}`} className="w-full scroll-mt-4">
-                    {/* Compact Sticky Date Divider */}
-                    <div className="sticky top-0 z-20 py-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-3.5 py-2 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <i className="bi bi-calendar-event text-blue-600 dark:text-blue-400 text-xs" />
+                <div key={date} id={`date-${date}`} className="w-full scroll-mt-4 relative">
+                    {/* Tópico Flutuante da Data (Sticky Header idêntico ao Mobile) */}
+                    <div className="sticky top-0 z-20 py-2.5 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between mb-3 px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
+                                <i className="bi bi-calendar-event text-sm" />
+                            </div>
                             <h3 className="text-xs sm:text-sm font-black uppercase text-slate-800 dark:text-slate-100 tracking-wider">
                                 {new Date(date + "T00:00:00").toLocaleDateString("pt-BR", {
-                                    weekday: 'short',
+                                    weekday: 'long',
                                     day: '2-digit',
-                                    month: 'short'
+                                    month: 'long'
                                 })}
                             </h3>
                         </div>
-                        <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/40 uppercase">
+                        <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-900/40 uppercase">
                             {orders.length} {orders.length === 1 ? 'pedido' : 'pedidos'}
                         </span>
                     </div>
@@ -505,22 +507,6 @@ const ScheduleCardView = ({ schedule, onOrderClick, isReadOnly, hasInitialScroll
         </div>
     );
 };
-
-const styles = `
-    @keyframes blink {
-        0% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.92); }
-        100% { opacity: 1; transform: scale(1); }
-    }
-    .animate-blink { animation: blink 1.2s ease-in-out infinite; }
-`;
-
-if (typeof document !== 'undefined') {
-    const styleTag = document.createElement('style');
-    styleTag.innerHTML = styles;
-    document.head.appendChild(styleTag);
-}
-
 
 export default ScheduleCardView;
 

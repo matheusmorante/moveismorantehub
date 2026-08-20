@@ -153,20 +153,9 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 })()}
                 <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${isAssemblyTask ? 'bg-rose-600' : cls.dotBg}`}>
-                            {typeLabel}
+                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${isAssemblyOutside ? 'bg-red-600' : (isAssemblyTask || isOnlyInternalAssembly) ? 'bg-amber-500' : cls.dotBg}`}>
+                            {isAssemblyOutside ? '🔨 Montagem Fora' : (isAssemblyTask || isOnlyInternalAssembly) ? '🔨 Montagem Depósito' : typeLabel}
                         </span>
-                        {isAssemblyOutside && (
-                            <div className="flex items-center gap-0.5 bg-red-600 text-white px-2 py-1 rounded-full shadow-md border border-white/20 animate-blink" title="Montagem Fora - Realizada fora da morante">
-                                <i className="bi bi-hammer text-[10px]" />
-                                <i className="bi bi-house-door-fill text-[8px]" />
-                            </div>
-                        )}
-                        {isOnlyInternalAssembly && (
-                            <div className="flex items-center gap-1 bg-yellow-500 text-white px-2 py-1 rounded-full shadow-md border border-white/20 animate-blink" title="Montagem agendada">
-                                <i className="bi bi-hammer text-[10px]" />
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -279,13 +268,6 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 
                 <style dangerouslySetInnerHTML={{
                     __html: `
-                    @keyframes blink {
-                        0% { opacity: 1; transform: scale(1); }
-                        50% { opacity: 0.4; transform: scale(0.92); }
-                        100% { opacity: 1; transform: scale(1); }
-                    }
-                    .animate-blink { animation: blink 1.2s ease-in-out infinite; }
-                    
                     @keyframes slide-up-custom {
                         from { transform: translateY(10px); opacity: 0; }
                         to { transform: translateY(0); opacity: 1; }
