@@ -60,19 +60,7 @@ export default function AppLayout() {
     return () => clearInterval(syncInterval);
   }, []);
 
-  const [isMobileWidth, setIsMobileWidth] = useState(
-    typeof window !== 'undefined' && window.innerWidth <= 1024
-  );
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobileWidth(window.innerWidth <= 1024);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const isMobileAppView = isMobileWidth || (
+  const isMobileAppView = (
     typeof window !== 'undefined' && (
       window.location.search.includes('auth_email') || 
       window.location.pathname.includes('/mobile') || 

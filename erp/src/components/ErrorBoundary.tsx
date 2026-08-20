@@ -1,5 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { Link } from "react-router-dom";
 
 interface Props {
     children?: ReactNode;
@@ -51,14 +50,13 @@ class ErrorBoundary extends Component<Props, State> {
                                 <i className="bi bi-arrow-clockwise text-lg"></i>
                                 Tentar Novamente
                             </button>
-                            <Link
-                                to="/"
+                            <a
+                                href="/"
                                 className="px-6 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2"
-                                onClick={() => this.setState({ hasError: false })}
                             >
                                 <i className="bi bi-house-door-fill text-lg"></i>
                                 Voltar ao Início
-                            </Link>
+                            </a>
                         </div>
 
                         {/* Optional: Error details for debugging */}
