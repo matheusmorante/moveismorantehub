@@ -38,7 +38,7 @@ interface ProductFormModalProps {
     onSuccess?: (newProduct: Product) => void;
 }
 
-const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormData, isCombo, onEditCombo, onEdit, parentPrice, isEdit }: {
+const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormData, isCombo, onEditCombo, onEdit, parentPrice, isEdit, hasPhotoError }: {
     v: Variation,
     updateVariation: (id: string, field: keyof Variation, value: any) => void,
     removeVariation: (id: string) => void,
@@ -47,24 +47,34 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
     onEditCombo?: (id: string) => void,
     onEdit?: (id: string) => void,
     parentPrice?: number,
-    isEdit?: boolean
+    isEdit?: boolean,
+    hasPhotoError?: boolean
 }) => {
     const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
 
     return (
         <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
-            <td className="px-6 py-4">
-                <div className="relative h-10 w-10 rounded-xl border overflow-hidden bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
+            <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
+                <div className={`relative h-10 w-10 rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 ${hasPhotoError || !varImage ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-200 dark:border-slate-800'}`} title={!varImage ? "Foto pendente - obrigatória ao concluir o produto" : "Clique para editar"}>
                     {varImage ? (
                         <img src={varImage} alt="Variação" className="object-cover h-full w-full" />
                     ) : (
-                        <i className="bi bi-image text-slate-300 text-lg"></i>
+                            <div className="flex flex-col items-center justify-center text-red-500 bg-red-50 dark:bg-red-950/40 w-full h-full border border-red-300 dark:border-red-800 rounded-xl">
+                                <i className="bi bi-camera-fill text-sm animate-pulse"></i>
+                            </div>
                     )}
                 </div>
             </td>
             <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
                 <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>
+                        {!varImage && (
+                            <span className="text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded-md border border-red-200 dark:border-red-800 flex items-center gap-1">
+                                <i className="bi bi-exclamation-circle-fill text-[8px]"></i> Foto pendente
+                            </span>
+                        )}
+                    </div>
                     <input
                         value={v.name || ''}
                         readOnly
@@ -76,28 +86,11 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
 
             <td className="px-6 py-4">
                 <input
-                    value={v.sku || ''}
-                    readOnly
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg outline-none text-xs font-mono font-bold dark:text-blue-400 text-blue-600 border border-transparent cursor-default opacity-80"
-                    placeholder="SKU"
-                />
-            </td>
-            <td className="px-6 py-4">
-                <input
                     type="number"
                     value={v.syncUnitPrice ? parentPrice : v.unitPrice}
                     disabled={v.syncUnitPrice}
                     onChange={(e) => updateVariation(v.id, 'unitPrice', parseFloat(e.target.value))}
                     className={`bg-transparent border-none outline-none text-sm font-black w-24 ${v.syncUnitPrice ? 'text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}
-                />
-            </td>
-            <td className="px-6 py-4">
-                <input
-                    type="number"
-                    value={v.stock}
-                    disabled={isEdit}
-                    onChange={(e) => updateVariation(v.id, 'stock', parseInt(e.target.value) || 0)}
-                    className={`border-none outline-none text-xs font-bold w-16 px-2 py-1 rounded-lg dark:text-slate-200 ${isEdit ? 'bg-slate-100 dark:bg-slate-800 text-slate-450 dark:text-slate-500 cursor-not-allowed opacity-70' : 'bg-slate-100 dark:bg-slate-800'}`}
                 />
             </td>
             <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
@@ -594,7 +587,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     }, [formData.costPrice, formData.ipiPercent, formData.ipiType, formData.freightCost, formData.freightType]);
 
-    // Sync variation prices/costs (Parent -> Children)
+    // Sync variation prices/costs/promo (Parent -> Children)
     useEffect(() => {
         if (formData.variations?.length) {
             const nextVariations = formData.variations.map(v => {
@@ -608,13 +601,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     newV.costPrice = formData.costPrice || 0;
                     updated = true;
                 }
+                if (v.syncPromoPrice !== false && v.promoPrice !== formData.promoPrice) {
+                    newV.promoPrice = formData.promoPrice;
+                    updated = true;
+                }
                 return updated ? newV : v;
             });
             if (JSON.stringify(nextVariations) !== JSON.stringify(formData.variations)) {
                 setFormData(prev => ({ ...prev, variations: nextVariations }));
             }
         }
-    }, [formData.unitPrice, formData.costPrice]);
+    }, [formData.unitPrice, formData.costPrice, formData.promoPrice]);
 
     // Sync variation aggregates (Children -> Parent)
     useEffect(() => {
@@ -1210,14 +1207,23 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 errors.categoryIds = true;
             }
 
+            const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some(v => !v.images || v.images.length === 0);
+            if (hasVarsWithMissingPhoto) {
+                errors.variationsImages = true;
+            }
+
             if (Object.keys(errors).length > 0) {
                 setValidationErrors(errors);
                 if (errors.name || errors.categoryIds) {
                     setActiveTab('geral');
                 } else if (errors.unitPrice) {
                     setActiveTab('estoque');
+                } else if (errors.variationsImages) {
+                    setActiveTab('variacoes');
                 }
-                toast.error("Preencha todos os campos obrigatórios.");
+                toast.error(errors.variationsImages
+                    ? "Cada variação deve ter pelo menos 1 foto vinculada."
+                    : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});
@@ -1226,6 +1232,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 return false;
             }
         }
+
+        const hasVars = Boolean(formData.hasVariations) || (Array.isArray(formData.variations) && formData.variations.length > 0);
+        if (hasVars && Array.isArray(formData.variations) && formData.variations.length > 0) {
+            const varWithoutImage = formData.variations.find(v => !v.images || v.images.length === 0);
+            if (varWithoutImage) {
+                setActiveTab('variacoes');
+                toast.error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
+                return false;
+            }
+        }
+
         const ecomVal = checkEcomLegibility(formData);
 
         if (formData.status === 'published' && !ecomVal.isLegible) {
@@ -1250,8 +1267,23 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             
             if (showResult) {
                 if (normalizedData.status === 'published') {
-                    // Já publicado — apenas fecha com toast
+                    // Já publicado — apenas fecha com toast e dispara sincronização do catálogo da Meta
                     toast.success("Alterações salvas com sucesso!");
+                    
+                    const syncMetaPromise = fetch('/api/facebook-catalog/sync', { method: 'POST' }).then(async res => {
+                        if (!res.ok) throw new Error("Falha na sincronização");
+                        return res;
+                    });
+
+                    toast.promise(
+                        syncMetaPromise,
+                        {
+                            pending: 'Atualizando catálogo da Meta (Facebook/Instagram)...',
+                            success: 'Catálogo da Meta atualizado com sucesso! 👌',
+                            error: 'Aviso: Alterações salvas, mas falhou ao sincronizar o catálogo da Meta. 🤯'
+                        }
+                    );
+
                     if (onSuccess) onSuccess(normalizedData);
                     onClose();
                 } else {
@@ -1401,178 +1433,197 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 </div>
 
                 {/* Tabs Navigation */}
-                <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
-                    <div className="flex gap-6 min-w-max">
-                        {([
-                            { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
-                            !isService && { id: 'ecommerce', label: 'Fotos', icon: 'bi-images' },
-                            !isService && { id: 'technical', label: 'Informações Técnicas', icon: 'bi-ruler' },
-                            !isService && { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
-                            !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
-                            { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
-                        ] as any[]).filter(Boolean).map((tab: any) => {
-                            const hasTabErrors = 
-                                (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||
-                                (tab.id === 'estoque' && validationErrors.unitPrice);
+                {(() => {
+                    const formTabs = ([
+                        { id: 'geral', label: 'Cadastro Geral', icon: '' },
+                        !isService && { id: 'ecommerce', label: 'Fotos', icon: 'bi-images' },
+                        !isService && { id: 'technical', label: 'Informações Técnicas', icon: 'bi-info-circle' },
+                        !isService && { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
+                        !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
+                        { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
+                    ] as any[]).filter(Boolean);
 
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as any)}
-                                    className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${
-                                        hasTabErrors 
-                                            ? (activeTab === tab.id ? 'border-red-500 text-red-600' : 'border-red-200 text-red-500') 
-                                            : (activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200')
-                                    }`}
-                                >
-                                    <i className={`bi ${tab.icon}`}></i>
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+                    const currentTabIndex = formTabs.findIndex(t => t.id === activeTab);
+                    const isLastStep = currentTabIndex === formTabs.length - 1;
+                    const nextTabObj = currentTabIndex >= 0 && currentTabIndex < formTabs.length - 1 ? formTabs[currentTabIndex + 1] : null;
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-                    {activeTab === 'geral' && (
-                        <ProductGeneralTab
-                            onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
-                            suppliers={suppliers}
-                            isService={isService}
-                            formData={formData}
-                            setFormData={setFormData}
-                            availableCategories={availableCategories}
-                            handleGenerateComboName={handleGenerateComboName}
-                            isGeneratingComboName={isGeneratingComboName}
-                            validationErrors={validationErrors}
-                            setValidationErrors={setValidationErrors}
-                        />
-                    )}
+                    return (
+                        <>
+                            <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
+                                <div className="flex gap-6 min-w-max">
+                                    {formTabs.map((tab: any) => {
+                                        const hasTabErrors =
+                                            (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||
+                                            (tab.id === 'estoque' && validationErrors.unitPrice) ||
+                                            (tab.id === 'variacoes' && validationErrors.variationsImages);
 
-                    {activeTab === 'technical' && (
-                        <ProductTechnicalTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            handleImproveDescriptionWithAI={handleImproveDescriptionWithAI}
-                            isImprovingDescription={isImprovingDescription}
-                        />
-                    )}
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => setActiveTab(tab.id as any)}
+                                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${hasTabErrors
+                                                    ? (activeTab === tab.id ? 'border-red-500 text-red-600' : 'border-red-200 text-red-500')
+                                                    : (activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200')
+                                                    }`}
+                                            >
+                                                {tab.icon && <i className={`bi ${tab.icon}`}></i>}
+                                                {tab.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
+                            {/* Content Area */}
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                {activeTab === 'geral' && (
+                                    <ProductGeneralTab
+                                        onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
+                                        suppliers={suppliers}
+                                        isService={isService}
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        availableCategories={availableCategories}
+                                        handleGenerateComboName={handleGenerateComboName}
+                                        isGeneratingComboName={isGeneratingComboName}
+                                        validationErrors={validationErrors}
+                                        setValidationErrors={setValidationErrors}
+                                    />
+                                )}
 
+                                {activeTab === 'technical' && (
+                                    <ProductTechnicalTab
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        handleImproveDescriptionWithAI={handleImproveDescriptionWithAI}
+                                        isImprovingDescription={isImprovingDescription}
+                                    />
+                                )}
 
-                    {activeTab === 'estoque' && (
-                        <ProductInventoryTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            suppliers={suppliers}
-                            handleSuggestPrices={handleSuggestPrices}
-                            isSuggestingPrices={isSuggestingPrices}
-                            suggestPricesResults={suggestPricesResults}
-                            discountPercent={discountPercent}
-                            setDiscountPercent={setDiscountPercent}
-                            discountFixed={discountFixed}
-                            setDiscountFixed={setDiscountFixed}
-                            handlePriceChange={handlePriceChange}
-                            handleDiscountPercentChange={handleDiscountPercentChange}
-                            handleDiscountFixedChange={handleDiscountFixedChange}
-                            handlePromoPriceFieldChange={handlePromoPriceFieldChange}
-                            validationErrors={validationErrors}
-                            setValidationErrors={setValidationErrors}
-                        />
-                    )}
+                                {activeTab === 'estoque' && (
+                                    <ProductInventoryTab
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        suppliers={suppliers}
+                                        handleSuggestPrices={handleSuggestPrices}
+                                        isSuggestingPrices={isSuggestingPrices}
+                                        suggestPricesResults={suggestPricesResults}
+                                        discountPercent={discountPercent}
+                                        setDiscountPercent={setDiscountPercent}
+                                        discountFixed={discountFixed}
+                                        setDiscountFixed={setDiscountFixed}
+                                        handlePriceChange={handlePriceChange}
+                                        handleDiscountPercentChange={handleDiscountPercentChange}
+                                        handleDiscountFixedChange={handleDiscountFixedChange}
+                                        handlePromoPriceFieldChange={handlePromoPriceFieldChange}
+                                        validationErrors={validationErrors}
+                                        setValidationErrors={setValidationErrors}
+                                    />
+                                )}
 
-                    {activeTab === 'variacoes' && (
-                        <ProductVariationsTab
-                            variations={formData.variations || []}
-                            isGeneratingBulk={isGeneratingBulk}
-                            addVariation={addVariation}
-                            VariationRow={(props: any) => <VariationRow {...props} parentPrice={formData.unitPrice} isEdit={!!product?.id} />}
-                            updateVariation={updateVariation}
-                            removeVariation={removeVariation}
-                            setFormData={setFormData}
-                            isCombo={false}
-                            onEditCombo={setEditingVariationComboId}
-                            onEdit={setEditingVariationId}
-                            regenerateAllSkus={regenerateAllVariationSkus}
-                            hasVariations={formData.hasVariations || false}
-                            setHasVariations={(val) => setFormData(prev => ({ ...prev, hasVariations: val }))}
-                        />
-                    )}
+                                {activeTab === 'variacoes' && (
+                                    <ProductVariationsTab
+                                        variations={formData.variations || []}
+                                        isGeneratingBulk={isGeneratingBulk}
+                                        addVariation={addVariation}
+                                        VariationRow={(props: any) => <VariationRow {...props} parentPrice={formData.unitPrice} isEdit={!!product?.id} hasPhotoError={validationErrors.variationsImages && (!props.v.images || props.v.images.length === 0)} />}
+                                        updateVariation={updateVariation}
+                                        removeVariation={removeVariation}
+                                        setFormData={setFormData}
+                                        isCombo={false}
+                                        onEditCombo={setEditingVariationComboId}
+                                        onEdit={setEditingVariationId}
+                                        regenerateAllSkus={regenerateAllVariationSkus}
+                                        hasVariations={formData.hasVariations || false}
+                                        setHasVariations={(val) => setFormData(prev => ({ ...prev, hasVariations: val }))}
+                                    />
+                                )}
 
+                                {activeTab === 'ecommerce' && (
+                                    <ProductEcommerceTab
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        activeEcommerceSubTab={activeEcommerceSubTab}
+                                        setActiveEcommerceSubTab={setActiveEcommerceSubTab}
+                                        isDraggingPhoto={isDraggingPhoto}
+                                        setIsDraggingPhoto={setIsDraggingPhoto}
+                                        handleFileChange={handleFileChange}
+                                        removingPhoto={removingPhoto}
+                                        removePhoto={removePhoto}
+                                        handleGenerateAIDescription={handleGenerateAIDescription}
+                                        isGeneratingDescription={isGeneratingDescription}
+                                        handleGenerateMarketplaceTitle={handleGenerateMarketplaceTitle}
+                                        isGeneratingTitle={isGeneratingTitle}
+                                        handleToggleActive={handleToggleErpActive}
+                                    />
+                                )}
 
+                                {activeTab === 'fiscal' && (
+                                    <ProductFiscalTab
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        handleGenerateNCM={handleGenerateNCM}
+                                        isGeneratingNCM={isGeneratingNCM}
+                                        handleAutoFillFiscalWithAI={handleAutoFillFiscalWithAI}
+                                        isFillingFiscalWithAI={isFillingFiscalWithAI}
+                                    />
+                                )}
+                            </div>
 
-                    {activeTab === 'ecommerce' && (
-                        <ProductEcommerceTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            activeEcommerceSubTab={activeEcommerceSubTab}
-                            setActiveEcommerceSubTab={setActiveEcommerceSubTab}
-                            isDraggingPhoto={isDraggingPhoto}
-                            setIsDraggingPhoto={setIsDraggingPhoto}
-                            handleFileChange={handleFileChange}
-                            removingPhoto={removingPhoto}
-                            removePhoto={removePhoto}
-                            handleGenerateAIDescription={handleGenerateAIDescription}
-                            isGeneratingDescription={isGeneratingDescription}
-                            handleGenerateMarketplaceTitle={handleGenerateMarketplaceTitle}
-                            isGeneratingTitle={isGeneratingTitle}
-                            handleToggleActive={handleToggleErpActive}
-                        />
-                    )}
+                            {/* Footer Buttons */}
+                            <div className="p-4 md:p-6 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3 shrink-0">
+                                {!product && (
+                                    <div className="mr-auto flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                        {isSavingDraft ? (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                                                <span>Salvando rascunho...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="bi bi-cloud-check-fill text-emerald-500 text-sm" />
+                                                <span>alterações salvas automaticamente.</span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
+                                    {product && (
+                                        <button
+                                            onClick={onClose}
+                                            className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 flex-1 md:flex-initial text-center"
+                                        >
+                                            Descartar alterações
+                                        </button>
+                                    )}
 
-                    {activeTab === 'fiscal' && (
-                        <ProductFiscalTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            handleGenerateNCM={handleGenerateNCM}
-                            isGeneratingNCM={isGeneratingNCM}
-                            handleAutoFillFiscalWithAI={handleAutoFillFiscalWithAI}
-                            isFillingFiscalWithAI={isFillingFiscalWithAI}
-                        />
-                    )}
-                </div>
-
-                {/* Footer Buttons */}
-                <div className="p-4 md:p-6 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3 shrink-0">
-                    {!product && (
-                        <div className="mr-auto flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                            {isSavingDraft ? (
-                                <>
-                                    <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                                    <span>Salvando rascunho...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <i className="bi bi-cloud-check-fill text-emerald-500 text-sm" />
-                                    <span>alterações salvas automaticamente.</span>
-                                </>
-                            )}
-                        </div>
-                    )}
-                    <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
-                        {product && (
-                            <>
-                                <button
-                                    onClick={onClose}
-                                    className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 flex-1 md:flex-initial text-center"
-                                >
-                                    Descartar alterações
-                                </button>
-                            </>
-                        )}
-
-                        <button
-                            onClick={() => handleSubmit()}
-                            disabled={loading}
-                            className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none"
-                        >
-                            {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                            <i className="bi bi-check-circle-fill"></i>
-                            {(!product || formData.isDraft) ? "Cadastrar produto" : "Salvar alterações"}
-                        </button>
-                    </div>
-                </div>
+                                    {!isLastStep ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (nextTabObj) setActiveTab(nextTabObj.id as any);
+                                            }}
+                                            className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none"
+                                        >
+                                            <span>Próxima etapa</span>
+                                            <i className="bi bi-arrow-right text-sm"></i>
+                                        </button>
+                                    ) : (
+                                            <button
+                                                onClick={() => handleSubmit()}
+                                                disabled={loading}
+                                                className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none"
+                                            >
+                                                {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                                                <i className="bi bi-check-circle-fill"></i>
+                                                {(!product || formData.isDraft) ? "Cadastrar produto" : "Salvar alterações"}
+                                            </button>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    );
+                })()}
 
 
                 {editingVariationId && formData.variations?.some(v => v.id === editingVariationId) && (
@@ -1584,6 +1635,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     parentProduct={{
                         id: formData.id,
                         isDraft: !product || formData.isDraft,
+                        name: formData.name || formData.description || '',
                         description: formData.description || '',
                         unitPrice: formData.unitPrice || 0,
                         costPrice: formData.costPrice || 0,
@@ -1597,6 +1649,15 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                             ...prev,
                             variations: prev.variations?.map(v => v.id === updatedVar.id ? updatedVar : v)
                         }));
+                        if (updatedVar.images?.length) {
+                            setValidationErrors(prev => {
+                                const hasMissingPhoto = formData.variations?.some(v => v.id !== updatedVar.id && (!v.images || v.images.length === 0));
+                                if (hasMissingPhoto) return prev;
+                                const next = { ...prev };
+                                delete next.variationsImages;
+                                return next;
+                            });
+                        }
                     }}
                 />
                 )}

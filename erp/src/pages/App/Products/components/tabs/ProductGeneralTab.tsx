@@ -1,6 +1,7 @@
 import React from 'react';
 import { Product } from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { toTitleCase } from '@/pages/utils/textUtils';
 
 interface ProductGeneralTabProps {
     onOpenCategorySearch: () => void;
@@ -101,7 +102,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     : 'bg-slate-100 text-slate-500 dark:bg-slate-800 hover:bg-slate-200'
                             }`}
                         >
-                            {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título Catálogo'}
+                            {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
                         </button>
                     </div>
                     <input
@@ -115,6 +116,16 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             }));
                         }}
                         onBlur={() => {
+                            if (formData.name) {
+                                const formatted = toTitleCase(formData.name);
+                                if (formatted !== formData.name) {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        name: formatted,
+                                        ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {})
+                                    }));
+                                }
+                            }
                             if ((formData.name || '').trim() && setValidationErrors) {
                                 setValidationErrors(prev => {
                                     const next = { ...prev };
@@ -148,6 +159,19 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     title: val, 
                                     marketplaceTitle: val 
                                 }));
+                            }}
+                            onBlur={() => {
+                                const currentVal = formData.title || formData.marketplaceTitle || '';
+                                if (currentVal) {
+                                    const formatted = toTitleCase(currentVal);
+                                    if (formatted !== currentVal) {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            title: formatted,
+                                            marketplaceTitle: formatted
+                                        }));
+                                    }
+                                }
                             }}
                             className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
                             placeholder="Digite o título no catálogo..."

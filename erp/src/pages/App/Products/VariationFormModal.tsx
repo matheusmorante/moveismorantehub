@@ -8,6 +8,7 @@ import DropdownPortal from '@/components/shared/DropdownPortal';
 import CurrencyInput from '@/components/CurrencyInput';
 import InitialStockList from './components/InitialStockList';
 import { getSettings } from '@/pages/utils/settingsService';
+import { toTitleCase } from '@/pages/utils/textUtils';
 
 interface VariationFormModalProps {
     isOpen: boolean;
@@ -50,6 +51,24 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
     // Discount helper states
     const [varDiscountPercent, setVarDiscountPercent] = useState("");
     const [varDiscountFixed, setVarDiscountFixed] = useState("");
+
+    const getParentDiscountPercent = () => {
+        const orig = parentProduct?.unitPrice || 0;
+        const promo = parentProduct?.promoPrice || 0;
+        if (orig > 0 && promo > 0 && promo < orig) {
+            return ((orig - promo) / orig * 100).toFixed(1);
+        }
+        return "";
+    };
+
+    const getParentDiscountFixed = () => {
+        const orig = parentProduct?.unitPrice || 0;
+        const promo = parentProduct?.promoPrice || 0;
+        if (orig > 0 && promo > 0 && promo < orig) {
+            return (orig - promo).toFixed(2);
+        }
+        return "";
+    };
 
     const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
         const parentName = (parentProduct.name || parentProduct.description || '').trim();
@@ -363,23 +382,43 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
         e.preventDefault();
         if (!formData) return;
 
-        if (!formData.images || formData.images.length === 0) {
-            toast.error("Vincule pelo menos uma foto para esta variação!");
-            setActiveTab('fotos');
-            return;
-        }
-
         if (!formData.name.trim()) {
             toast.error("O título da variação é obrigatório!");
             setActiveTab('identificacao');
             return;
         }
 
+        let finalVariation = { ...formData, syncFiscal: true };
+
+        // Copiar valores do pai se as flags de sincronização estiverem ativas
+        if (finalVariation.syncDescription) {
+            finalVariation.description = parentProduct.description || '';
+        }
+        if (finalVariation.syncWidth) {
+            finalVariation.width = parentProduct.width || 0;
+        }
+        if (finalVariation.syncHeight) {
+            finalVariation.height = parentProduct.height || 0;
+        }
+        if (finalVariation.syncDepth) {
+            finalVariation.depth = parentProduct.depth || 0;
+        }
+        if (finalVariation.syncWeight) {
+            finalVariation.weight = parentProduct.weight || 0;
+        }
+        if (finalVariation.syncUnitPrice) {
+            finalVariation.unitPrice = parentProduct.unitPrice || 0;
+            finalVariation.promoPrice = parentProduct.promoPrice || 0;
+        }
+        if (finalVariation.syncCostPrice) {
+            finalVariation.costPrice = parentProduct.costPrice || 0;
+        }
+
         setLoading(true);
         try {
             await saveVariation(parentId, {
-                ...formData,
-                sku: formData.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+                ...finalVariation,
+                sku: finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase()
             });
             toast.success("Variação salva com sucesso!");
             if (onSuccess) onSuccess();
@@ -423,9 +462,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
                     <div className="flex gap-6 min-w-max">
                         {([
-                            { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
+                            { id: 'identificacao', label: 'Identificação', icon: '' },
                             { id: 'fotos', label: 'Fotos', icon: 'bi-images' },
-                            { id: 'tecnico', label: 'Inform. Técnicas', icon: 'bi-rulers' },
+                            { id: 'tecnico', label: 'Inform. Técnicas', icon: 'bi-info-circle' },
                             { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
                             { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ]).map((tab: any) => (
@@ -446,16 +485,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     {/* Aba Identificação */}
                     {activeTab === 'identificacao' && (
                         <div className="space-y-6 animate-in fade-in duration-350">
-                            {/* Nome do Produto Principal (Pai) */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Produto Principal (Pai)</label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={parentProduct.name || parentProduct.description || ""}
-                                    className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                                />
-                            </div>
+
 
                             {/* Linha com Nome (ERP) e Título (Catálogo) */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -485,7 +515,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                     : 'bg-slate-100 text-slate-500 dark:bg-slate-800 hover:bg-slate-200'
                                             }`}
                                         >
-                                            {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título Catálogo'}
+                                            {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
                                         </button>
                                     </div>
                                     <input
@@ -493,6 +523,18 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                         placeholder="Nome interno da variação (ERP)..."
                                         value={formData.name || ""}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                            onBlur={() => {
+                                                if (formData.name) {
+                                                    const formatted = toTitleCase(formData.name);
+                                                    if (formatted !== formData.name) {
+                                                        setFormData(prev => prev ? ({
+                                                            ...prev,
+                                                            name: formatted,
+                                                            ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {})
+                                                        }) : null);
+                                                    }
+                                                }
+                                            }}
                                         className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
                                     />
                                 </div>
@@ -509,6 +551,15 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             placeholder="Título exibido no catálogo digital..."
                                             value={formData.title || formData.marketplaceTitle || ""}
                                             onChange={e => setFormData({ ...formData, title: e.target.value, marketplaceTitle: e.target.value })}
+                                                onBlur={() => {
+                                                    const current = formData.title || formData.marketplaceTitle || '';
+                                                    if (current) {
+                                                        const formatted = toTitleCase(current);
+                                                        if (formatted !== current) {
+                                                            setFormData(prev => prev ? ({ ...prev, title: formatted, marketplaceTitle: formatted }) : null);
+                                                        }
+                                                    }
+                                                }}
                                             className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
                                         />
                                     </div>
@@ -820,9 +871,9 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="flex flex-wrap gap-4">
                                     {/* Preço de Venda */}
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 min-w-[200px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Preço de Venda</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
@@ -832,12 +883,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             disabled={formData.syncUnitPrice}
                                             value={formData.syncUnitPrice ? (parentProduct.unitPrice || 0) : (formData.unitPrice || 0)}
                                             onChange={val => handlePriceChange(String(val))}
-                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-blue-600 focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>
 
                                     {/* Desconto % */}
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 min-w-[120px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Desconto (%)</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
@@ -847,7 +898,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                                 type="number"
                                                 disabled={formData.syncUnitPrice}
                                                 placeholder="0"
-                                                value={varDiscountPercent}
+                                                value={formData.syncUnitPrice ? getParentDiscountPercent() : varDiscountPercent}
                                                 onChange={e => handleDiscountPercentChange(e.target.value)}
                                                 className="w-full pl-4 pr-8 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
                                             />
@@ -856,23 +907,23 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     </div>
 
                                     {/* Desconto R$ */}
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 min-w-[140px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Desconto (R$)</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
                                         <CurrencyInput
                                             disabled={formData.syncUnitPrice}
-                                            value={varDiscountFixed}
+                                            value={formData.syncUnitPrice ? getParentDiscountFixed() : varDiscountFixed}
                                             onChange={val => handleDiscountFixedChange(String(val))}
                                             className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
                                         />
                                     </div>
 
-                                    {/* Preço Promocional Final */}
-                                    <div className="flex flex-col gap-2">
+                                    {/* Preço Promocional */}
+                                    <div className="flex flex-col gap-2 min-w-[180px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                            <span>Promo Final</span>
+                                            <span>Preço Promocional</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
                                         <CurrencyInput
@@ -978,6 +1029,13 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     {/* Aba Tributário */}
                     {activeTab === 'fiscal' && (
                         <div className="space-y-6 animate-in fade-in duration-350">
+                                <div className="p-5 bg-blue-50/70 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex items-start gap-3">
+                                    <i className="bi bi-info-circle-fill text-blue-500 text-sm mt-0.5"></i>
+                                    <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                                        Esta variação herda os dados tributários do produto pai. Para alterar essas informações, acesse o cadastro do produto pai.
+                                    </p>
+                                </div>
+                                {false && (<>
                             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
@@ -1204,6 +1262,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     </div>
                                 </div>
                             )}
+                                </>)}
                         </div>
                     )}
                 </div>
@@ -1223,7 +1282,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                         disabled={loading}
                         className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20"
                     >
-                        {loading ? "Salvando..." : "Concluir Cadastro"}
+                            {loading ? "Salvando..." : "Concluir"}
                     </button>
                 </div>
             </div>

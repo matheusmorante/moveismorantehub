@@ -87,12 +87,6 @@ const ProductCard = ({
                 </div>
 
                 <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
-                    {(product.opportunityName || product.opportunity?.name) && (
-                        <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
-                            <i className="bi bi-fire text-amber-600" />
-                            {product.opportunityName || product.opportunity?.name}
-                        </span>
-                    )}
                     {!showTrash && (
                         <div className="relative flex items-center gap-1">
                             <button
@@ -226,9 +220,17 @@ const ProductCard = ({
                             : (product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-"))}
                     </h3>
                     {!isVariation && (
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 leading-relaxed">
-                            {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
-                        </p>
+                        <div className="flex items-center flex-wrap gap-2 mt-1 leading-relaxed">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">
+                                {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
+                            </span>
+                            {(product.opportunityName || product.opportunity?.name) && (
+                                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-850 dark:bg-amber-950 dark:text-amber-300 border border-amber-300/60 dark:border-amber-900/40 flex items-center gap-1 select-none shrink-0">
+                                    <i className="bi bi-fire text-amber-600 text-[9px]" />
+                                    {product.opportunityName || product.opportunity?.name}
+                                </span>
+                            )}
+                        </div>
                     )}
                     <div className="flex justify-between items-center gap-2 mt-2 w-full">
                         <div className="flex flex-wrap gap-1.5">
@@ -277,18 +279,6 @@ const ProductCard = ({
             </div>
             )}
 
-            {isParent && (product as any).allVariations && (product as any).allVariations.length > 0 && (
-                <div className="flex justify-center border-t border-slate-50 dark:border-slate-800/50 pt-2.5 mt-2.5">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setShowVariations(!showVariations); }}
-                        className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
-                    >
-                        <span>Variações ({(product as any).allVariations.length})</span>
-                        <i className={`bi ${showVariations ? 'bi-chevron-double-up' : 'bi-chevron-double-down'} text-xs`} />
-                    </button>
-                </div>
-            )}
-
             {showTrash && (
                 <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -308,8 +298,8 @@ const ProductCard = ({
                 />
             )}
 
-            {/* Se for pai e showVariations for true, renderiza a lista de filhos */}
-            {isParent && showVariations && (product as any).allVariations && (product as any).allVariations.length > 0 && (
+            {/* Se for pai, renderiza a lista de filhos sempre abertas */}
+            {isParent && (product as any).allVariations && (product as any).allVariations.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-2">
                     {(product as any).allVariations.map((v: any) => {
                         const varName = v.attributes && Array.isArray(v.attributes)

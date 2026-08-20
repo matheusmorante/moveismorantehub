@@ -57,8 +57,8 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* PHOTOS SECTION */}
-            <div id="field-product-images" className="flex flex-col gap-6 transition-all p-2 rounded-2xl">
-                <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-slate-800">
+            <div id="field-product-images" className={`flex flex-col gap-6 transition-all p-2 rounded-2xl ${currentCount === 0 ? 'border-2 border-red-500/70 bg-red-50/10 dark:bg-red-950/5' : ''}`}>
+                <div className={`flex items-center justify-between border-b pb-2 ${currentCount === 0 ? 'border-red-200 dark:border-red-900/50' : 'border-slate-100 dark:border-slate-800'}`}>
                     <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wider">
                         <i className="bi bi-camera text-base text-purple-600 dark:text-purple-400"></i>
                         <span>Fotos do Produto ({currentCount}/{maxPhotos})</span>
@@ -69,13 +69,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                         </span>
                     )}
                 </div>
-                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest bg-purple-50/50 dark:bg-purple-955/10 text-purple-700 dark:text-purple-400 p-3 rounded-2xl border border-purple-100 dark:border-purple-900/20 flex items-center gap-2">
+                <p className="text-[10px] uppercase font-black tracking-widest bg-purple-50/50 dark:bg-purple-955/10 text-purple-700 dark:text-purple-400 p-3 rounded-2xl border border-purple-100 dark:border-purple-900/20 flex items-center gap-2">
                     <i className="bi bi-info-circle text-sm shrink-0"></i>
                     <span><strong>Dica prática:</strong> Você pode arrastar/soltar imagens, colar fotos (Ctrl+V) ou clicar em Adicionar (Máximo de 15 fotos). Passe o mouse sobre qualquer foto para ver os botões de substituir (câmera) ou excluir (lixeira).</span>
                 </p>
 
                 <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-6 bg-slate-50/50 dark:bg-slate-955/10">
-                    <div className="flex overflow-x-auto pb-4 gap-4 scrollbar-thin select-none shrink-0 min-w-0 w-full items-center">
+                    <div className="flex flex-wrap pb-4 gap-4 select-none min-w-0 w-full items-center">
                         {currentCount < maxPhotos && (
                             <label className="h-36 w-36 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shrink-0 shadow-sm">
                                 <i className="bi bi-plus text-2xl text-purple-600 dark:text-purple-400 group-hover:scale-125 transition-transform"></i>

@@ -1,17 +1,33 @@
-const lowercaseWords = new Set(['de', 'da', 'do', 'dos', 'das', 'para', 'com', 'e', 'em', 'a', 'o', 'as', 'os', 'por', 'sem', 'ou']);
+const lowercaseWords = new Set([
+    'de', 'da', 'do', 'dos', 'das',
+    'para', 'com', 'e', 'em', 'a', 'o', 'as', 'os',
+    'por', 'sem', 'ou', 'que', 'no', 'na', 'nos', 'nas',
+    'pelo', 'pela', 'pelos', 'pelas'
+]);
 
 export function toTitleCase(str: string): string {
-    if (!str) return '';
+    if (!str || typeof str !== 'string') return '';
     return str
-        .toLowerCase()
         .trim()
         .split(/\s+/)
         .map((word, index) => {
             if (!word) return '';
-            if (index === 0 || !lowercaseWords.has(word)) {
-                return word.charAt(0).toUpperCase() + word.slice(1);
+
+            if (word.includes('/')) {
+                return word.split('/').map((subWord, subIdx) => {
+                    const lower = subWord.toLowerCase();
+                    if ((index > 0 || subIdx > 0) && lowercaseWords.has(lower)) {
+                        return lower;
+                    }
+                    return lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : '';
+                }).join('/');
             }
-            return word;
+
+            const lower = word.toLowerCase();
+            if (index === 0 || !lowercaseWords.has(lower)) {
+                return lower.charAt(0).toUpperCase() + lower.slice(1);
+            }
+            return lower;
         })
         .join(' ');
 }

@@ -162,6 +162,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
+    useEffect(() => {
+        if (profile) {
+            (window as any).userProfile = profile;
+            // Se estiver no WebView do React Native, enviar mensagem imediatamente
+            if ((window as any).ReactNativeWebView) {
+                (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'USER_PROFILE',
+                    profile
+                }));
+            }
+        } else {
+            (window as any).userProfile = null;
+        }
+    }, [profile]);
+
     const logout = async () => {
         await supabase.auth.signOut();
         setUser(null);

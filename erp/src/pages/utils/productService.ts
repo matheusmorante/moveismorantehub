@@ -343,9 +343,14 @@ export const mapFromDB = (data: any, index?: number): Product => {
                     syncPromoPrice: v.use_parent_promo_price !== false,
                     syncDescription: v.use_parent_description !== false,
                     description: v.description || '',
+                    syncWidth: v.use_parent_dimensions !== false,
+                    syncHeight: v.use_parent_dimensions !== false,
+                    syncDepth: v.use_parent_dimensions !== false,
+                    syncWeight: v.use_parent_dimensions !== false,
                     width: v.width ? Number(v.width) : undefined,
                     depth: v.depth ? Number(v.depth) : undefined,
                     height: v.height ? Number(v.height) : undefined,
+                    weight: v.weight ? Number(v.weight) : undefined,
                 };
             }
             return {
@@ -681,6 +686,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         // Sincronizar variações na tabela product_variations
         if (product.id) {
             if ((product.hasVariations || (Array.isArray(product.variations) && product.variations.length > 0)) && product.variations && product.variations.length > 0) {
+                const varWithoutImage = product.variations.find(v => !v.images || v.images.length === 0);
+                if (varWithoutImage) {
+                    throw new Error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
+                }
+
                 const currentIds = product.variations.map(v => v.id).filter(Boolean);
                 if (currentIds.length > 0) {
                     await supabase
@@ -720,9 +730,10 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         width: v.width ? String(v.width) : null,
                         depth: v.depth ? String(v.depth) : null,
                         height: v.height ? String(v.height) : null,
+                        weight: v.weight ? String(v.weight) : null,
                         use_parent_price: v.syncUnitPrice !== false,
                         use_parent_promo_price: v.syncPromoPrice !== false,
-                        use_parent_dimensions: v.syncDescription !== false,
+                        use_parent_dimensions: v.syncWidth !== false,
                         use_parent_description: v.syncDescription !== false,
                         use_parent_name: true,
                         status: v.status || 'published'

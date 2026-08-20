@@ -90,9 +90,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                 <tr className="bg-slate-50 dark:bg-slate-900/50">
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[80px]">Foto</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th>
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Código (SKU)</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço Venda (R$)</th>
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">Estoque</th>
                                     <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
                                 </tr>
                             </thead>
@@ -110,7 +108,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                 ))}
                                 {variations.length === 0 && (
                                     <tr className="px-6 py-20 text-center text-slate-400">
-                                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400">
+                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400">
                                             <i className="bi bi-stack text-4xl mb-3 block opacity-20"></i>
                                             <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma variação definida ainda.</p>
                                         </td>

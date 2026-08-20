@@ -10,7 +10,9 @@ import AttributeSelectionModal from "./AttributeSelectionModal";
 import AttributeManagementModal from "./AttributeManagementModal";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import InitialStockList from './InitialStockList';
+import { toast } from "react-toastify";
 import CurrencyInput from '@/components/CurrencyInput';
+import { toTitleCase } from '@/pages/utils/textUtils';
 
 interface VariationEditModalProps {
     isOpen: boolean;
@@ -47,6 +49,24 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
     const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(false);
     const [varDiscountPercent, setVarDiscountPercent] = useState("");
     const [varDiscountFixed, setVarDiscountFixed] = useState("");
+
+    const getParentDiscountPercent = () => {
+        const orig = parentProduct?.unitPrice || 0;
+        const promo = parentProduct?.promoPrice || 0;
+        if (orig > 0 && promo > 0 && promo < orig) {
+            return ((orig - promo) / orig * 100).toFixed(1);
+        }
+        return "";
+    };
+
+    const getParentDiscountFixed = () => {
+        const orig = parentProduct?.unitPrice || 0;
+        const promo = parentProduct?.promoPrice || 0;
+        if (orig > 0 && promo > 0 && promo < orig) {
+            return (orig - promo).toFixed(2);
+        }
+        return "";
+    };
 
     useEffect(() => {
         if (localVariation && !diferenciarTitulo) {
@@ -85,8 +105,13 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
     useEffect(() => {
         if (variation) {
+            const initialAttrs = variation.attributes && variation.attributes.length > 0
+                ? variation.attributes
+                : [{ name: "", value: "", showName: true }];
+
             setLocalVariation({ 
                 ...variation,
+                attributes: initialAttrs,
                 images: parseVariationImages((variation as any).image_url, variation.images),
                 // Sincronizações ativas por padrão
                 syncUnitPrice: variation.syncUnitPrice !== undefined ? variation.syncUnitPrice : true,
@@ -106,8 +131,11 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                 Boolean(variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
             );
 
-            const orig = Number(variation.syncUnitPrice ? parentProduct?.unitPrice : variation.unitPrice || 0);
-            const promo = Number((variation.syncPromoPrice !== false) ? parentProduct?.promoPrice : variation.promoPrice || 0);
+            const isUnitPriceSynced = variation.syncUnitPrice !== undefined ? variation.syncUnitPrice : true;
+            const isPromoPriceSynced = variation.syncPromoPrice !== undefined ? variation.syncPromoPrice : true;
+
+            const orig = Number(isUnitPriceSynced ? parentProduct?.unitPrice : variation.unitPrice || 0);
+            const promo = Number(isPromoPriceSynced ? parentProduct?.promoPrice : variation.promoPrice || 0);
             if (orig > 0 && promo > 0 && promo < orig) {
                 const fixed = orig - promo;
                 const pct = (fixed / orig) * 100;
@@ -121,7 +149,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
             setLocalVariation(null);
         }
         setActiveTab('geral');
-    }, [variation, isOpen]);
+    }, [variation, isOpen, parentProduct?.unitPrice, parentProduct?.promoPrice]);
 
     if (!localVariation || !isOpen) return null;
 
@@ -227,7 +255,43 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
     };
 
     const handleSave = () => {
-        let finalVariation = { ...localVariation };
+        if (!localVariation) return;
+
+        if (localVariation.attributes && localVariation.attributes.length > 0) {
+            const hasEmptyAttr = localVariation.attributes.some(a => !a.name || !a.name.trim() || !a.value || !a.value.trim());
+            if (hasEmptyAttr) {
+                toast.error("Selecione o atributo e o valor em todas as composições ou remova as linhas não utilizadas.");
+                setActiveTab('geral');
+                return;
+            }
+        }
+
+        let finalVariation = { ...localVariation, syncFiscal: true };
+
+        // Copiar valores do pai se as flags de sincronização estiverem ativas
+        if (finalVariation.syncDescription) {
+            finalVariation.description = parentProduct?.description || '';
+        }
+        if (finalVariation.syncWidth) {
+            finalVariation.width = parentProduct?.width || 0;
+        }
+        if (finalVariation.syncHeight) {
+            finalVariation.height = parentProduct?.height || 0;
+        }
+        if (finalVariation.syncDepth) {
+            finalVariation.depth = parentProduct?.depth || 0;
+        }
+        if (finalVariation.syncWeight) {
+            finalVariation.weight = parentProduct?.weight || 0;
+        }
+        if (finalVariation.syncUnitPrice) {
+            finalVariation.unitPrice = parentProduct?.unitPrice || 0;
+            finalVariation.promoPrice = parentProduct?.promoPrice || 0;
+        }
+        if (finalVariation.syncCostPrice) {
+            finalVariation.costPrice = parentProduct?.costPrice || 0;
+        }
+
         if (!finalVariation.sku || finalVariation.sku.trim() === '') {
             const parentCode = (parentProduct as any)?.code || '000000';
             finalVariation.sku = generateVariationSku(parentCode, 0);
@@ -238,8 +302,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
     const generateVariationName = (attrs: { name: string, value: string, showName?: boolean }[]) => {
         const attributeValues = attrs.map(attribute => attribute.value).filter(Boolean);
-        const baseTitle = parentProduct?.description || '';
-        return [baseTitle, ...attributeValues].filter(Boolean).join(' ') || 'Padrão';
+        const parentName = (parentProduct?.name || parentProduct?.description || '').trim();
+        const raw = [parentName, ...attributeValues].filter(Boolean).join(' ') || parentName || 'Variação';
+        return toTitleCase(raw);
     };
 
     const handleAttributesChange = (nextAttrs: any[]) => {
@@ -249,11 +314,15 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
             const currentSku = prev.sku || '';
             const matchSuffix = currentSku.match(/-(\d{2})$/);
             const varIndex = matchSuffix ? parseInt(matchSuffix[1], 10) - 1 : 0;
-            const previousAutoName = generateVariationName(prev.attributes || []);
-            const name = !prev.name || prev.name === previousAutoName
-                ? generateVariationName(nextAttrs)
-                : prev.name;
-            const next = { ...prev, attributes: nextAttrs, name, sku: generateVariationSku(parentCode, varIndex) };
+            const newName = generateVariationName(nextAttrs);
+            const next = {
+                ...prev,
+                attributes: nextAttrs,
+                name: newName,
+                title: (!diferenciarTitulo || !prev.title || prev.title === prev.name) ? newName : prev.title,
+                marketplaceTitle: (!diferenciarTitulo || !prev.marketplaceTitle || prev.marketplaceTitle === prev.name) ? newName : prev.marketplaceTitle,
+                sku: generateVariationSku(parentCode, varIndex)
+            };
             return next;
         });
     };
@@ -303,9 +372,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                 {/* Tabs */}
                 <div className="px-8 border-b border-slate-50 dark:border-slate-800 flex gap-6 shrink-0 bg-slate-50/50 dark:bg-slate-950/20 overflow-x-auto scrollbar-none">
                     {[
-                        { id: 'geral', label: 'Cadastro Geral', icon: 'bi-info-circle' },
+                        { id: 'geral', label: 'Cadastro Geral', icon: '' },
                         { id: 'fotos', label: 'Fotos', icon: 'bi-images' },
-                        { id: 'technical', label: 'Informações Técnicas', icon: 'bi-ruler' },
+                        { id: 'technical', label: 'Informações Técnicas', icon: 'bi-info-circle' },
                         { id: 'financeiro', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
                         { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
                         ...(parentProduct?.isCombo ? [{ id: 'combo', label: 'Combo', icon: 'bi-layers' }] : [])
@@ -333,9 +402,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                const availableAttr = availableVariations.find(v => !(localVariation.attributes || []).some(a => a.name === v.name));
-                                                const newAttrName = availableAttr ? availableAttr.name : "";
-                                                const nextAttrs = [...(localVariation.attributes || []), { name: newAttrName, value: "", showName: true }];
+                                                const nextAttrs = [...(localVariation.attributes || []), { name: "", value: "", showName: true }];
                                                 handleAttributesChange(nextAttrs);
                                             }}
                                             className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 transition-colors"
@@ -411,18 +478,6 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            const nextAttrs = [...(localVariation.attributes || [])];
-                                                            nextAttrs[idx] = { ...nextAttrs[idx], showName: !nextAttrs[idx].showName };
-                                                            handleAttributesChange(nextAttrs);
-                                                        }}
-                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${attr.showName !== false ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                                                        title={attr.showName !== false ? "Ocultar nome no título" : "Mostrar nome no título"}
-                                                    >
-                                                        <i className={`bi ${attr.showName !== false ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}></i>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
                                                             const nextAttrs = localVariation.attributes!.filter((_, i) => i !== idx);
                                                             handleAttributesChange(nextAttrs);
                                                         }}
@@ -439,10 +494,10 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
 
                                 <div className="space-y-4 pt-2 border-t border-slate-150 dark:border-slate-800">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {/* Nome (ERP) */}
+                                            {/* Nome */}
                                         <div className="space-y-1.5">
                                             <div className="flex items-center justify-between h-6">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome (ERP)</label>
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome</label>
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -462,13 +517,25 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 hover:bg-slate-200'
                                                     }`}
                                                 >
-                                                    {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título Catálogo'}
+                                                    {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
                                                 </button>
                                             </div>
                                             <input
                                                 value={localVariation.name || ''}
                                                 onChange={(e) => handleChange('name', e.target.value)}
-                                                className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
+                                                    onBlur={() => {
+                                                        if (localVariation.name) {
+                                                            const formatted = toTitleCase(localVariation.name);
+                                                            if (formatted !== localVariation.name) {
+                                                                setLocalVariation(prev => prev ? ({
+                                                                    ...prev,
+                                                                    name: formatted,
+                                                                    ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {})
+                                                                }) : null);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="w-full bg-white dark:bg-slate-955 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
                                                 placeholder="Nome interno da variação (ERP)"
                                             />
                                         </div>
@@ -486,7 +553,16 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                                         const val = e.target.value;
                                                         setLocalVariation(prev => prev ? ({ ...prev, title: val, marketplaceTitle: val }) : null);
                                                     }}
-                                                    className="w-full bg-white dark:bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
+                                                        onBlur={() => {
+                                                            const current = localVariation.title || localVariation.marketplaceTitle || '';
+                                                            if (current) {
+                                                                const formatted = toTitleCase(current);
+                                                                if (formatted !== current) {
+                                                                    setLocalVariation(prev => prev ? ({ ...prev, title: formatted, marketplaceTitle: formatted }) : null);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="w-full bg-white dark:bg-slate-955 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 outline-none font-bold text-xs text-slate-800 dark:text-slate-100"
                                                     placeholder="Título da variação no catálogo"
                                                 />
                                             </div>
@@ -744,7 +820,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                             setLocalVariation(prev => prev ? {
                                                 ...prev,
                                                 syncUnitPrice: nextSync,
-                                                unitPrice: nextSync ? parentProduct?.unitPrice : prev.unitPrice
+                                                unitPrice: nextSync ? parentProduct?.unitPrice : prev.unitPrice,
+                                                syncPromoPrice: nextSync,
+                                                promoPrice: nextSync ? parentProduct?.promoPrice : prev.promoPrice
                                             } : null);
                                         }}
                                         className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all ${localVariation.syncUnitPrice ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"}`}
@@ -753,9 +831,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="flex flex-wrap gap-4">
                                     {/* Preço de Venda */}
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 min-w-[200px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Preço de Venda</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-blue-100/60 dark:bg-blue-955/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/30 uppercase select-none">ERP</span>
@@ -779,44 +857,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                             </div>
                                         )}
                                     </div>
-                                </div>
 
-                                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 pt-4">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Descontos e Promoção</h4>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const nextSync = localVariation.syncPromoPrice === false ? true : false;
-                                            setLocalVariation(prev => {
-                                                if (!prev) return null;
-                                                const next = {
-                                                    ...prev,
-                                                    syncPromoPrice: nextSync,
-                                                    promoPrice: nextSync ? parentProduct?.promoPrice : prev.promoPrice
-                                                };
-                                                const orig = Number(next.syncUnitPrice ? parentProduct?.unitPrice : next.unitPrice || 0);
-                                                const promo = Number(nextSync ? parentProduct?.promoPrice : next.promoPrice || 0);
-                                                if (orig > 0 && promo > 0 && promo < orig) {
-                                                    const fixed = orig - promo;
-                                                    const pct = (fixed / orig) * 100;
-                                                    setVarDiscountFixed(fixed.toFixed(2));
-                                                    setVarDiscountPercent(pct.toFixed(1));
-                                                } else {
-                                                    setVarDiscountPercent("");
-                                                    setVarDiscountFixed("");
-                                                }
-                                                return next;
-                                            });
-                                        }}
-                                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all ${localVariation.syncPromoPrice !== false ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"}`}
-                                    >
-                                        {localVariation.syncPromoPrice !== false ? "Promoção Herdada do Pai" : "Promoção Personalizada"}
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     {/* Desconto % */}
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 min-w-[120px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Desconto (%)</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
@@ -824,9 +867,9 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                         <div className="relative">
                                             <input
                                                 type="number"
-                                                disabled={localVariation.syncPromoPrice !== false}
+                                                disabled={localVariation.syncUnitPrice}
                                                 placeholder="0"
-                                                value={varDiscountPercent}
+                                                value={localVariation.syncUnitPrice ? getParentDiscountPercent() : varDiscountPercent}
                                                 onChange={e => handleDiscountPercentChange(e.target.value)}
                                                 className="w-full pl-4 pr-8 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-100 disabled:dark:bg-slate-900/50 disabled:text-slate-450"
                                             />
@@ -835,75 +878,37 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     </div>
 
                                     {/* Desconto R$ */}
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 min-w-[140px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                                             <span>Desconto (R$)</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
                                         <CurrencyInput
-                                            disabled={localVariation.syncPromoPrice !== false}
-                                            value={varDiscountFixed}
+                                            disabled={localVariation.syncUnitPrice}
+                                            value={localVariation.syncUnitPrice ? getParentDiscountFixed() : varDiscountFixed}
                                             onChange={val => handleDiscountFixedChange(String(val))}
-                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-100 disabled:dark:bg-slate-900/50 disabled:text-slate-450"
+                                            className="w-full text-left px-3 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-100 disabled:dark:bg-slate-900/50 disabled:text-slate-450"
                                         />
                                     </div>
 
-                                    {/* Preço Promocional Final */}
-                                    <div className="flex flex-col gap-2">
+                                    {/* Preço Promocional */}
+                                    <div className="flex flex-col gap-2 min-w-[180px] flex-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
-                                            <span>Promo Final</span>
+                                            <span>Preço Promocional</span>
                                             <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                         </label>
-                                        {localVariation.syncPromoPrice !== false ? (
-                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between h-[38px]">
-                                                <span>{parentProduct?.promoPrice ? `R$ ${parentProduct.promoPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sem desconto'}</span>
-                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
-                                            </div>
-                                        ) : (
-                                            <CurrencyInput
-                                                placeholder="Sem desconto"
-                                                disabled={false}
-                                                value={localVariation.promoPrice || ""}
-                                                onChange={val => handlePromoPriceFieldChange(String(val))}
-                                                className="w-full text-left px-3 py-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Custo Base */}
-                            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                <div className="flex items-center justify-between pb-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                        Preço de Custo Base
-                                    </label>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleChange('syncCostPrice', !localVariation.syncCostPrice)}
-                                        className={`p-1 rounded-lg transition-all ${localVariation.syncCostPrice ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
-                                        title={localVariation.syncCostPrice ? 'Desvincular Custo do Pai' : 'Sincronizar Custo com o Pai'}
-                                    >
-                                        <i className={`bi ${localVariation.syncCostPrice ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
-                                    </button>
-                                </div>
-                                {localVariation.syncCostPrice ? (
-                                    <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
-                                        <span>R$ {(parentProduct?.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                        <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
-                                    </div>
-                                ) : (
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={localVariation.costPrice || 0}
-                                            onChange={(e) => handleChange('costPrice', parseFloat(e.target.value) || 0)}
-                                            className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
+                                        <CurrencyInput
+                                            placeholder="Sem desconto"
+                                            disabled={localVariation.syncUnitPrice}
+                                            value={localVariation.syncUnitPrice ? (parentProduct?.promoPrice || "") : (localVariation.promoPrice || "")}
+                                            onChange={val => handlePromoPriceFieldChange(String(val))}
+                                            className={`w-full text-left px-3 py-2.5 rounded-xl outline-none text-xs font-black transition-all ${localVariation.syncUnitPrice
+                                                ? 'bg-slate-100 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800 text-slate-500 cursor-not-allowed'
+                                                : 'bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/50 dark:border-amber-900/30 text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20'
+                                                }`}
                                         />
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Toggle Estoque Inicial */}
@@ -993,6 +998,13 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                     {/* ABA TRIBUTÁRIO */}
                     {activeTab === 'fiscal' && (
                         <div className="space-y-6 animate-in fade-in duration-200">
+                                <div className="p-5 bg-blue-50/70 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex items-start gap-3">
+                                    <i className="bi bi-info-circle-fill text-blue-500 text-sm mt-0.5"></i>
+                                    <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                                        Esta variação herda os dados tributários do produto pai. Para alterar essas informações, acesse o cadastro do produto pai.
+                                    </p>
+                                </div>
+                                {false && (<>
                             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
@@ -1213,6 +1225,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                                     </div>
                                 </div>
                             )}
+                                </>)}
                         </div>
                     )}
 
@@ -1245,7 +1258,7 @@ const VariationEditModal = ({ isOpen, onClose, variation, parentProduct, onSave,
                         onClick={handleSave}
                         className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95"
                     >
-                        Concluir Cadastro
+                            Concluir
                     </button>
                 </div>
             </div>
