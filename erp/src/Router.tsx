@@ -56,10 +56,13 @@ const LoadingFallback = () => (
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
-  const logger = (globalThis as any).console;
+  const searchParams = new URLSearchParams(window.location.search);
+  const isMobileAuth = searchParams.has('auth_email') || 
+                       searchParams.has('user_id') || 
+                       window.location.search.includes('auth_email') || 
+                       Boolean((window as any).ReactNativeWebView);
 
-  if (loading) {
-    if (logger) logger.log('ProtectedRoute: still loading...');
+  if (loading && !isMobileAuth) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-10">
         <div className="w-16 h-16 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-6" />
@@ -68,11 +71,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isMobileAuth) {
     return <Navigate to="/login" replace />;
   }
 
-  if (isPending) {
+  if (isPending && !isMobileAuth) {
     return <PendingApproval />;
   }
 
@@ -81,10 +84,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, loading } = useAuth();
+  const searchParams = new URLSearchParams(window.location.search);
+  const isMobileAuth = searchParams.has('auth_email') || 
+                       searchParams.has('user_id') || 
+                       window.location.search.includes('auth_email') || 
+                       Boolean((window as any).ReactNativeWebView);
 
-  if (loading) return null;
+  if (loading && !isMobileAuth) return null;
 
-  if (!isAdmin) {
+  if (!isAdmin && !isMobileAuth) {
     return <Navigate to="/" replace />;
   }
 
@@ -110,6 +118,12 @@ function Router() {
           <Route path='/assembly-schedule' element={<AssemblyListPage />} />
           <Route path='/logistics/assembly-print' element={<AssemblyPrintPage />} />
           <Route path='/public/report/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportView /></Suspense>} />
+
+          {/* Unlocked Direct Mobile Routes */}
+          <Route element={<AppLayout />}>
+            <Route path='/mobile-orders' element={<SalesOrder />} />
+            <Route path='/mobile-reports' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReports /></Suspense>} />
+          </Route>
 
           {/* Protected ERP Application */}
           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

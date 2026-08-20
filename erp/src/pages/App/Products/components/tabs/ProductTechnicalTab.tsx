@@ -155,15 +155,29 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Peso (kg)</label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            value={formData.weight || ''}
-                            onChange={(e) => handleFieldChange('weight', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
-                            placeholder="0,00"
-                        />
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                            <span>Peso (kg)</span>
+                            {formData.noWeight && <span className="text-[8px] text-amber-500 font-bold lowercase">Ocultado</span>}
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                step="0.01"
+                                disabled={formData.noWeight}
+                                value={formData.weight || ''}
+                                onChange={(e) => handleFieldChange('weight', e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                                placeholder="0,00"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => handleFieldChange('noWeight', !formData.noWeight)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${formData.noWeight ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/25' : 'text-slate-400 hover:text-slate-600'}`}
+                                title={formData.noWeight ? "Mostrar no e-commerce" : "Ocultar no e-commerce"}
+                            >
+                                <i className={`bi ${formData.noWeight ? 'bi-eye-slash-fill' : 'bi-eye'}`}></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

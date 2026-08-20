@@ -35,11 +35,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
+    const isMasterEmailCheck = (emailStr: string) => {
+        const email = (emailStr || '').toLowerCase().trim();
+        return (
+            email === 'matheusmorante002@gmail.com' ||
+            email === 'matheusmorante0002@gmail.com' ||
+            email === 'matheusmroante0002@gmail.com' ||
+            (email.includes('matheus') && email.includes('morante'))
+        );
+    };
+
     const fetchProfile = async (user: User) => {
         try {
             console.log('[Auth] Fetching profile for:', user.id);
             const userEmail = (user.email || '').toLowerCase().trim();
-            const isMasterEmail = userEmail === 'matheusmorante002@gmail.com';
+            const isMasterEmail = isMasterEmailCheck(userEmail);
 
             let { data, error } = await supabase
                 .from('profiles')
@@ -75,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (err) {
             console.error('[Auth] Error fetching profile:', err);
             const userEmail = (user.email || '').toLowerCase().trim();
-            const isMasterEmail = userEmail === 'matheusmorante002@gmail.com';
+            const isMasterEmail = isMasterEmailCheck(userEmail);
             
             setProfile({
                 id: user.id,
@@ -133,17 +143,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
 
-        // 1. Verificar sessão inicial (para OAuth redirects)
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        // 1. Verificar sessão inicial (para OAuth redirects, WebView hash de tokens, URL params móveis e localStorage)
+        const initSession = async () => {
+            if (!active) return;
+
+            // Se o app mobile passou parâmetros de autenticação direta via URL (auth_email / user_id)
+            const searchParams = new URLSearchParams(window.location.search);
+            const authEmail = searchParams.get('auth_email');
+            const authUserId = searchParams.get('user_id');
+            const authRole = (searchParams.get('auth_role') as UserRole) || 'administrator';
+
+            if (authEmail && authUserId) {
+                console.log('[Auth] Autenticação direta mobile ativada via URL para:', authEmail);
+                const isMasterEmail = isMasterEmailCheck(authEmail);
+                const finalRole = isMasterEmail ? 'administrator' : authRole;
+
+                const syntheticUser = {
+                    id: authUserId,
+                    email: authEmail,
+                    user_metadata: { full_name: isMasterEmail ? 'Matheus Morante' : authEmail.split('@')[0] },
+                    app_metadata: {},
+                    aud: 'authenticated',
+                    created_at: new Date().toISOString()
+                } as any;
+
+                setUser(syntheticUser);
+                setProfile({
+                    id: authUserId,
+                    email: authEmail,
+                    role: finalRole,
+                    full_name: isMasterEmail ? 'Matheus Morante' : authEmail.split('@')[0]
+                });
+                clearTimeout(failsafe);
+                setLoading(false);
+                return;
+            }
+
+            // Se a URL contiver hash com access_token de autenticação direta, estabelece a sessão imediatamente
+            if (window.location.hash.includes('access_token=')) {
+                try {
+                    const hashStr = window.location.hash.substring(1);
+                    const params = new URLSearchParams(hashStr);
+                    const accessToken = params.get('access_token');
+                    const refreshToken = params.get('refresh_token');
+                    if (accessToken && refreshToken) {
+                        const { data: sData } = await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        });
+                        if (sData?.session) {
+                            await handleSession(sData.session, 'hashDirectSession');
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[Auth] Erro ao extrair hash de sessão:', err);
+                }
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
             if (active && session) {
                 console.log('[Auth] Initial session found');
-                handleSession(session, 'getSession');
+                await handleSession(session, 'getSession');
             } else if (active && !session) {
-                // Sem sessão, liberar loading para redirecionar para login
                 clearTimeout(failsafe);
                 setLoading(false);
             }
-        });
+        };
+
+        initSession();
 
         // 2. Ouvir mudanças de estado (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {

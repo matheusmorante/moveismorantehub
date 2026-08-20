@@ -197,6 +197,7 @@ export type Product = {
     noHeight?: boolean;
     noWidth?: boolean;
     noDepth?: boolean;
+    noWeight?: boolean;
     noBrand?: boolean;
     noColors?: boolean;
     launchInitialStock?: boolean;
@@ -241,6 +242,7 @@ export type ProductVisibilitySettings = {
     category: boolean;
     costPrice: boolean;
     unitPrice: boolean;
+    weight: boolean;
     stock: boolean;
     status: boolean;
     createdAt: boolean;

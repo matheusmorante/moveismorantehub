@@ -229,6 +229,15 @@ const ProductRow = ({
                         </span>
                     </td>
                 );
+            case 'weight':
+                if (product.isParent) return <td key="weight" className={`px-3 py-3 ${firstCellBorder}`}></td>;
+                return (
+                    <td key="weight" className={`px-3 py-3 text-right ${firstCellBorder}`}>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {product.weight ? `${Number(product.weight).toFixed(2)} kg` : '-'}
+                        </span>
+                    </td>
+                );
             case 'stock':
                 if (product.isParent) return <td key="stock" className={`px-3 py-3 ${firstCellBorder}`}></td>;
                 const isLowStock = (product.stock || 0) <= (product.minStock || 0);

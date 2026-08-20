@@ -138,6 +138,11 @@ const Login = () => {
                     <button
                         type="button"
                         onClick={async () => {
+                            const isEmbedded = window.self !== window.top || !!(window as any).ReactNativeWebView;
+                            if (isEmbedded) {
+                                toast.info('No aplicativo móvel, utilize seu E-mail e Senha acima para entrar.');
+                                return;
+                            }
                             try {
                                 const { error } = await supabase.auth.signInWithOAuth({
                                     provider: 'google',
