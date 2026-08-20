@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "e26a22ba-2339-4149-a54b-ad6eaf4f3164"
+      }
+    },
+    "android": {
+      "package": "morante.app"
+    }
+  }
+}

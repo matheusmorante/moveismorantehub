@@ -13,13 +13,14 @@ import { toTitleCase } from '@/pages/utils/textUtils';
 interface VariationFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    parentId: string;
+    parentId?: string;
     parentProduct: Product;
     variation: Variation | null;
     onSuccess?: () => void;
+    onSave?: (updatedVariation: Variation) => void;
 }
 
-const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variation, onSuccess }: VariationFormModalProps) => {
+const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variation, onSuccess, onSave }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'identificacao' | 'fotos' | 'estoque' | 'fiscal' | 'tecnico'>('identificacao');
     
@@ -135,7 +136,11 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     syncUnitPrice: variation.syncUnitPrice ?? true,
                     syncDescription: variation.syncDescription ?? true,
                     syncCostPrice: variation.syncCostPrice ?? true,
-                    syncFiscal: variation.syncFiscal ?? true
+                    syncFiscal: variation.syncFiscal ?? true,
+                    syncWidth: variation.syncWidth ?? true,
+                    syncHeight: variation.syncHeight ?? true,
+                    syncDepth: variation.syncDepth ?? true,
+                    syncWeight: variation.syncWeight ?? true
                 });
                 setDiferenciarTitulo(Boolean(variation.title && variation.title !== variation.name) || Boolean(variation.marketplaceTitle && variation.marketplaceTitle !== variation.name));
                 
@@ -169,6 +174,10 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     syncDescription: true,
                     syncCostPrice: true,
                     syncFiscal: true,
+                    syncWidth: true,
+                    syncHeight: true,
+                    syncDepth: true,
+                    syncWeight: true,
                     fiscal: {
                         ncm: parentProduct.fiscal?.ncm || '',
                         cest: parentProduct.fiscal?.cest || '',
@@ -357,6 +366,10 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
         setVarDiscountPercent(pct.toFixed(1));
     };
 
+    const handleChange = (field: keyof Variation, value: any) => {
+        setFormData(prev => prev ? { ...prev, [field]: value } : null);
+    };
+
     const updateCost = (fields: Partial<Variation>) => {
         setFormData(prev => {
             if (!prev) return null;
@@ -414,9 +427,18 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
             finalVariation.costPrice = parentProduct.costPrice || 0;
         }
 
+        if (onSave) {
+            onSave({
+                ...finalVariation,
+                sku: finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+            } as any);
+            onClose();
+            return;
+        }
+
         setLoading(true);
         try {
-            await saveVariation(parentId, {
+            await saveVariation(parentId || "", {
                 ...finalVariation,
                 sku: finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase()
             });
@@ -581,7 +603,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             onClick={() => setIsFastCreateOpen(true)}
                                             className="px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100"
                                         >
-                                            + Criar Atributo
+                                            Gerenciar Atributos
                                         </button>
                                         <button
                                             type="button"
@@ -598,7 +620,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             }}
                                             className="px-2 py-1 text-[9px] font-bold text-slate-600 bg-white dark:bg-slate-800 border rounded-lg"
                                         >
-                                            + Vínculo
+                                            Adicionar
                                         </button>
                                     </div>
                                 </div>
@@ -712,77 +734,183 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                     )}
 
                     {/* Aba Informações Técnicas */}
+
                     {activeTab === 'tecnico' && (
                         <div className="space-y-6 animate-in fade-in duration-350">
 
                             {/* Descrição */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                                    <span>Descrição Específica da Variação</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                                    <span className="text-slate-300 dark:text-slate-600 text-[9px]">(Opcional)</span>
-                                </label>
-                                <textarea
-                                    placeholder="Descrição opcional para esta variação no catálogo..."
-                                    value={formData.description || ""}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    rows={4}
-                                    className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl text-xs resize-none outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                />
+                            <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
+                                        Descrição da Variação
+                                    </h4>
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleChange('syncDescription', !formData.syncDescription)}
+                                        className={`p-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${formData.syncDescription ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
+                                        title={formData.syncDescription ? "Desvincular Descrição do Pai" : "Sincronizar Descrição com o Pai"}
+                                    >
+                                        <i className={`bi ${formData.syncDescription ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'}`}></i>
+                                        <span className="text-[9px] font-black uppercase">{formData.syncDescription ? 'Herdado do Pai' : 'Manual'}</span>
+                                    </button>
+                                </div>
+                                {formData.syncDescription ? (
+                                    <div className="w-full mt-2 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800 text-xs font-semibold text-slate-500 flex items-start justify-between min-h-[80px]">
+                                        <span>{parentProduct?.description || 'Descrição do produto pai'}</span>
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md shrink-0 ml-2">Herdado</span>
+                                    </div>
+                                ) : (
+                                    <textarea
+                                        rows={4}
+                                        value={formData.description || ''}
+                                        onChange={(e) => handleChange('description', e.target.value)}
+                                        placeholder="Descrição específica desta variação (se vazia, herdará do pai no e-commerce)..."
+                                        className="w-full mt-2 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 resize-none dark:text-slate-100"
+                                    />
+                                )}
                             </div>
 
                             {/* Dimensões e Peso */}
-                            <div className="space-y-3">
+                            <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Dimensões e Peso</h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    
+                                    {/* Largura */}
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Largura (cm)</label>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            min={0}
-                                            value={formData.width || ''}
-                                            onChange={e => setFormData({ ...formData, width: parseFloat(e.target.value) || 0 })}
-                                            placeholder="0"
-                                            className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                        />
+                                        <div className="flex items-center justify-between h-6">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Largura</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleChange('syncWidth', !formData.syncWidth)}
+                                                className={`p-1 rounded-lg transition-all ${formData.syncWidth ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
+                                                title={formData.syncWidth ? "Desvincular Largura do Pai" : "Sincronizar Largura com o Pai"}
+                                            >
+                                                <i className={`bi ${formData.syncWidth ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
+                                            </button>
+                                        </div>
+                                        {formData.syncWidth ? (
+                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
+                                                <span>{parentProduct?.width || 0} cm</span>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min={0}
+                                                    value={formData.width || ''}
+                                                    onChange={e => handleChange('width', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-100"
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">cm</span>
+                                            </div>
+                                        )}
                                     </div>
+
+                                    {/* Altura */}
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Altura (cm)</label>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            min={0}
-                                            value={formData.height || ''}
-                                            onChange={e => setFormData({ ...formData, height: parseFloat(e.target.value) || 0 })}
-                                            placeholder="0"
-                                            className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                        />
+                                        <div className="flex items-center justify-between h-6">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Altura</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleChange('syncHeight', !formData.syncHeight)}
+                                                className={`p-1 rounded-lg transition-all ${formData.syncHeight ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
+                                                title={formData.syncHeight ? "Desvincular Altura do Pai" : "Sincronizar Altura com o Pai"}
+                                            >
+                                                <i className={`bi ${formData.syncHeight ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
+                                            </button>
+                                        </div>
+                                        {formData.syncHeight ? (
+                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
+                                                <span>{parentProduct?.height || 0} cm</span>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min={0}
+                                                    value={formData.height || ''}
+                                                    onChange={e => handleChange('height', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-100"
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">cm</span>
+                                            </div>
+                                        )}
                                     </div>
+
+                                    {/* Profundidade */}
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Profund. (cm)</label>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            min={0}
-                                            value={formData.depth || ''}
-                                            onChange={e => setFormData({ ...formData, depth: parseFloat(e.target.value) || 0 })}
-                                            placeholder="0"
-                                            className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                        />
+                                        <div className="flex items-center justify-between h-6">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Profundidade</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleChange('syncDepth', !formData.syncDepth)}
+                                                className={`p-1 rounded-lg transition-all ${formData.syncDepth ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
+                                                title={formData.syncDepth ? "Desvincular Profundidade do Pai" : "Sincronizar Profundidade com o Pai"}
+                                            >
+                                                <i className={`bi ${formData.syncDepth ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
+                                            </button>
+                                        </div>
+                                        {formData.syncDepth ? (
+                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
+                                                <span>{parentProduct?.depth || 0} cm</span>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min={0}
+                                                    value={formData.depth || ''}
+                                                    onChange={e => handleChange('depth', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-100"
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">cm</span>
+                                            </div>
+                                        )}
                                     </div>
+
+                                    {/* Peso */}
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Peso (kg)</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min={0}
-                                            value={formData.weight || ''}
-                                            onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
-                                            placeholder="0"
-                                            className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20"
-                                        />
+                                        <div className="flex items-center justify-between h-6">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Peso</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleChange('syncWeight', !formData.syncWeight)}
+                                                className={`p-1 rounded-lg transition-all ${formData.syncWeight ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
+                                                title={formData.syncWeight ? "Desvincular Peso do Pai" : "Sincronizar Peso com o Pai"}
+                                            >
+                                                <i className={`bi ${formData.syncWeight ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'} text-xs`}></i>
+                                            </button>
+                                        </div>
+                                        {formData.syncWeight ? (
+                                            <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
+                                                <span>{parentProduct?.weight || 0} kg</span>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">Herdado</span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min={0}
+                                                    value={formData.weight || ''}
+                                                    onChange={e => handleChange('weight', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 dark:text-slate-100"
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">kg</span>
+                                            </div>
+                                        )}
                                     </div>
+
                                 </div>
                             </div>
 

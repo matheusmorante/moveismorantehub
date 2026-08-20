@@ -50,13 +50,14 @@ export default function MobileAppLanding() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
              <button 
                onClick={() => {
-                 alert("🚧 ARQUIVOS-FONTE PRONTOS!\n\nOs arquivos do App Mobile foram criados no diretório '/mobile' do seu projeto.\n\nPara gerar o APK real:\n1. Vá na pasta /mobile\n2. Execute 'npm install'\n3. Use 'npx expo run:android' ou 'eas build'\n\nAcesse o código-fonte agora para ver o núcleo do GPS e Scanner!");
+                 window.open('/morantehub.apk', '_blank');
                }}
                className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95"
              >
                 <i className="bi bi-google-play text-xl"></i>
                 Download Android (.APK)
              </button>
+
              <button 
                onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}
                className="px-8 py-5 bg-slate-800 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all border border-slate-700 active:scale-95"

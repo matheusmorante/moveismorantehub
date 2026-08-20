@@ -11,6 +11,7 @@ dist/
 .gemini/
 *.exe
 *.msi
+.expo/
 
 # Multimedia (Large files)
 *.mp4

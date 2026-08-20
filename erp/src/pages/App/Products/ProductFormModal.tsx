@@ -14,7 +14,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 // Modular Components
 import SmartInput from "../../../components/SmartInput";
 import ComboItemSelector from "./components/ComboItemSelector";
-import VariationEditModal from "./components/VariationEditModal";
+import VariationFormModal from "./VariationFormModal";
 import CategorySearchModal from "./CategorySearchModal";
 
 // Modular Tab Components
@@ -1627,39 +1627,28 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
 
                 {editingVariationId && formData.variations?.some(v => v.id === editingVariationId) && (
-                    <VariationEditModal
+                    <VariationFormModal
                         isOpen={!!editingVariationId}
                         onClose={() => setEditingVariationId(null)}
+                        parentId={formData.id}
+                        parentProduct={formData as any}
                         variation={formData.variations?.find(v => v.id === editingVariationId) || null}
-                    suppliers={suppliers}
-                    parentProduct={{
-                        id: formData.id,
-                        isDraft: !product || formData.isDraft,
-                        name: formData.name || formData.description || '',
-                        description: formData.description || '',
-                        unitPrice: formData.unitPrice || 0,
-                        costPrice: formData.costPrice || 0,
-                        isCombo: false,
-                        mainSupplierId: formData.mainSupplierId,
-                        images: formData.images || []
-                    }}
-
-                    onSave={(updatedVar) => {
-                        setFormData(prev => ({
-                            ...prev,
-                            variations: prev.variations?.map(v => v.id === updatedVar.id ? updatedVar : v)
-                        }));
-                        if (updatedVar.images?.length) {
-                            setValidationErrors(prev => {
-                                const hasMissingPhoto = formData.variations?.some(v => v.id !== updatedVar.id && (!v.images || v.images.length === 0));
-                                if (hasMissingPhoto) return prev;
-                                const next = { ...prev };
-                                delete next.variationsImages;
-                                return next;
-                            });
-                        }
-                    }}
-                />
+                        onSave={(updatedVar) => {
+                            setFormData(prev => ({
+                                ...prev,
+                                variations: prev.variations?.map(v => v.id === updatedVar.id ? updatedVar : v)
+                            }));
+                            if (updatedVar.images?.length) {
+                                setValidationErrors(prev => {
+                                    const hasMissingPhoto = formData.variations?.some(v => v.id !== updatedVar.id && (!v.images || v.images.length === 0));
+                                    if (hasMissingPhoto) return prev;
+                                    const next = { ...prev };
+                                    delete next.variationsImages;
+                                    return next;
+                                });
+                            }
+                        }}
+                    />
                 )}
 
                 <CategorySearchModal
