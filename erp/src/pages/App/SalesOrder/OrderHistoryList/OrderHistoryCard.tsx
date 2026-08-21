@@ -149,14 +149,14 @@ const OrderHistoryCard = ({
         }
     }
     
-    // Card sempre neutro — cor apenas na borda esquerda e no cabeçalho
+    // Card header accent colors
     const headerAccentClass =
         order.orderType === 'budget'
             ? (isDraft ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/30' : 'bg-indigo-100/70 dark:bg-indigo-900/30 border-b border-indigo-200/60 dark:border-indigo-900/40')
             : isDraft
                 ? 'bg-slate-100/80 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700'
                 : colorKey === 'green'
-                    ? 'bg-green-100/90 dark:bg-green-950/40 border-b border-green-300 dark:border-green-900/50'
+                    ? 'bg-emerald-200/90 dark:bg-emerald-950/80 border-b border-emerald-300 dark:border-emerald-800'
                     : colorKey === 'purple'
                         ? 'bg-purple-50/80 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-900/30'
                         : colorKey === 'orange'
@@ -166,7 +166,7 @@ const OrderHistoryCard = ({
     return (
         <div 
             id={id}
-            className={`bg-white dark:bg-slate-900 min-h-fit ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} border-y border-r ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none active:scale-[0.98] transition-all relative overflow-visible ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
+            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none active:scale-[0.98] transition-all relative overflow-visible ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
             onClick={() => onEdit(order)}
         >
             {/* Card Header com faixa colorida + todos os badges */}
