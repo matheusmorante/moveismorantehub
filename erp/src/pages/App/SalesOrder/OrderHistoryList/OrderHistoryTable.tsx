@@ -183,7 +183,7 @@ const OrderHistoryTable = ({
 
             {/* View Switcher based on isMobile */}
             {!isMobile ? (
-                <div ref={containerRef} className="overflow-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800 flex-1 min-h-0 bg-white dark:bg-slate-900/50 transition-colors">
+                <div ref={containerRef} className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 transition-colors">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 transition-colors">

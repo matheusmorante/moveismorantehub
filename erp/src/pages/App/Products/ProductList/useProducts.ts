@@ -17,31 +17,21 @@ import { toast } from "react-toastify";
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 export const useProducts = (filters?: any) => {
-    // Detect desktop (>= 1024px = lg) for server-side pagination
-    const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
-    useEffect(() => {
-        const handler = () => setWindowWidth(window.innerWidth);
-        window.addEventListener('resize', handler);
-        return () => window.removeEventListener('resize', handler);
-    }, []);
-    const isLargeScreen = windowWidth >= 1024;
-
     // ═══════════════════════════════════════════════
-    // SERVER PAGINATION state (desktop)
+    // SERVER PAGINATION state (Backend Supabase .range)
     // ═══════════════════════════════════════════════
     const [serverProducts, setServerProducts] = useState<Product[]>([]);
     const [serverTotal, setServerTotal] = useState(0);
     const [serverLoading, setServerLoading] = useState(false);
 
-    // ═══════════════════════════════════════════════
-    // LOCAL cache state (mobile / tablet)
-    // ═══════════════════════════════════════════════
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
+
+    const isServerPagination = true;
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
@@ -64,21 +54,10 @@ export const useProducts = (filters?: any) => {
         }
     }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.sortBy, filters?.sortOrder]);
 
-    // Fetch when desktop + page/perPage/filters change
+    // Fetch on page/perPage/filters/refresh change
     useEffect(() => {
-        if (!isLargeScreen) return;
         fetchPage(currentPage, itemsPerPage);
-    }, [isLargeScreen, currentPage, itemsPerPage, fetchPage]);
-
-    // ─── Local subscription (mobile/tablet) ────────
-    useEffect(() => {
-        if (isLargeScreen) return; // Skip for desktop
-        const unsubscribe = subscribeToProducts((data) => {
-            setProducts(data);
-            setLoading(false);
-        }, filters?.showTrash);
-        return () => unsubscribe();
-    }, [isLargeScreen, refreshSignal, filters?.showTrash]);
+    }, [currentPage, itemsPerPage, fetchPage, refreshSignal]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
@@ -236,96 +215,14 @@ export const useProducts = (filters?: any) => {
             }
         });
         return flattened;
-    }, [serverProducts, isLargeScreen]);
+    }, [serverProducts]);
 
-    // Totais e páginas dependem do modo
-    const totalItems = isLargeScreen ? serverTotal : filteredProducts.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    // Totais e páginas dependem do modo backend
+    const totalItems = serverTotal;
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
-    // Flatten para modo LOCAL (mobile/tablet) — igual à lógica anterior
-    const transformedProducts = useMemo(() => {
-        if (isLargeScreen) return []; // Não usado em desktop
-        const flattened: any[] = [];
-        const parents = filteredProducts.filter(p => !p.isVariation);
-        const independentVars = filteredProducts.filter(p => p.isVariation);
-
-        parents.forEach((product, pIdx) => {
-            const variationsFromIndependent = independentVars.filter(v => v.parentId === product.id);
-            const hasJsonVariations = Array.isArray(product.variations) && product.variations.length > 0;
-            const actuallyHasVariations = Boolean(product.hasVariations) || hasJsonVariations || variationsFromIndependent.length > 0;
-            const parentSku = product.sku || product.code || String(pIdx + 1).padStart(6, '0');
-
-            const allVars: any[] = [];
-            if (product.hasVariations && product.variations) {
-                product.variations.forEach((v: any, index: number) => {
-                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
-                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
-                    allVars.push({
-                        ...product, id: `${product.id}_${varSku || index}`, sku: varSku, code: varSku,
-                        description: v.name,
-                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
-                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
-                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
-                        active: v.active, status: v.status || product.status,
-                        images: parseVariationImages(v.image_url, v.images), parentImages: product.images || [],
-                        isVariation: true, parentId: product.id, categoryIds: product.categoryIds,
-                        category: product.category, unit: product.unit, attributes: v.attributes, displayName: v.name,
-                    });
-                });
-            }
-            if (!hasJsonVariations && variationsFromIndependent.length > 0) {
-                variationsFromIndependent.forEach(v => {
-                    const vCode = v.code || v.sku;
-                    if (product.variations?.some((jv: any) => jv.sku === vCode || String(jv.id) === String(v.id))) return;
-                    allVars.push({ ...v, sku: vCode, code: vCode, isVariation: true, parentId: product.id, description: v.description,
-                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase())
-                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '') : v.description });
-                });
-            }
-
-            flattened.push({ ...product, sku: parentSku, code: parentSku, isParent: actuallyHasVariations, allVariations: allVars });
-
-            if (product.hasVariations && product.variations) {
-                product.variations.forEach((v: any, index: number) => {
-                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
-                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
-                    flattened.push({
-                        ...product, id: `${product.id}_${varSku || index}`, sku: varSku, code: varSku,
-                        description: v.name, displayName: v.name,
-                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
-                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
-                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
-                        active: v.active, status: v.status || product.status,
-                        images: parseVariationImages(v.image_url, v.images), parentImages: product.images || [],
-                        isVariation: true, parentId: product.id, categoryIds: product.categoryIds, category: product.category, unit: product.unit,
-                    });
-                });
-            }
-            if (!hasJsonVariations && variationsFromIndependent.length > 0) {
-                variationsFromIndependent.forEach(v => {
-                    const vCode = v.code || v.sku;
-                    if (product.variations?.some((jv: any) => jv.sku === vCode || String(jv.id) === String(v.id))) return;
-                    flattened.push({ ...v, sku: vCode, code: vCode, isVariation: true, parentId: product.id, description: v.description,
-                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase())
-                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '') : v.description });
-                });
-            }
-        });
-
-        independentVars.forEach(v => {
-            const parentInList = parents.some(p => p.id === v.parentId);
-            if (!parentInList) flattened.push({ ...v, isVariation: true, isOrphan: true });
-        });
-
-        return flattened;
-    }, [filteredProducts, isLargeScreen]);
-
-    // paginatedProducts: servidor já entrega a página certa; local faz slice
-    const paginatedProducts = useMemo(() => {
-        if (isLargeScreen) return serverTransformed;
-        const start = (currentPage - 1) * itemsPerPage;
-        return transformedProducts.slice(start, start + itemsPerPage);
-    }, [isLargeScreen, serverTransformed, transformedProducts, currentPage, itemsPerPage]);
+    // paginatedProducts: o servidor já entrega os produtos da página atual
+    const paginatedProducts = serverTransformed;
 
 
     const handleDelete = async (id: string) => {
@@ -722,7 +619,7 @@ export const useProducts = (filters?: any) => {
     };
 
     return {
-        products: isLargeScreen ? serverProducts : products,
+        products: serverProducts,
         paginatedProducts,
         totalItems,
         currentPage,
@@ -730,8 +627,8 @@ export const useProducts = (filters?: any) => {
         totalPages,
         setCurrentPage,
         setItemsPerPage,
-        loading: isLargeScreen ? serverLoading : loading,
-        isServerPagination: isLargeScreen,
+        loading: serverLoading,
+        isServerPagination: true,
         handleDelete,
         handleRestore,
         handlePermanentDelete,
@@ -744,6 +641,6 @@ export const useProducts = (filters?: any) => {
         handleBulkPermanentDelete,
         toggleActive,
         deactivateCatalog,
-        refresh: isLargeScreen ? () => fetchPage(currentPage, itemsPerPage) : refresh,
+        refresh: () => fetchPage(currentPage, itemsPerPage),
     };
 };

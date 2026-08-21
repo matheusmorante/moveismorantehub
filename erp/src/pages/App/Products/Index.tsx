@@ -246,9 +246,9 @@ const Products = () => {
                     </div>
 
                     {/* Section: Sidebar + Product Table Container */}
-                    <div className="flex gap-6 flex-1 min-h-0 items-stretch">
+                    <div className="flex gap-6 flex-1 items-start">
                         {/* Sidebar for Filters */}
-                        <div className={`transition-all duration-300 ease-in-out z-30 min-[1500px]:static min-[1500px]:w-80 min-[1500px]:shrink-0 min-[1500px]:opacity-100 min-[1500px]:block min-[1500px]:rounded-2xl min-[1500px]:border min-[1500px]:border-slate-200/80 min-[1500px]:dark:border-slate-800/80 min-[1500px]:bg-white min-[1500px]:dark:bg-slate-900 min-[1500px]:shadow-sm min-[1500px]:overflow-hidden ${
+                        <div className={`transition-all duration-300 ease-in-out z-30 min-[1500px]:sticky min-[1500px]:top-20 min-[1500px]:w-80 min-[1500px]:shrink-0 min-[1500px]:opacity-100 min-[1500px]:block min-[1500px]:rounded-2xl min-[1500px]:border min-[1500px]:border-slate-200/80 min-[1500px]:dark:border-slate-800/80 min-[1500px]:bg-white min-[1500px]:dark:bg-slate-900 min-[1500px]:shadow-sm min-[1500px]:overflow-hidden ${
                             isSidebarOpen
                                 ? 'fixed md:absolute inset-y-0 left-0 w-[calc(100vw-32px)] md:w-80 shadow-2xl z-40 opacity-100 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800'
                                 : 'absolute w-0 opacity-0 overflow-hidden border-none min-[1500px]:w-80 min-[1500px]:opacity-100 min-[1500px]:overflow-hidden'
@@ -267,7 +267,7 @@ const Products = () => {
                             <div className="min-[1500px]:hidden fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
                         )}
 
-                        <div className="flex-1 min-w-0 overflow-x-auto">
+                        <div className="flex-1 min-w-0">
                             <ProductList
                                 filters={isTrashOpen ? trashFilters : activeFilters}
                                 visibilitySettings={visibilitySettings}

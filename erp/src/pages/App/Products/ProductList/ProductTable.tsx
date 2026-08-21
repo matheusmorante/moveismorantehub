@@ -167,7 +167,7 @@ const ProductTable = ({
 
             {/* View Switcher based on isMobile */}
             {!isMobile ? (
-                <div ref={containerRef} className="overflow-x-auto overflow-y-auto max-h-[70vh] custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800">
+                <div ref={containerRef} className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
                     <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900">
                             <tr className="border-b border-slate-100 dark:border-slate-800 transition-colors">

@@ -104,7 +104,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
     }
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col">
             {(title || onCloseTrash) && (
                 <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
                     <div className="flex items-center gap-3">

@@ -14,16 +14,41 @@ const isValidOrderRow = (row: any) =>
     !Array.isArray(row.order_data) &&
     Object.keys(row.order_data).length > 0;
 
-export const fetchOrdersPage = async (page = 1, pageSize = 20): Promise<{ orders: Order[]; total: number }> => {
+export const fetchOrdersPage = async (
+    page = 1, 
+    pageSize = 10,
+    filters?: any
+): Promise<{ orders: Order[]; total: number }> => {
     const firstRow = Math.max(0, (page - 1) * pageSize);
     const lastRow = firstRow + pageSize - 1;
-    const { data, count, error } = await supabase
-        .from(TABLE_NAME)
-        .select('*', { count: 'exact' })
-        .order('id', { ascending: false })
-        .range(firstRow, lastRow);
 
-    if (error) throw error;
+    let query = supabase
+        .from(TABLE_NAME)
+        .select('*', { count: 'exact' });
+
+    const showTrash = filters?.showTrash || false;
+    const isDraft = filters?.isDraft || false;
+
+    if (showTrash) {
+        query = query.eq('deleted', true);
+    } else {
+        query = query.or('deleted.is.null,deleted.eq.false');
+        if (isDraft) {
+            query = query.eq('status', 'draft');
+        }
+    }
+
+    if (filters?.searchId) {
+        query = query.eq('id', filters.searchId);
+    }
+
+    query = query.order('id', { ascending: false }).range(firstRow, lastRow);
+
+    const { data, count, error } = await query;
+    if (error) {
+        console.error('[OrdersService] Erro ao buscar página de pedidos:', error);
+        return { orders: [], total: 0 };
+    }
 
     const orders = (data || [])
         .filter(isValidOrderRow)
