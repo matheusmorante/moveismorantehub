@@ -110,7 +110,7 @@ function resolveBadgeColor(badgeColorClass: string) {
 
 function drawFlameIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
   ctx.save();
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#000000";
   ctx.translate(x, y);
   const scale = size / 24;
   ctx.scale(scale, scale);
