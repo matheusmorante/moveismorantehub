@@ -102,6 +102,7 @@ const LabelPrinting: React.FC = () => {
     const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
     const [layoutModalOpen, setLayoutModalOpen] = useState(false);
     const [gridModalOpen, setGridModalOpen] = useState(false); 
+    const [isModelManagerModalOpen, setIsModelManagerModalOpen] = useState(false);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [isNewLogoModalOpen, setIsNewLogoModalOpen] = useState(false);
     const [newLogoName, setNewLogoName] = useState('');
@@ -456,6 +457,18 @@ const LabelPrinting: React.FC = () => {
     useEffect(() => {
         const cat = selectedCategory || catFromUrl;
         if (!cat) return;
+
+        // Para Etiqueta de Preço, por padrão selecionar o modelo de 10 Etiquetas (2x5)
+        if (cat === 'precos') {
+            const defaultId = defaultLayoutIds['precos_rect'] || defaultLayoutIds['precos'];
+            const models = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
+            const targetId = defaultId || 'preco_2x5_restored';
+            const found = models.find(m => m.id === targetId) || models.find(m => m.id === 'preco_2x5_restored');
+            if (found) {
+                selectLayout(found);
+                return;
+            }
+        }
 
         const type = config.type || 'rect';
         const defaultId = defaultLayoutIds[`${cat}_${type}`] || defaultLayoutIds[cat]; // Fallback para chave antiga se existir
@@ -1062,249 +1075,95 @@ const LabelPrinting: React.FC = () => {
                 ) : (
                     <div className="flex flex-col gap-10 animate-fade-in">
                         <div className="space-y-6">
-                            <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6">
-                                <div className="flex items-center justify-between">
+                            <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6">
+                                <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
                                     <div className="flex items-center gap-3">
-                                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Modelos de Etiqueta</h3>
-                                        {isSelectMode && (
-                                            <span className="px-2 py-1 bg-red-50 text-red-500 rounded-lg text-[9px] font-black uppercase">{selectedModelIds.length} selecionados</span>
-                                        )}
+                                        <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center font-black">
+                                            <i className="bi bi-grid-3x3-gap-fill text-xl" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                                Modelos de Etiqueta
+                                            </h3>
+                                            <p className="text-[10px] font-bold text-slate-400">
+                                                Gerencie e selecione os gabaritos e dimensões de folha
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {!isSelectMode ? (
-                                            <>
-                                                <button 
-                                                    onClick={() => setIsSelectMode(true)}
-                                                    className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl hover:scale-110 transition-all font-black text-[9px] uppercase tracking-widest border border-slate-100"
-                                                >
-                                                    <i className="bi bi-check-all mr-2" />Selecionar Vários
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <button 
-                                                    onClick={async () => {
-                                                        if (selectedModelIds.length === 0) {
-                                                            setIsSelectMode(false);
-                                                            return;
-                                                        }
-                                                        if (window.confirm(`Deseja excluir ${selectedModelIds.length} modelos?`)) {
-                                                            for (const id of selectedModelIds) {
-                                                                await handleDeleteLayout(id);
-                                                            }
-                                                            setSelectedModelIds([]);
-                                                            setIsSelectMode(false);
-                                                        }
-                                                    }}
-                                                    className="p-3 bg-red-500 text-white rounded-2xl hover:scale-110 transition-all font-black text-[9px] uppercase tracking-widest shadow-lg shadow-red-500/20"
-                                                >
-                                                    <i className="bi bi-trash3-fill mr-2" />Excluir Selecionados
-                                                </button>
-                                                <button 
-                                                    onClick={() => {
-                                                        setIsSelectMode(false);
-                                                        setSelectedModelIds([]);
-                                                    }}
-                                                    className="p-3 bg-slate-900 text-white rounded-2xl hover:scale-110 transition-all font-black text-[9px] uppercase tracking-widest"
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </>
-                                        )}
-                                        <button 
-                                            onClick={() => {
-                                                setEditingGridModel(null);
-                                                setGridModalOpen(true);
-                                            }}
-                                            className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl hover:scale-110 transition-all font-black text-xs uppercase"
-                                        >
-                                            <i className="bi bi-plus-lg mr-2" />Novo
-                                        </button>
-                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsModelManagerModalOpen(true)}
+                                        className="flex items-center gap-2.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                                    >
+                                        <i className="bi bi-sliders text-sm" />
+                                        <span>Gerenciar Modelos de Etiqueta</span>
+                                    </button>
                                 </div>
 
-                                {/* Seletor de Tipo de Etiqueta (Redonda vs Personalizada - Apenas para Logos) */}
-                                {selectedCategory === 'logos' && (
-                                    <div className="flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 rounded-2xl flex-col gap-3">
-                                        {/* Seletor de Tipo (Formatos) */}
-                                        <div className="flex bg-slate-50 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
-                                            {[
-                                                { id: 'rect', label: 'Retangular', icon: 'bi-app' },
-                                                { id: 'round', label: 'Redonda', icon: 'bi-circle' }
-                                            ].map(type => (
-                                                <button 
-                                                    key={type.id}
-                                                    onClick={() => handleTypeChange(type.id as LabelType)}
-                                                    className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${config.type === type.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:text-slate-600'}`}
-                                                >
-                                                    <i className={`bi ${type.icon}`} />
-                                                    {type.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                                            {config.type === 'round' ? 'Formato circular fixo (ideal para selos)' : 'O formato será definido pelas colunas e linhas da grade'}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Seletor de Modo de Impressão (Opcional apenas para Preços) */}
-                                {selectedCategory === 'precos' && (
-                                    <div className="flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 rounded-2xl">
-                                        <div className="flex bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 w-full max-w-sm">
-                                            <button 
-                                                onClick={() => setPrintingMode('simple')}
-                                                className={`flex-1 py-3 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                    printingMode === 'simple' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
-                                                }`}
-                                            >
-                                                <i className="bi bi-image mr-2" /> Etiquetas por Imagens
-                                            </button>
-                                            <button 
-                                                onClick={() => setPrintingMode('advanced')}
-                                                className={`flex-1 py-3 px-4 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-                                            >
-                                                <i className="bi bi-layers-half" />
-                                                Design Avançado
-                                                <span className="px-1.5 py-0.5 bg-blue-400 text-white text-[8px] font-black rounded-md shadow-sm">BETA</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className={`grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar transition-all duration-300 ${printingMode === 'simple' ? 'bg-blue-50/20 dark:bg-blue-900/5 rounded-2xl p-2' : ''}`}>
-                                    {printingMode === 'simple' && (
-                                        <div className="px-3 py-2 bg-blue-500 text-white rounded-xl text-[8px] font-black uppercase tracking-widest mb-2 animate-in fade-in slide-in-from-top-1">
-                                            <i className="bi bi-info-circle mr-2" /> Usando apenas o Layout do Modelo
-                                        </div>
-                                    )}
-                                    {layoutModels.map(model => (
-                                        <div key={model.id} className="group relative hover:z-[60]">
-                                            <div
-                                                onClick={() => {
-                                                    if (isSelectMode) {
-                                                        setSelectedModelIds(prev => 
-                                                            prev.includes(model.id) ? prev.filter(id => id !== model.id) : [...prev, model.id]
-                                                        );
-                                                    } else {
-                                                        selectLayout(model);
-                                                    }
-                                                }}
-                                                className={`w-full flex items-center gap-4 p-3 rounded-2xl border-2 transition-all text-left cursor-pointer ${
-                                                    selectedModelIds.includes(model.id) || config.layoutId === model.id ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300'
-                                                }`}
-                                            >
-                                                {isSelectMode ? (
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedModelIds.includes(model.id) ? 'bg-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                                                        <i className={`bi ${selectedModelIds.includes(model.id) ? 'bi-check-lg' : 'bi-app'}`} />
+                                {/* Card Compacto do Modelo Ativo */}
+                                {(() => {
+                                    const activeModel = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find(m => m.id === config.layoutId) || 
+                                                        DEFAULT_LAYOUT_MODELS.find(m => m.category === selectedCategory) || 
+                                                        DEFAULT_LAYOUT_MODELS[0];
+                                    const dims = activeModel ? calculateLabelDimensions(activeModel) : { width: 0, height: 0 };
+                                    
+                                    return (
+                                        <div className="flex flex-wrap items-center justify-between gap-4 p-5 bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-800/60 dark:to-slate-900/60 border border-slate-200/80 dark:border-slate-700 rounded-3xl shadow-sm">
+                                            <div className="flex items-center gap-4 min-w-0">
+                                                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+                                                    <i className={`bi ${activeModel?.icon || 'bi-grid-1x2-fill'} text-xl`} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                        <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate">
+                                                            {activeModel?.name || 'Modelo Padrão'}
+                                                        </span>
+                                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
+                                                            {activeModel?.paperSize || 'A4'}
+                                                        </span>
                                                     </div>
-                                                ) : (
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${config.layoutId === model.id ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                        <i className={`bi ${model.icon}`} />
+                                                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                                        {dims.width} x {dims.height} mm &nbsp;&bull;&nbsp; {activeModel?.columns} cols x {activeModel?.rows} lins &nbsp;&bull;&nbsp; <strong className="text-slate-700 dark:text-slate-200">{(activeModel?.columns || 1) * (activeModel?.rows || 1)} etiquetas por folha</strong>
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                {selectedCategory === 'precos' && (
+                                                    <div className="flex bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setPrintingMode('simple')}
+                                                            className={`py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                                printingMode === 'simple' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                                                            }`}
+                                                        >
+                                                            Por Imagens
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setPrintingMode('advanced')}
+                                                            className={`py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
+                                                                printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                                                            }`}
+                                                        >
+                                                            Design Avançado
+                                                        </button>
                                                     </div>
                                                 )}
-                                                <div className="flex-1 overflow-hidden pr-24">
-                                                     <div className="flex items-center gap-2 mb-0.5">
-                                                         <div className="text-[11px] font-black uppercase tracking-tight text-slate-800 dark:text-white truncate" title={model.name}>
-                                                              {model.name}
-                                                          </div>
-                                                         <button 
-                                                             onClick={(e) => {
-                                                                 e.stopPropagation();
-                                                                 const dims = calculateLabelDimensions(model);
-                                                                 toast.info(
-                                                                     <div className="p-1">
-                                                                         <p className="font-black uppercase text-[10px] mb-2 border-b pb-1 text-blue-600">Especificações do Modelo</p>
-                                                                         <p className="text-[11px] mb-1"><b>Etiqueta:</b> {dims.width} x {dims.height} mm</p>
-                                                                         <p className="text-[11px] mb-1"><b>Grade:</b> {model.columns} col x {model.rows} lin</p>
-                                                                         <p className="text-[11px] mb-1"><b>Papel:</b> {model.paperSize}</p>
-                                                                         <p className="text-[11px]"><b>Capacidade:</b> {model.columns * model.rows} etiquetas/folha</p>
-                                                                     </div>,
-                                                                     { autoClose: 6000, position: 'top-center', icon: <i className="bi bi-info-circle-fill text-blue-500" /> }
-                                                                 );
-                                                             }}
-                                                             className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors shrink-0"
-                                                         >
-                                                             <i className="bi bi-info-circle text-[10px] text-slate-500" />
-                                                         </button>
-                                                     </div>
-                                                     <div className="flex flex-col gap-1 overflow-hidden">
-                                                         <div className="flex items-center gap-2">
-                                                             <span className="px-1.5 py-0.5 bg-slate-200/50 dark:bg-slate-800 rounded-md text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase shrink-0">
-                                                                 {model.paperSize}
-                                                             </span>
-                                                             {(() => {
-                                                                 const dims = calculateLabelDimensions(model);
-                                                                 return (
-                                                                     <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter truncate">
-                                                                          {dims.width}x{dims.height}mm • {model.columns * model.rows} un/folha
-                                                                     </span>
-                                                                 );
-                                                             })()}
-                                                         </div>
-                                                         <div className="flex items-center gap-2 text-[7.5px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest leading-none">
-                                                             <span>M: {model.marginT}/{model.marginB}/{model.marginL}/{model.marginR}mm</span>
-                                                             <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                                                             <span>E: {model.gapH}/{model.gapV}mm</span>
-                                                         </div>
-                                                     </div>
-                                                 </div>
+
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setIsModelManagerModalOpen(true)}
+                                                    className="px-4 py-2.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-sm hover:border-blue-300 active:scale-95 cursor-pointer"
+                                                >
+                                                    <i className="bi bi-arrow-repeat mr-1.5" />
+                                                    Alterar Modelo
+                                                </button>
                                             </div>
-                                            
-                                            {!isSelectMode && (
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                     <button 
-                                                         onClick={(e) => { e.stopPropagation(); toggleDefaultLayout(model.id, selectedCategory!); }}
-                                                         className={`w-7 h-7 rounded-lg border transition-all shadow-sm flex items-center justify-center ${
-                                                             defaultLayoutIds[`${selectedCategory}_${model.type || 'rect'}`] === model.id 
-                                                                 ? 'bg-yellow-400 border-yellow-500 text-white hover:bg-yellow-500' 
-                                                                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:text-yellow-500 hover:bg-yellow-50'
-                                                         }`}
-                                                         title="Definir como padrão"
-                                                     >
-                                                         <i className={`bi ${defaultLayoutIds[selectedCategory!] === model.id ? 'bi-star-fill' : 'bi-star'} text-[10px]`} />
-                                                     </button>
-
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); handleDuplicateLayout(model); }}
-                                                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-blue-50 text-slate-400 hover:text-blue-500 transition-all shadow-sm"
-                                                        title="Duplicar"
-                                                    >
-                                                        <i className="bi bi-files text-[10px]" />
-                                                    </button>
-
-                                                    <button 
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            setModelToCopy(model); 
-                                                            setIsCopyModalOpen(true); 
-                                                        }}
-                                                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 transition-all shadow-sm"
-                                                        title="Copiar para outra categoria"
-                                                    >
-                                                        <i className="bi bi-send-fill text-[10px]" />
-                                                    </button>
-
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); setEditingGridModel(model); setGridModalOpen(true); }}
-                                                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-slate-50 text-slate-400 hover:text-blue-500 transition-all shadow-sm"
-                                                        title="Editar"
-                                                    >
-                                                        <i className="bi bi-pencil-fill text-[10px]" />
-                                                    </button>
-
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); setModelToDelete(model.id); }}
-                                                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all shadow-sm"
-                                                        title="Excluir"
-                                                    >
-                                                        <i className="bi bi-trash-fill text-[10px]" />
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
-                                    ))}
-                                </div>
+                                    );
+                                })()}
                             </section>
 
                             <div className="flex flex-col gap-10">
@@ -2047,6 +1906,162 @@ const LabelPrinting: React.FC = () => {
                     </div>
                 </div>
             )}
+            {isModelManagerModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[92vh] rounded-none md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50">
+                        {/* Header do Modal */}
+                        <div className="px-6 py-5 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                    <i className="bi bi-grid-3x3-gap-fill text-xl" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-base md:text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">
+                                            Gerenciador de Modelos de Etiqueta
+                                        </h2>
+                                        <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-black uppercase rounded-full">
+                                            {selectedCategory === 'precos' ? 'Etiquetas de Preço' : selectedCategory === 'identificacao' ? 'Etiquetas de Identificação' : 'Logotipos e Artes'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs font-bold text-slate-400">
+                                        Escolha um modelo de grade, crie novos formatos customizados ou edite as especificações da folha
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingGridModel(null);
+                                        setGridModalOpen(true);
+                                    }}
+                                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer"
+                                >
+                                    <i className="bi bi-plus-lg text-sm" />
+                                    <span>Novo Modelo</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModelManagerModalOpen(false)}
+                                    className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                    <i className="bi bi-x-lg text-base" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Conteúdo / Lista de Modelos em Grid */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/30">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {layoutModels.map(model => {
+                                    const dims = calculateLabelDimensions(model);
+                                    const isActive = config.layoutId === model.id;
+                                    const isCustom = customLayouts.some(c => c.id === model.id);
+                                    
+                                    return (
+                                        <div 
+                                            key={model.id}
+                                            className={`p-5 rounded-3xl border-2 transition-all flex flex-col justify-between gap-4 bg-white dark:bg-slate-900 ${
+                                                isActive 
+                                                    ? 'border-blue-500 shadow-xl shadow-blue-500/10 ring-4 ring-blue-500/10 dark:ring-blue-500/20' 
+                                                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-lg'
+                                            }`}
+                                        >
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isActive ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                                            <i className={`bi ${model.icon || 'bi-grid-1x2-fill'} text-lg`} />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">
+                                                                {model.name}
+                                                            </h4>
+                                                            <span className="text-[10px] font-bold text-slate-400">
+                                                                {model.paperSize} &bull; {dims.width} x {dims.height} mm
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {isActive && (
+                                                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 text-[9px] font-black uppercase rounded-lg flex items-center gap-1">
+                                                            <i className="bi bi-check-circle-fill text-[10px]" /> Ativo
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
+                                                    <div className="flex justify-between">
+                                                        <span>Capacidade:</span>
+                                                        <strong className="text-slate-700 dark:text-slate-200">{model.columns * model.rows} etiquetas/folha</strong>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Grade:</span>
+                                                        <strong className="text-slate-700 dark:text-slate-200">{model.columns} colunas x {model.rows} linhas</strong>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Margens T/B/L/R:</span>
+                                                        <span className="text-slate-600 dark:text-slate-300">{model.marginT}/{model.marginB}/{model.marginL}/{model.marginR} mm</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        selectLayout(model);
+                                                        setIsModelManagerModalOpen(false);
+                                                        toast.success(`Modelo "${model.name}" selecionado!`);
+                                                    }}
+                                                    className={`flex-1 py-2.5 px-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                                                        isActive 
+                                                            ? 'bg-emerald-600 text-white shadow-md' 
+                                                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-95'
+                                                    }`}
+                                                >
+                                                    <i className={`bi ${isActive ? 'bi-check-lg' : 'bi-check2-circle'}`} />
+                                                    {isActive ? 'Selecionado' : 'Usar Modelo'}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditingGridModel(model);
+                                                        setGridModalOpen(true);
+                                                    }}
+                                                    className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-2xl transition-colors cursor-pointer"
+                                                    title="Editar Especificações"
+                                                >
+                                                    <i className="bi bi-pencil-fill text-xs" />
+                                                </button>
+
+                                                {isCustom && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            if (window.confirm(`Excluir modelo "${model.name}"?`)) {
+                                                                await handleDeleteLayout(model.id);
+                                                            }
+                                                        }}
+                                                        className="p-2.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 text-red-600 rounded-2xl transition-colors cursor-pointer"
+                                                        title="Excluir Modelo"
+                                                    >
+                                                        <i className="bi bi-trash3-fill text-xs" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
              <LabelImageModal 
                 isOpen={isImageModalOpen}
                 onClose={() => setIsImageModalOpen(false)}
