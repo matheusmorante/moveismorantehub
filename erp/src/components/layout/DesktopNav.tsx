@@ -51,8 +51,8 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-tag-fill mr-1 text-teal-500"></i> Ambientes e Categorias
                         </Link>
-                        <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta
+                        <Link to="/stock/label-printing?category=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-tag-fill mr-1 text-emerald-500"></i> Etiqueta de Preço
                         </Link>
                     </div>
                 )}
@@ -80,6 +80,9 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
                         </Link>
+                        <Link to="/stock/label-printing?category=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-qr-code mr-1 text-blue-500"></i> Etiqueta de Identificação
+                        </Link>
                     </div>
                 )}
             </div>
@@ -102,8 +105,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                     </div>
                 )}
             </div>
-
-
 
             {/* Pedidos */}
             <div
@@ -133,12 +134,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                     </div>
                 )}
             </div>
-
-
-
-
-
-
 
             {/* Logística */}
             <div
@@ -180,13 +175,13 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
                         <Link to="/marketing/posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-instagram mr-1 text-pink-500"></i> Posts
+                            <i className="bi bi-instagram mr-1 text-pink-500"></i> Posts Redes Sociais
                         </Link>
                         <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta
                         </Link>
-                        <Link to="/stock/label-printing" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-printer-fill mr-1 text-purple-500"></i> Impressão de Etiquetas
+                        <Link to="/stock/label-printing?category=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-printer-fill mr-1 text-purple-500"></i> Impressão de Logotipos e Artes
                         </Link>
                     </div>
                 )}

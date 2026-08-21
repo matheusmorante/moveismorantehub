@@ -21,7 +21,7 @@ const menuItems = [
             { to: '/registrations/products', icon: 'bi-list-ul', iconColor: 'text-indigo-500', label: 'Lista de Produtos' },
             { to: '/registrations/variations', icon: 'bi-ui-radios', iconColor: 'text-blue-500', label: 'Atributos e Variações' },
             { to: '/registrations/product-categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
-            { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta' },
+            { to: '/stock/label-printing?category=precos', icon: 'bi-tag-fill', iconColor: 'text-emerald-500', label: 'Etiqueta de Preço' },
         ]
     },
     {
@@ -34,6 +34,7 @@ const menuItems = [
             { to: '/stock?tab=history', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
             { to: '/stock?tab=audit', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
             { to: '/stock/purchases', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
+            { to: '/stock/label-printing?category=identificacao', icon: 'bi-qr-code', iconColor: 'text-blue-500', label: 'Etiqueta de Identificação' },
         ]
     },
     {
@@ -96,7 +97,7 @@ const menuItems = [
         links: [
             { to: '/marketing/posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Posts para Redes Sociais' },
             { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta (Feed CSV)' },
-            { to: '/stock/label-printing', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Etiquetas' },
+            { to: '/stock/label-printing?category=logos', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Logotipos e Artes' },
         ]
     },
 ];
