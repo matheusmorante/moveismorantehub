@@ -501,6 +501,85 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, inc
     };
 };
 
+/**
+ * Busca uma página de produtos diretamente do Supabase.
+ * Usado para paginação real no BD em telas >= lg (desktop).
+ */
+export const fetchProductsPage = async (
+    page: number,
+    pageSize: number,
+    options?: {
+        showTrash?: boolean;
+        search?: string;
+        category?: string;
+        activeOnly?: boolean;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+    }
+): Promise<{ data: Product[]; total: number }> => {
+    try {
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        const showTrash = options?.showTrash ?? false;
+        const sortBy = options?.sortBy || 'created_at';
+        const sortOrder = options?.sortOrder || 'desc';
+        const ascending = sortOrder === 'asc';
+
+        // Mapear sortBy do frontend para a coluna real do BD
+        const columnMap: Record<string, string> = {
+            description: 'description',
+            unitPrice: 'unit_price',
+            stock: 'stock',
+            code: 'code',
+            createdAt: 'created_at',
+            category: 'category',
+        };
+        const orderColumn = columnMap[sortBy] || 'created_at';
+
+        let query = supabase
+            .from(TABLE_NAME)
+            .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)', { count: 'exact' })
+            .eq('deleted', showTrash)
+            .order(orderColumn, { ascending })
+            .range(from, to);
+
+        // Filtro de busca textual — busca por descrição ou código
+        if (options?.search) {
+            const term = `%${options.search}%`;
+            query = query.or(`description.ilike.${term},code.ilike.${term}`);
+        }
+
+        // Filtro de categoria
+        if (options?.category && options.category !== 'Serviços' && options.category !== 'Produtos') {
+            query = query.eq('category', options.category);
+        } else if (options?.category === 'Serviços') {
+            query = query.eq('item_type', 'service');
+        } else if (options?.category === 'Produtos') {
+            query = query.eq('item_type', 'product');
+        }
+
+        // Filtro de apenas ativos
+        if (options?.activeOnly !== undefined) {
+            query = query.eq('active', options.activeOnly);
+        }
+
+        const { data, error, count } = await query;
+
+        if (error) {
+            console.error('[ProductService] Erro na paginação do BD:', error);
+            return { data: [], total: 0 };
+        }
+
+        const mapped: Product[] = (data || []).map((p, idx) => mapFromDB(p, idx));
+        return { data: mapped, total: count ?? 0 };
+    } catch (e) {
+        console.error('[ProductService] Exceção em fetchProductsPage:', e);
+        return { data: [], total: 0 };
+    }
+};
+
+
 export const getFullProduct = async (id: string): Promise<Product | null> => {
     try {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);

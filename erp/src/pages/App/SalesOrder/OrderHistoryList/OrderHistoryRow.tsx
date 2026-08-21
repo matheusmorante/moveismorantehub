@@ -9,7 +9,6 @@ import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
 import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoReturn } from "@/pages/utils/orderHistoryService";
 import { toast } from "react-toastify";
-import StockCheckModal from "./StockCheckModal";
 
 interface OrderHistoryRowProps {
     order: Order;
@@ -53,10 +52,8 @@ const OrderHistoryRow = ({
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
-    const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
     const [showStockConfirm, setShowStockConfirm] = React.useState(false);
     const [isStockLoading, setIsStockLoading] = React.useState(false);
-    const [isStockCheckModalOpen, setIsStockCheckModalOpen] = React.useState(false);
     const { profile } = useAuth();
     const settings = getSettings();
     const isIncomplete = isOrderIncomplete(order);
@@ -141,19 +138,16 @@ const OrderHistoryRow = ({
     const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
     const isOnlyInternalAssembly = hasAssemblyConfig && !isAssemblyOutside;
     
-    // Explicit colors to match legend and be visible on white background
-    const cellBgClass = 
-        (order.status === 'draft'
-            ? 'bg-slate-100/80 dark:bg-slate-900/40'
-            : (order.orderType === 'budget' || order.orderType === 'assistance'
-                ? 'bg-white dark:bg-slate-950'
-                : (rowColorKey === 'green' 
-                    ? 'bg-emerald-200/30 dark:bg-emerald-950/40' 
-                    : (rowColorKey === 'purple' 
-                        ? 'bg-purple-300/30 dark:bg-purple-900/40' 
-                        : (rowColorKey === 'orange' 
-                            ? 'bg-orange-100/40 dark:bg-orange-900/40' 
-                            : cls.rowHover)))));
+    const cellBgClass = 'bg-white dark:bg-slate-900';
+    const rowBorderClass = order.status === 'draft'
+        ? 'border-l-slate-300 dark:border-l-slate-600'
+        : rowColorKey === 'green'
+            ? 'border-l-green-600 dark:border-l-green-500'
+            : rowColorKey === 'purple'
+                ? 'border-l-purple-600 dark:border-l-purple-500'
+                : rowColorKey === 'orange'
+                    ? 'border-l-orange-500 dark:border-l-orange-400'
+                    : 'border-l-slate-300 dark:border-l-slate-600';
 
     const baseTdClass = `px-1 py-1 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-middle`;
 
@@ -163,7 +157,7 @@ const OrderHistoryRow = ({
     const getStatusLabel = (id: string) => statuses.find(s => s.id === id)?.label || id;
 
     const renderCell = (key: string) => {
-        if (!visibilitySettings[key as keyof VisibilitySettings]) return null;
+        if (visibilitySettings[key as keyof VisibilitySettings] === false) return null;
 
         switch (key) {
             case 'id':
@@ -261,7 +255,7 @@ const OrderHistoryRow = ({
                                     {!showFulfillmentConfirm ? (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setShowFulfillmentConfirm(true); }}
-                                            className="flex items-center gap-1.5 px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 rounded-lg border border-red-200 dark:border-red-900/30 w-fit animate-pulse hover:scale-105 transition-all active:scale-95 shadow-sm"
+                                            className="flex items-center gap-1.5 px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 rounded-lg border border-red-200 dark:border-red-900/30 w-fit hover:scale-105 transition-all active:scale-95 shadow-sm"
                                             title="A data de entrega passou. Este pedido já foi atendido?"
                                         >
                                             <i className="bi bi-clock-history text-[10px]" />
@@ -300,7 +294,7 @@ const OrderHistoryRow = ({
                                         e.stopPropagation();
                                         onAction("sendCustomerReviews", order);
                                     }}
-                                    className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit animate-pulse hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
+                                    className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
                                     title="Enviar pedido de avaliação para o Google Maps"
                                 >
                                     <i className="bi bi-star-fill text-[10px]" />
@@ -404,27 +398,6 @@ const OrderHistoryRow = ({
                                     <i className={`bi ${tIcon} ${tColor} text-[10px]`} />
                                 </div>
 
-                                {/* Assembly Badges */}
-                                {isOnlyInternalAssembly && (
-                                     <div 
-                                         className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md border border-orange-100 dark:border-orange-900/30 shadow-sm animate-pulse" 
-                                         title="MONTAGEM NO DEPÓSITO"
-                                     >
-                                         <i className="bi bi-hammer text-[10px]" />
-                                         <span className="text-[9px] font-black uppercase tracking-widest">Montagem no Depósito</span>
-                                     </div>
-                                 )}
-
-                                 {isAssemblyOutside && (
-                                     <div 
-                                         className="flex items-center gap-1.5 px-2 py-0.5 bg-red-600 text-white rounded-md border border-red-700 shadow-sm animate-pulse" 
-                                         title="MONTAGEM FORA (NA CASA DO CLIENTE)"
-                                     >
-                                         <i className="bi bi-hammer text-[10px]" />
-                                         <span className="text-[9px] font-black uppercase tracking-widest">Montagem Fora</span>
-                                     </div>
-                                 )}
-
                                 {/* Stock Processed Indicator */}
                                 {order.stockProcessed && order.items?.some(i => i.productId && i.productId.trim() !== "") && (
                                     <div 
@@ -448,7 +421,7 @@ const OrderHistoryRow = ({
                                 {/* Pending Scheduling Badge */}
                                 {order.shipping?.scheduling?.pendingScheduling && (
                                     <div 
-                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm animate-pulse" 
+                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm"
                                         title="AGENDAMENTO PENDENTE"
                                     >
                                         <i className="bi bi-clock-history text-[10px]" />
@@ -456,102 +429,51 @@ const OrderHistoryRow = ({
                                     </div>
                                 )}
 
-                                {/* Bling Status Badges */}
-                                {order.orderType !== 'assistance' && order.isRegisteredInBling && !showTrash && (
+                                {/* Bling Status Badge — Toggle Checkbox */}
+                                {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                                        {!showBlingConfirm ? (
-                                            <button 
-                                                onClick={() => setShowBlingConfirm(true)}
-                                                className="flex items-center justify-center w-6 h-6 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 shadow-sm hover:scale-105 transition-all relative"
-                                                title="Lançado no Bling"
-                                            >
-                                                <span className="text-[10px] font-black">B</span>
-                                                <i className="bi bi-check text-[10px] absolute -top-1 -right-1 font-black" />
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
-                                                <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Desfazer?</span>
-                                                <div className="flex gap-1">
-                                                    <button 
-                                                        onClick={() => {
-                                                            onBlingUpdate?.(order.id!, false);
-                                                            setShowBlingConfirm(false);
-                                                        }}
-                                                        className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-red-700 transition-colors"
-                                                    >
-                                                        Sim
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => setShowBlingConfirm(false)}
-                                                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                    >
-                                                        Não
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
+                                        <label
+                                            className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30"
+                                            title={order.isRegisteredInBling ? 'Lançado no Bling' : 'Falta Lançar no Bling'}
+                                        >
+                                            {/* Checkbox bonito */}
+                                            <span className={`w-3 h-3 rounded flex items-center justify-center border flex-shrink-0 transition-all ${order.isRegisteredInBling
+                                                ? 'bg-emerald-500 border-emerald-500'
+                                                : 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700'
+                                                }`}>
+                                                {order.isRegisteredInBling && <i className="bi bi-check text-white" style={{ fontSize: '7px', lineHeight: 1 }} />}
+                                            </span>
+                                            <span className="text-[8px] font-black uppercase tracking-tight">Reg. Bling</span>
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only"
+                                                checked={!!order.isRegisteredInBling}
+                                                onChange={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
+                                            />
+                                        </label>
                                     </div>
                                 )}
 
-                                {order.orderType !== 'assistance' && !order.isRegisteredInBling && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                                        {!showBlingConfirm ? (
-                                            <button 
-                                                onClick={() => setShowBlingConfirm(true)}
-                                                className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md border border-red-100 dark:border-red-900/30 animate-pulse hover:scale-105 transition-all w-fit shadow-sm"
-                                            >
-                                                <i className="bi bi-exclamation-triangle-fill text-[8px]" />
-                                                <span className="text-[8px] font-black uppercase tracking-tight">Falta Bling</span>
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
-                                                <span className="text-[8px] font-black uppercase text-slate-500 ml-1">Lançou?</span>
-                                                <div className="flex gap-1">
-                                                    <button 
-                                                        onClick={() => {
-                                                            onBlingUpdate?.(order.id!, true);
-                                                            setShowBlingConfirm(false);
-                                                        }}
-                                                        className="px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black uppercase rounded-md hover:bg-emerald-700 transition-colors"
-                                                    >
-                                                        Sim
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => setShowBlingConfirm(false)}
-                                                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                    >
-                                                        Não
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Stock Check Badge */}
+                                {/* Stock Check Badge — Toggle Checkbox com ícone de etiqueta */}
                                 {!showTrash && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                                        <button 
-                                            onClick={() => setIsStockCheckModalOpen(true)}
-                                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border transition-all w-fit shadow-sm hover:scale-105 ${
-                                                order.isStockChecked 
-                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/20' 
-                                                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 animate-pulse'
+                                        <label
+                                            className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${order.isStockChecked
+                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/20'
+                                                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
                                             }`}
-                                            title={order.isStockChecked ? "Etiquetado" : "Não Etiquetado"}
+                                            title={order.isStockChecked ? 'Etiquetado' : 'Não Etiquetado'}
                                         >
-                                            <i className={`bi ${order.isStockChecked ? 'bi-check2-circle' : 'bi-exclamation-circle-fill'} text-[8px]`} />
-                                            <span className="text-[8px] font-black uppercase tracking-tight">
-                                                {order.isStockChecked ? "Etiquetado: Sim" : "Etiquetado: Não"}
-                                            </span>
-                                        </button>
-
-                                        <StockCheckModal
-                                            isOpen={isStockCheckModalOpen}
-                                            onClose={() => setIsStockCheckModalOpen(false)}
-                                            order={order}
-                                            onStockCheckUpdate={onStockCheckUpdate!}
-                                        />
+                                            <input
+                                                type="checkbox"
+                                                checked={!!order.isStockChecked}
+                                                onChange={(e) => onStockCheckUpdate?.(order.id!, e.target.checked)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="w-3 h-3 accent-indigo-500 cursor-pointer"
+                                            />
+                                            <i className="bi bi-tag-fill text-[8px]" />
+                                            <span className="text-[8px] font-black uppercase tracking-tight">Etiquetado</span>
+                                        </label>
                                     </div>
                                 )}
 
@@ -568,6 +490,27 @@ const OrderHistoryRow = ({
                                         title={`Origem: ${order.marketingOrigin}`}
                                     >
                                         <i className="bi bi-megaphone-fill text-[10px]" />
+                                    </div>
+                                )}
+
+                                {/* Assembly Badges: mantidos por último na sequência dos rótulos */}
+                                {isOnlyInternalAssembly && (
+                                    <div
+                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md border border-orange-100 dark:border-orange-900/30 shadow-sm"
+                                        title="MONTAGEM NO DEPÓSITO"
+                                    >
+                                        <i className="bi bi-hammer text-[10px]" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Montagem no Depósito</span>
+                                    </div>
+                                )}
+
+                                {isAssemblyOutside && (
+                                    <div
+                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-red-600 text-white rounded-md border border-red-700 shadow-sm"
+                                        title="MONTAGEM FORA (NA CASA DO CLIENTE)"
+                                    >
+                                        <i className="bi bi-hammer text-[10px]" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Montagem Fora</span>
                                     </div>
                                 )}
                             </div>
@@ -741,10 +684,10 @@ const OrderHistoryRow = ({
             <tr
             id={id}
             onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-            className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} ${showMenu || showPicker ? 'relative z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
+                className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${showMenu || showPicker ? 'relative z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
         >
             {/* Row Checkbox */}
-            <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${cellBgClass}`}>
+                <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${cellBgClass}`}>
                 <label
                     className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-2"
                     onClick={(e) => e.stopPropagation()}

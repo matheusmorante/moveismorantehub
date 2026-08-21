@@ -14,23 +14,25 @@ interface OrderStepperProps {
 }
 
 const steps: Step[] = [
-    { step: 1, icon: 'bi-box-seam', label: 'Itens' },
-    { step: 2, icon: 'bi-person-badge', label: 'Cliente' },
-    { step: 3, icon: 'bi-truck', label: 'Logística' },
-    { step: 4, icon: 'bi-credit-card-2-front', label: 'Pagamento' },
-    { step: 5, icon: 'bi-check2-circle', label: 'Resumo' }
+    { step: 1, icon: 'bi-info-circle', label: 'Informações básicas' },
+    { step: 2, icon: 'bi-box-seam', label: 'Itens' },
+    { step: 3, icon: 'bi-person-badge', label: 'Cliente' },
+    { step: 4, icon: 'bi-truck', label: 'Logística' },
+    { step: 5, icon: 'bi-credit-card-2-front', label: 'Pagamento' },
+    { step: 6, icon: 'bi-check2-circle', label: 'Resumo' }
 ];
 
 const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }: OrderStepperProps) => {
     const errorKeys = Object.keys(errors);
     const getStepStatus = (step: number) => {
         const hasError = {
-            1: errorKeys.some(k => k.startsWith('item_') || k === 'items_summary' || k === 'seller'),
-            2: errorKeys.some(k => k.startsWith('customer_')),
-            3: errorKeys.some(k => k.startsWith('shipping_') || k === 'order_date'),
-            4: errorKeys.some(k => k.startsWith('payment_') || k === 'payments_summary'),
-            5: false
-        }[step as 1 | 2 | 3 | 4 | 5];
+            1: errorKeys.includes('seller') || errorKeys.includes('order_date'),
+            2: errorKeys.some(k => k.startsWith('item_') || k === 'items_summary'),
+            3: errorKeys.some(k => k.startsWith('customer_')),
+            4: errorKeys.some(k => k.startsWith('shipping_')),
+            5: errorKeys.some(k => k.startsWith('payment_') || k === 'payments_summary'),
+            6: false
+        }[step as 1 | 2 | 3 | 4 | 5 | 6];
 
         if (hasError) return 'error';
         if (step === currentStep) return 'active';
@@ -38,7 +40,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
         return 'pending';
     };
 
-    const visibleSteps = isBudget ? steps.filter(s => s.step !== 4) : steps;
+    const visibleSteps = isBudget ? steps.filter(s => s.step !== 5) : steps;
 
     return (
         <div className="flex flex-nowrap items-center justify-center gap-1.5 md:gap-4 transition-all duration-500 py-1">

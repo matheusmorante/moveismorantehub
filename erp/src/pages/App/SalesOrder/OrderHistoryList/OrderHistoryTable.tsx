@@ -57,7 +57,7 @@ const OrderHistoryTable = ({
     onFilterByOrderId
 }: OrderHistoryTableProps) => {
     const { width } = useWindowSize();
-    const isMobile = width <= 1280 || 
+    const isMobile = width < 1024 || 
                      window.location.search.includes('auth_email') || 
                      window.location.pathname.includes('/mobile') || 
                      Boolean((window as any).ReactNativeWebView);
@@ -79,7 +79,10 @@ const OrderHistoryTable = ({
         if (savedOrder) {
             try {
                 const keys = JSON.parse(savedOrder) as string[];
-                return keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
+                const savedColumns = keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
+                const savedKeys = new Set(savedColumns.map(column => column.key));
+                const missingColumns = COLUMNS_DEF.filter(column => !savedKeys.has(column.key));
+                return savedColumns.length > 0 ? [...savedColumns, ...missingColumns] : COLUMNS_DEF;
             } catch (e) {
                 return COLUMNS_DEF;
             }
@@ -88,9 +91,10 @@ const OrderHistoryTable = ({
     });
 
     const [draggedColumn, setDraggedColumn] = React.useState<string | null>(null);
+    const columnsToRender = orderedColumns.length > 0 ? orderedColumns : COLUMNS_DEF;
 
     React.useEffect(() => {
-        localStorage.setItem('order_table_column_order', JSON.stringify(orderedColumns.map(c => c.key)));
+        localStorage.setItem('order_table_column_order', JSON.stringify(columnsToRender.map(c => c.key)));
     }, [orderedColumns]);
 
     // Scroll to highlighted order
@@ -196,9 +200,9 @@ const OrderHistoryTable = ({
                                         />
                                     </label>
                                 </th>
-                                {orderedColumns.map((col) => {
+                                {columnsToRender.map((col) => {
                                     const labelText = typeof col.label === 'function' ? col.label(showTrash) : col.label;
-                                    const isVisible = visibilitySettings[col.key];
+                                    const isVisible = visibilitySettings[col.key] !== false;
                                     const sortableKeys = ['id', 'orderDate', 'deliveryDate', 'customer', 'totalValue', 'status'];
                                     const isSortable = sortableKeys.includes(col.key);
                                     // Map keys for the backend
@@ -269,7 +273,7 @@ const OrderHistoryTable = ({
                                     onStatusUpdate={onStatusUpdate}
                                     visibilitySettings={visibilitySettings}
                                     showTrash={showTrash}
-                                    orderedColumnKeys={orderedColumns.map(c => c.key as string)}
+                                    orderedColumnKeys={columnsToRender.map(c => c.key as string)}
                                     isSelected={selectedOrders.includes(order.id!)}
                                     onToggleSelection={() => onToggleSelection(order.id!)}
                                     onBlingUpdate={onBlingUpdate}
@@ -283,7 +287,7 @@ const OrderHistoryTable = ({
                     </table>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 gap-4 overflow-y-auto pb-4">
+                    <div className="grid grid-cols-1 auto-rows-max gap-4 overflow-y-auto pb-4 flex-1 min-h-0">
                     {orders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <i className="bi bi-search text-4xl mb-3 opacity-20" />

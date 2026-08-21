@@ -7,6 +7,31 @@ import { getSettings } from '@/pages/utils/settingsService';
 
 const TABLE_NAME = "orders";
 
+const isValidOrderRow = (row: any) =>
+    row?.id != null &&
+    row.order_data &&
+    typeof row.order_data === 'object' &&
+    !Array.isArray(row.order_data) &&
+    Object.keys(row.order_data).length > 0;
+
+export const fetchOrdersPage = async (page = 1, pageSize = 20): Promise<{ orders: Order[]; total: number }> => {
+    const firstRow = Math.max(0, (page - 1) * pageSize);
+    const lastRow = firstRow + pageSize - 1;
+    const { data, count, error } = await supabase
+        .from(TABLE_NAME)
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+        .range(firstRow, lastRow);
+
+    if (error) throw error;
+
+    const orders = (data || [])
+        .filter(isValidOrderRow)
+        .map((row: any) => capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order));
+
+    return { orders, total: count || 0 };
+};
+
 export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
     console.log('[OrdersSync] Start subscription');
 
@@ -22,7 +47,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 .from(TABLE_NAME)
                 .select('*')
                 .order('id', { ascending: false })
-                .limit(1000);
+                .limit(500);
 
             if (aborted) {
                 console.log('[OrdersSync] Fetch completed but subscription was cancelled, ignoring.');
@@ -52,7 +77,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
 
             if (data && Array.isArray(data)) {
                 console.log('[OrdersSync] Data received, count:', data.length);
-                currentOrders = data.map((row: any) => {
+                currentOrders = data.filter(isValidOrderRow).map((row: any) => {
                     try {
                         const rawData = { ...(row.order_data || {}), id: String(row.id) } as Order;
                         // Inject marketing origin from people registry for legacy orders
@@ -102,6 +127,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
             
             if (payload.eventType === 'INSERT') {
                 const newRow = payload.new;
+                if (!isValidOrderRow(newRow)) return;
                 try {
                     const rawData = { ...(newRow.order_data || {}), id: String(newRow.id) } as Order;
                     const formatted = capitalizeOrder(rawData);
@@ -113,6 +139,11 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 }
             } else if (payload.eventType === 'UPDATE') {
                 const updatedRow = payload.new;
+                if (!isValidOrderRow(updatedRow)) {
+                    currentOrders = currentOrders.filter(o => o.id !== String(updatedRow.id));
+                    callback(currentOrders);
+                    return;
+                }
                 try {
                     const rawData = { ...(updatedRow.order_data || {}), id: String(updatedRow.id) } as Order;
                     const formatted = capitalizeOrder(rawData);

@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Product from "../../../types/product.type";
 import { 
     subscribeToProducts, 
+    fetchProductsPage,
     moveToTrash, 
     restoreProduct, 
     permanentDeleteProduct, 
@@ -16,23 +17,68 @@ import { toast } from "react-toastify";
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 export const useProducts = (filters?: any) => {
+    // Detect desktop (>= 1024px = lg) for server-side pagination
+    const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+    useEffect(() => {
+        const handler = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
+    }, []);
+    const isLargeScreen = windowWidth >= 1024;
+
+    // ═══════════════════════════════════════════════
+    // SERVER PAGINATION state (desktop)
+    // ═══════════════════════════════════════════════
+    const [serverProducts, setServerProducts] = useState<Product[]>([]);
+    const [serverTotal, setServerTotal] = useState(0);
+    const [serverLoading, setServerLoading] = useState(false);
+
+    // ═══════════════════════════════════════════════
+    // LOCAL cache state (mobile / tablet)
+    // ═══════════════════════════════════════════════
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(300);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
+    // ─── Server pagination fetch ───────────────────
+    const fetchPage = useCallback(async (page: number, perPage: number) => {
+        setServerLoading(true);
+        try {
+            const result = await fetchProductsPage(page, perPage, {
+                showTrash: filters?.showTrash,
+                search: filters?.search,
+                category: filters?.category,
+                activeOnly: filters?.activeOnly,
+                sortBy: filters?.sortBy,
+                sortOrder: filters?.sortOrder,
+            });
+            setServerProducts(result.data);
+            setServerTotal(result.total);
+        } finally {
+            setServerLoading(false);
+        }
+    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.sortBy, filters?.sortOrder]);
+
+    // Fetch when desktop + page/perPage/filters change
     useEffect(() => {
+        if (!isLargeScreen) return;
+        fetchPage(currentPage, itemsPerPage);
+    }, [isLargeScreen, currentPage, itemsPerPage, fetchPage]);
+
+    // ─── Local subscription (mobile/tablet) ────────
+    useEffect(() => {
+        if (isLargeScreen) return; // Skip for desktop
         const unsubscribe = subscribeToProducts((data) => {
             setProducts(data);
             setLoading(false);
         }, filters?.showTrash);
-
         return () => unsubscribe();
-    }, [refreshSignal, filters?.showTrash]);
+    }, [isLargeScreen, refreshSignal, filters?.showTrash]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
@@ -127,153 +173,160 @@ export const useProducts = (filters?: any) => {
             });
     }, [products, filters]);
 
-    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-    const totalItems = filteredProducts.length;
+    // Modos paralelos: servidor usa serverProducts, local usa transformedProducts
+    const serverTransformed = useMemo(() => {
+        if (!isLargeScreen) return [];
+        // Para server pagination, os produtos já vêm da página correta
+        // mas ainda precisamos fazer o flatten de variações JSON
+        const flattened: any[] = [];
+        serverProducts.forEach((product, pIdx) => {
+            const parentSku = product.sku || product.code || String(pIdx + 1).padStart(6, '0');
+            const hasJsonVariations = Array.isArray(product.variations) && product.variations.length > 0;
+            const isParent = Boolean(product.hasVariations) || hasJsonVariations;
 
+            const allVars: any[] = [];
+            if (hasJsonVariations) {
+                product.variations!.forEach((v: any, index: number) => {
+                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
+                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+                    allVars.push({
+                        ...product,
+                        id: `${product.id}_${varSku || index}`,
+                        sku: varSku,
+                        code: varSku,
+                        description: v.name,
+                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
+                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
+                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
+                        active: v.active,
+                        status: v.status || product.status,
+                        images: parseVariationImages(v.image_url, v.images),
+                        parentImages: product.images || [],
+                        isVariation: true,
+                        parentId: product.id,
+                        displayName: v.name,
+                    });
+                });
+            }
+
+            flattened.push({ ...product, sku: parentSku, code: parentSku, isParent, allVariations: allVars });
+
+            if (hasJsonVariations) {
+                product.variations!.forEach((v: any, index: number) => {
+                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
+                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+                    flattened.push({
+                        ...product,
+                        id: `${product.id}_${varSku || index}`,
+                        sku: varSku,
+                        code: varSku,
+                        description: v.name,
+                        displayName: v.name,
+                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
+                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
+                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
+                        active: v.active,
+                        status: v.status || product.status,
+                        images: parseVariationImages(v.image_url, v.images),
+                        parentImages: product.images || [],
+                        isVariation: true,
+                        parentId: product.id,
+                    });
+                });
+            }
+        });
+        return flattened;
+    }, [serverProducts, isLargeScreen]);
+
+    // Totais e páginas dependem do modo
+    const totalItems = isLargeScreen ? serverTotal : filteredProducts.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    // Flatten para modo LOCAL (mobile/tablet) — igual à lógica anterior
     const transformedProducts = useMemo(() => {
+        if (isLargeScreen) return []; // Não usado em desktop
         const flattened: any[] = [];
         const parents = filteredProducts.filter(p => !p.isVariation);
         const independentVars = filteredProducts.filter(p => p.isVariation);
 
         parents.forEach((product, pIdx) => {
-            // Parent Row
             const variationsFromIndependent = independentVars.filter(v => v.parentId === product.id);
             const hasJsonVariations = Array.isArray(product.variations) && product.variations.length > 0;
             const actuallyHasVariations = Boolean(product.hasVariations) || hasJsonVariations || variationsFromIndependent.length > 0;
             const parentSku = product.sku || product.code || String(pIdx + 1).padStart(6, '0');
 
             const allVars: any[] = [];
-            // 1. Child Rows from JSON field
             if (product.hasVariations && product.variations) {
                 product.variations.forEach((v: any, index: number) => {
                     const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
                     const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
-
                     allVars.push({
-                        ...product,
-                        id: `${product.id}_${varSku || index}`,
-                        sku: varSku,
-                        code: varSku, // Garantir que a coluna 'SKU/Código' use o SKU real da variação
+                        ...product, id: `${product.id}_${varSku || index}`, sku: varSku, code: varSku,
                         description: v.name,
                         unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
                         costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
                         stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
-                        active: v.active,
-                        status: v.status || product.status,
-                        images: parseVariationImages(v.image_url, v.images),
-                        parentImages: product.images || [],
-                        isVariation: true,
-                        parentId: product.id,
-                        categoryIds: product.categoryIds,
-                        category: product.category,
-                        unit: product.unit,
-                        attributes: v.attributes,
-                        displayName: v.name
+                        active: v.active, status: v.status || product.status,
+                        images: parseVariationImages(v.image_url, v.images), parentImages: product.images || [],
+                        isVariation: true, parentId: product.id, categoryIds: product.categoryIds,
+                        category: product.category, unit: product.unit, attributes: v.attributes, displayName: v.name,
                     });
                 });
             }
-
-            // 2. Child Rows from independent items (e.g. from imports)
             if (!hasJsonVariations && variationsFromIndependent.length > 0) {
                 variationsFromIndependent.forEach(v => {
-                    const vCode = v.code || v.sku; 
+                    const vCode = v.code || v.sku;
                     if (product.variations?.some((jv: any) => jv.sku === vCode || String(jv.id) === String(v.id))) return;
-
-                    allVars.push({
-                        ...v,
-                        sku: vCode, 
-                        code: vCode,
-                        isVariation: true,
-                        parentId: product.id,
-                        description: v.description,
-                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase()) 
-                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '')
-                            : v.description
-                    });
+                    allVars.push({ ...v, sku: vCode, code: vCode, isVariation: true, parentId: product.id, description: v.description,
+                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase())
+                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '') : v.description });
                 });
             }
 
-            flattened.push({ 
-                ...product, 
-                sku: parentSku,
-                code: parentSku,
-                isParent: actuallyHasVariations,
-                allVariations: allVars
-            });
+            flattened.push({ ...product, sku: parentSku, code: parentSku, isParent: actuallyHasVariations, allVariations: allVars });
 
-            // 1. Child Rows from JSON field
             if (product.hasVariations && product.variations) {
                 product.variations.forEach((v: any, index: number) => {
                     const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
                     const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
-
-                    const child = {
-                        ...product,
-                        id: `${product.id}_${varSku || index}`,
-                        sku: varSku,
-                        code: varSku, // Garantir que a coluna 'SKU/Código' use o SKU real da variação
-                        description: v.name,
+                    flattened.push({
+                        ...product, id: `${product.id}_${varSku || index}`, sku: varSku, code: varSku,
+                        description: v.name, displayName: v.name,
                         unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
                         costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
                         stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
-                        active: v.active,
-                        status: v.status || product.status,
-                        images: parseVariationImages(v.image_url, v.images),
-                        parentImages: product.images || [],
-                        isVariation: true,
-                        parentId: product.id,
-                        categoryIds: product.categoryIds,
-                        category: product.category,
-                        unit: product.unit
-                    };
-                    flattened.push({
-                        ...child,
-                        displayName: v.name
+                        active: v.active, status: v.status || product.status,
+                        images: parseVariationImages(v.image_url, v.images), parentImages: product.images || [],
+                        isVariation: true, parentId: product.id, categoryIds: product.categoryIds, category: product.category, unit: product.unit,
                     });
                 });
             }
-
-            // 2. Child Rows from independent items (e.g. from imports)
             if (!hasJsonVariations && variationsFromIndependent.length > 0) {
                 variationsFromIndependent.forEach(v => {
-                    const vCode = v.code || v.sku; 
+                    const vCode = v.code || v.sku;
                     if (product.variations?.some((jv: any) => jv.sku === vCode || String(jv.id) === String(v.id))) return;
-
-                    flattened.push({
-                        ...v,
-                        sku: vCode, 
-                        code: vCode,
-                        isVariation: true,
-                        parentId: product.id,
-                        description: v.description,
-                        // Para variações independentes, tentamos mostrar apenas o que não está no título do pai
-                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase()) 
-                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '')
-                            : v.description
-                    });
+                    flattened.push({ ...v, sku: vCode, code: vCode, isVariation: true, parentId: product.id, description: v.description,
+                        displayName: v.description.toLowerCase().startsWith(product.description.toLowerCase())
+                            ? v.description.substring(product.description.length).trim().replace(/^[-/]\s*/, '') : v.description });
                 });
             }
         });
 
-        // 3. Variations whose parent is NOT in the list (orphans)
         independentVars.forEach(v => {
             const parentInList = parents.some(p => p.id === v.parentId);
-            if (!parentInList) {
-                flattened.push({
-                    ...v,
-                    isVariation: true,
-                    isOrphan: true
-                });
-            }
+            if (!parentInList) flattened.push({ ...v, isVariation: true, isOrphan: true });
         });
 
         return flattened;
-    }, [filteredProducts]);
+    }, [filteredProducts, isLargeScreen]);
 
+    // paginatedProducts: servidor já entrega a página certa; local faz slice
     const paginatedProducts = useMemo(() => {
+        if (isLargeScreen) return serverTransformed;
         const start = (currentPage - 1) * itemsPerPage;
         return transformedProducts.slice(start, start + itemsPerPage);
-    }, [transformedProducts, currentPage, itemsPerPage]);
+    }, [isLargeScreen, serverTransformed, transformedProducts, currentPage, itemsPerPage]);
+
 
     const handleDelete = async (id: string) => {
         const toastId = toast.loading("Desativando produto...");
@@ -669,7 +722,7 @@ export const useProducts = (filters?: any) => {
     };
 
     return {
-        products,
+        products: isLargeScreen ? serverProducts : products,
         paginatedProducts,
         totalItems,
         currentPage,
@@ -677,7 +730,8 @@ export const useProducts = (filters?: any) => {
         totalPages,
         setCurrentPage,
         setItemsPerPage,
-        loading,
+        loading: isLargeScreen ? serverLoading : loading,
+        isServerPagination: isLargeScreen,
         handleDelete,
         handleRestore,
         handlePermanentDelete,
@@ -690,6 +744,6 @@ export const useProducts = (filters?: any) => {
         handleBulkPermanentDelete,
         toggleActive,
         deactivateCatalog,
-        refresh
+        refresh: isLargeScreen ? () => fetchPage(currentPage, itemsPerPage) : refresh,
     };
 };

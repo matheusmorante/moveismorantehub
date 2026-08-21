@@ -29,6 +29,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
         products,
         paginatedProducts,
         loading,
+        isServerPagination,
         totalItems,
         currentPage,
         itemsPerPage,
@@ -147,16 +148,23 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                 {/* Pagination */}
                 <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-slate-50 dark:border-slate-800 pt-6">
                     <div className="flex items-center gap-4">
-                        <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-                            Exibindo {products.length} de {totalItems} itens
+                        <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                            {isServerPagination ? (
+                                <>
+                                    {loading && <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />}
+                                    Página {currentPage} · {totalItems} itens no catálogo
+                                </>
+                            ) : (
+                                `Exibindo ${paginatedProducts.length} de ${totalItems} itens`
+                            )}
                         </span>
                         <div className="flex items-center gap-2">
                             <select
                                 value={itemsPerPage}
-                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none"
                             >
-                                {[10, 25, 50, 100, 300, 500, 1000].map(size => <option key={size} value={size}>{size} por página</option>)}
+                                {(isServerPagination ? [10, 20, 30, 50, 100] : [10, 25, 50, 100, 300, 500, 1000]).map(size => <option key={size} value={size}>{size} por página</option>)}
                             </select>
                         </div>
                     </div>

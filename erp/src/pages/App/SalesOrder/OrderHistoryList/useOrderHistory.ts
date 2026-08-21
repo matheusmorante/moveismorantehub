@@ -1,64 +1,64 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
-import { subscribeToOrders, moveToTrash, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { fetchOrdersPage, moveToTrash, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { toast } from "react-toastify";
+import { useWindowSize } from "../../../../hooks/useWindowSize";
+
+const PAGE_SIZE = 20;
 
 export const useOrderHistory = (filters?: any) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [displayLimit, setDisplayLimit] = useState(30);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(30);
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
+    const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const { width } = useWindowSize();
+    const isMobile = width < 1024;
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
     const loadMore = () => {
-        setDisplayLimit(prev => prev + 30);
+        if (!isMobile || loadingMore || orders.length >= totalDatabaseItems) return;
+        setLoadingMore(true);
+        setCurrentPage(prev => prev + 1);
     };
 
     useEffect(() => {
-        let active = true; // Will be set to false on cleanup
+        let active = true;
+        setLoading(currentPage === 1);
 
-        console.log('[Orders] Hook Start');
-
-        // Failsafe: force loading false after 8 seconds if data never arrives
-        const failsafe = setTimeout(() => {
-            if (active) {
-                console.warn('[Orders] Failsafe timer fired - no data received');
+        fetchOrdersPage(currentPage, PAGE_SIZE)
+            .then(({ orders: pageOrders, total }) => {
+                if (!active) return;
+                setTotalDatabaseItems(total);
+                setOrders(prev => isMobile && currentPage > 1
+                    ? [...prev, ...pageOrders.filter(order => !prev.some(existing => existing.id === order.id))]
+                    : pageOrders
+                );
+            })
+            .catch(error => {
+                if (!active) return;
+                console.error('[Orders] Page fetch error:', error);
+                setOrders(currentPage === 1 ? [] : orders);
+            })
+            .finally(() => {
+                if (!active) return;
                 setLoading(false);
-            }
-        }, 8000);
-
-        const unsubscribe = subscribeToOrders((data) => {
-            // Only update state if this effect instance is still active
-            if (!active) return;
-
-            if (Array.isArray(data)) {
-                console.log('[Orders] Data received, count:', data.length);
-                setOrders(data);
-            } else {
-                console.error('[Orders] Data is not an array:', data);
-                setOrders([]);
-            }
-
-            setLoading(false);
-            clearTimeout(failsafe);
-        });
+                setLoadingMore(false);
+            });
 
         return () => {
-            console.log('[Orders] Hook Cleanup');
             active = false;
-            clearTimeout(failsafe);
-            unsubscribe();
         };
-    }, [refreshSignal]);
+    }, [refreshSignal, currentPage, isMobile, filters]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
         setCurrentPage(1);
+        setOrders([]);
         setSelectedOrders([]);
     }, [filters]);
 
@@ -188,12 +188,12 @@ export const useOrderHistory = (filters?: any) => {
             });
     }, [orders, filters]);
 
-    const totalItems = filteredOrders.length;
-    const hasMore = displayLimit < filteredOrders.length;
+    const totalItems = totalDatabaseItems;
+    const hasMore = isMobile && orders.length < totalDatabaseItems;
 
     const displayedOrders = useMemo(() => {
-        return filteredOrders.slice(0, displayLimit);
-    }, [filteredOrders, displayLimit]);
+        return filteredOrders;
+    }, [filteredOrders]);
 
     const handleDelete = async (id: string) => {
         await moveToTrash(id);
@@ -269,7 +269,7 @@ export const useOrderHistory = (filters?: any) => {
     };
 
     const selectAll = () => {
-        const allIdsOnPage = paginatedOrders.map(o => o.id!).filter(Boolean);
+        const allIdsOnPage = displayedOrders.map(o => o.id!).filter(Boolean);
         const allSelected = allIdsOnPage.every(id => selectedOrders.includes(id));
 
         if (allSelected) {
@@ -396,14 +396,14 @@ export const useOrderHistory = (filters?: any) => {
     return {
         orders: displayedOrders,
         totalItems,
-        displayLimit,
         hasMore,
         loadMore,
         currentPage,
-        itemsPerPage,
-        totalPages: Math.ceil(totalItems / itemsPerPage),
+        itemsPerPage: PAGE_SIZE,
+        totalPages: Math.ceil(totalDatabaseItems / PAGE_SIZE),
         setCurrentPage,
-        setItemsPerPage,
+        isMobile,
+        loadingMore,
         loading,
         handleDelete,
         handleRestore,

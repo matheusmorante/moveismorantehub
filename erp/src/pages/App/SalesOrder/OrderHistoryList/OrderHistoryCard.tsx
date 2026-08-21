@@ -1,7 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import Order from "../../../types/order.type";
-import StockCheckModal from "./StockCheckModal";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
@@ -45,9 +44,7 @@ const OrderHistoryCard = ({
     const settings = getSettings();
     const [showMenu, setShowMenu] = React.useState(false);
     const [showPicker, setShowPicker] = React.useState(false);
-    const [showBlingConfirm, setShowBlingConfirm] = React.useState(false);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
-    const [isStockCheckModalOpen, setIsStockCheckModalOpen] = React.useState(false);
     const [menuPosition, setMenuPosition] = React.useState({ top: 'auto' as number | string, bottom: 'auto' as number | string, right: 0 });
     const menuButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -142,28 +139,28 @@ const OrderHistoryCard = ({
         }
     }
     
-    // Explicit colors to match legend and be visible
-    const cardBgClass = 
-        (order.orderType === 'budget'
-            ? (isDraft ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : 'bg-indigo-100/80 dark:bg-indigo-900/40')
-            : (isDraft 
-                ? 'bg-slate-100/80 dark:bg-slate-900/40' 
-                : (colorKey === 'green' 
-                    ? 'bg-green-100 dark:bg-green-950/40' 
-                    : (colorKey === 'purple' 
-                        ? 'bg-purple-100 dark:bg-purple-900/50' 
-                        : (colorKey === 'orange' 
-                            ? 'bg-orange-100/40 dark:bg-orange-900/40' 
-                            : cls.rowHover)))));
+    // Card sempre neutro — cor apenas na borda esquerda e no cabeçalho
+    const headerAccentClass =
+        order.orderType === 'budget'
+            ? (isDraft ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/30' : 'bg-indigo-100/70 dark:bg-indigo-900/30 border-b border-indigo-200/60 dark:border-indigo-900/40')
+            : isDraft
+                ? 'bg-slate-100/80 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700'
+                : colorKey === 'green'
+                    ? 'bg-green-100/90 dark:bg-green-950/40 border-b border-green-300 dark:border-green-900/50'
+                    : colorKey === 'purple'
+                        ? 'bg-purple-50/80 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-900/30'
+                        : colorKey === 'orange'
+                            ? 'bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30'
+                            : 'bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-700';
 
     return (
         <div 
             id={id}
-            className={`${cardBgClass} ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} border-y border-r ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all relative ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
+            className={`bg-white dark:bg-slate-900 min-h-fit ${isDraft ? 'border-l-[12px] border-slate-300 dark:border-slate-600' : 'border-l-[6px] ' + cls.cardBorder.split(' ')[0].replace('border-', 'border-l-')} border-y border-r ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-sm active:scale-[0.98] transition-all relative overflow-visible ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
             onClick={() => onEdit(order)}
         >
-            {/* Card Header */}
-            <div className="flex flex-col gap-1.5 mb-2.5">
+            {/* Card Header com faixa colorida + todos os badges */}
+            <div className={`${headerAccentClass} px-3 pt-2.5 pb-2 flex flex-col gap-1.5`}>
                 <div className="flex justify-between items-center w-full">
                     <div className="flex items-center gap-2">
                         <input
@@ -228,7 +225,7 @@ const OrderHistoryCard = ({
                     </div>
                 </div>
 
-                {/* Sub-Badges Row */}
+                {/* Linha 2: Sub-Badges Row — todos os rótulos no header */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {isPaidTraffic && (
                         <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[8px] font-black uppercase tracking-wider">
@@ -238,33 +235,48 @@ const OrderHistoryCard = ({
                     )}
 
                     {!showTrash && (
-                        <div className="flex items-center">
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); setIsStockCheckModalOpen(true); }}
-                                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border transition-all text-[8px] font-black uppercase tracking-tight ${
+                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                            <label
+                                className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm text-[8px] font-black uppercase ${
                                     order.isStockChecked 
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/20' 
-                                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 animate-pulse'
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/20'
+                                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
                                 }`}
                                 title={order.isStockChecked ? "Etiquetado" : "Não Etiquetado"}
                             >
-                                <i className={`bi ${order.isStockChecked ? 'bi-check2-circle' : 'bi-exclamation-circle-fill'} text-[8px]`} />
-                                <span>{order.isStockChecked ? "Sim" : "Não"}</span>
-                            </button>
-
-                            <StockCheckModal
-                                isOpen={isStockCheckModalOpen}
-                                onClose={() => setIsStockCheckModalOpen(false)}
-                                order={order}
-                                onStockCheckUpdate={onStockCheckUpdate!}
-                            />
+                                <input
+                                    type="checkbox"
+                                    checked={!!order.isStockChecked}
+                                    onChange={(e) => onStockCheckUpdate?.(order.id!, e.target.checked)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-3 h-3 accent-indigo-500 cursor-pointer"
+                                />
+                                <i className="bi bi-tag-fill text-[8px]" />
+                                <span>Etiquetado</span>
+                            </label>
                         </div>
                     )}
 
-                    {order.orderType !== 'assistance' && !showTrash && (
-                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black ${order.isRegisteredInBling ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/30' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/30 animate-pulse'}`} title={order.isRegisteredInBling ? "Lançado no Bling" : "Falta Lançar Bling"}>
-                            <span>Bling</span>
-                            <i className={`bi ${order.isRegisteredInBling ? 'bi-patch-check-fill' : 'bi-exclamation-circle-fill'} text-[8px]`} />
+                    {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                            <label
+                                className="flex items-center gap-1.5 px-1.5 py-0.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm text-[8px] font-black uppercase bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30"
+                                title={order.isRegisteredInBling ? 'Lançado no Bling' : 'Falta Lançar no Bling'}
+                            >
+                                <span className={`w-3 h-3 rounded flex items-center justify-center border flex-shrink-0 transition-all ${order.isRegisteredInBling
+                                    ? 'bg-emerald-500 border-emerald-500'
+                                    : 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700'
+                                    }`}>
+                                    {order.isRegisteredInBling && <i className="bi bi-check text-white" style={{ fontSize: '7px', lineHeight: 1 }} />}
+                                </span>
+                                <span>Reg. Bling</span>
+                                <input
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={!!order.isRegisteredInBling}
+                                    onChange={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
+                                />
+                            </label>
                         </div>
                     )}
 
@@ -276,14 +288,14 @@ const OrderHistoryCard = ({
                     )}
 
                     {order.shipping?.scheduling?.pendingScheduling && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/20 dark:border-orange-900/30 text-[8px] font-black uppercase animate-pulse">
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/20 dark:border-orange-900/30 text-[8px] font-black uppercase">
                             <i className="bi bi-clock-history text-[8px]" />
                             Pend. Agend.
                         </span>
                     )}
 
                     {hasAssemblyConfig && (
-                        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${isAssemblyOutside ? 'bg-red-600 text-white border-red-700 animate-pulse' : 'bg-amber-50 text-amber-700 border-amber-100'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}>
+                        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${isAssemblyOutside ? 'bg-red-600 text-white border-red-700' : 'bg-amber-50 text-amber-700 border-amber-100'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}>
                             <i className={`bi bi-hammer text-[8px] ${isAssemblyOutside ? 'text-white' : ''}`} />
                             <span>{isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}</span>
                         </span>
@@ -299,16 +311,17 @@ const OrderHistoryCard = ({
                             Vinc: #{order.linkedOrderId.slice(-6).toUpperCase()}
                         </button>
                     )}
-                </div>
-            </div>
+                </div>{/* fim da flex-wrap de badges */}
+            </div>{/* fim do header colorido */}
 
-            <div className="mb-3">
+            {/* Corpo neutro do card */}
+            <div className="px-3 pt-2.5 pb-3">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
                 
                 {order.shipping?.scheduling?.pendingScheduling && (
-                    <div className="mt-2 flex items-center gap-2 bg-orange-500 text-white p-2 rounded-lg border border-orange-600 animate-pulse shadow-sm">
+                    <div className="mt-2 flex items-center gap-2 bg-orange-500 text-white p-2 rounded-lg border border-orange-600 shadow-sm">
                         <i className="bi bi-clock-history text-[10px]" />
                         <span className="text-[9px] font-black uppercase tracking-widest">
                             AGENDAMENTO PENDENTE
@@ -324,7 +337,7 @@ const OrderHistoryCard = ({
                         {!showFulfillmentConfirm ? (
                             <button
                                 onClick={() => setShowFulfillmentConfirm(true)}
-                                className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500 rounded-lg border border-amber-200 dark:border-amber-900/30 w-fit animate-pulse hover:scale-105 transition-all active:scale-95 shadow-sm"
+                                className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500 rounded-lg border border-amber-200 dark:border-amber-900/30 w-fit hover:scale-105 transition-all active:scale-95 shadow-sm"
                                 title="A data de entrega passou. Este pedido já foi atendido?"
                             >
                                 <i className="bi bi-clock-history text-[10px]" />
@@ -360,7 +373,7 @@ const OrderHistoryCard = ({
                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={() => onAction("sendCustomerReviews", order)}
-                            className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit animate-pulse hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
+                            className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
                         >
                             <i className="bi bi-star-fill text-[10px]" />
                             <span className="text-[9px] font-black uppercase tracking-widest">Enviar Avaliação</span>

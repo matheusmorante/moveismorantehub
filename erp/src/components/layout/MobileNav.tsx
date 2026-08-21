@@ -1,7 +1,6 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import logoMorante from "../../assets/logo.jpeg";
-
 import { MenuKey } from "../../AppLayout";
 
 interface MobileNavProps {
@@ -11,215 +10,269 @@ interface MobileNavProps {
     setActiveMenu: (menu: MenuKey) => void;
 }
 
-const mobileLinkClass = "flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all font-bold";
-const mobileSubLinkClass = "py-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-sm";
-
-const menuBtnClass = (isActive: boolean, isBeta?: boolean) =>
-    `flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : isBeta ? 'text-slate-300 dark:text-slate-600 grayscale hover:text-slate-400 opacity-60' : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`;
+const menuItems = [
+    {
+        key: 'products' as MenuKey,
+        label: 'Produtos',
+        icon: 'bi-box-seam',
+        color: 'text-indigo-500',
+        bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        links: [
+            { to: '/registrations/products', icon: 'bi-list-ul', iconColor: 'text-indigo-500', label: 'Lista de Produtos' },
+            { to: '/registrations/variations', icon: 'bi-ui-radios', iconColor: 'text-blue-500', label: 'Atributos e Variações' },
+            { to: '/registrations/product-categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
+            { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta' },
+        ]
+    },
+    {
+        key: 'stock' as MenuKey,
+        label: 'Estoque',
+        icon: 'bi-box-seam-fill',
+        color: 'text-emerald-500',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+        links: [
+            { to: '/stock?tab=history', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
+            { to: '/stock?tab=audit', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
+            { to: '/stock/purchases', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
+        ]
+    },
+    {
+        key: 'registrations' as MenuKey,
+        label: 'Pessoas',
+        icon: 'bi-people-fill',
+        color: 'text-violet-500',
+        bg: 'bg-violet-50 dark:bg-violet-900/20',
+        links: [
+            { to: '/registrations/customers', icon: 'bi-person-fill', iconColor: 'text-violet-500', label: 'Clientes e Fornecedores' },
+            { to: '/registrations/employees', icon: 'bi-person-badge-fill', iconColor: 'text-violet-600', label: 'Funcionários' },
+        ]
+    },
+    {
+        key: 'salesOrder' as MenuKey,
+        label: 'Pedidos',
+        icon: 'bi-cart-fill',
+        color: 'text-blue-500',
+        bg: 'bg-blue-50 dark:bg-blue-900/20',
+        links: [
+            { to: '/sales-order', icon: 'bi-receipt', iconColor: 'text-blue-500', label: 'Pedidos de Venda' },
+            { to: '/budgets', icon: 'bi-file-earmark-text-fill', iconColor: 'text-sky-500', label: 'Orçamentos' },
+            { to: '/assistance-orders', icon: 'bi-tools', iconColor: 'text-orange-500', label: 'Assistências' },
+            { to: '/returns', icon: 'bi-arrow-return-left', iconColor: 'text-rose-500', label: 'Devoluções' },
+            { to: '/sales-order/reports', icon: 'bi-file-earmark-spreadsheet-fill', iconColor: 'text-green-500', label: 'Relatório CSV' },
+        ]
+    },
+    {
+        key: 'logistics' as MenuKey,
+        label: 'Logística',
+        icon: 'bi-truck',
+        color: 'text-cyan-500',
+        bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+        links: [
+            { to: '/delivery-schedule', icon: 'bi-calendar-check-fill', iconColor: 'text-cyan-500', label: 'Cronograma Logístico' },
+            { to: '/logistics/assembly-list', icon: 'bi-hammer', iconColor: 'text-amber-500', label: 'Lista de Montagem' },
+            { to: '/sales-order/freight-calculation', icon: 'bi-calculator-fill', iconColor: 'text-teal-500', label: 'Cálculo de Frete' },
+        ]
+    },
+    {
+        key: 'finance' as MenuKey,
+        label: 'Financeiro',
+        icon: 'bi-wallet2',
+        color: 'text-amber-500',
+        bg: 'bg-amber-50 dark:bg-amber-900/20',
+        beta: true,
+        links: [
+            { to: '/finance/dashboard', icon: 'bi-cash-coin', iconColor: 'text-amber-500', label: 'Gestão de Caixa' },
+            { to: '/finance/payables', icon: 'bi-arrow-up-circle-fill', iconColor: 'text-rose-500', label: 'Contas a Pagar' },
+            { to: '/finance/receivables', icon: 'bi-arrow-down-circle-fill', iconColor: 'text-emerald-500', label: 'Contas a Receber' },
+            { to: '/finance/transactions', icon: 'bi-bank2', iconColor: 'text-blue-500', label: 'Extrato' },
+        ]
+    },
+    {
+        key: 'marketing' as MenuKey,
+        label: 'Comunicação Visual',
+        icon: 'bi-brush',
+        color: 'text-pink-500',
+        bg: 'bg-pink-50 dark:bg-pink-900/20',
+        beta: true,
+        links: [
+            { to: '/stock/label-printing?cat=logos', icon: 'bi-palette-fill', iconColor: 'text-purple-500', label: 'Etiqueta de Logotipo' },
+            { to: '/stock/label-printing?cat=precos', icon: 'bi-tag-fill', iconColor: 'text-amber-500', label: 'Etiqueta de Preço' },
+            { to: '/stock/label-printing?cat=identificacao', icon: 'bi-qr-code-scan', iconColor: 'text-blue-500', label: 'Etiqueta de Identificação' },
+            { to: '/stock/label-printing?cat=posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Posts para Redes Sociais' },
+        ]
+    },
+];
 
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
-    const { isAdmin } = useAuth();
+    const { isAdmin, profile, user, logout } = useAuth();
+    const navigate = useNavigate();
+
     if (!isOpen) return null;
 
     const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
+    const handleLink = (to: string) => {
+        navigate(to);
+        onClose();
+    };
+
     return (
-        <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm xl:hidden" onClick={onClose}>
-            <div
-                className="fixed inset-y-0 left-0 w-3/4 max-w-sm bg-white dark:bg-slate-900 shadow-2xl p-4 flex flex-col gap-4 z-50 overflow-y-auto animate-slide-right"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-2">
-                    <Link to="/" onClick={onClose} className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center overflow-hidden border border-slate-100">
+        <div
+            className="fixed inset-0 z-50 flex flex-col lg:hidden"
+            style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15,23,42,0.75)' }}
+        >
+            {/* Modal Fullscreen */}
+            <div className="flex flex-col h-full w-full bg-white dark:bg-slate-950 overflow-y-auto animate-slide-up">
+
+                {/* Header do Modal */}
+                <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl shadow-sm">
+                    <Link to="/" onClick={onClose} className="flex items-center gap-3 group">
+                        <div className="w-10 h-10 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 group-hover:scale-105 transition-transform duration-300">
                             <img src={logoMorante} alt="Logo" className="w-full h-full object-cover" />
                         </div>
-                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight whitespace-nowrap">ERP Móveis Morante</h3>
+                        <div className="flex flex-col">
+                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight whitespace-nowrap uppercase italic leading-none">
+                                ERP <span className="text-blue-600">Móveis Morante</span>
+                            </h3>
+                            <span className="text-[8px] font-black tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-0.5">
+                                Hub de Inteligência
+                            </span>
+                        </div>
                     </Link>
-                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
-                        <i className="bi bi-x-lg text-xl"></i>
+
+                    <button
+                        onClick={onClose}
+                        className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-all active:scale-90"
+                    >
+                        <i className="bi bi-x-lg text-base"></i>
                     </button>
                 </div>
 
-                {/* Navigation */}
-                <nav className="flex flex-col gap-2">
-                    <Link to="/" onClick={onClose} className={mobileLinkClass}>
+                {/* Atalho: Dashboard */}
+                <div className="px-4 pt-4">
+                    <button
+                        onClick={() => handleLink('/')}
+                        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-sm shadow-lg hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
+                    >
                         <i className="bi bi-grid-fill text-lg"></i>
-                        Dashboard
-                    </Link>
+                        Dashboard Principal
+                        <i className="bi bi-arrow-right ml-auto text-blue-200"></i>
+                    </button>
+                </div>
 
-                    {/* Produtos do Bling e Importação */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('products')} className={menuBtnClass(activeMenu === 'products', false)}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-box-seam text-lg"></i>
-                                <span>Produtos</span>
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'products' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'products' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/registrations/products" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-list-ul mr-2 text-indigo-500"></i> Lista
-                                </Link>
-                                <Link to="/registrations/variations" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-ui-radios mr-2 text-blue-500"></i> Atributos
-                                </Link>
-                                <Link to="/registrations/product-categories" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-tag-fill mr-2 text-teal-500"></i> Ambientes e Categorias
-                                </Link>
-                                <Link to="/registrations/meta-catalog" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-meta mr-2 text-blue-600"></i> Catálogo Meta
-                                </Link>
-                            </div>
-                        )}
-                    </div>
+                {/* Seções de Menu */}
+                <nav className="flex flex-col gap-1 px-4 pt-4 pb-4">
+                    {menuItems.map((item) => {
+                        const isActive = activeMenu === item.key;
+                        return (
+                            <div key={item.key} className="overflow-hidden">
+                                {/* Cabeçalho da Seção */}
+                                <button
+                                    onClick={() => toggle(item.key)}
+                                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-bold text-sm ${
+                                        isActive
+                                            ? `${item.bg} ${item.color}`
+                                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isActive ? item.bg : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                            <i className={`bi ${item.icon} text-lg ${isActive ? item.color : 'text-slate-400 dark:text-slate-500'}`}></i>
+                                        </div>
+                                        <span>{item.label}</span>
+                                        {item.beta && (
+                                            <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full tracking-tighter uppercase">
+                                                BETA
+                                            </span>
+                                        )}
+                                    </div>
+                                    <i className={`bi bi-chevron-down transition-transform duration-300 ${isActive ? 'rotate-180 ' + item.color : 'text-slate-400'}`}></i>
+                                </button>
 
-                    {/* Estoque */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('stock')} className={menuBtnClass(activeMenu === 'stock', false)}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-box-seam-fill text-lg"></i>
-                                <span>Estoque</span>
+                                {/* Sub-links expandíveis */}
+                                {isActive && (
+                                    <div className="flex flex-col gap-0.5 pt-1 pb-2 px-2">
+                                        {item.links.map((link) => (
+                                            <button
+                                                key={link.to}
+                                                onClick={() => handleLink(link.to)}
+                                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100 transition-all text-sm font-semibold text-left"
+                                            >
+                                                <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
+                                                {link.label}
+                                                <i className="bi bi-arrow-right-short ml-auto text-slate-300 dark:text-slate-600 text-lg"></i>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'stock' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'stock' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/stock?tab=history" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-arrow-left-right mr-2 text-emerald-500"></i> Movimentações
-                                </Link>
-                                <Link to="/stock?tab=audit" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-journal-check mr-2 text-emerald-500"></i> Inventário
-                                </Link>
-                                <Link to="/stock/purchases" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-cart-fill mr-2 text-blue-500"></i> Pedidos de Compra
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Pessoas */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('registrations')} className={menuBtnClass(activeMenu === 'registrations')}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-people-fill text-lg"></i>
-                                Pessoas
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'registrations' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'registrations' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/registrations/customers" onClick={onClose} className={mobileSubLinkClass}>Clientes e Fornecedores</Link>
-                                <Link to="/registrations/employees" onClick={onClose} className={mobileSubLinkClass}>Funcionários</Link>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Pedidos */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('salesOrder')} className={menuBtnClass(activeMenu === 'salesOrder')}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-cart-fill text-lg"></i>
-                                Pedidos
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'salesOrder' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'salesOrder' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/sales-order" onClick={onClose} className={mobileSubLinkClass}>Pedidos de Venda</Link>
-                                <Link to="/budgets" onClick={onClose} className={mobileSubLinkClass}>Orçamentos</Link>
-                                <Link to="/assistance-orders" onClick={onClose} className={mobileSubLinkClass}>Assistências</Link>
-                                <Link to="/returns" onClick={onClose} className={mobileSubLinkClass}>Devoluções</Link>
-                                <Link to="/sales-order/reports" onClick={onClose} className={mobileSubLinkClass}>Relatório de Vendas CSV</Link>
-                                <Link to="/sales-order/reports-bling" onClick={onClose} className={mobileSubLinkClass}>
-                                    Relatórios do Bling <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-indigo-500 px-1 py-0.5 rounded ml-1 tracking-tighter uppercase">BETA</span>
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Logística */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('logistics')} className={menuBtnClass(activeMenu === 'logistics')}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-truck text-lg"></i>
-                                Logística
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'logistics' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'logistics' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/delivery-schedule" onClick={onClose} className={mobileSubLinkClass}>Cronograma Logístico</Link>
-                                <Link to="/logistics/assembly-list" onClick={onClose} className={mobileSubLinkClass}>Lista de Montagem</Link>
-                                <Link to="/sales-order/freight-calculation" onClick={onClose} className={mobileSubLinkClass}>Cálculo de Frete</Link>
-                            </div>
-                        )}
-                    </div>
-
-
-
-                    {/* Financeiro */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', true)}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-wallet2 text-lg"></i>
-                                <span>Financeiro</span>
-                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'finance' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'finance' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/finance/dashboard" onClick={onClose} className={mobileSubLinkClass}>Gestão de Caixa</Link>
-                                <Link to="/finance/payables" onClick={onClose} className={mobileSubLinkClass}>Contas a Pagar</Link>
-                                <Link to="/finance/receivables" onClick={onClose} className={mobileSubLinkClass}>Contas a Receber</Link>
-                                <Link to="/finance/transactions" onClick={onClose} className={mobileSubLinkClass}>Movimentações (Extrato)</Link>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Comunicação Visual */}
-                    <div className="flex flex-col">
-                        <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', true)}>
-                            <div className="flex items-center gap-3">
-                                <i className="bi bi-brush text-lg"></i>
-                                <span>Comunicação Visual</span>
-                                <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
-                            </div>
-                            <i className={`bi bi-chevron-down transition-transform ${activeMenu === 'marketing' ? 'rotate-180' : ''}`}></i>
-                        </button>
-                        {activeMenu === 'marketing' && (
-                            <div className="flex flex-col gap-1 pl-11 pr-4 py-2">
-                                <Link to="/stock/label-printing?cat=logos" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-palette-fill mr-2 text-purple-500"></i> Etiqueta de Logotipo e Rótulo
-                                </Link>
-                                <Link to="/stock/label-printing?cat=precos" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-tag-fill mr-2 text-amber-500"></i> Etiqueta de Preço
-                                </Link>
-                                <Link to="/stock/label-printing?cat=identificacao" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-qr-code-scan mr-2 text-blue-500"></i> Etiqueta de Identificação do Produto
-                                </Link>
-                                <Link to="/stock/label-printing?cat=posts" onClick={onClose} className={mobileSubLinkClass}>
-                                    <i className="bi bi-instagram mr-2 text-pink-500"></i> Posts para Redes Sociais
-                                </Link>
-                            </div>
-                        )}
-                    </div>
+                        );
+                    })}
                 </nav>
 
-                {/* Footer */}
-                {isAdmin && (
-                    <div className="mt-auto border-t border-slate-100 dark:border-slate-800 pt-4 flex flex-col gap-2 px-4 pb-4">
-                        <Link to="/users" onClick={onClose} className="flex items-center gap-3 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-sm">
-                            <i className="bi bi-shield-lock-fill text-lg"></i> Gestão de Acessos
-                        </Link>
-                        <Link to="/settings" onClick={onClose} className="flex items-center gap-3 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all font-bold text-sm">
-                            <i className="bi bi-gear-fill text-lg"></i> Configurações
-                        </Link>
+                {/* Footer: Perfil + Admin + Logout */}
+                <div className="mt-auto border-t border-slate-100 dark:border-slate-800">
+                    {/* Card do Usuário */}
+                    <div className="flex items-center gap-3 px-5 py-4 bg-slate-50/50 dark:bg-slate-900/50">
+                        <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-md flex items-center justify-center flex-shrink-0">
+                            {profile?.avatar_url ? (
+                                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-white font-black text-sm uppercase">
+                                    {((profile?.full_name || user?.email || 'U') as any)[0]}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
+                                {profile?.full_name || 'Usuário'}
+                            </p>
+                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">
+                                {user?.email}
+                            </p>
+                        </div>
+                        <div className="flex-shrink-0 inline-flex items-center px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest">
+                            {isAdmin ? 'Admin' : 'Vendedor'}
+                        </div>
                     </div>
-                )}
+
+                    <div className="flex flex-col gap-1 px-4 py-3">
+                        <button
+                            onClick={() => handleLink('/profile')}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
+                        >
+                            <i className="bi bi-person-circle text-lg"></i>
+                            Meu Perfil
+                        </button>
+
+                        {isAdmin && (
+                            <>
+                                <button
+                                    onClick={() => handleLink('/settings')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
+                                >
+                                    <i className="bi bi-gear-fill text-lg"></i>
+                                    Configurações
+                                </button>
+                                <button
+                                    onClick={() => handleLink('/users')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
+                                >
+                                    <i className="bi bi-shield-lock-fill text-lg"></i>
+                                    Controle de Acessos
+                                </button>
+                            </>
+                        )}
+
+                        <button
+                            onClick={() => { logout(); onClose(); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all font-bold text-sm text-left mt-1"
+                        >
+                            <i className="bi bi-box-arrow-right text-lg"></i>
+                            Encerrar Sessão
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

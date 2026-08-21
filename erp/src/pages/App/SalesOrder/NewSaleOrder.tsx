@@ -238,56 +238,6 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2 w-full xl:w-auto justify-center xl:justify-end">
-                    <div className={`flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-100 dark:border-slate-800 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'opacity-100 translate-x-0' : 'hidden'}`}>
-                        <button 
-                            ref={sellerRef}
-                            onClick={() => setIsSellerSearchOpen(true)}
-                            className="flex items-center gap-2 px-2 py-1 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-600"
-                        >
-                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${isPickup ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                <i className="bi bi-person-badge-fill text-[10px]" />
-                            </div>
-                            <span className="text-[9px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[100px]">
-                                {form.state.seller || "Vendedor"}
-                            </span>
-                        </button>
-                    </div>
-
-                    <div className={`flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-0.5 sm:p-1 gap-1 sm:gap-2 border border-slate-100 dark:border-slate-800/50 shadow-premium-sm transition-all duration-300 ${isScrolled ? 'hidden' : 'flex'}`}>
-                        <button 
-                            ref={sellerRef}
-                            onClick={() => setIsSellerSearchOpen(true)}
-                            className="group flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-4 sm:py-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300 border border-transparent hover:border-slate-100 dark:hover:border-slate-600 hover:shadow-premium-sm"
-                        >
-                            <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
-                                <i className="bi bi-person-badge-fill text-xs sm:text-base" />
-                            </div>
-                            <div className="flex flex-col text-left">
-                                <span className="text-[7px] sm:text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider sm:tracking-[0.15em] mb-0.5 group-hover:text-blue-500 transition-colors">Vendedor</span>
-                                <span className={`text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest ${form.state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
-                                    {form.state.seller || "Selecionar..."}
-                                </span>
-                            </div>
-                        </button>
-
-                        <div className="w-[1px] h-6 sm:h-8 bg-slate-100 dark:bg-slate-800 mx-0.5 sm:mx-1" />
-
-                        <div className="group flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-4 sm:py-1.5">
-                            <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors duration-500 ${isBudget ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400' : isReturn ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : isPickup ? 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'}`}>
-                                <i className="bi bi-calendar-event-fill text-xs sm:text-base" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[7px] sm:text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider sm:tracking-[0.15em] mb-0.5">Data</span>
-                                <input
-                                    type="datetime-local"
-                                    value={form.state.orderDate}
-                                    onChange={(e) => form.actions.setOrderDate?.(e.target.value)}
-                                    className="bg-transparent border-0 p-0 focus:ring-0 text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="flex items-center gap-1.5">
                         <button
                             type="button"
@@ -373,6 +323,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                         }
                     }} 
                     onLoadJSON={handleLoadJSON}
+                    onOpenSellerSearch={() => setIsSellerSearchOpen(true)}
                 />
             </div>
         </div>

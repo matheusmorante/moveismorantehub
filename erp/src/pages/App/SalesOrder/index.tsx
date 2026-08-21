@@ -1,5 +1,4 @@
 import React, { useState, useRef } from "react";
-import { Link } from "react-router-dom";
 import OrderHistoryList from "./OrderHistoryList";
 import OrderEditModal from "./OrderEditModal";
 import NewSaleOrder from "./NewSaleOrder";
@@ -162,19 +161,7 @@ const SalesOrder = () => {
     };
 
     return (
-        <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
-            {/* Sidebar for Filters */}
-            <div className={`transition-all duration-300 ease-in-out border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'}`}>
-                <div className="lg:hidden flex justify-end p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 p-2">
-                        <i className="bi bi-x-lg text-xl" />
-                    </button>
-                </div>
-                <OrderFilters filters={filters} setFilters={setFilters} />
-            </div>
-            {/* Overlay for mobile sidebar */}
-            {isSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
-
+        <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-100 dark:bg-slate-950 transition-colors duration-300 relative">
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 p-2 sm:p-4 lg:p-6">
                 <div className="flex flex-col gap-3 mb-3">
@@ -240,7 +227,7 @@ const SalesOrder = () => {
                         <div className="flex gap-1.5 flex-wrap">
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border ${isSidebarOpen
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border min-[1701px]:hidden ${isSidebarOpen
                                     ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
                                     : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
                                     }`}
@@ -263,29 +250,6 @@ const SalesOrder = () => {
 
 
 
-                            <Link
-                                to="/delivery-schedule"
-                                className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 hover:border-emerald-300 hover:bg-emerald-100 dark:hover:border-emerald-700`}
-                                title="Cronograma"
-                            >
-                                <i className="bi bi-calendar3 text-sm"></i>
-                                <span className="hidden sm:inline">Cronograma</span>
-                            </Link>
-
-                            {!isBudgetRoute && !isAssistanceRoute && (
-                                <div className="hidden lg:flex items-center gap-2 ml-4 border-l border-slate-200 dark:border-slate-800 pl-4">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">Legenda:</span>
-                                    <div className="flex items-center gap-2 px-2.5 py-1 bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 border-l-[4px] border-l-green-600 rounded-lg">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-400 opacity-80">Entrega</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 px-2.5 py-1 bg-purple-100/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/50 border-l-[4px] border-l-purple-700 rounded-lg shadow-sm">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-purple-800 dark:text-purple-300">Retirada</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 border-l-[4px] border-l-amber-500 rounded-lg shadow-sm">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Devolução</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         <div className="relative hidden lg:block">
@@ -338,24 +302,38 @@ const SalesOrder = () => {
 
                     </div>
 
-                    <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-2xl shadow-none md:shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors flex-1 flex flex-col min-h-0">
-                        <OrderHistoryList
-                            onEdit={(order) => {
-                                if (order.orderType === 'assistance') {
-                                    setEditingOrder(order);
-                                } else {
-                                    setEditingOrder(order); // Usamos editingOrder localmente para todas
-                                }
-                            }}
-                            filters={activeFilters}
-                            visibilitySettings={visibilitySettings}
-                            onToggleColumn={toggleVisibility}
-                            onSort={handleSort}
-                            highlightOrderId={highlightOrderId}
-                            ref={orderListRef}
-                            onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
-                            onAction={handleOrderAction}
-                        />
+                    <div className="bg-transparent transition-colors flex-1 flex flex-col min-h-0 overflow-visible">
+                        <div className="flex flex-1 min-h-0 min-w-0 gap-4">
+                            <div className={`transition-all duration-300 ease-in-out border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full rounded-2xl ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'} min-[1701px]:!relative min-[1701px]:!inset-auto min-[1701px]:!z-auto min-[1701px]:!w-80 min-[1701px]:!opacity-100 min-[1701px]:!overflow-hidden min-[1701px]:!border min-[1701px]:!shadow-none min-[1701px]:!shrink-0`}>
+                                <div className="lg:hidden flex justify-end p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                                    <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 p-2">
+                                        <i className="bi bi-x-lg text-xl" />
+                                    </button>
+                                </div>
+                                <OrderFilters filters={filters} setFilters={setFilters} />
+                            </div>
+                            {isSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
+
+                            <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none">
+                                <OrderHistoryList
+                                    onEdit={(order) => {
+                                        if (order.orderType === 'assistance') {
+                                            setEditingOrder(order);
+                                        } else {
+                                            setEditingOrder(order); // Usamos editingOrder localmente para todas
+                                        }
+                                    }}
+                                    filters={activeFilters}
+                                    visibilitySettings={visibilitySettings}
+                                    onToggleColumn={toggleVisibility}
+                                    onSort={handleSort}
+                                    highlightOrderId={highlightOrderId}
+                                    ref={orderListRef}
+                                    onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
+                                    onAction={handleOrderAction}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

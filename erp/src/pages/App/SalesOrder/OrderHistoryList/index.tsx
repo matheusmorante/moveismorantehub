@@ -59,7 +59,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         refresh,
         currentPage,
         totalPages,
-        setCurrentPage
+        setCurrentPage,
+        loadingMore
     } = useOrderHistory(filters);
 
     const observerRef = React.useRef<IntersectionObserver | null>(null);
@@ -163,19 +164,18 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     };
 
     const getPageButtons = () => {
-        const buttons: number[] = [];
         const maxVisible = 5;
-        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-        let end = Math.min(totalPages, start + maxVisible - 1);
-
-        if (end - start + 1 < maxVisible) {
-            start = Math.max(1, end - maxVisible + 1);
+        if (totalPages <= maxVisible) {
+            return Array.from({ length: totalPages }, (_, index) => index + 1);
         }
 
-        for (let i = start; i <= end; i++) {
-            buttons.push(i);
-        }
-        return buttons;
+        const start = currentPage <= 3
+            ? 1
+            : currentPage >= totalPages - 2
+                ? totalPages - maxVisible + 1
+                : currentPage - 2;
+
+        return Array.from({ length: maxVisible }, (_, index) => start + index);
     };
 
 
@@ -259,12 +259,44 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onFilterByOrderId={onFilterByOrderId}
                 />
 
+                <div className="hidden lg:flex items-center justify-center gap-2 py-3 border-t border-slate-100 dark:border-slate-800">
+                    {currentPage > 1 && (
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-900"
+                        >
+                            Anterior
+                        </button>
+                    )}
+                    {getPageButtons().map(page => (
+                        <button
+                            type="button"
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            aria-current={page === currentPage ? 'page' : undefined}
+                            className={`w-9 h-9 rounded-lg text-xs font-black ${page === currentPage ? 'bg-blue-600 text-white ring-2 ring-blue-200 dark:ring-blue-900' : 'border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    {currentPage < totalPages && (
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-900"
+                        >
+                            Próxima
+                        </button>
+                    )}
+                </div>
+
                 {/* Infinite Scroll Sentinel */}
-                <div ref={sentinelRef} className="py-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-3">
+                <div ref={sentinelRef} className="lg:hidden py-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-3">
                     {hasMore ? (
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold animate-pulse">
-                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                            <span>Carregando mais pedidos... ({orders.length} de {totalItems})</span>
+                            {loadingMore && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />}
+                            <span>{loadingMore ? 'Carregando mais pedidos...' : `${orders.length} de ${totalItems} pedidos`}</span>
                         </div>
                     ) : (
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">

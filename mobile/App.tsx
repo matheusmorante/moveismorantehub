@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, StatusBar, Alert, ScrollView, Vibration, ActivityIndicator, Platform, TextInput, Modal, FlatList, RefreshControl, SectionList, PanResponder } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { ClipboardList, Bell, Hammer, ShoppingBag, Truck, BarChart3, AlertTriangle, Mail, Lock, ArrowRight, Eye, EyeOff, LayoutDashboard, Wrench, RotateCcw, RotateCw, Calendar, ChevronDown, Check, Moon, Sun, User, Settings, LogOut, ShieldCheck, X, Search, Clock, Sparkles, Volume2, Square, RefreshCw, Play, Pause } from 'lucide-react-native';
+import { ClipboardList, Bell, Hammer, ShoppingBag, Truck, BarChart3, AlertTriangle, Mail, Lock, ArrowRight, Eye, EyeOff, LayoutDashboard, Wrench, RotateCcw, RotateCw, Calendar, ChevronDown, ChevronUp, Check, Moon, Sun, User, Settings, LogOut, ShieldCheck, X, Search, Clock, Sparkles, Volume2, Square, RefreshCw, Play, Pause } from 'lucide-react-native';
 
 // ... (mesmo escopo anterior)
 import { Audio } from 'expo-av';
@@ -893,6 +893,32 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'default' | 'week' | 'month' | 'all'>('default');
   const [typeFilters, setTypeFilters] = useState<string[]>(['delivery', 'pickup', 'assistance']);
+  const [erpSettings, setErpSettings] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchRealSettings = async () => {
+      try {
+        const { data: globalRow } = await supabase
+          .from('app_settings')
+          .select('*')
+          .eq('id', 'global')
+          .single();
+
+        if (globalRow?.deliveryHandlingOptions || globalRow?.pickupHandlingOptions) {
+          setErpSettings(globalRow);
+        } else {
+          const { data: settingsData } = await supabase.from('company_settings').select('*').single();
+          if (settingsData?.settings) {
+            setErpSettings(settingsData.settings);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao buscar manuseios do ERP em NativeLogisticsScreen:', err);
+      }
+    };
+
+    fetchRealSettings();
+  }, []);
 
   const fetchLogistics = async () => {
     try {
@@ -1039,6 +1065,7 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
   };
 
   const [showLogisticsPeriodModal, setShowLogisticsPeriodModal] = useState(false);
+  const [isPendingExpanded, setIsPendingExpanded] = useState(false);
   const activeLogisticsPeriodLabel = [
     { id: 'default', label: 'Ontem e Seguintes' },
     { id: 'today', label: 'Hoje' },
@@ -1115,36 +1142,83 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
         })}
       </View>
 
-      {/* Alerta de Agendamentos Pendentes */}
+      {/* Alerta de Agendamentos Pendentes (Fechado/Colapsado por Padrão) */}
       {pendingOrders.length > 0 ? (
-        <View style={{ backgroundColor: '#fffbeb', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#fef3c7', gap: 10, marginBottom: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Clock size={18} color="#d97706" />
-            <Text style={{ fontSize: 13, fontWeight: '900', color: '#b45309' }}>
-              {pendingOrders.length} Agendamento(s) Pendente(s)
-            </Text>
-          </View>
-          {pendingOrders.map((po: any) => {
-            const poData = po.order_data || {};
-            return (
-              <TouchableOpacity
-                key={po.id}
-                activeOpacity={0.8}
-                onPress={() => onSelectOrder && onSelectOrder(po)}
-                style={{ backgroundColor: '#ffffff', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#fde68a', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '900', color: '#d97706' }}>#{po.id?.slice(-6).toUpperCase()}</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#1e293b', marginTop: 2 }}>
-                    {poData.customerData?.fullName || po.customer_name || 'Cliente'}
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 9, fontWeight: '900', color: '#dc2626', backgroundColor: '#fee2e2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, textTransform: 'uppercase' }}>
-                  Pendente
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={{
+          backgroundColor: isDarkMode ? '#2d1c03' : '#fffbeb',
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: isDarkMode ? '#78350f' : '#fef3c7',
+          marginBottom: 10,
+          overflow: 'hidden'
+        }}>
+          {/* Cabeçalho Clicável do Tópico de Pendentes */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setIsPendingExpanded(prev => !prev)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              backgroundColor: isDarkMode ? '#3b2204' : '#fef3c7',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Clock size={18} color="#d97706" />
+              <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#fde68a' : '#b45309' }}>
+                {pendingOrders.length} {pendingOrders.length === 1 ? 'Agendamento Pendente' : 'Agendamentos Pendentes'}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isDarkMode ? '#78350f' : '#fde68a', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ fontSize: 10, fontWeight: '900', color: isDarkMode ? '#fef3c7' : '#92400e' }}>
+                {isPendingExpanded ? 'Ocultar' : 'Ver todos'}
+              </Text>
+              {isPendingExpanded ? (
+                <ChevronUp size={14} color={isDarkMode ? '#fef3c7' : '#92400e'} />
+              ) : (
+                <ChevronDown size={14} color={isDarkMode ? '#fef3c7' : '#92400e'} />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* Lista Expandida de Pedidos Pendentes */}
+          {isPendingExpanded ? (
+            <View style={{ padding: 12, gap: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#78350f' : '#fde68a' }}>
+              {pendingOrders.map((po: any) => {
+                const poData = po.order_data || {};
+                return (
+                  <TouchableOpacity
+                    key={po.id}
+                    activeOpacity={0.8}
+                    onPress={() => onSelectOrder && onSelectOrder(po)}
+                    style={{
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      borderRadius: 12,
+                      padding: 10,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? '#334155' : '#fde68a',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '900', color: '#d97706' }}>#{po.id?.slice(-6).toUpperCase()}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#1e293b', marginTop: 2 }}>
+                        {poData.customerData?.fullName || po.customer_name || 'Cliente'}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#dc2626', backgroundColor: isDarkMode ? '#450a0a' : '#fee2e2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, textTransform: 'uppercase' }}>
+                      Pendente
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -1216,38 +1290,162 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
             const customerName = orderData.customerData?.fullName || task.customer_name || 'Cliente';
             const shipping = orderData.shipping || {};
             const sched = shipping.scheduling || {};
-            const isAssistance = orderData.orderType === 'assistance' || task.order_type === 'assistance';
-            const isPickup = shipping.deliveryMethod === 'pickup';
-            const isFulfilled = task.status === 'fulfilled';
+            const displayItems = orderData.items || task.items || orderData.products || task.products || [];
 
-            let timeStr = 'Não informado';
-            if (sched.notInformed) timeStr = 'Não informado';
-            else if (sched.type === 'range' && sched.startTime && sched.endTime) timeStr = `${sched.startTime} às ${sched.endTime}`;
-            else if (sched.startTime) timeStr = sched.startTime;
-            else if (sched.time) timeStr = sched.time;
+            // Normalização para identificar manuseio dos itens (igual ao ERP)
+            const normalizeStr = (str: string) => (str || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            const deliveryOpts = erpSettings?.deliveryHandlingOptions || [];
+            const pickupOpts = erpSettings?.pickupHandlingOptions || [];
+            const allOpts = [...deliveryOpts, ...pickupOpts];
+
+            const getItemAssemblyTone = (item: any) => {
+              const hLabel = normalizeStr(item?.handlingType || item?.handling_type || item?.handling || '');
+              if (!hLabel) return undefined;
+              const foundOpt = allOpts.find((opt: any) => typeof opt === 'object' && normalizeStr(opt.label) === hLabel);
+              if (foundOpt?.isAssemblyOutside) return 'outside';
+              if (foundOpt?.includeInAssemblySchedule) return 'depot';
+              if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora')) return 'outside';
+              if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada')) return 'depot';
+              return undefined;
+            };
+
+            const isAssemblyOutside = displayItems.some((item: any) => getItemAssemblyTone(item) === 'outside');
+            const isOnlyInternalAssembly = displayItems.some((item: any) => getItemAssemblyTone(item) === 'depot');
+
+            // Rótulo Principal de Manuseio (Montagem Fora / Montagem Depósito / Entrega / Retirada)
+            let primaryTag = 'ENTREGA';
+            let primaryBg = '#dcfce7';
+            let primaryBorder = '#bbf7d0';
+            let primaryColor = '#15803d';
+
+            if (isAssemblyOutside) {
+              primaryTag = '🔨 MONTAGEM FORA';
+              primaryBg = '#ffe4e6';
+              primaryBorder = '#fecdd3';
+              primaryColor = '#e11d48';
+            } else if (isOnlyInternalAssembly) {
+              primaryTag = '🔨 MONTAGEM DEPÓSITO';
+              primaryBg = '#fef3c7';
+              primaryBorder = '#fde68a';
+              primaryColor = '#b45309';
+            } else if (shipping.deliveryMethod === 'pickup') {
+              primaryTag = 'RETIRADA';
+              primaryBg = '#f3e8ff';
+              primaryBorder = '#e9d5ff';
+              primaryColor = '#7e22ce';
+            } else if (orderData.orderType === 'assistance' || task.order_type === 'assistance') {
+              primaryTag = 'ASSISTÊNCIA';
+              primaryBg = '#ffedd5';
+              primaryBorder = '#fed7aa';
+              primaryColor = '#c2410c';
+            }
+
+            // Status do Pedido (Badge pílula à direita)
+            const orderStatus = task.status || orderData.status || 'scheduled';
+            let statusLabel = 'AGENDADO';
+            let statusBg = '#fef3c7';
+            let statusBorder = '#fde68a';
+            let statusColor = '#b45309';
+
+            if (orderStatus === 'fulfilled' || orderStatus === 'completed') {
+              statusLabel = 'ATENDIDO';
+              statusBg = '#dcfce7';
+              statusBorder = '#bbf7d0';
+              statusColor = '#15803d';
+            } else if (orderStatus === 'cancelled') {
+              statusLabel = 'CANCELADO';
+              statusBg = '#ffe4e6';
+              statusBorder = '#fecdd3';
+              statusColor = '#e11d48';
+            } else if (orderStatus === 'draft') {
+              statusLabel = 'RASCUNHO';
+              statusBg = '#f1f5f9';
+              statusBorder = '#e2e8f0';
+              statusColor = '#64748b';
+            }
+
+            // Horário do Agendamento
+            let displayTime = 'Horário não definido';
+            if (sched.notInformed) displayTime = 'Não informado';
+            else if (sched.startTime && sched.endTime) displayTime = `${sched.startTime} - ${sched.endTime}`;
+            else if (sched.startTime) displayTime = sched.startTime;
+            else if (sched.time) displayTime = sched.time;
+
+            // Endereço sem observação solta
+            const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
+            const custData = orderData.customerData || orderData.customer || {};
+            const custAddr = custData.address || custData.fullAddress || {};
+
+            const street = deliveryAddr.street || deliveryAddr.address || custAddr.street || custAddr.address || '';
+            const number = deliveryAddr.number || custAddr.number || '';
+            const complement = deliveryAddr.complement || custAddr.complement || '';
+            const neighborhood = deliveryAddr.neighborhood || custAddr.neighborhood || '';
+            const city = deliveryAddr.city || custAddr.city || '';
+
+            const fullAddrParts = [street, number ? `nº ${number}` : '', complement, neighborhood, city].filter(Boolean);
+            const fullAddressClean = fullAddrParts.length > 0 ? fullAddrParts.join(', ') : 'Endereço não informado';
+
+            const distanceKm = shipping.distance ?? shipping.distanceKm ?? task.distance;
+            const durationMin = shipping.durationMinutes ?? task.durationMinutes;
 
             return (
               <TouchableOpacity
                 key={task.id}
                 activeOpacity={0.8}
                 onPress={() => onSelectOrder && onSelectOrder(task)}
-                style={{ backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1, marginBottom: 12 }}
+                style={{
+                  backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                  borderRadius: 20,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 8,
+                  elevation: 2,
+                  marginBottom: 14,
+                  gap: 10
+                }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#cbd5e1' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
-                      #{task.id?.slice(-6).toUpperCase()}
+                {/* 1. Topo do Card: Rótulo de Manuseio Principal em Badge + SKU */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 20,
+                    backgroundColor: isDarkMode ? '#334155' : primaryBg,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#475569' : primaryBorder
+                  }}>
+                    <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : primaryColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      {primaryTag}
                     </Text>
-                    <View style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 8,
-                      backgroundColor: isAssistance ? '#ffedd5' : (isPickup ? '#f3e8ff' : '#dcfce7')
-                    }}>
-                      <Text style={{ fontSize: 9, fontWeight: '900', color: isAssistance ? '#c2410c' : (isPickup ? '#7e22ce' : '#15803d'), textTransform: 'uppercase' }}>
-                        {isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')}
-                      </Text>
-                    </View>
+                  </View>
+
+                  <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#cbd5e1' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                    #{task.id?.slice(-6).toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* 2. Segunda Linha: Horário (Esquerda com Ícone de Relógio Verde) + Status Clicável (Direita) */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  backgroundColor: isDarkMode ? '#0f172a' : '#f0fdf4',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#1e293b' : '#dcfce7'
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Clock size={15} color="#16a34a" />
+                    <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#14532d' }}>
+                      {displayTime}
+                    </Text>
                   </View>
 
                   <TouchableOpacity
@@ -1255,91 +1453,124 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
                     style={{
                       paddingHorizontal: 10,
                       paddingVertical: 4,
-                      borderRadius: 12,
-                      backgroundColor: isFulfilled ? '#dcfce7' : '#fef3c7'
+                      borderRadius: 14,
+                      backgroundColor: isDarkMode ? '#334155' : statusBg,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? '#475569' : statusBorder,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4
                     }}
                   >
-                    <Text style={{ fontSize: 10, fontWeight: '900', color: isFulfilled ? '#15803d' : '#b45309', textTransform: 'uppercase' }}>
-                      {isFulfilled ? '✓ Atendido' : '⏱ Agendado'}
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
+                    <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : statusColor, textTransform: 'uppercase' }}>
+                      {statusLabel}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                <Text style={{ fontSize: 15, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#0f172a', marginBottom: 6 }}>
+                {/* 3. Nome do Cliente (Caixa Alta / Negrito) */}
+                <Text style={{ fontSize: 16, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#0f172a', letterSpacing: 0.2, textTransform: 'uppercase' }}>
                   {customerName}
                 </Text>
 
-                {/* Seção ITENS DO PEDIDO (Estilo idêntico à imagem enviada) */}
-                {(() => {
-                  const items = orderData.items || task.items || orderData.products || task.products || [];
-                  if (!Array.isArray(items) || items.length === 0) return null;
+                {/* 4. Caixa de Endereço Completo (Sem Observação) */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                  borderRadius: 14,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#334155' : '#f1f5f9'
+                }}>
+                  <Text style={{ fontSize: 13 }}>📍</Text>
+                  <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 16 }}>
+                    {fullAddressClean}
+                  </Text>
+                </View>
 
-                  return (
-                    <View style={{
-                      backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
-                      borderRadius: 14,
-                      padding: 10,
-                      marginTop: 6,
-                      marginBottom: 8,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-                      gap: 6
-                    }}>
-                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                        ITENS DO PEDIDO
-                      </Text>
-
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                        {items.map((prodItem: any, idx: number) => {
-                          const qty = prodItem.quantity || prodItem.qty || 1;
-                          const name = prodItem.description || prodItem.name || prodItem.productName || prodItem.title || 'Item';
-
-                          return (
-                            <View
-                              key={idx}
-                              style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                                borderWidth: 1,
-                                borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-                                borderRadius: 10,
-                                paddingVertical: 5,
-                                paddingHorizontal: 10,
-                                gap: 6
-                              }}
-                            >
-                              <Text style={{ fontSize: 11, fontWeight: '900', color: '#2563eb' }}>
-                                {qty}x
-                              </Text>
-                              <Text style={{ fontSize: 10, fontWeight: '800', color: isDarkMode ? '#cbd5e1' : '#1e293b', textTransform: 'uppercase' }}>
-                                {name}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-                  );
-                })()}
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#334155' : '#f8fafc' }}>
-                  <View>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>DATA PREVISTA</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '900', color: '#2563eb', marginTop: 2 }}>
-                      {formatOrderDate(task.dateClean || sched.date)}
-                    </Text>
-                  </View>
-
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>HORÁRIO</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                      <Clock size={12} color="#64748b" />
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569' }}>
-                        {timeStr}
+                {/* 5. Caixa de Percurso / Distância & Tempo (se disponível) */}
+                {(distanceKm !== undefined || durationMin !== undefined) ? (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: isDarkMode ? '#0f172a' : '#f0f9ff',
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#334155' : '#e0f2fe'
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 12 }}>🗺️</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#38bdf8' : '#0369a1' }}>
+                        {distanceKm !== undefined ? `${Number(distanceKm).toFixed(1)} KM` : 'Percurso'}
                       </Text>
                     </View>
+                    {durationMin !== undefined && (
+                      <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#38bdf8' : '#0369a1' }}>
+                        ~ {durationMin} MIN
+                      </Text>
+                    )}
                   </View>
+                ) : null}
+
+                {/* 6. Chips dos Produtos do Pedido (sem label 'ITENS DO PEDIDO' e com quebra de linha natural) */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+                  {displayItems.map((prodItem: any, idx: number) => {
+                    const tone = getItemAssemblyTone(prodItem);
+                    let chipBg = isDarkMode ? '#1e293b' : '#ffffff';
+                    let chipBorder = isDarkMode ? '#334155' : '#e2e8f0';
+                    let qtyColor = '#2563eb';
+                    let textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+
+                    if (tone === 'outside') {
+                      chipBg = isDarkMode ? '#451a03' : '#fff1f2';
+                      chipBorder = isDarkMode ? '#7f1d1d' : '#fecdd3';
+                      qtyColor = '#e11d48';
+                      textColor = isDarkMode ? '#fecdd3' : '#991b1b';
+                    } else if (tone === 'depot') {
+                      chipBg = isDarkMode ? '#3f2c06' : '#fffbeb';
+                      chipBorder = isDarkMode ? '#78350f' : '#fde68a';
+                      qtyColor = '#d97706';
+                      textColor = isDarkMode ? '#fef08a' : '#92400e';
+                    }
+
+                    const rawName = prodItem.description || prodItem.name || prodItem.productName || prodItem.title || 'Produto sem nome';
+                    const itemQty = prodItem.quantity || prodItem.qty || 1;
+
+                    return (
+                      <View
+                        key={idx}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 10,
+                          backgroundColor: chipBg,
+                          borderWidth: 1,
+                          borderColor: chipBorder,
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 1 },
+                          shadowOpacity: 0.03,
+                          shadowRadius: 2,
+                          elevation: 1
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '900', color: qtyColor }}>
+                          {itemQty}x
+                        </Text>
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: textColor, textTransform: 'uppercase' }}>
+                          {rawName}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </TouchableOpacity>
             );
@@ -1802,77 +2033,352 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
           )}
           renderItem={({ item: task }) => {
             const orderData = task.order_data || {};
-            const customerName = orderData.customerData?.fullName || task.customer_name || (task.isShowroom ? 'Mostruário da Loja' : 'Cliente');
+            const customerName = orderData.customerData?.fullName || task.customer_name || (task.isShowroom ? 'Mostruário da Loja' : 'Consumidor');
             const shipping = orderData.shipping || {};
-            const displayItems = task.assemblyItems || [];
-            const orderDateStr = formatOrderDate(orderData.date || task.created_at);
-            const deadlineDateStr = formatOrderDate(task.dateClean || shipping.scheduling?.date);
+            const sched = shipping.scheduling || {};
+            const displayItems = task.assemblyItems || orderData.items || task.items || [];
+
+            // Normalização para identificar manuseio dos itens (igual ao ERP)
+            const normalizeStr = (str: string) => (str || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            const deliveryOpts = erpSettings?.deliveryHandlingOptions || [];
+            const pickupOpts = erpSettings?.pickupHandlingOptions || [];
+            const allOpts = [...deliveryOpts, ...pickupOpts];
+
+            const getItemAssemblyTone = (item: any) => {
+              const hLabel = normalizeStr(item?.handlingType || item?.handling_type || item?.handling || '');
+              if (!hLabel) return undefined;
+              const foundOpt = allOpts.find((opt: any) => typeof opt === 'object' && normalizeStr(opt.label) === hLabel);
+              if (foundOpt?.isAssemblyOutside) return 'outside';
+              if (foundOpt?.includeInAssemblySchedule) return 'depot';
+              if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora')) return 'outside';
+              if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada')) return 'depot';
+              return undefined;
+            };
+
+            const isAssemblyOutside = displayItems.some((item: any) => getItemAssemblyTone(item) === 'outside');
+            const isOnlyInternalAssembly = displayItems.some((item: any) => getItemAssemblyTone(item) === 'depot');
+
+            // Rótulo Principal de Manuseio (Montagem Fora / Montagem Depósito / Entrega / Retirada)
+            let primaryTag = 'ENTREGA';
+            let primaryBg = '#dcfce7';
+            let primaryBorder = '#bbf7d0';
+            let primaryColor = '#15803d';
+
+            if (isAssemblyOutside) {
+              primaryTag = '🔨 MONTAGEM FORA';
+              primaryBg = '#ffe4e6';
+              primaryBorder = '#fecdd3';
+              primaryColor = '#e11d48';
+            } else if (isOnlyInternalAssembly || activeAssemblySubTab === 'internal') {
+              primaryTag = '🔨 MONTAGEM DEPÓSITO';
+              primaryBg = '#fef3c7';
+              primaryBorder = '#fde68a';
+              primaryColor = '#b45309';
+            } else if (shipping.deliveryMethod === 'pickup') {
+              primaryTag = 'RETIRADA';
+              primaryBg = '#f3e8ff';
+              primaryBorder = '#e9d5ff';
+              primaryColor = '#7e22ce';
+            } else if (orderData.orderType === 'assistance') {
+              primaryTag = 'ASSISTÊNCIA';
+              primaryBg = '#ffedd5';
+              primaryBorder = '#fed7aa';
+              primaryColor = '#c2410c';
+            }
+
+            // Status do Pedido (Badge pílula à direita)
+            const orderStatus = task.status || orderData.status || 'scheduled';
+            let statusLabel = 'AGENDADO';
+            let statusBg = '#fef3c7';
+            let statusBorder = '#fde68a';
+            let statusColor = '#b45309';
+
+            if (orderStatus === 'fulfilled' || orderStatus === 'completed') {
+              statusLabel = 'ATENDIDO';
+              statusBg = '#dcfce7';
+              statusBorder = '#bbf7d0';
+              statusColor = '#15803d';
+            } else if (orderStatus === 'cancelled') {
+              statusLabel = 'CANCELADO';
+              statusBg = '#ffe4e6';
+              statusBorder = '#fecdd3';
+              statusColor = '#e11d48';
+            } else if (orderStatus === 'draft') {
+              statusLabel = 'RASCUNHO';
+              statusBg = '#f1f5f9';
+              statusBorder = '#e2e8f0';
+              statusColor = '#64748b';
+            }
+
+            // Horário do Agendamento
+            let displayTime = 'Horário não definido';
+            if (sched.startTime && sched.endTime) {
+              displayTime = `${sched.startTime} - ${sched.endTime}`;
+            } else if (sched.startTime || sched.time) {
+              displayTime = sched.startTime || sched.time;
+            }
+
+            // Endereço sem observação solta
+            const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
+            const custData = orderData.customerData || orderData.customer || {};
+            const custAddr = custData.address || custData.fullAddress || {};
+
+            const street = deliveryAddr.street || deliveryAddr.address || custAddr.street || custAddr.address || '';
+            const number = deliveryAddr.number || custAddr.number || '';
+            const complement = deliveryAddr.complement || custAddr.complement || '';
+            const neighborhood = deliveryAddr.neighborhood || custAddr.neighborhood || '';
+            const city = deliveryAddr.city || custAddr.city || '';
+
+            const fullAddrParts = [street, number ? `nº ${number}` : '', complement, neighborhood, city].filter(Boolean);
+            const fullAddressClean = fullAddrParts.length > 0 ? fullAddrParts.join(', ') : 'Endereço não informado';
+
+            const distanceKm = shipping.distance ?? shipping.distanceKm ?? task.distance;
+            const durationMin = shipping.durationMinutes ?? task.durationMinutes;
 
             return (
               <TouchableOpacity
                 key={task.id}
                 activeOpacity={0.8}
                 onPress={() => onSelectOrder && onSelectOrder(task)}
-                style={{ backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1, marginBottom: 12 }}
+                style={{
+                  backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 8,
+                  elevation: 2,
+                  marginBottom: 14,
+                  overflow: 'hidden',
+                  borderLeftWidth: 5,
+                  borderLeftColor: isAssemblyOutside ? '#e11d48'
+                    : isOnlyInternalAssembly ? '#d97706'
+                    : primaryColor,
+                }}
               >
-                {/* Topo do Card: SKU */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#cbd5e1' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
-                      #{task.id?.slice(-6).toUpperCase()}
-                    </Text>
-                    {task.isShowroom ? (
-                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: '#fef3c7' }}>
-                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }}>
-                          🛋️ Mostruário
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-
-                {/* Cliente / Destino */}
-                <Text style={{ fontSize: 15, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#0f172a', marginBottom: 8 }}>
-                  {customerName}
-                </Text>
-
-                {/* Produtos do Pedido */}
-                <View style={{ backgroundColor: isDarkMode ? '#0f172a' : '#fff7ed', borderRadius: 14, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#ffedd5', gap: 6 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '900', color: '#c2410c', textTransform: 'uppercase' }}>
-                    PRODUTOS ({displayItems.length})
-                  </Text>
-                  {displayItems.map((prodItem: any, idx: number) => (
-                    <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: isDarkMode ? '#f8fafc' : '#1e293b' }}>
-                        • {prodItem.description || prodItem.name || prodItem.productName || 'Produto sem nome'}
-                      </Text>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#2563eb', marginLeft: 8 }}>
-                        {prodItem.quantity || prodItem.qty || 1}x
+                {/* ═══ HEADER COLORIDO com todos os badges ═══ */}
+                <View style={{
+                  backgroundColor: isDarkMode ? '#0f172a' : primaryBg,
+                  borderBottomWidth: 1,
+                  borderBottomColor: isDarkMode ? '#1e293b' : primaryBorder,
+                  paddingHorizontal: 14,
+                  paddingTop: 12,
+                  paddingBottom: 10,
+                  gap: 8,
+                }}>
+                  {/* Linha 1: Badge de tipo + ID */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {/* Badge principal de manuseio */}
+                    <View style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 20,
+                      backgroundColor: isDarkMode ? '#1e293b' : primaryBorder,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? '#334155' : primaryColor + '40',
+                    }}>
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : primaryColor, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                        {primaryTag}
                       </Text>
                     </View>
-                  ))}
+
+                    {/* ID + Status */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '900', color: isDarkMode ? '#94a3b8' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                        #{task.id?.slice(-6).toUpperCase()}
+                      </Text>
+                      {/* Badge de Status */}
+                      <View style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 12,
+                        backgroundColor: isDarkMode ? '#334155' : statusBg,
+                        borderWidth: 1,
+                        borderColor: isDarkMode ? '#475569' : statusBorder,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}>
+                        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: statusColor }} />
+                        <Text style={{ fontSize: 8, fontWeight: '900', color: isDarkMode ? '#f8fafc' : statusColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          {statusLabel}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Linha 2: Badges secundários de montagem */}
+                  {(isAssemblyOutside || isOnlyInternalAssembly) && (
+                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                      {isAssemblyOutside && (
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 10,
+                          backgroundColor: isDarkMode ? '#7f1d1d' : '#fee2e2',
+                          borderWidth: 1,
+                          borderColor: isDarkMode ? '#991b1b' : '#fca5a5',
+                        }}>
+                          <Text style={{ fontSize: 9 }}>🔨</Text>
+                          <Text style={{ fontSize: 8, fontWeight: '900', color: isDarkMode ? '#fecdd3' : '#b91c1c', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            Montagem Fora
+                          </Text>
+                        </View>
+                      )}
+                      {isOnlyInternalAssembly && !isAssemblyOutside && (
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 10,
+                          backgroundColor: isDarkMode ? '#78350f' : '#fef3c7',
+                          borderWidth: 1,
+                          borderColor: isDarkMode ? '#92400e' : '#fde68a',
+                        }}>
+                          <Text style={{ fontSize: 9 }}>🔧</Text>
+                          <Text style={{ fontSize: 8, fontWeight: '900', color: isDarkMode ? '#fef08a' : '#92400e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            Montagem Depósito
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
 
-                {/* Rodapé: Data do Pedido & Data de Prazo (Entrega / Retirada / Mostruário) */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#334155' : '#f8fafc' }}>
-                  <View>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>DATA DO PEDIDO</Text>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', marginTop: 2 }}>
-                      {orderDateStr}
+                {/* ═══ CORPO NEUTRO ═══ */}
+                <View style={{ padding: 14, gap: 10 }}>
+                  {/* Horário */}
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    backgroundColor: isDarkMode ? '#0f172a' : '#f0fdf4',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#1e293b' : '#dcfce7',
+                    alignSelf: 'flex-start',
+                  }}>
+                    <Clock size={13} color="#16a34a" />
+                    <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#14532d' }}>
+                      {displayTime}
                     </Text>
                   </View>
 
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>
-                      {task.isShowroom ? 'PRAZO MOSTRUÁRIO' : (shipping.deliveryMethod === 'pickup' ? 'PRAZO RETIRADA' : 'PRAZO ENTREGA')}
+                  {/* Nome do Cliente */}
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#0f172a', letterSpacing: 0.2, textTransform: 'uppercase' }}>
+                    {customerName}
+                  </Text>
+
+                  {/* Endereço */}
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                    backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                    borderRadius: 14,
+                    padding: 10,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#334155' : '#f1f5f9',
+                  }}>
+                    <Text style={{ fontSize: 13 }}>📍</Text>
+                    <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 16 }}>
+                      {fullAddressClean}
                     </Text>
-                    <Text style={{ fontSize: 12, fontWeight: '900', color: '#2563eb', marginTop: 2 }}>
-                      {deadlineDateStr}
-                    </Text>
+                  </View>
+
+                  {/* Percurso / Distância */}
+                  {(distanceKm !== undefined || durationMin !== undefined) ? (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isDarkMode ? '#0f172a' : '#f0f9ff',
+                      borderRadius: 12,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? '#334155' : '#e0f2fe',
+                    }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 12 }}>🗺️</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#38bdf8' : '#0369a1' }}>
+                          {distanceKm !== undefined ? `${Number(distanceKm).toFixed(1)} KM` : 'Percurso'}
+                        </Text>
+                      </View>
+                      {durationMin !== undefined && (
+                        <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#38bdf8' : '#0369a1' }}>
+                          ~ {durationMin} MIN
+                        </Text>
+                      )}
+                    </View>
+                  ) : null}
+
+                  {/* Chips de Produtos */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+                    {displayItems.map((prodItem: any, idx: number) => {
+                      const tone = getItemAssemblyTone(prodItem);
+                      let chipBg = isDarkMode ? '#1e293b' : '#ffffff';
+                      let chipBorder = isDarkMode ? '#334155' : '#e2e8f0';
+                      let qtyColor = '#2563eb';
+                      let textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+
+                      if (tone === 'outside') {
+                        chipBg = isDarkMode ? '#451a03' : '#fff1f2';
+                        chipBorder = isDarkMode ? '#7f1d1d' : '#fecdd3';
+                        qtyColor = '#e11d48';
+                        textColor = isDarkMode ? '#fecdd3' : '#991b1b';
+                      } else if (tone === 'depot') {
+                        chipBg = isDarkMode ? '#3f2c06' : '#fffbeb';
+                        chipBorder = isDarkMode ? '#78350f' : '#fde68a';
+                        qtyColor = '#d97706';
+                        textColor = isDarkMode ? '#fef08a' : '#92400e';
+                      }
+
+                      const rawName = prodItem.description || prodItem.name || prodItem.productName || 'Produto sem nome';
+                      const itemQty = prodItem.quantity || prodItem.qty || 1;
+
+                      return (
+                        <View
+                          key={idx}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 10,
+                            backgroundColor: chipBg,
+                            borderWidth: 1,
+                            borderColor: chipBorder,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.03,
+                            shadowRadius: 2,
+                            elevation: 1,
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '900', color: qtyColor }}>
+                            {itemQty}x
+                          </Text>
+                          <Text style={{ fontSize: 10, fontWeight: '800', color: textColor, textTransform: 'uppercase' }}>
+                            {rawName}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               </TouchableOpacity>
-            );
           }}
         />
       )}
@@ -1979,38 +2485,125 @@ export default function App() {
   const webViewRef = useRef<WebView>(null);
 
   // Estados para o Resumo Inteligente de Entregas via IA Gemini
-  const [aiSummaryTab, setAiSummaryTab] = useState<'today' | 'next5days'>('today');
+  const [aiSummaryTab, setAiSummaryTab] = useState<'today' | 'tomorrow' | 'rest_of_week'>('today');
   const [aiSummaryToday, setAiSummaryToday] = useState<string>('');
-  const [aiSummaryNext5Days, setAiSummaryNext5Days] = useState<string>('');
+  const [aiSummaryTomorrow, setAiSummaryTomorrow] = useState<string>('');
+  const [aiSummaryRestOfWeek, setAiSummaryRestOfWeek] = useState<string>('');
   const [isGeneratingAISummary, setIsGeneratingAISummary] = useState(false);
   const [isSpeakingSummary, setIsSpeakingSummary] = useState(false);
 
-  // Calcula os próximos 5 dias úteis a partir de hoje
-  const getNext5BusinessDays = () => {
+  // Calcula os dias restantes da semana corrente a partir de amanhã até o próximo domingo
+  const getRestOfWeekDates = () => {
     const dates: string[] = [];
-    let cur = new Date();
-    while (dates.length < 5) {
+    const now = new Date();
+    const cur = new Date(now);
+    cur.setDate(cur.getDate() + 1); // a partir de amanhã
+
+    const dayOfWeek = now.getDay(); // 0 = Dom, 1 = Seg...
+    const daysUntilSunday = 7 - (dayOfWeek === 0 ? 7 : dayOfWeek);
+    
+    const endOfWeek = new Date(now);
+    endOfWeek.setDate(now.getDate() + Math.max(1, daysUntilSunday));
+    const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+
+    while (cur <= endOfWeek) {
+      const dStr = cur.toISOString().split('T')[0];
+      dates.push(dStr);
       cur.setDate(cur.getDate() + 1);
-      const day = cur.getDay();
-      if (day !== 0 && day !== 6) {
-        dates.push(cur.toISOString().split('T')[0]);
+    }
+
+    if (dates.length === 0) {
+      // Fallback para os próximos dias se já for fim de semana
+      for (let i = 1; i <= 5; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + i);
+        dates.push(d.toISOString().split('T')[0]);
       }
     }
     return dates;
   };
 
   // Gerador Inteligente de Resumo Operacional (Gemini API + Local Structured Fallback)
-  const generateDeliveryAISummary = async (mode: 'today' | 'next5days') => {
+  const generateDeliveryAISummary = async (mode: 'today' | 'tomorrow' | 'rest_of_week') => {
     setIsGeneratingAISummary(true);
     try {
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
-      const next5Days = getNext5BusinessDays();
+      
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-      const { data: rawOrders } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let targetDates: string[] = [todayStr];
+      let periodLabel = 'para hoje';
+
+      if (mode === 'today') {
+        targetDates = [todayStr];
+        periodLabel = 'para hoje';
+      } else if (mode === 'tomorrow') {
+        targetDates = [tomorrowStr];
+        periodLabel = 'para amanhã';
+      } else if (mode === 'rest_of_week') {
+        targetDates = getRestOfWeekDates();
+        periodLabel = 'para o restante dos dias desta semana';
+      }
+
+      // Busca dados dos pedidos e configurações do sistema
+      const [{ data: rawOrders }, { data: settingsData }] = await Promise.all([
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('settings').select('*').eq('id', 'app').single()
+      ]);
+
+      const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
+      const handlingOptions: any[] = settingsData?.handlingOptions || settingsData?.orderTypes || [];
+
+      // Função auxiliar para verificar se a modalidade/manuseio REALMENTE é montagem fora/no local da entrega
+      const isAssemblyOutsideType = (handlingTypeStr: string) => {
+        if (!handlingTypeStr) return false;
+        const hLower = handlingTypeStr.toLowerCase().trim();
+
+        // 1. Verifica na configuração cadastrada de manuseio no ERP
+        if (Array.isArray(handlingOptions) && handlingOptions.length > 0) {
+          const matchedOpt = handlingOptions.find((opt: any) =>
+            opt.label && opt.label.toLowerCase().trim() === hLower
+          );
+          if (matchedOpt && typeof matchedOpt.isAssemblyOutside === 'boolean') {
+            return matchedOpt.isAssemblyOutside;
+          }
+        }
+
+        // 2. Fallbacks de segurança: se for montagem no depósito ou por conta do cliente, NÃO é montagem fora
+        if (
+          hLower.includes('depósito') ||
+          hLower.includes('deposito') ||
+          hLower.includes('retirada') ||
+          hLower.includes('cliente') ||
+          hLower.includes('entregue montado')
+        ) {
+          return false;
+        }
+
+        // Se contiver indicação explícita de montagem no local/fora
+        return (
+          hLower.includes('montagem no local') ||
+          hLower.includes('montagem fora') ||
+          hLower.includes('montagem na entrega')
+        );
+      };
+
+      // Função auxiliar para abreviar o nome do produto (máximo 1 a 3 palavras simples)
+      const simplifyProductName = (rawName: string): string => {
+        if (!rawName) return 'móvel';
+        const cleaned = rawName
+          .replace(/\(.*?\)/g, '')
+          .replace(/\[.*?\]/g, '')
+          .replace(/[-–—]/g, ' ')
+          .trim();
+
+        const words = cleaned.split(/\s+/).filter(Boolean);
+        if (words.length === 0) return 'móvel';
+        return words.slice(0, 3).join(' ');
+      };
 
       const deliveryOrders = (rawOrders || []).filter((o: any) => {
         const oData = o.order_data || {};
@@ -2021,80 +2614,257 @@ export default function App() {
         const schedDate = (shipping.scheduling?.date || o.scheduled_date || o.created_at || '').split('T')[0];
 
         if (!isDelivery) return false;
-
-        if (mode === 'today') {
-          return schedDate === todayStr;
-        } else {
-          return next5Days.includes(schedDate);
-        }
+        return targetDates.includes(schedDate);
       });
 
-      let morningCount = 0;
-      let afternoonCount = 0;
-      let unspecifiedCount = 0;
+      // Helper para formatar o nome do produto com o artigo gramatical correto (um / uma / dois / duas)
+      const formatProductNameWithArticle = (rawName: string, itemQty: number = 1): string => {
+        const short = simplifyProductName(rawName).toLowerCase();
+        // Usa apenas a PRIMEIRA palavra para determinar o gênero (evita falsos positivos como "balcão para pia")
+        const firstWord = short.split(' ')[0];
+
+        const feminineFirstWords = [
+          'escrivaninha', 'cômoda', 'comoda', 'pia', 'mesa', 'cadeira',
+          'poltrona', 'cozinha', 'cama', 'sapateira', 'cristaleira', 'bancada',
+          'prateleira', 'estante', 'estação', 'banheira', 'penteadeira'
+        ];
+        const isFeminine = feminineFirstWords.some(fw => firstWord === fw || firstWord.startsWith(fw));
+
+        if (itemQty === 1) {
+          return `${isFeminine ? 'uma' : 'um'} ${short}`;
+        } else if (itemQty === 2) {
+          return `${isFeminine ? 'duas' : 'dois'} ${short}s`;
+        } else {
+          return `${itemQty} ${short}s`;
+        }
+      };
+
+      // Helper para converter números cardinais por extenso (até 30, outros ficam em dígitos)
+      const numWord = (n: number): string => {
+        const words: Record<number, string> = {
+          0: 'zero', 1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco',
+          6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
+          11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
+          16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
+          21: 'vinte e uma', 22: 'vinte e duas', 23: 'vinte e três', 24: 'vinte e quatro',
+          25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito',
+          29: 'vinte e nove', 30: 'trinta'
+        };
+        return words[n] ?? String(n);
+      };
+
+      // Helper para converter distâncias — usa vírgula real para o TTS ler corretamente
+      const formatDistanceConversational = (distNum: number | null): string => {
+        if (distNum === null || isNaN(distNum)) return '';
+        if (distNum <= 5) return 'pertinho';
+
+        const numStr = distNum.toFixed(1).replace('.', ',');
+        if (distNum <= 10) return `não tão perto, a ${numStr} quilômetros`;
+        if (distNum <= 20) return `meio longe, a ${numStr} quilômetros`;
+        return `bem longe, a ${numStr} quilômetros`;
+      };
+
+      // Coleções de entregas por turno
+      const morningDeliveries: any[] = [];
+      const afternoonDeliveries: any[] = [];
+      const unspecifiedDeliveries: any[] = [];
 
       const citiesMap: Record<string, number> = {};
-      const specialNotes: string[] = [];
+      let hasFarAssembly = false;
 
       deliveryOrders.forEach((o: any) => {
         const oData = o.order_data || {};
         const shipping = oData.shipping || {};
         const sched = shipping.scheduling || {};
-        const address = shipping.deliveryAddress || oData.customerData || {};
-        const city = (address.city || address.neighborhood || 'Colombo').trim();
 
+        const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
+        const custData = oData.customerData || oData.customer || {};
+        const custAddr = custData.address || custData.fullAddress || {};
+
+        const rawCity = (
+          deliveryAddr.city ||
+          shipping.city ||
+          custAddr.city ||
+          custData.city ||
+          o.city ||
+          ''
+        ).trim();
+
+        const rawNeighborhood = (
+          deliveryAddr.neighborhood ||
+          shipping.neighborhood ||
+          custAddr.neighborhood ||
+          custData.neighborhood ||
+          ''
+        ).trim();
+
+        const city = rawCity || rawNeighborhood || 'Colombo';
         citiesMap[city] = (citiesMap[city] || 0) + 1;
 
-        const timeVal = (sched.startTime || sched.time || '').toLowerCase();
-        if (timeVal.includes('manhã') || timeVal.includes('08:') || timeVal.includes('09:') || timeVal.includes('10:') || timeVal.includes('11:')) {
-          morningCount++;
-        } else if (timeVal.includes('tarde') || timeVal.includes('13:') || timeVal.includes('14:') || timeVal.includes('15:') || timeVal.includes('16:') || timeVal.includes('17:')) {
-          afternoonCount++;
-        } else {
-          unspecifiedCount++;
-        }
+        const distRaw = shipping.distance ?? shipping.distanceKm ?? o.distance ?? o.distanceKm;
+        const distNum = typeof distRaw === 'number' ? distRaw : (parseFloat(distRaw) || null);
+        const distText = formatDistanceConversational(distNum);
 
         const items = oData.items || o.items || [];
-        items.forEach((item: any) => {
-          const name = (item.description || item.name || '').toLowerCase();
-          const handling = (item.handlingType || '').toLowerCase();
+        const assemblyItems: string[] = [];
+        const noAssemblyItems: string[] = [];
 
-          if (handling.includes('montagem') || handling.includes('montar')) {
-            specialNotes.push(`1 com montagem de ${name || 'móvel'} no local em ${city}`);
+        items.forEach((item: any) => {
+          const rawName = item.description || item.name || item.title || 'móvel';
+          const itemQty = item.quantity || item.qty || 1;
+          const handling = item.handlingType || item.handling || '';
+          const productWithArticle = formatProductNameWithArticle(rawName, itemQty);
+
+          if (isAssemblyOutsideType(handling)) {
+            assemblyItems.push(productWithArticle);
+            if (distNum !== null && distNum > 10) {
+              hasFarAssembly = true;
+            }
+          } else {
+            noAssemblyItems.push(productWithArticle);
           }
         });
+
+        const timeVal = (sched.startTime || sched.time || '').toLowerCase();
+        const periodVal = (sched.period || sched.shift || sched.turn || '').toLowerCase();
+        const combinedVal = `${timeVal} ${periodVal}`.trim();
+
+        const isMorning =
+          combinedVal.includes('manhã') || combinedVal.includes('manha') ||
+          combinedVal.includes('morning') ||
+          /^(06|07|08|09|10|11):/.test(timeVal);
+
+        const isAfternoon =
+          combinedVal.includes('tarde') || combinedVal.includes('afternoon') ||
+          /^(12|13|14|15|16|17|18):/.test(timeVal);
+
+        const deliveryInfo = {
+          city,
+          isColombo: city.toLowerCase() === 'colombo',
+          distText,
+          assemblyItems,
+          noAssemblyItems
+        };
+
+        if (isMorning) morningDeliveries.push(deliveryInfo);
+        else if (isAfternoon) afternoonDeliveries.push(deliveryInfo);
+        else unspecifiedDeliveries.push(deliveryInfo);
       });
 
       const totalDeliveries = deliveryOrders.length;
-      const periodLabel = mode === 'today' ? 'para hoje' : 'para os próximos 5 dias úteis';
-
       let smartText = '';
+
       if (totalDeliveries === 0) {
-        smartText = `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos de pedidos.`;
+        smartText = `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos.`;
       } else {
-        const citySummaries = Object.entries(citiesMap)
-          .map(([cName, cCount]) => `${cCount} para ${cName}`)
-          .join(', ');
+        const morningCount = morningDeliveries.length;
+        const afternoonCount = afternoonDeliveries.length;
+        const unspecCount = unspecifiedDeliveries.length;
 
-        const shiftParts: string[] = [];
-        if (morningCount > 0) shiftParts.push(`${morningCount} para de manhã`);
-        if (afternoonCount > 0) shiftParts.push(`${afternoonCount} para de tarde`);
-        if (unspecifiedCount > 0 && shiftParts.length > 0) shiftParts.push(`${unspecifiedCount} com horário a definir`);
+        // Visão geral: conta todos os turnos
+        let shiftIntro = '';
+        const hasMorning = morningCount > 0;
+        const hasAfternoon = afternoonCount > 0;
+        const hasUnspec = unspecCount > 0;
 
-        const shiftStr = shiftParts.length > 0 ? shiftParts.join(' e ') : `${totalDeliveries} entregas distribuídas ao longo do dia`;
-        const specialStr = specialNotes.length > 0 ? ` Sendo: ${specialNotes.slice(0, 3).join('; ')}.` : '';
+        if (hasMorning && hasAfternoon && !hasUnspec) {
+          shiftIntro = `, com ${numWord(morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
+        } else if (hasMorning && hasAfternoon && hasUnspec) {
+          const totalMorning = morningCount + unspecCount;
+          shiftIntro = `, com ${numWord(totalMorning)} pela manhã e ${numWord(afternoonCount)} à tarde`;
+        } else if (hasMorning && !hasAfternoon) {
+          const totalMorning = morningCount + unspecCount;
+          shiftIntro = totalMorning === 1 ? `, no período da manhã` : `, todas no período da manhã`;
+        } else if (hasAfternoon && !hasMorning && !hasUnspec) {
+          shiftIntro = afternoonCount === 1 ? `, no período da tarde` : `, todas no período da tarde`;
+        } else if (hasAfternoon && hasUnspec) {
+          // Há entregas à tarde e outras sem horário definido
+          shiftIntro = `, com ${numWord(unspecCount + morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
+        } else if (hasUnspec && !hasMorning && !hasAfternoon) {
+          shiftIntro = unspecCount === 1 ? `, sem horário definido` : `, sem horário definido`;
+        }
 
-        smartText = `${totalDeliveries} ${totalDeliveries === 1 ? 'entrega programada' : 'entregas programadas'} ${periodLabel}: ${shiftStr}, sendo em ${citySummaries}.${specialStr}`;
+        const deliveriesWord = numWord(totalDeliveries);
+        const deliveriesText = totalDeliveries === 1 ? 'uma entrega programada' : `${deliveriesWord} entregas programadas`;
+        const overviewSentence = `Para ${periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${deliveriesText}${shiftIntro}.`;
+
+        // Helper para formatar uma lista de entregas em texto
+        const formatDeliveryParts = (deliveries: any[]) =>
+          deliveries.map(d => {
+            const citySuffix = d.isColombo ? '' : ` para ${d.city}`;
+            const distSuffix = d.distText ? `, ${d.distText}` : '';
+            if (d.assemblyItems.length > 0) {
+              return `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no local`;
+            } else if (d.noAssemblyItems.length > 0) {
+              return `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no local`;
+            }
+            return `uma entrega${citySuffix}${distSuffix}`;
+          });
+
+        // Detalhamento da Manhã (inclui unspecified junto com morning se não há tarde; senão trata unspecified separado)
+        let morningText = '';
+        const morningAll = hasAfternoon
+          ? morningDeliveries                          // só os classificados como manhã
+          : [...morningDeliveries, ...unspecifiedDeliveries]; // sem tarde: agrupa tudo na manhã
+
+        if (morningAll.length > 0) {
+          const parts = formatDeliveryParts(morningAll);
+          morningText = parts.length === 1
+            ? `Pela manhã, temos ${parts[0]}.`
+            : `Pela manhã, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
+        } else if (hasAfternoon) {
+          // Tem tarde mas não tem manhã — informa explicitamente
+          morningText = `Pela manhã não temos entregas.`;
+        }
+
+        // Detalhamento da Tarde
+        let afternoonText = '';
+        if (afternoonDeliveries.length > 0) {
+          const parts = formatDeliveryParts(afternoonDeliveries);
+          afternoonText = parts.length === 1
+            ? `À tarde, temos ${parts[0]}.`
+            : `À tarde, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
+        }
+
+        // Entregas sem turno definido quando há tarde mas não manhã
+        let unspecText = '';
+        if (hasAfternoon && hasUnspec && !hasMorning) {
+          const parts = formatDeliveryParts(unspecifiedDeliveries);
+          unspecText = parts.length === 1
+            ? ` Também temos ${parts[0]}, sem horário definido.`
+            : ` Também temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}, sem horário definido.`;
+        }
+
+        // Dica de entrega distante com montagem (passa para o Gemini formular naturalmente)
+        const farAssemblyHint = hasFarAssembly
+          ? ` Obs: há entrega distante com montagem no local, atenção ao horário de saída.`
+          : '';
+
+        smartText = `${overviewSentence} ${morningText} ${afternoonText}${unspecText}${farAssemblyHint}`.trim().replace(/\s+/g, ' ');
       }
 
       try {
-        const geminiPrompt = `Você é um narrador humano e profissional de logística da Móveis Morante. Reescreva o resumo de entregas a seguir em português do Brasil com tom natural, amigável e conversacional, ideal para ser lido em voz alta para a equipe de entregas. Evite termos robóticos, siglas frias, números isolados ou marcas de markdown. Texto base: "${smartText}"`;
+        const geminiPrompt = `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas. Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS). O texto já está estruturado; só refine a fluência sem alterar os dados.
 
-        const { data: settingsData } = await supabase.from('settings').select('*').eq('id', 'app').single();
-        const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
+REGRAS ABSOLUTAS DE CONCORDÂNCIA E PRONÚNCIA:
+1. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
+   - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa", "um armário".
+   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "poltrona", "sapateira", "cristaleira", "bancada", "prateleira", "estante", "penteadeira" → artigo FEMININO: "uma escrivaninha", "uma mesa", "uma pia".
+   - ATENÇÃO: "balcão para pia" começa com "balcão" (masculino) → sempre "um balcão para pia". NUNCA "uma balcão".
+2. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). Para distâncias com decimal, USE a vírgula real no formato "5,2 quilômetros", "27,1 quilômetros", NUNCA escreva a palavra "vírgula" por extenso. NUNCA escreva dígitos isolados sem unidade (ex: NUNCA "4 entregas", sempre "quatro entregas").
+3. SEM EXPRESSÕES REPETIDAS OU ESTRANHAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
+4. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde." — NUNCA: "sendo uma para Curitiba" na visão geral.
+5. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
+6. AVISO DE ENTREGA DISTANTE COM MONTAGEM: Se o texto base contiver uma "Obs:" sobre entrega distante com montagem, transforme em aviso conversacional no final, como: "Pessoal, essa entrega é bem longe e ainda tem montagem no local, se programem para sair com tempo."
+7. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
+8. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
+
+Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no local. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no local, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no local. Pessoal, essa entrega é bem longe e ainda tem montagem, se programem para sair com tempo."
+
+Texto base para refinamento: "${smartText}"`;
 
         if (geminiKey) {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt }] }] })
@@ -2103,7 +2873,11 @@ export default function App() {
             const resJson = await res.json();
             const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (aiText && aiText.trim()) {
-              smartText = aiText.trim().replace(/[*#]/g, '');
+              smartText = aiText.trim()
+                .replace(/[*#]/g, '')
+                .replace(/:/g, ' ')
+                .replace(/[()]/g, '')
+                .replace(/\s+/g, ' ');
             }
           }
         }
@@ -2113,8 +2887,10 @@ export default function App() {
 
       if (mode === 'today') {
         setAiSummaryToday(smartText);
-      } else {
-        setAiSummaryNext5Days(smartText);
+      } else if (mode === 'tomorrow') {
+        setAiSummaryTomorrow(smartText);
+      } else if (mode === 'rest_of_week') {
+        setAiSummaryRestOfWeek(smartText);
       }
     } catch (err) {
       console.warn('Erro ao gerar resumo de entregas com IA:', err);
@@ -2125,7 +2901,8 @@ export default function App() {
 
   useEffect(() => {
     generateDeliveryAISummary('today');
-    generateDeliveryAISummary('next5days');
+    generateDeliveryAISummary('tomorrow');
+    generateDeliveryAISummary('rest_of_week');
   }, []);
 
   // Estados para o Player de Áudio do Resumo Inteligente (Gemini TTS API + Draggable Slider)
@@ -2427,6 +3204,7 @@ export default function App() {
           title: `🛒 Novo Pedido #${newOrder.id?.slice(-6).toUpperCase()}`,
           message: `Cliente: ${customerName} • Total: ${formattedTotal}`,
           timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          scheduleText: formatOrderSchedulingText(orderData.shipping || {}, newOrder),
           order: newOrder
         };
 
@@ -2498,6 +3276,52 @@ export default function App() {
     return cleanDate >= startDateStr && cleanDate <= endDateStr;
   };
 
+  // Formata o texto de agendamento do pedido com suporte a intervalos de data e horário
+  const formatOrderSchedulingText = (shipping: any, order: any): string => {
+    const sched = shipping?.scheduling || {};
+
+    if (sched.pendingScheduling) {
+      return 'Agendamento: Pendente';
+    }
+
+    const formatDateStr = (dStr: string) => {
+      if (!dStr) return '';
+      const clean = dStr.split('T')[0];
+      const parts = clean.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return clean;
+    };
+
+    const startDate = sched.date || order?.scheduled_date || order?.order_data?.scheduledDate;
+    const endDate = sched.endDate;
+
+    let dateLabel = '';
+    if (sched.dateType === 'range' && endDate && startDate) {
+      dateLabel = `${formatDateStr(startDate)} até ${formatDateStr(endDate)}`;
+    } else if (startDate) {
+      dateLabel = formatDateStr(startDate);
+    }
+
+    let timeLabel = '';
+    if (sched.type === 'range' && sched.startTime && sched.endTime) {
+      timeLabel = `${sched.startTime} até ${sched.endTime}`;
+    } else if (sched.startTime) {
+      timeLabel = sched.startTime;
+    } else if (sched.time) {
+      timeLabel = sched.time;
+    }
+
+    if (dateLabel && timeLabel) {
+      return `Agendamento: ${dateLabel} · ${timeLabel}`;
+    } else if (dateLabel) {
+      return `Agendamento: ${dateLabel}`;
+    } else if (timeLabel) {
+      return `Agendamento: ${timeLabel}`;
+    }
+
+    return 'Agendamento: Não informado';
+  };
+
   // Buscar entregas, montagens no depósito (amarelo), montagens fora (vermelho), assistências e devoluções pelo período selecionado
   const fetchDashboardStats = async (periodId: string = selectedPeriod) => {
     setLoadingStats(true);
@@ -2538,27 +3362,23 @@ export default function App() {
             }
 
             // 2. Montagens no Depósito (Martelo Amarelo) e Montagens Fora (Martelo Vermelho)
+            // Conta por PRODUTO (qty), não por pedido
             if (o.status !== 'cancelled') {
-              let hasInternal = false;
-              let hasOutside = false;
-
               items.forEach((i: any) => {
                 const hLabel = normalize(i.handlingType || i.handling_type || i.handling || '');
                 if (!hLabel) return;
+                const itemQty = Number(i.qty || i.quantity || 1);
 
                 const opt = allOpts.find((oObj: any) => typeof oObj === 'object' && normalize(oObj.label) === hLabel);
                 if (opt) {
-                  if (opt.isAssemblyOutside) hasOutside = true;
-                  else if (opt.includeInAssemblySchedule) hasInternal = true;
+                  if (opt.isAssemblyOutside) assemblyOutsideCnt += itemQty;
+                  else if (opt.includeInAssemblySchedule) assemblyInternalCnt += itemQty;
                 } else if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada')) {
-                  hasInternal = true;
+                  assemblyInternalCnt += itemQty;
                 } else if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora')) {
-                  hasOutside = true;
+                  assemblyOutsideCnt += itemQty;
                 }
               });
-
-              if (hasInternal) assemblyInternalCnt++;
-              if (hasOutside) assemblyOutsideCnt++;
             }
 
             // 3. Assistências
@@ -2586,10 +3406,12 @@ export default function App() {
         .from('showcase_assemblies')
         .select('*');
 
+      // Adiciona montagens de mosruário no período como Montagem no Depósito (Martelo Amarelo)
+      // Cada montagem de mosruário conta como 1 produto
       if (showcaseData) {
         showcaseData.forEach((s: any) => {
           if (s.status !== 'completed' && isDateInRange(s.date, startDateStr, endDateStr)) {
-            assemblyInternalCnt++;
+            assemblyInternalCnt += 1;
           }
         });
       }
@@ -2599,6 +3421,35 @@ export default function App() {
       setAssembliesOutsideCount(assemblyOutsideCnt);
       setAssistancesCount(assistanceCnt);
       setReturnsCount(returnCnt);
+
+      // Carrega os pedidos feitos/gerados HOJE (baseado estritamente em created_at)
+      const nowStr = new Date().toISOString().split('T')[0];
+      const todayOrders = (orders || []).filter((o: any) => {
+        const cDate = (o.created_at || '').split('T')[0];
+        return cDate === nowStr && !o.deleted;
+      });
+
+      const todayNotifications = todayOrders.map((o: any) => {
+        const oData = o.order_data || {};
+        const customerName = oData.customerData?.fullName || o.customer_name || 'Cliente';
+        const total = getOrderTotalValue(o);
+        const formattedTotal = Number(total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const timeStr = o.created_at ? new Date(o.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Hoje';
+
+        const shipping = oData.shipping || {};
+        const scheduleText = formatOrderSchedulingText(shipping, o);
+
+        return {
+          id: o.id,
+          title: `🛒 Novo Pedido #${o.id?.slice(-6).toUpperCase()}`,
+          message: `Cliente: ${customerName} • Total: ${formattedTotal}`,
+          timestamp: timeStr,
+          scheduleText,
+          order: o
+        };
+      });
+
+      setNotifications(todayNotifications);
     } catch (error) {
       console.warn('Erro ao atualizar estatísticas do Dashboard:', error);
     } finally {
@@ -3137,28 +3988,13 @@ export default function App() {
       <View style={styles.content}>
         {currentTab === 'home' ? (
           <ScrollView style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: 30 }}>
-            {/* Header de Boas-Vindas com Select de Período Compacto */}
+            {/* Header de Boas-Vindas */}
             <View style={styles.dateHeader}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.dateText}>{getTodayFormattedDate()}</Text>
-                  <Text style={styles.welcomeText}>
-                    Olá, {userProfile?.fullName || 'Colaborador Morante'}!
-                  </Text>
-                </View>
-                
-                {/* Select Bonito de Período sem Label */}
-                <TouchableOpacity
-                  style={styles.periodSelectButton}
-                  onPress={() => setShowPeriodModal(true)}
-                  activeOpacity={0.8}
-                >
-                  <Calendar size={14} color="#2563eb" style={{ marginRight: 6 }} />
-                  <Text style={styles.periodSelectButtonText}>
-                    {PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'Hoje'}
-                  </Text>
-                  <ChevronDown size={14} color="#64748b" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dateText}>{getTodayFormattedDate()}</Text>
+                <Text style={styles.welcomeText}>
+                  Olá, {userProfile?.fullName || 'Colaborador Morante'}!
+                </Text>
               </View>
             </View>
 
@@ -3194,53 +4030,86 @@ export default function App() {
                   </View>
                 </View>
 
-                {isGeneratingAISummary && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
-                    <ActivityIndicator size="small" color="#2563eb" />
-                    <Text style={{ fontSize: 9, fontWeight: '800', color: '#2563eb' }}>Gerando...</Text>
-                  </View>
-                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {isGeneratingAISummary && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+                      <ActivityIndicator size="small" color="#2563eb" />
+                      <Text style={{ fontSize: 9, fontWeight: '800', color: '#2563eb' }}>Gerando...</Text>
+                    </View>
+                  )}
+
+                  {/* Botão de Recarregar/Atualizar Resumo Inteligente (Exclusivo para Administradores) */}
+                  {(userProfile?.role === 'administrator' || userProfile?.role === 'admin') && (
+                    <TouchableOpacity
+                      onPress={() => generateDeliveryAISummary(aiSummaryTab)}
+                      disabled={isGeneratingAISummary}
+                      activeOpacity={0.7}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: isDarkMode ? '#334155' : '#eff6ff',
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: isDarkMode ? '#475569' : '#bfdbfe'
+                      }}
+                    >
+                      <RefreshCw size={13} color="#2563eb" style={{ opacity: isGeneratingAISummary ? 0.4 : 1 }} />
+                      <Text style={{ fontSize: 10, fontWeight: '900', color: '#2563eb' }}>Atualizar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
-              {/* Sub-Abas de Seleção: Hoje vs Próximos 5 Dias Úteis */}
-              <View style={{ flexDirection: 'row', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 4, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setAiSummaryTab('today');
-                    if (!aiSummaryToday) generateDeliveryAISummary('today');
-                  }}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 8,
-                    borderRadius: 10,
-                    alignItems: 'center',
-                    backgroundColor: aiSummaryTab === 'today' ? (isDarkMode ? '#1e293b' : '#ffffff') : 'transparent',
-                    elevation: aiSummaryTab === 'today' ? 1 : 0
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: aiSummaryTab === 'today' ? '900' : '700', color: aiSummaryTab === 'today' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b') }}>
-                    🚚 Entregas de Hoje
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    setAiSummaryTab('next5days');
-                    if (!aiSummaryNext5Days) generateDeliveryAISummary('next5days');
-                  }}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 8,
-                    borderRadius: 10,
-                    alignItems: 'center',
-                    backgroundColor: aiSummaryTab === 'next5days' ? (isDarkMode ? '#1e293b' : '#ffffff') : 'transparent',
-                    elevation: aiSummaryTab === 'next5days' ? 1 : 0
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: aiSummaryTab === 'next5days' ? '900' : '700', color: aiSummaryTab === 'next5days' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b') }}>
-                    📅 Próximos 5 Dias Úteis
-                  </Text>
-                </TouchableOpacity>
+              {/* Sub-Abas de Seleção de Período do Resumo: Hoje vs Amanhã vs Restante da Semana */}
+              <View style={{
+                flexDirection: 'row',
+                backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                padding: 4,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: isDarkMode ? '#334155' : '#f1f5f9',
+                gap: 4
+              }}>
+                {[
+                  { id: 'today', label: 'Hoje' },
+                  { id: 'tomorrow', label: 'Amanhã' },
+                  { id: 'rest_of_week', label: 'Restante da Semana' }
+                ].map((tab) => {
+                  const isActive = aiSummaryTab === tab.id;
+                  return (
+                    <TouchableOpacity
+                      key={tab.id}
+                      onPress={() => {
+                        setAiSummaryTab(tab.id as any);
+                        if (tab.id === 'today' && !aiSummaryToday) generateDeliveryAISummary('today');
+                        if (tab.id === 'tomorrow' && !aiSummaryTomorrow) generateDeliveryAISummary('tomorrow');
+                        if (tab.id === 'rest_of_week' && !aiSummaryRestOfWeek) generateDeliveryAISummary('rest_of_week');
+                      }}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        paddingHorizontal: 4,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: isActive ? (isDarkMode ? '#1e293b' : '#ffffff') : 'transparent',
+                        elevation: isActive ? 1 : 0
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 11,
+                        fontWeight: isActive ? '900' : '700',
+                        color: isActive ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b'),
+                        textAlign: 'center'
+                      }}>
+                        {tab.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {/* Caixa de Texto do Resumo */}
@@ -3253,11 +4122,11 @@ export default function App() {
                 gap: 6
               }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: isDarkMode ? '#cbd5e1' : '#334155', lineHeight: 20 }}>
-                  {(aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryNext5Days) || 'Carregando resumo inteligente das entregas...'}
+                  {(aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTab === 'tomorrow' ? aiSummaryTomorrow : aiSummaryRestOfWeek) || 'Carregando resumo inteligente das entregas...'}
                 </Text>
               </View>
 
-              {/* Player de Áudio Inteligente (Linha do Áudio + Controles de Voltar/Avançar/Pausar) */}
+              {/* Player de Áudio Inteligente */}
               <View style={{
                 backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9',
                 borderRadius: 18,
@@ -3266,7 +4135,7 @@ export default function App() {
                 borderWidth: 1,
                 borderColor: isDarkMode ? '#334155' : '#e2e8f0'
               }}>
-                {/* Linha de Progresso Visual do Áudio Interativa com Deslizamento do Dedo (Scrubbing) */}
+                {/* Linha de Progresso Visual do Áudio Interativa */}
                 <View
                   onLayout={(e) => {
                     timelineBarWidthRef.current = e.nativeEvent.layout.width || 280;
@@ -3293,7 +4162,6 @@ export default function App() {
                       borderRadius: 4
                     }} />
                   </View>
-                  {/* Marcador em Círculo (Thumb Handle) Deslizável */}
                   <View style={{
                     position: 'absolute',
                     left: `${Math.min(94, Math.max(0, (speechCurrentTime / (speechTotalDuration || 1)) * 100))}%`,
@@ -3311,56 +4179,65 @@ export default function App() {
                   }} />
                 </View>
 
-                {/* Controles do Player: Voltar -5s, Play/Pause, Avançar +5s, Contador de Tempo */}
+                {/* Controles do Player */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    {/* Botão Voltar 5 Segundos */}
-                    <TouchableOpacity
-                      onPress={() => handleSeekOffset(-5)}
-                      style={{ padding: 8, borderRadius: 10, backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}
-                    >
-                      <RotateCcw size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const textToSpeak = aiSummaryTab === 'today' ? aiSummaryToday : (aiSummaryTab === 'tomorrow' ? aiSummaryTomorrow : aiSummaryRestOfWeek);
+                      handleToggleSpeech(textToSpeak);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      backgroundColor: '#2563eb',
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      borderRadius: 12,
+                      elevation: 2
+                    }}
+                  >
+                    {isSpeakingSummary && !speechIsPaused ? (
+                      <Pause size={16} color="#ffffff" fill="#ffffff" />
+                    ) : (
+                      <Play size={16} color="#ffffff" fill="#ffffff" style={{ marginLeft: 2 }} />
+                    )}
+                    <Text style={{ fontSize: 12, fontWeight: '900', color: '#ffffff' }}>
+                      {isSpeakingSummary ? (speechIsPaused ? 'Continuar' : 'Continuar') : 'Ouvir Resumo'}
+                    </Text>
+                  </TouchableOpacity>
 
-                    {/* Botão Play / Pause */}
-                    <TouchableOpacity
-                      onPress={() => handleToggleSpeech(aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryNext5Days)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                        backgroundColor: isSpeakingSummary && !speechIsPaused ? '#dc2626' : '#2563eb',
-                        paddingVertical: 8,
-                        paddingHorizontal: 14,
-                        borderRadius: 12,
-                        elevation: 2
-                      }}
-                    >
-                      {isSpeakingSummary && !speechIsPaused ? (
-                        <Pause size={16} color="#ffffff" fill="#ffffff" />
-                      ) : (
-                        <Play size={16} color="#ffffff" fill="#ffffff" style={{ marginLeft: 2 }} />
-                      )}
-                      <Text style={{ fontSize: 12, fontWeight: '900', color: '#ffffff' }}>
-                        {isSpeakingSummary ? (speechIsPaused ? 'Continuar' : 'Pausar') : 'Ouvir Resumo'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Botão Avançar 5 Segundos */}
-                    <TouchableOpacity
-                      onPress={() => handleSeekOffset(5)}
-                      style={{ padding: 8, borderRadius: 10, backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}
-                    >
-                      <RotateCw size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Contador de Tempo do Áudio (ex: 00:04 / 00:18) */}
                   <Text style={{ fontSize: 11, fontWeight: '800', color: isDarkMode ? '#cbd5e1' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
                     {formatAudioTime(speechCurrentTime)} / {formatAudioTime(speechTotalDuration)}
                   </Text>
                 </View>
               </View>
+            </View>
+
+            {/* Cabeçalho de Estatísticas com Filtro de Período Geral (Posicionado ABAIXO do Resumo Inteligente) */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 4,
+              marginBottom: 12,
+              paddingHorizontal: 2
+            }}>
+              <Text style={{ fontSize: 14, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#0f172a', letterSpacing: 0.2 }}>
+                Estatísticas Operacionais
+              </Text>
+
+              <TouchableOpacity
+                style={styles.periodSelectButton}
+                onPress={() => setShowPeriodModal(true)}
+                activeOpacity={0.8}
+              >
+                <Calendar size={14} color="#2563eb" style={{ marginRight: 6 }} />
+                <Text style={styles.periodSelectButtonText}>
+                  Período: {PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'Hoje'}
+                </Text>
+                <ChevronDown size={14} color="#64748b" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
             </View>
 
             {/* Grid 2x2 de Estatísticas */}
@@ -3392,9 +4269,11 @@ export default function App() {
                 {loadingStats ? (
                   <ActivityIndicator size="small" color="#eab308" style={{ marginTop: 8 }} />
                 ) : (
-                  <Text style={styles.statNumber}>{assembliesInternalCount}</Text>
+                  <Text style={styles.statNumber}>
+                    {assembliesInternalCount} <Text style={{ fontSize: 13, fontWeight: '600' }}>{assembliesInternalCount === 1 ? 'móvel' : 'móveis'}</Text>
+                  </Text>
                 )}
-                <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#ca8a04' }]}>Montagem Depósito</Text>
+                <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#ca8a04' }]}>devem ser montados no depósito</Text>
               </TouchableOpacity>
 
               {/* Card 3: Montagens Fora / Na Entrega (Martelo Vermelho) */}
@@ -3408,9 +4287,11 @@ export default function App() {
                 {loadingStats ? (
                   <ActivityIndicator size="small" color="#ef4444" style={{ marginTop: 8 }} />
                 ) : (
-                  <Text style={styles.statNumber}>{assembliesOutsideCount}</Text>
+                  <Text style={styles.statNumber}>
+                    {assembliesOutsideCount} <Text style={{ fontSize: 13, fontWeight: '600' }}>{assembliesOutsideCount === 1 ? 'móvel' : 'móveis'}</Text>
+                  </Text>
                 )}
-                <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#e11d48' }]}>Montagem Fora</Text>
+                <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#e11d48' }]}>devem ser montados na entrega</Text>
               </TouchableOpacity>
 
               {/* Card 3: Assistências */}
@@ -3445,44 +4326,6 @@ export default function App() {
                 <Text style={styles.statLabel}>Devoluções</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Lista de Notificações em Tempo Real */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Novos Pedidos do Dia</Text>
-              {notifications.length > 0 && (
-                <TouchableOpacity onPress={() => setNotifications([])}>
-                  <Text style={styles.clearText}>Limpar</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {notifications.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconWrapper}>
-                  <Bell size={32} color="#94a3b8" />
-                </View>
-                <Text style={styles.emptyTitle}>Tudo calmo por aqui</Text>
-                <Text style={styles.emptyText}>Novos pedidos feitos no site web acionarão alertas sonoros em tempo real nesta tela.</Text>
-              </View>
-            ) : (
-              <View style={styles.notificationsList}>
-                {notifications.map((notif) => (
-                  <View key={notif.id} style={styles.notificationCard}>
-                    <View style={styles.notificationHeader}>
-                      <Text style={styles.notificationTitle}>{notif.title}</Text>
-                      <Text style={styles.notificationTime}>{notif.timestamp}</Text>
-                    </View>
-                    <Text style={styles.notificationMessage}>{notif.message}</Text>
-                    <TouchableOpacity 
-                      style={styles.actionButton}
-                      onPress={() => handleTabChange('pedidos', `${WEB_URL}/sales-order`)}
-                    >
-                      <Text style={styles.actionButtonText}>Visualizar Pedido</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
           </ScrollView>
         ) : currentTab === 'pedidos' ? (
           <NativeOrdersScreen isDarkMode={isDarkMode} />
@@ -3675,37 +4518,53 @@ export default function App() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Modal de Notificações Recebidas */}
+      {/* Popover / Painel Flutuante de Notificações pertinho do Botão (Sem Fundo Escuro) */}
       <Modal
         visible={showNotificationsModal}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowNotificationsModal(false)}
       >
         <TouchableOpacity 
-          style={styles.modalBackdrop} 
+          style={{ flex: 1, backgroundColor: 'transparent' }} 
           activeOpacity={1} 
           onPress={() => setShowNotificationsModal(false)}
         >
-          <View style={[styles.profileModalContent, isDarkMode && styles.modalContentDark, { maxHeight: '80%' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
+          <View style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 60 : 50,
+            right: 14,
+            width: 320,
+            maxHeight: 450,
+            backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: isDarkMode ? '#334155' : '#cbd5e1',
+            elevation: 10,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Bell size={20} color="#2563eb" />
-                <Text style={{ fontSize: 16, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#0f172a' }}>Notificações do Sistema</Text>
+                <Bell size={18} color="#2563eb" />
+                <Text style={{ fontSize: 14, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#0f172a' }}>Notificações do Sistema</Text>
               </View>
               <TouchableOpacity onPress={() => setShowNotificationsModal(false)} style={{ padding: 4 }}>
-                <X size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                <X size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
             </View>
 
             {notifications.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                <Bell size={40} color="#cbd5e1" />
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#64748b', marginTop: 12 }}>Nenhuma notificação por enquanto</Text>
-                <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, textAlign: 'center' }}>Novos pedidos em tempo real emitirão som e alerta nesta tela.</Text>
+              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                <Bell size={32} color="#cbd5e1" />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#64748b', marginTop: 8 }}>Nenhuma notificação por enquanto</Text>
+                <Text style={{ fontSize: 10, color: '#94a3b8', marginTop: 2, textAlign: 'center' }}>Novos pedidos gerados em tempo real emitirão alerta nesta tela.</Text>
               </View>
             ) : (
-              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10 }}>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }}>
                 {notifications.map(notif => (
                   <TouchableOpacity
                     key={notif.id}
@@ -3716,20 +4575,22 @@ export default function App() {
                       }
                     }}
                     style={{
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderRadius: 16,
-                      padding: 14,
+                      backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                      borderRadius: 14,
+                      padding: 12,
                       borderWidth: 1,
                       borderColor: isDarkMode ? '#334155' : '#e2e8f0',
                       gap: 4
                     }}
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 13, fontWeight: '900', color: '#2563eb' }}>{notif.title}</Text>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#94a3b8' }}>{notif.timestamp}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '900', color: '#2563eb' }}>{notif.title}</Text>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#94a3b8' }}>{notif.timestamp}</Text>
                     </View>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: isDarkMode ? '#cbd5e1' : '#475569' }}>{notif.message}</Text>
-                    <Text style={{ fontSize: 10, fontWeight: '900', color: '#16a34a', marginTop: 4, textTransform: 'uppercase' }}>Toque para ver detalhes do pedido →</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: isDarkMode ? '#cbd5e1' : '#475569' }}>{notif.message}</Text>
+                    {notif.scheduleText ? (
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: '#2563eb', marginTop: 2 }}>{notif.scheduleText}</Text>
+                    ) : null}
                   </TouchableOpacity>
                 ))}
               </ScrollView>

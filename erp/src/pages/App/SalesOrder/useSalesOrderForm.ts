@@ -542,14 +542,14 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         goToNextStep: () => {
             setCurrentStep(prev => {
                 const isBudget = orderType === 'budget';
-                if (isBudget && prev === 3) return 5;
-                return Math.min(prev + 1, 5);
+                if (isBudget && prev === 4) return 6;
+                return Math.min(prev + 1, 6);
             });
         },
         goToPrevStep: () => {
             setCurrentStep(prev => {
                 const isBudget = orderType === 'budget';
-                if (isBudget && prev === 5) return 3;
+                if (isBudget && prev === 6) return 4;
                 return Math.max(prev - 1, 1);
             });
         },

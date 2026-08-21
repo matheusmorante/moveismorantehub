@@ -16,9 +16,10 @@ type SalesOrderFormSectionProps = {
     form: ReturnType<typeof useSalesOrderForm>;
     scrollRef?: React.RefObject<HTMLDivElement>;
     onLoadJSON?: (data: any) => void;
+    onOpenSellerSearch?: () => void;
 };
 
-const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSectionProps) => {
+const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch }: SalesOrderFormSectionProps) => {
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
@@ -63,6 +64,50 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                 {/* Wizard Steps Content */}
                 <div className="max-w-[1400px] mx-auto pb-10">
                     {currentStep === 1 && (
+                        <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
+                            <SectionCard
+                                icon="bi bi-info-circle"
+                                iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
+                                title="Informações básicas"
+                                subtitle="Defina o vendedor e a data do pedido"
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={onOpenSellerSearch}
+                                        className="flex items-center gap-3 w-full p-4 text-left bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                                    >
+                                        <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                            <i className="bi bi-person-badge-fill" />
+                                        </span>
+                                        <span className="flex flex-col min-w-0">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Vendedor</span>
+                                            <span className={`text-sm font-black truncate ${state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
+                                                {state.seller || 'Selecionar vendedor'}
+                                            </span>
+                                        </span>
+                                    </button>
+
+                                    <label className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                                        <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                            <i className="bi bi-calendar-event-fill" />
+                                        </span>
+                                        <span className="flex flex-col min-w-0">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Data do pedido</span>
+                                            <input
+                                                type="datetime-local"
+                                                value={state.orderDate}
+                                                onChange={(e) => actions.setOrderDate(e.target.value)}
+                                                className="bg-transparent border-0 p-0 focus:ring-0 text-sm font-black text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
+                                            />
+                                        </span>
+                                    </label>
+                                </div>
+                            </SectionCard>
+                        </div>
+                    )}
+
+                    {currentStep === 2 && (
                         <div className="flex flex-col gap-8 animate-fade-in">
 
                             <SectionCard
@@ -86,7 +131,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                         </div>
                     )}
 
-                    {currentStep === 2 && (
+                    {currentStep === 3 && (
                         <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
                             <SectionCard
                                 icon="bi bi-person-badge"
@@ -109,7 +154,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                         </div>
                     )}
 
-                    {currentStep === 3 && (
+                    {currentStep === 4 && (
                         <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
                             <SectionCard
                                 icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
@@ -144,7 +189,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                         </div>
                     )}
 
-                    {currentStep === 4 && (
+                    {currentStep === 5 && (
                         <div className="max-w-5xl mx-auto animate-fade-in">
                             <SectionCard
                                 icon={isBudget ? "bi bi-calculator" : "bi bi-credit-card-2-front"}
@@ -178,7 +223,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                         </div>
                     )}
 
-                    {currentStep === 5 && (
+                    {currentStep === 6 && (
                         <div className="animate-fade-in bg-white dark:bg-slate-900 rounded-[2.5rem] p-4 md:p-6 border border-slate-100 dark:border-slate-800 shadow-premium-sm max-w-7xl mx-auto overflow-hidden flex flex-col h-full min-h-0">
                              {/* Header */}
                              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100/50 dark:border-slate-800/50 flex-shrink-0">
@@ -304,7 +349,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                                                 </span>
                                             </div>
                                         </div>
-                                        <button type="button" onClick={() => actions.jumpToStep(1)} className="p-2 text-slate-300 hover:text-purple-500 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                                        <button type="button" onClick={() => actions.jumpToStep(3)} className="p-2 text-slate-300 hover:text-purple-500 opacity-0 group-hover:opacity-100 transition-all shrink-0">
                                             <i className="bi bi-pencil-square" />
                                         </button>
                                     </div>
@@ -319,7 +364,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON }: SalesOrderFormSe
                                                 </span>
                                             </div>
                                             {!isBudget && (
-                                                <button type="button" onClick={() => actions.jumpToStep(3)} className={`p-1.5 rounded-lg transition-all ${isPickup ? 'hover:bg-amber-100 text-amber-500' : 'hover:bg-emerald-100 text-emerald-500'}`}>
+                                                <button type="button" onClick={() => actions.jumpToStep(4)} className={`p-1.5 rounded-lg transition-all ${isPickup ? 'hover:bg-amber-100 text-amber-500' : 'hover:bg-emerald-100 text-emerald-500'}`}>
                                                     <i className="bi bi-pencil-square" />
                                                 </button>
                                             )}

@@ -23,7 +23,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
     const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
     return (
-        <nav className="hidden xl:flex items-center gap-2 h-full">
+        <nav className="hidden lg:flex items-center gap-2 h-full">
             <Link to="/" className={navLinkClass}>
                 <i className="bi bi-grid-fill"></i>
                 Dashboard
