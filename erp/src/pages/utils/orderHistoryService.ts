@@ -676,14 +676,14 @@ export const undoReturn = async (order: Order): Promise<void> => {
         // 1. Merge items back
         const restoredItems = [...originalOrder.items];
         returnOrder.items.forEach(retItem => {
-            const index = restoredItems.findIndex(i => i.id === retItem.id);
+            const index = restoredItems.findIndex(i => (i as any).id === (retItem as any).id);
             if (index !== -1) {
                 // Se o item já existir no original (devolução parcial), somamos a quantidade
                 restoredItems[index] = {
                     ...restoredItems[index],
                     quantity: restoredItems[index].quantity + retItem.quantity,
                     totalValue: (restoredItems[index].quantity + retItem.quantity) * restoredItems[index].unitPrice
-                };
+                } as any;
             } else {
                 // Se o item não existir (devolução total anterior), adicionamos de volta
                 restoredItems.push(retItem);
@@ -691,9 +691,9 @@ export const undoReturn = async (order: Order): Promise<void> => {
         });
 
         // 2. Prepare original order update
-        const totalItemsValue = restoredItems.reduce((acc, i) => acc + (i.totalValue || 0), 0);
+        const totalItemsValue = restoredItems.reduce((acc, i) => acc + ((i as any).totalValue || (i.quantity * i.unitPrice) || 0), 0);
         const subtotal = totalItemsValue + (originalOrder.shipping?.value || 0);
-        const totalDiscount = (originalOrder.paymentsSummary?.discount || 0);
+        const totalDiscount = ((originalOrder.paymentsSummary as any)?.discount || 0);
         const totalOrderValue = subtotal - totalDiscount;
 
         const originalUpdate: Partial<Order> = {
@@ -701,15 +701,14 @@ export const undoReturn = async (order: Order): Promise<void> => {
             returnOrderId: undefined as any, // Limpa o vínculo
             paymentsSummary: {
                 ...originalOrder.paymentsSummary,
-                totalItemsValue,
+                totalValue: totalItemsValue,
                 subtotal,
                 totalOrderValue
-            },
+            } as any,
             itemsSummary: {
                 totalItems: restoredItems.length,
                 totalQuantity: restoredItems.reduce((acc, i) => acc + i.quantity, 0),
-                totalValue: totalItemsValue
-            }
+            } as any
         };
 
         // Clear return note patterns

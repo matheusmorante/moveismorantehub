@@ -71,7 +71,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
     if (product.category !== undefined) data.category = product.category;
-    if (product.category_id !== undefined) data.category_id = product.category_id;
+    if ((product as any).category_id !== undefined) data.category_id = (product as any).category_id;
     if (Array.isArray(product.categoryIds) && product.categoryIds.length > 0) {
         data.category_id = product.categoryIds[0];
     } else if (Array.isArray(product.categoryIds) && product.categoryIds.length === 0) {
@@ -685,7 +685,7 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
             
             if (product.variations) {
                 product.variations.forEach(v => {
-                    v.product_id = newId;
+                    (v as any).product_id = newId;
                     if (!v.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.id)) {
                         v.id = crypto.randomUUID();
                     }
@@ -846,7 +846,7 @@ const ensureUuidFormat = (product: Partial<Product>): string => {
     product.id = newId;
     if (product.variations) {
         product.variations.forEach(v => {
-            v.product_id = newId;
+            (v as any).product_id = newId;
             if (!v.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.id)) {
                 v.id = crypto.randomUUID();
             }
