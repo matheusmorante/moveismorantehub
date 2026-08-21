@@ -178,12 +178,75 @@ const SalesOrder = () => {
 
                         {/* Top Control Bar on Mobile & Desktop */}
                         <div className="flex items-center justify-between w-full sm:w-auto gap-2 flex-wrap sm:flex-nowrap">
-                            {/* Action Buttons */}
-                            <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                            {/* Action Buttons Group */}
+                            <div className="ml-auto flex items-center gap-2 shrink-0">
+                                {/* Lixeira Button */}
+                                {!isReturnRoute && (
+                                    <button
+                                        onClick={() => setIsTrashOpen(true)}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500 active:scale-95"
+                                        title="Lixeira"
+                                    >
+                                        <i className="bi bi-trash3 text-sm"></i>
+                                        <span>Lixeira</span>
+                                    </button>
+                                )}
+
+                                {/* Visualizacao Dropdown */}
+                                <div className="relative hidden lg:block">
+                                    <button
+                                        onClick={() => setShowSettings(!showSettings)}
+                                        className={`flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider active:scale-95 ${
+                                            showSettings
+                                                ? 'border-blue-300 text-blue-600 dark:border-blue-800'
+                                                : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
+                                        }`}
+                                        title="Visualização"
+                                    >
+                                        <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'} text-sm`}></i>
+                                        <span>Visualização</span>
+                                    </button>
+
+                                    {showSettings && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+                                            <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {[
+                                                        { key: 'id', label: 'ID do Pedido' },
+                                                        { key: 'orderDate', label: 'Data do Pedido' },
+                                                        { key: 'deliveryDate', label: 'Data de Entrega' },
+                                                        { key: 'customer', label: 'Cliente' },
+                                                        { key: 'totalValue', label: 'Valor Total' },
+                                                        { key: 'labels', label: 'Rótulos' },
+                                                        { key: 'status', label: 'Status' },
+                                                        { key: 'actions', label: 'Ações' },
+                                                    ].map((col) => (
+                                                        <button
+                                                            key={col.key}
+                                                            onClick={() => toggleVisibility(col.key as keyof VisibilitySettings)}
+                                                            className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
+                                                        >
+                                                            <span className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}>
+                                                                {col.label}
+                                                            </span>
+                                                            <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                                                                <div className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Main Create Button */}
                                 {isBudgetRoute && (
                                     <button
                                         onClick={() => setOrderModalType('budget')}
-                                        className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-blue-500/20 transition-all active:scale-95"
+                                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-blue-500/20 transition-all active:scale-95"
                                     >
                                         <i className="bi bi-plus-lg text-sm" />
                                         <span>Novo Orçamento</span>
@@ -192,7 +255,7 @@ const SalesOrder = () => {
                                 {isAssistanceRoute && (
                                     <button
                                         onClick={() => setOrderModalType('assistance')}
-                                        className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
+                                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
                                     >
                                         <i className="bi bi-tools text-sm" />
                                         <span>Nova Assistência</span>
@@ -201,7 +264,7 @@ const SalesOrder = () => {
                                 {isReturnRoute && (
                                     <button
                                         onClick={() => setOrderModalType('return')}
-                                        className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
+                                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
                                     >
                                         <i className="bi bi-arrow-return-left text-sm" />
                                         <span>Nova Devolução</span>
@@ -210,7 +273,7 @@ const SalesOrder = () => {
                                 {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
                                     <button
                                         onClick={() => setOrderModalType('sale')}
-                                        className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+                                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-emerald-500/20 transition-all active:scale-95"
                                     >
                                         <i className="bi bi-plus-lg text-sm" />
                                         <span>Nova Venda</span>
@@ -222,83 +285,20 @@ const SalesOrder = () => {
                 </div>
 
                 <div className="flex flex-col gap-3 flex-1 min-h-0">
-                    {/* Header Actions Container - Compact */}
-                    <div className="flex justify-between items-center px-1">
-                        <div className="flex gap-1.5 flex-wrap">
-                            <button
-                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border min-[1701px]:hidden ${isSidebarOpen
-                                    ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
-                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
-                                    }`}
-                                title="Filtros"
-                            >
-                                <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
-                                <span className="hidden sm:inline">Filtros</span>
-                            </button>
-
-                            {!isReturnRoute && (
-                                <button
-                                    onClick={() => setIsTrashOpen(true)}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest border bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500`}
-                                    title="Lixeira"
-                                >
-                                    <i className="bi bi-trash3 text-sm"></i>
-                                    <span className="hidden sm:inline">Lixeira</span>
-                                </button>
-                            )}
-
-
-
-                        </div>
-
-                        <div className="relative hidden lg:block">
-                                <button
-                                    onClick={() => setShowSettings(!showSettings)}
-                                    className={`flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-900 border rounded-lg transition-all shadow-sm font-bold text-[9px] uppercase tracking-widest ${showSettings
-                                        ? 'border-blue-200 text-blue-600 dark:border-blue-800'
-                                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
-                                        }`}
-                                    title="Visualização"
-                                >
-                                    <i className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'} text-sm`}></i>
-                                    <span className="hidden sm:inline">Visualização</span>
-                                </button>
-
-                                {showSettings && (
-                                    <>
-                                        <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
-                                        <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
-                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">Colunas da Tabela</h4>
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {[
-                                                    { key: 'id', label: 'ID do Pedido' },
-                                                    { key: 'orderDate', label: 'Data do Pedido' },
-                                                    { key: 'deliveryDate', label: 'Data de Entrega' },
-                                                    { key: 'customer', label: 'Cliente' },
-                                                    { key: 'totalValue', label: 'Valor Total' },
-                                                    { key: 'labels', label: 'Rótulos' },
-                                                    { key: 'status', label: 'Status' },
-                                                    { key: 'actions', label: 'Ações' },
-                                                ].map((col) => (
-                                                    <button
-                                                        key={col.key}
-                                                        onClick={() => toggleVisibility(col.key as keyof VisibilitySettings)}
-                                                        className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
-                                                    >
-                                                        <span className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}>
-                                                            {col.label}
-                                                        </span>
-                                                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}>
-                                                            <div className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                        </div>
+                    {/* Filtros Toggle Button on smaller screens */}
+                    <div className="flex justify-between items-center px-1 min-[1701px]:hidden">
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${isSidebarOpen
+                                ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
+                                : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
+                                }`}
+                            title="Filtros"
+                        >
+                            <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
+                            <span>Filtros</span>
+                        </button>
+                    </div>
 
                     </div>
 
