@@ -314,7 +314,7 @@ const SalesOrder = () => {
                             </div>
                             {isSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
-                            <div className="flex-1 min-w-0 flex flex-col rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none">
+                            <div className="flex-1 min-w-0 flex flex-col">
                                 <OrderHistoryList
                                     onEdit={(order) => {
                                         if (order.orderType === 'assistance') {

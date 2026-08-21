@@ -287,7 +287,7 @@ const OrderHistoryTable = ({
                     </table>
                 </div>
             ) : (
-                    <div className="grid grid-cols-1 auto-rows-max gap-4 overflow-y-auto pb-4 flex-1 min-h-0">
+                    <div className="grid grid-cols-1 auto-rows-max gap-4 pb-4">
                     {orders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <i className="bi bi-search text-4xl mb-3 opacity-20" />
