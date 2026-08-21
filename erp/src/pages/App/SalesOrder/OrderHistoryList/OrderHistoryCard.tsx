@@ -440,7 +440,7 @@ const OrderHistoryCard = ({
                 </div>
             </div>
 
-            <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
+            <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-800/50 px-3 pt-2.5 pb-3">
                 <div className="flex flex-col">
                     <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
                         Total

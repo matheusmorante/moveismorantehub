@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
 
 const PAGE_SIZE = 20;
+const CARD_VIEW_BREAKPOINT = 1024;
 
 export const useOrderHistory = (filters?: any) => {
     const [orders, setOrders] = useState<Order[]>([]);
@@ -16,12 +17,25 @@ export const useOrderHistory = (filters?: any) => {
     const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
     const [loadingMore, setLoadingMore] = useState(false);
     const { width } = useWindowSize();
-    const isMobile = width < 1024;
+    const isMobile = width < CARD_VIEW_BREAKPOINT;
+    // Cards view uses infinite scroll (mobile + desktop cards), table view uses classic pagination
+    const isCardView = isMobile ||
+        (typeof window !== 'undefined' && (
+            window.location.search.includes('auth_email') ||
+            window.location.pathname.includes('/mobile') ||
+            Boolean((window as any).ReactNativeWebView)
+        ));
+    const [useInfiniteScroll, setUseInfiniteScroll] = useState(isCardView);
+
+    // Sync useInfiniteScroll with isCardView changes
+    useEffect(() => {
+        setUseInfiniteScroll(isCardView);
+    }, [isCardView]);
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
     const loadMore = () => {
-        if (!isMobile || loadingMore || orders.length >= totalDatabaseItems) return;
+        if (!useInfiniteScroll || loadingMore || orders.length >= totalDatabaseItems) return;
         setLoadingMore(true);
         setCurrentPage(prev => prev + 1);
     };
@@ -34,7 +48,7 @@ export const useOrderHistory = (filters?: any) => {
             .then(({ orders: pageOrders, total }) => {
                 if (!active) return;
                 setTotalDatabaseItems(total);
-                setOrders(prev => isMobile && currentPage > 1
+                setOrders(prev => useInfiniteScroll && currentPage > 1
                     ? [...prev, ...pageOrders.filter(order => !prev.some(existing => existing.id === order.id))]
                     : pageOrders
                 );
@@ -53,7 +67,7 @@ export const useOrderHistory = (filters?: any) => {
         return () => {
             active = false;
         };
-    }, [refreshSignal, currentPage, isMobile, filters]);
+    }, [refreshSignal, currentPage, useInfiniteScroll, filters]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
@@ -189,7 +203,7 @@ export const useOrderHistory = (filters?: any) => {
     }, [orders, filters]);
 
     const totalItems = totalDatabaseItems;
-    const hasMore = isMobile && orders.length < totalDatabaseItems;
+    const hasMore = useInfiniteScroll && orders.length < totalDatabaseItems;
 
     const displayedOrders = useMemo(() => {
         return filteredOrders;
@@ -403,6 +417,8 @@ export const useOrderHistory = (filters?: any) => {
         totalPages: Math.ceil(totalDatabaseItems / PAGE_SIZE),
         setCurrentPage,
         isMobile,
+        isCardView,
+        useInfiniteScroll,
         loadingMore,
         loading,
         handleDelete,

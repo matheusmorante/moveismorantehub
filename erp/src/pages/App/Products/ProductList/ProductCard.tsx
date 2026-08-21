@@ -4,6 +4,25 @@ import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import ProductSalesModal from "../components/ProductSalesModal";
+import { supabase } from '@/pages/utils/supabaseConfig';
+
+let oppCache: Record<string, string> | null = null;
+let oppPromise: Promise<Record<string, string>> | null = null;
+
+const fetchOppMap = async () => {
+    if (oppCache) return oppCache;
+    if (!oppPromise) {
+        oppPromise = supabase.from('opportunities').select('id, name').then(({ data }) => {
+            const map: Record<string, string> = {};
+            if (data) {
+                data.forEach((item: any) => { map[item.id] = item.name; });
+            }
+            oppCache = map;
+            return map;
+        });
+    }
+    return oppPromise;
+};
 
 interface ProductCardProps {
     product: Product;
@@ -50,6 +69,24 @@ const ProductCard = ({
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
     const isCatalogActive = product.status === 'published';
+
+    const [oppName, setOppName] = React.useState<string | null>(
+        product.opportunityName || product.opportunity?.name || null
+    );
+
+    React.useEffect(() => {
+        let isMounted = true;
+        if (product.opportunityId) {
+            fetchOppMap().then(map => {
+                if (isMounted && map[product.opportunityId!]) {
+                    setOppName(map[product.opportunityId!]);
+                }
+            });
+        } else {
+            setOppName(product.opportunityName || product.opportunity?.name || null);
+        }
+        return () => { isMounted = false; };
+    }, [product.opportunityId, product.opportunityName, product.opportunity]);
 
     // Process attributes text if variation
     let variationName = '';
@@ -224,16 +261,10 @@ const ProductCard = ({
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">
                                 {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
                             </span>
-                            {(product.opportunityName || product.opportunity?.name) && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-850 dark:bg-amber-950 dark:text-amber-300 border border-amber-300/60 dark:border-amber-900/40 flex items-center gap-1 select-none shrink-0">
-                                    <i className="bi bi-fire text-amber-600 text-[9px]" />
-                                    {product.opportunityName || product.opportunity?.name}
-                                </span>
-                            )}
                         </div>
                     )}
                     <div className="flex justify-between items-center gap-2 mt-2 w-full">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1.5 items-center">
                             {product.isDraft && (
                                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                                     <i className="bi bi-file-earmark-text" /> Rascunho
@@ -244,6 +275,12 @@ const ProductCard = ({
                                     <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                     Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
                                 </button>
+                            )}
+                            {oppName && (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 select-none shadow-2xs">
+                                    <i className="bi bi-fire text-amber-600 dark:text-amber-400 text-[9px]" />
+                                    {oppName}
+                                </span>
                             )}
                         </div>
                     </div>

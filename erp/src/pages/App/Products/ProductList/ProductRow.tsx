@@ -218,15 +218,29 @@ const ProductRow = ({
                 );
             case 'unitPrice':
                 if (product.isParent) return <td key="unitPrice" className={`px-3 py-3 ${firstCellBorder}`}></td>;
-                const displayPrice = product.unitPrice || 
-                    (product.variations?.length 
-                        ? Math.min(...product.variations.map(v => v.unitPrice || 0).filter(p => p > 0).concat(0))
-                        : 0);
+                const unitP = Number(product.unitPrice) || 0;
+                const promoP = Number(product.promoPrice) || 0;
+                const hasPromo = promoP > 0 && promoP < unitP;
+                const finalPrice = hasPromo ? promoP : (unitP || (
+                    product.variations?.length 
+                        ? Math.min(...product.variations.map(v => {
+                            const vp = Number(v.promoPrice) > 0 && Number(v.promoPrice) < Number(v.unitPrice) ? Number(v.promoPrice) : Number(v.unitPrice);
+                            return vp || 0;
+                        }).filter(p => p > 0).concat(0))
+                        : 0
+                ));
                 return (
                     <td key="unitPrice" className={`px-3 py-3 text-right ${firstCellBorder}`}>
-                        <span className="text-sm font-black text-blue-600 dark:text-blue-400">
-                            {displayPrice > 0 ? formatCurrency(displayPrice) : '-'}
-                        </span>
+                        <div className="flex flex-col items-end">
+                            {hasPromo && (
+                                <span className="text-[10px] text-red-500 dark:text-red-400 line-through font-bold leading-tight">
+                                    {formatCurrency(unitP)}
+                                </span>
+                            )}
+                            <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+                                {finalPrice > 0 ? formatCurrency(finalPrice) : '-'}
+                            </span>
+                        </div>
                     </td>
                 );
             case 'weight':

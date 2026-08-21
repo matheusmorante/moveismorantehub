@@ -60,7 +60,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         currentPage,
         totalPages,
         setCurrentPage,
-        loadingMore
+        loadingMore,
+        useInfiniteScroll
     } = useOrderHistory(filters);
 
     const observerRef = React.useRef<IntersectionObserver | null>(null);
@@ -259,7 +260,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onFilterByOrderId={onFilterByOrderId}
                 />
 
-                <div className="hidden lg:flex items-center justify-center gap-2 py-3 border-t border-slate-100 dark:border-slate-800">
+                {!useInfiniteScroll && (
+                <div className="flex items-center justify-center gap-2 py-3 border-t border-slate-100 dark:border-slate-800">
                     {currentPage > 1 && (
                         <button
                             type="button"
@@ -290,9 +292,11 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                         </button>
                     )}
                 </div>
+                )}
 
                 {/* Infinite Scroll Sentinel */}
-                <div ref={sentinelRef} className="lg:hidden py-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-3">
+                {useInfiniteScroll && (
+                <div ref={sentinelRef} className="py-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-3">
                     {hasMore ? (
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold animate-pulse">
                             {loadingMore && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />}
@@ -304,6 +308,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                         </span>
                     )}
                 </div>
+                )}
             </div>
         );
     };

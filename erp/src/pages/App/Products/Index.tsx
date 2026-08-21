@@ -94,7 +94,7 @@ const Products = () => {
         description: true,
         category: true,
         unitPrice: true,
-        weight: true,
+        weight: false,
         costPrice: false,
         stock: true,
         status: true,
@@ -152,23 +152,10 @@ const Products = () => {
         setIsFormModalOpen(true);
         toast.info("Produto duplicado! Revise os dados e salve para concluir.");
     };
-
-    return (
+    return (
         <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
-            {/* Sidebar for Filters */}
-            <div className={`transition-all duration-300 ease-in-out border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 absolute md:relative z-30 h-full ${isSidebarOpen ? 'w-[calc(100vw-32px)] md:w-80 shadow-2xl md:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'}`}>
-                <div className="md:hidden flex justify-end p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 p-2">
-                        <i className="bi bi-x-lg text-xl" />
-                    </button>
-                </div>
-                <ProductFilters filters={filters} setFilters={setFilters} />
-            </div>
-            {/* Overlay for mobile sidebar */}
-            {isSidebarOpen && <div className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
-
-            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
-                <div className="flex flex-col gap-6">
+            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-8">
+                <div className="flex flex-col gap-6 flex-1 min-h-0">
                     {/* Header Actions Container */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 px-2">
                         <div className="flex flex-wrap items-center gap-3 w-full">
@@ -185,19 +172,17 @@ const Products = () => {
 
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isSidebarOpen
+                                className={`min-[1500px]:hidden flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isSidebarOpen
                                     ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
                                     : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600'
                                     }`}
                                 title="Filtros Avançados"
                             >
                                 <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'}`}></i>
-                                <span className="hidden sm:inline">Opções</span>
+                                <span className="hidden sm:inline">Filtros</span>
                             </button>
 
-
-
-                            <div className="relative shrink-0">
+                            <div className="hidden lg:block relative shrink-0">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     className={`flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest ${showSettings
@@ -221,7 +206,6 @@ const Products = () => {
                                                     { key: 'category', label: 'Categoria' },
                                                     { key: 'createdAt', label: 'Data Criação' },
                                                     { key: 'unitPrice', label: 'Preço de Venda' },
-                                                    { key: 'weight', label: 'Peso' },
                                                     { key: 'stock', label: 'Estoque' },
                                                     { key: 'status', label: 'Canais' },
                                                     { key: 'actions', label: 'Ações' },
@@ -261,40 +245,59 @@ const Products = () => {
                         </div>
                     </div>
 
-                    <div className="w-full overflow-x-auto">
-                <ProductList
-                    filters={isTrashOpen ? trashFilters : activeFilters}
-                    visibilitySettings={visibilitySettings}
-                    onEdit={(p: any) => {
-                        if (p.isVariation) {
-                            setVariationParentProduct(p);
-                            const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                            setEditingVariation(actualVariation || (p as any));
-                            setIsVariationModalOpen(true);
-                        } else {
-                            setEditingProduct(p);
-                            setIsFormModalOpen(true);
-                        }
-                    }}
-                    onShowHistory={(p) => { setHistoryProduct(p); setIsHistoryModalOpen(true); }}
-                    onLaunchStock={(p: any) => {
-                        if (p.isVariation) {
-                            const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                            setStockLaunchTarget({ variation: actualVariation || p });
-                        } else {
-                            setStockLaunchTarget({ product: p });
-                        }
-                        setIsStockModalOpen(true);
-                    }}
-                    onToggleColumn={toggleVisibility}
-                    onSort={handleSort}
-                    categoryTree={categoryTree}
-                    ref={productListRef}
-                    onRefresh={() => productListRef.current?.refresh()}
-                />
+                    {/* Section: Sidebar + Product Table Container */}
+                    <div className="flex gap-6 flex-1 min-h-0 items-stretch">
+                        {/* Sidebar for Filters */}
+                        <div className={`transition-all duration-300 ease-in-out z-30 min-[1500px]:static min-[1500px]:w-80 min-[1500px]:shrink-0 min-[1500px]:opacity-100 min-[1500px]:block min-[1500px]:rounded-2xl min-[1500px]:border min-[1500px]:border-slate-200/80 min-[1500px]:dark:border-slate-800/80 min-[1500px]:bg-white min-[1500px]:dark:bg-slate-900 min-[1500px]:shadow-sm min-[1500px]:overflow-hidden ${
+                            isSidebarOpen
+                                ? 'fixed md:absolute inset-y-0 left-0 w-[calc(100vw-32px)] md:w-80 shadow-2xl z-40 opacity-100 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800'
+                                : 'absolute w-0 opacity-0 overflow-hidden border-none min-[1500px]:w-80 min-[1500px]:opacity-100 min-[1500px]:overflow-hidden'
+                        }`}>
+                            <div className="min-[1500px]:hidden flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">Filtros</span>
+                                <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 p-1">
+                                    <i className="bi bi-x-lg text-lg" />
+                                </button>
+                            </div>
+                            <ProductFilters filters={filters} setFilters={setFilters} />
+                        </div>
 
+                        {/* Overlay for mobile/tablet sidebar (< 1500px) */}
+                        {isSidebarOpen && (
+                            <div className="min-[1500px]:hidden fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
+                        )}
 
-
+                        <div className="flex-1 min-w-0 overflow-x-auto">
+                            <ProductList
+                                filters={isTrashOpen ? trashFilters : activeFilters}
+                                visibilitySettings={visibilitySettings}
+                                onEdit={(p: any) => {
+                                    if (p.isVariation) {
+                                        setVariationParentProduct(p);
+                                        const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
+                                        setEditingVariation(actualVariation || (p as any));
+                                        setIsVariationModalOpen(true);
+                                    } else {
+                                        setEditingProduct(p);
+                                        setIsFormModalOpen(true);
+                                    }
+                                }}
+                                onShowHistory={(p) => { setHistoryProduct(p); setIsHistoryModalOpen(true); }}
+                                onLaunchStock={(p: any) => {
+                                    if (p.isVariation) {
+                                        const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
+                                        setStockLaunchTarget({ variation: actualVariation || p });
+                                    } else {
+                                        setStockLaunchTarget({ product: p });
+                                    }
+                                    setIsStockModalOpen(true);
+                                }}
+                                onToggleColumn={toggleVisibility}
+                                onSort={handleSort}
+                                categoryTree={categoryTree}
+                                ref={productListRef}
+                                onRefresh={() => productListRef.current?.refresh()}
+                            />
                     </div>
                 </div>
             </div>

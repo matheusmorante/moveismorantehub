@@ -2379,6 +2379,7 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
                   </View>
                 </View>
               </TouchableOpacity>
+            );
           }}
         />
       )}
@@ -2485,10 +2486,9 @@ export default function App() {
   const webViewRef = useRef<WebView>(null);
 
   // Estados para o Resumo Inteligente de Entregas via IA Gemini
-  const [aiSummaryTab, setAiSummaryTab] = useState<'today' | 'tomorrow' | 'rest_of_week'>('today');
+  const [aiSummaryTab, setAiSummaryTab] = useState<'today' | 'tomorrow'>('today');
   const [aiSummaryToday, setAiSummaryToday] = useState<string>('');
   const [aiSummaryTomorrow, setAiSummaryTomorrow] = useState<string>('');
-  const [aiSummaryRestOfWeek, setAiSummaryRestOfWeek] = useState<string>('');
   const [isGeneratingAISummary, setIsGeneratingAISummary] = useState(false);
   const [isSpeakingSummary, setIsSpeakingSummary] = useState(false);
 
@@ -2524,7 +2524,7 @@ export default function App() {
   };
 
   // Gerador Inteligente de Resumo Operacional (Gemini API + Local Structured Fallback)
-  const generateDeliveryAISummary = async (mode: 'today' | 'tomorrow' | 'rest_of_week') => {
+  const generateDeliveryAISummary = async (mode: 'today' | 'tomorrow') => {
     setIsGeneratingAISummary(true);
     try {
       const now = new Date();
@@ -2543,9 +2543,6 @@ export default function App() {
       } else if (mode === 'tomorrow') {
         targetDates = [tomorrowStr];
         periodLabel = 'para amanhã';
-      } else if (mode === 'rest_of_week') {
-        targetDates = getRestOfWeekDates();
-        periodLabel = 'para o restante dos dias desta semana';
       }
 
       // Busca dados dos pedidos e configurações do sistema
@@ -2713,37 +2710,68 @@ export default function App() {
           const rawName = item.description || item.name || item.title || 'móvel';
           const itemQty = item.quantity || item.qty || 1;
           const handling = item.handlingType || item.handling || '';
-          const productWithArticle = formatProductNameWithArticle(rawName, itemQty);
-
-          if (isAssemblyOutsideType(handling)) {
-            assemblyItems.push(productWithArticle);
-            if (distNum !== null && distNum > 10) {
-              hasFarAssembly = true;
-            }
-          } else {
-            noAssemblyItems.push(productWithArticle);
-          }
-        });
-
-        const timeVal = (sched.startTime || sched.time || '').toLowerCase();
+          const productWithArticle = fo        const timeVal = (sched.startTime || sched.time || '').trim();
+        const endTimeVal = (sched.endTime || '').trim();
+        const timeValLower = timeVal.toLowerCase();
         const periodVal = (sched.period || sched.shift || sched.turn || '').toLowerCase();
-        const combinedVal = `${timeVal} ${periodVal}`.trim();
+        const combinedVal = `${timeValLower} ${periodVal}`.trim();
+
+        let scheduledTimeStr = '';
+        if (timeVal && endTimeVal) {
+          scheduledTimeStr = `agendada entre ${timeVal} e ${endTimeVal}`;
+        } else if (timeVal) {
+          scheduledTimeStr = `agendada para as ${timeVal}`;
+        }
+
+        const obsText = (
+          (oData.observation || '') + ' ' +
+          (o.observation || '') + ' ' +
+          (oData.notes || '') + ' ' +
+          (oData.notice || '')
+        ).toLowerCase();
+
+        const notices: string[] = [];
+        if (obsText.includes('maquina') || obsText.includes('máquina') || obsText.includes('cartao') || obsText.includes('cartão')) {
+          notices.push('levar máquina de cartão');
+        }
+        if (obsText.includes('cooktop') || obsText.includes('recorte')) {
+          notices.push('fazer recorte para cooktop');
+        }
+        if (obsText.includes('forro') || obsText.includes('furo') || obsText.includes('serra copo') || obsText.includes('cerra copo')) {
+          notices.push('fazer furo no forro e lembrar de levar serra copo');
+        }
+        if (obsText.includes('ligar antes') || obsText.includes('avisar antes') || obsText.includes('chamar antes') || obsText.includes('whatsapp antes')) {
+          notices.push('ligar antes de ir');
+        }
+        if (obsText.includes('nota fiscal') || obsText.includes('levar nota') || /\bnf\b/.test(obsText)) {
+          notices.push('levar nota fiscal');
+        }
+
+        const hasWallMountService = items.some((item: any) => {
+          const n = (item.description || item.name || item.title || '').toLowerCase();
+          return n.includes('instalação') || n.includes('instalacao') || n.includes('parede') || n.includes('fixação') || n.includes('fixacao');
+        });
+        if (hasWallMountService || obsText.includes('instalação na parede') || obsText.includes('instalacao na parede') || obsText.includes('fixar na parede')) {
+          notices.push('fazer instalação na parede');
+        }
 
         const isMorning =
           combinedVal.includes('manhã') || combinedVal.includes('manha') ||
           combinedVal.includes('morning') ||
-          /^(06|07|08|09|10|11):/.test(timeVal);
+          /^(06|07|08|09|10|11):/.test(timeValLower);
 
         const isAfternoon =
           combinedVal.includes('tarde') || combinedVal.includes('afternoon') ||
-          /^(12|13|14|15|16|17|18):/.test(timeVal);
+          /^(12|13|14|15|16|17|18):/.test(timeValLower);
 
         const deliveryInfo = {
           city,
           isColombo: city.toLowerCase() === 'colombo',
           distText,
           assemblyItems,
-          noAssemblyItems
+          noAssemblyItems,
+          scheduledTimeStr,
+          notices
         };
 
         if (isMorning) morningDeliveries.push(deliveryInfo);
@@ -2778,7 +2806,6 @@ export default function App() {
         } else if (hasAfternoon && !hasMorning && !hasUnspec) {
           shiftIntro = afternoonCount === 1 ? `, no período da tarde` : `, todas no período da tarde`;
         } else if (hasAfternoon && hasUnspec) {
-          // Há entregas à tarde e outras sem horário definido
           shiftIntro = `, com ${numWord(unspecCount + morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
         } else if (hasUnspec && !hasMorning && !hasAfternoon) {
           shiftIntro = unspecCount === 1 ? `, sem horário definido` : `, sem horário definido`;
@@ -2793,19 +2820,31 @@ export default function App() {
           deliveries.map(d => {
             const citySuffix = d.isColombo ? '' : ` para ${d.city}`;
             const distSuffix = d.distText ? `, ${d.distText}` : '';
+            let basePart = '';
             if (d.assemblyItems.length > 0) {
-              return `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no local`;
+              basePart = `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no local`;
             } else if (d.noAssemblyItems.length > 0) {
-              return `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no local`;
+              basePart = `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no local`;
+            } else {
+              basePart = `uma entrega${citySuffix}${distSuffix}`;
             }
-            return `uma entrega${citySuffix}${distSuffix}`;
+
+            if (d.scheduledTimeStr) {
+              basePart += `, ${d.scheduledTimeStr}`;
+            }
+
+            if (d.notices && d.notices.length > 0) {
+              basePart += `, com atenção para ${d.notices.join(' e ')}`;
+            }
+
+            return basePart;
           });
 
-        // Detalhamento da Manhã (inclui unspecified junto com morning se não há tarde; senão trata unspecified separado)
+        // Detalhamento da Manhã
         let morningText = '';
         const morningAll = hasAfternoon
-          ? morningDeliveries                          // só os classificados como manhã
-          : [...morningDeliveries, ...unspecifiedDeliveries]; // sem tarde: agrupa tudo na manhã
+          ? morningDeliveries
+          : [...morningDeliveries, ...unspecifiedDeliveries];
 
         if (morningAll.length > 0) {
           const parts = formatDeliveryParts(morningAll);
@@ -2813,7 +2852,6 @@ export default function App() {
             ? `Pela manhã, temos ${parts[0]}.`
             : `Pela manhã, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
         } else if (hasAfternoon) {
-          // Tem tarde mas não tem manhã — informa explicitamente
           morningText = `Pela manhã não temos entregas.`;
         }
 
@@ -2835,7 +2873,7 @@ export default function App() {
             : ` Também temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}, sem horário definido.`;
         }
 
-        // Dica de entrega distante com montagem (passa para o Gemini formular naturalmente)
+        // Dica de entrega distante com montagem
         const farAssemblyHint = hasFarAssembly
           ? ` Obs: há entrega distante com montagem no local, atenção ao horário de saída.`
           : '';
@@ -2856,10 +2894,11 @@ REGRAS ABSOLUTAS DE CONCORDÂNCIA E PRONÚNCIA:
 4. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde." — NUNCA: "sendo uma para Curitiba" na visão geral.
 5. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
 6. AVISO DE ENTREGA DISTANTE COM MONTAGEM: Se o texto base contiver uma "Obs:" sobre entrega distante com montagem, transforme em aviso conversacional no final, como: "Pessoal, essa entrega é bem longe e ainda tem montagem no local, se programem para sair com tempo."
-7. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
-8. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
+7. HORÁRIOS E AVISOS OPERACIONAIS: Se houver horário de agendamento específico ou avisos operacionais (como levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede), mantenha-os explicitados de forma clara e natural.
+8. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
+9. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
 
-Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no local. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no local, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no local. Pessoal, essa entrega é bem longe e ainda tem montagem, se programem para sair com tempo."
+Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no local, agendada para as 09:00. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no local, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no local, com atenção para fazer instalação na parede. Pessoal, essa entrega é bem longe e ainda tem montagem, se programem para sair com tempo."
 
 Texto base para refinamento: "${smartText}"`;
 
@@ -2889,8 +2928,6 @@ Texto base para refinamento: "${smartText}"`;
         setAiSummaryToday(smartText);
       } else if (mode === 'tomorrow') {
         setAiSummaryTomorrow(smartText);
-      } else if (mode === 'rest_of_week') {
-        setAiSummaryRestOfWeek(smartText);
       }
     } catch (err) {
       console.warn('Erro ao gerar resumo de entregas com IA:', err);
@@ -2902,7 +2939,6 @@ Texto base para refinamento: "${smartText}"`;
   useEffect(() => {
     generateDeliveryAISummary('today');
     generateDeliveryAISummary('tomorrow');
-    generateDeliveryAISummary('rest_of_week');
   }, []);
 
   // Estados para o Player de Áudio do Resumo Inteligente (Gemini TTS API + Draggable Slider)
@@ -2996,7 +3032,7 @@ Texto base para refinamento: "${smartText}"`;
         await geminiSoundRef.current.setPositionAsync(targetSecs * 1000);
       } catch (_) {}
     } else {
-      const currentText = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryNext5Days;
+      const currentText = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTomorrow;
       if (currentText) {
         playSpeechFromOffset(currentText, targetSecs);
       }
@@ -3143,7 +3179,7 @@ Texto base para refinamento: "${smartText}"`;
   };
 
   const handleSeekOffset = (offsetSecs: number) => {
-    const text = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryNext5Days;
+    const text = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTomorrow;
     if (!text) return;
 
     const newTime = Math.max(0, Math.min(speechTotalDuration || 15, speechCurrentTime + offsetSecs));
@@ -4075,8 +4111,7 @@ Texto base para refinamento: "${smartText}"`;
               }}>
                 {[
                   { id: 'today', label: 'Hoje' },
-                  { id: 'tomorrow', label: 'Amanhã' },
-                  { id: 'rest_of_week', label: 'Restante da Semana' }
+                  { id: 'tomorrow', label: 'Amanhã' }
                 ].map((tab) => {
                   const isActive = aiSummaryTab === tab.id;
                   return (
@@ -4086,7 +4121,6 @@ Texto base para refinamento: "${smartText}"`;
                         setAiSummaryTab(tab.id as any);
                         if (tab.id === 'today' && !aiSummaryToday) generateDeliveryAISummary('today');
                         if (tab.id === 'tomorrow' && !aiSummaryTomorrow) generateDeliveryAISummary('tomorrow');
-                        if (tab.id === 'rest_of_week' && !aiSummaryRestOfWeek) generateDeliveryAISummary('rest_of_week');
                       }}
                       style={{
                         flex: 1,
@@ -4122,7 +4156,7 @@ Texto base para refinamento: "${smartText}"`;
                 gap: 6
               }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: isDarkMode ? '#cbd5e1' : '#334155', lineHeight: 20 }}>
-                  {(aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTab === 'tomorrow' ? aiSummaryTomorrow : aiSummaryRestOfWeek) || 'Carregando resumo inteligente das entregas...'}
+                  {(aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTomorrow) || 'Carregando resumo inteligente das entregas...'}
                 </Text>
               </View>
 
@@ -4183,7 +4217,7 @@ Texto base para refinamento: "${smartText}"`;
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <TouchableOpacity
                     onPress={() => {
-                      const textToSpeak = aiSummaryTab === 'today' ? aiSummaryToday : (aiSummaryTab === 'tomorrow' ? aiSummaryTomorrow : aiSummaryRestOfWeek);
+                      const textToSpeak = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTomorrow;
                       handleToggleSpeech(textToSpeak);
                     }}
                     style={{

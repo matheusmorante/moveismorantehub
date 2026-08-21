@@ -476,6 +476,20 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         let isMounted = true;
         const loadFullData = async () => {
             if (product?.id) {
+                const initialHasVars = Boolean(product.hasVariations) || (Array.isArray(product.variations) && product.variations.length > 0);
+                const initialNext = { ...INITIAL_FORM_DATA, ...product, hasVariations: initialHasVars };
+                setFormData(initialNext);
+                const initOrig = product.unitPrice || 0;
+                const initPromo = product.promoPrice || 0;
+                if (initOrig > 0 && initPromo > 0 && initPromo < initOrig) {
+                    const diff = initOrig - initPromo;
+                    setDiscountFixed(diff.toFixed(2));
+                    setDiscountPercent(((diff / initOrig) * 100).toFixed(1));
+                } else {
+                    setDiscountFixed("");
+                    setDiscountPercent("");
+                }
+
                 const full = await getFullProduct(product.id);
                 if (full && isMounted) {
                     const hasVars = Boolean(full.hasVariations) || (Array.isArray(full.variations) && full.variations.length > 0);

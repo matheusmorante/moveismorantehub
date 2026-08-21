@@ -80,7 +80,6 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.condition !== undefined) data.condition = product.condition;
     if (product.unitPrice !== undefined) {
         data.unit_price = product.unitPrice;
-        data.price = product.unitPrice;
     }
     if (product.costPrice !== undefined) data.cost_price = product.costPrice;
     if (product.freightType !== undefined) data.freight_type = product.freightType;
@@ -117,7 +116,6 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.width !== undefined) data.width = product.width !== null ? String(product.width) : null;
     if (product.height !== undefined) data.height = product.height !== null ? String(product.height) : null;
     if (product.depth !== undefined) data.depth = product.depth !== null ? String(product.depth) : null;
-    if (product.weight !== undefined) data.weight = product.weight;
 
     // Manter o campo measures sincronizado no Supabase se houver dimensões
     const measureParts: string[] = [];
