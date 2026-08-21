@@ -103,6 +103,8 @@ const LabelPrinting: React.FC = () => {
     const [layoutModalOpen, setLayoutModalOpen] = useState(false);
     const [gridModalOpen, setGridModalOpen] = useState(false); 
     const [isModelManagerModalOpen, setIsModelManagerModalOpen] = useState(false);
+    const [selectedProductIdToAdd, setSelectedProductIdToAdd] = useState<string>('');
+    const [productAddQty, setProductAddQty] = useState<number>(1);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [isNewLogoModalOpen, setIsNewLogoModalOpen] = useState(false);
     const [newLogoName, setNewLogoName] = useState('');
@@ -709,7 +711,7 @@ const LabelPrinting: React.FC = () => {
         }
     };
 
-    const handleProductSelect = (product: Product) => {
+    const handleProductSelect = (product: Product, quantity: number = 1) => {
         const variationName = (product as any).variation || (product as any).variationName || (product as any).name;
         let fullName = (product.description || '');
         if (product.isVariation && variationName && !fullName.includes(variationName)) {
@@ -717,10 +719,7 @@ const LabelPrinting: React.FC = () => {
         }
 
         // Limpeza de sufixos indesejados (como " - Restaurado") para etiquetas de preço
-        // O usuário solicitou remover " - Restaurado" e qualquer outro texto extra após o traço nas etiquetas de preço
         if (selectedCategory === 'precos') {
-            // Removemos qualquer coisa após o primeiro " - " (espaço-hífen-espaço)
-            // Isso garante que apenas o nome principal do produto seja exibido, sem variações ou estados (ex: Restaurado)
             fullName = fullName.split(' - ')[0];
         }
 
@@ -730,12 +729,12 @@ const LabelPrinting: React.FC = () => {
                    (product as any).price ? formatCurrency((product as any).price) : 'R$ 0,00',
             promoPrice: '',
             sku: product.sku || '', 
-            quantity: 1,
+            quantity: Math.max(1, quantity),
             extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : []
         };
 
         setLabelItems(prev => [...prev, newItem]);
-        toast.success(`${fullName} adicionado à lista.`);
+        toast.success(`${fullName} (${quantity} un) adicionado à lista.`);
     };
 
     const handleAddBlankLabel = () => {
@@ -1075,32 +1074,8 @@ const LabelPrinting: React.FC = () => {
                 ) : (
                     <div className="flex flex-col gap-10 animate-fade-in">
                         <div className="space-y-6">
-                            <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6">
-                                <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center font-black">
-                                            <i className="bi bi-grid-3x3-gap-fill text-xl" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                                                Modelos de Etiqueta
-                                            </h3>
-                                            <p className="text-[10px] font-bold text-slate-400">
-                                                Gerencie e selecione os gabaritos e dimensões de folha
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setIsModelManagerModalOpen(true)}
-                                        className="flex items-center gap-2.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                                    >
-                                        <i className="bi bi-sliders text-sm" />
-                                        <span>Gerenciar Modelos de Etiqueta</span>
-                                    </button>
-                                </div>
-
-                                {/* Card Compacto do Modelo Ativo */}
+                            {/* SEÇÃO INFORMATIVA DO MODELO DE ETIQUETA EM USO */}
+                            <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-4">
                                 {(() => {
                                     const activeModel = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find(m => m.id === config.layoutId) || 
                                                         DEFAULT_LAYOUT_MODELS.find(m => m.category === selectedCategory) || 
@@ -1108,58 +1083,27 @@ const LabelPrinting: React.FC = () => {
                                     const dims = activeModel ? calculateLabelDimensions(activeModel) : { width: 0, height: 0 };
                                     
                                     return (
-                                        <div className="flex flex-wrap items-center justify-between gap-4 p-5 bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-800/60 dark:to-slate-900/60 border border-slate-200/80 dark:border-slate-700 rounded-3xl shadow-sm">
+                                        <div className="flex flex-wrap items-center justify-between gap-4 p-5 bg-gradient-to-br from-blue-50/40 to-slate-50 dark:from-slate-800/60 dark:to-slate-900/60 border border-blue-100 dark:border-slate-700/80 rounded-3xl shadow-sm">
                                             <div className="flex items-center gap-4 min-w-0">
-                                                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+                                                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0 font-black">
                                                     <i className={`bi ${activeModel?.icon || 'bi-grid-1x2-fill'} text-xl`} />
                                                 </div>
                                                 <div className="min-w-0">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 block mb-0.5">
+                                                        Modelo de Etiqueta em Uso
+                                                    </span>
                                                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                        <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate">
-                                                            {activeModel?.name || 'Modelo Padrão'}
-                                                        </span>
-                                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
-                                                            {activeModel?.paperSize || 'A4'}
+                                                        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate">
+                                                            {activeModel?.name || '10 ETIQUETAS (2X5)'}
+                                                        </h3>
+                                                        <span className="px-2.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
+                                                            Folha {activeModel?.paperSize || 'A4'}
                                                         </span>
                                                     </div>
                                                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                                                        {dims.width} x {dims.height} mm &nbsp;&bull;&nbsp; {activeModel?.columns} cols x {activeModel?.rows} lins &nbsp;&bull;&nbsp; <strong className="text-slate-700 dark:text-slate-200">{(activeModel?.columns || 1) * (activeModel?.rows || 1)} etiquetas por folha</strong>
+                                                        Dimensões: {dims.width} x {dims.height} mm &nbsp;&bull;&nbsp; Grade: {activeModel?.columns} colunas x {activeModel?.rows} linhas &nbsp;&bull;&nbsp; <strong className="text-slate-700 dark:text-slate-200">{(activeModel?.columns || 1) * (activeModel?.rows || 1)} etiquetas por folha</strong>
                                                     </p>
                                                 </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3">
-                                                {selectedCategory === 'precos' && (
-                                                    <div className="flex bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setPrintingMode('simple')}
-                                                            className={`py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                                                                printingMode === 'simple' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                                                            }`}
-                                                        >
-                                                            Por Imagens
-                                                        </button>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setPrintingMode('advanced')}
-                                                            className={`py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
-                                                                printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                                                            }`}
-                                                        >
-                                                            Design Avançado
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => setIsModelManagerModalOpen(true)}
-                                                    className="px-4 py-2.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-sm hover:border-blue-300 active:scale-95 cursor-pointer"
-                                                >
-                                                    <i className="bi bi-arrow-repeat mr-1.5" />
-                                                    Alterar Modelo
-                                                </button>
                                             </div>
                                         </div>
                                     );
@@ -1169,28 +1113,52 @@ const LabelPrinting: React.FC = () => {
                             <div className="flex flex-col gap-10">
                                     {/* SEÇÃO DA FILA (PRODUTOS OU LOGOS) */}
                                     <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col transition-all">
-                                        <div className="flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4 mb-8">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4 mb-8 pb-4 border-b border-slate-100 dark:border-slate-800">
                                             <div className="flex flex-col gap-1">
-                                                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                                <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
                                                     {selectedCategory === 'logos' ? 'Gerenciar Etiquetas' : 'Itens na Fila de Impressão'}
                                                 </h3>
                                                 {selectedCategory === 'logos' && (
-                                                    <p className="text-[8px] font-bold text-slate-300 uppercase">Organize e configure seus ativos para impressão</p>
+                                                    <p className="text-[8px] font-bold text-slate-400 uppercase">Organize e configure seus ativos para impressão</p>
                                                 )}
                                             </div>
 
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                {/* BOTÕES DE MODO DE IMPRESSÃO (POR IMAGENS / DESIGN AVANÇADO) */}
+                                                {selectedCategory === 'precos' && (
+                                                    <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setPrintingMode('simple')}
+                                                            className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                                                printingMode === 'simple' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                                                            }`}
+                                                        >
+                                                            Por Imagens
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setPrintingMode('advanced')}
+                                                            className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                                                                printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                                                            }`}
+                                                        >
+                                                            Design Avançado
+                                                        </button>
+                                                    </div>
+                                                )}
+
                                                 {selectedCategory === 'logos' && (
                                                     <>
                                                         <button 
                                                             onClick={handleAddBlankLabel}
-                                                            className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-55 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm"
+                                                            className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-50 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
                                                         >
                                                             <i className="bi bi-file-earmark-plus text-slate-400" /> Branco
                                                         </button>
                                                         <button 
                                                             onClick={() => setIsAssetManagerModalOpen(true)}
-                                                            className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm"
+                                                            className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
                                                         >
                                                             <i className="bi bi-grid-fill" /> Biblioteca de Logotipos / Rótulos
                                                         </button>
@@ -1205,7 +1173,8 @@ const LabelPrinting: React.FC = () => {
                                                                 else setLabelItems([]);
                                                             }
                                                         }}
-                                                        className="p-2.5 px-4 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl hover:bg-red-100 transition-all font-black text-[9px] uppercase tracking-widest border border-red-100 dark:border-red-900/30"
+                                                        className="p-2.5 px-4 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl hover:bg-red-100 transition-all font-black text-[9px] uppercase tracking-widest border border-red-100 dark:border-red-900/30 cursor-pointer"
+                                                        title="Limpar Fila"
                                                     >
                                                         <i className="bi bi-trash3-fill" />
                                                     </button>
@@ -1214,7 +1183,7 @@ const LabelPrinting: React.FC = () => {
                                         </div>
 
                                         <div className="flex flex-wrap gap-8 items-start">
-                                            <div className="space-y-6 shrink-0">
+                                            <div className="space-y-6 shrink-0 w-full md:w-auto">
                                                 {((selectedCategory as string) === 'logos') ? null : (
                                                     <div className="space-y-6">
                                                         {printingMode === 'simple' ? (
@@ -1223,7 +1192,7 @@ const LabelPrinting: React.FC = () => {
                                                                     onClick={() => cellInputRef.current?.click()}
                                                                     className="p-6 bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-[2rem] text-center group cursor-pointer transition-all hover:bg-blue-100/50"
                                                                 >
-                                                                    <div className="w-12 h-12 rounded-2xl bg-blue-500 text-white flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                                                                    <div className="w-12 h-12 rounded-2xl bg-blue-500 text-white flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform font-black">
                                                                         <i className="bi bi-cloud-arrow-up text-xl" />
                                                                     </div>
                                                                     <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 mb-1">Carregar Imagem da Etiqueta</p>
@@ -1231,7 +1200,7 @@ const LabelPrinting: React.FC = () => {
                                                                 </div>
                                                                 <button 
                                                                     onClick={handleAddBlankLabel}
-                                                                    className="w-full py-3 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800"
+                                                                    className="w-full py-3 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800 cursor-pointer"
                                                                 >
                                                                     <i className="bi bi-file-earmark-plus text-sm" />
                                                                     Adicionar Etiqueta em Branco
@@ -1252,45 +1221,82 @@ const LabelPrinting: React.FC = () => {
                                                         ) : (
                                                             <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                                                                 <p className="text-[9px] font-black uppercase text-slate-400 text-center leading-relaxed">
-                                                                    O Modo Simples ignora o design do sistema. <br /> A folha usará as margens e quantidade do modelo escolhido.
+                                                                    Defina os dados e quantidades dos produtos <br /> para preencher as etiquetas da grade.
                                                                 </p>
                                                             </div>
                                                         )}
                                                         {printingMode !== 'simple' && (
                                                             <div className="space-y-4">
-                                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adicionar Produtos</label>
-                                                                <div className="flex gap-2">
-                                                                    <div className="relative group/add flex-1">
+                                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                                                                    Adicionar Produtos à Fila
+                                                                </label>
+                                                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                                                    <div className="relative flex-1">
                                                                         <select 
-                                                                            onChange={e => {
-                                                                                const p = products.find(p => String(p.id) === e.target.value);
-                                                                                if (p) handleProductSelect(p);
-                                                                                e.target.value = ""; 
-                                                                            }}
-                                                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl pl-10 pr-12 py-3 text-[11px] font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 transition-all group-hover/add:border-blue-500"
+                                                                            value={selectedProductIdToAdd}
+                                                                            onChange={e => setSelectedProductIdToAdd(e.target.value)}
+                                                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-4 pr-10 py-3 text-[11px] font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-700 dark:text-slate-200"
                                                                         >
-                                                                            <option value="">Buscar Produto ({products.length} carr.)...</option>
+                                                                            <option value="">Selecione um Produto ({products.length} disponíveis)...</option>
                                                                             {products.map(p => (
                                                                                 <option key={p.id} value={String(p.id)}>{p.description}</option>
                                                                             ))}
                                                                         </select>
-                                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center text-[10px] pointer-events-none">
-                                                                            <i className="bi bi-plus-lg" />
+                                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                                            <i className="bi bi-chevron-down text-xs" />
                                                                         </div>
                                                                     </div>
-                                                                    <button 
-                                                                        onClick={handleAddBlankLabel}
-                                                                        className="px-4 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 border border-slate-100 dark:border-slate-800 shadow-sm"
-                                                                        title="Adicionar etiqueta vazia para espaçamento"
-                                                                    >
-                                                                        <i className="bi bi-file-earmark-plus text-sm text-slate-400" />
-                                                                        Branco
-                                                                    </button>
+
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="flex items-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-1.5 shrink-0">
+                                                                            <span className="text-[9px] font-black uppercase text-slate-400 mr-2">Qtd:</span>
+                                                                            <input 
+                                                                                type="number"
+                                                                                min="1"
+                                                                                max="500"
+                                                                                value={productAddQty}
+                                                                                onChange={e => setProductAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                                                                className="w-14 bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 outline-none text-center"
+                                                                            />
+                                                                        </div>
+
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (!selectedProductIdToAdd) {
+                                                                                    toast.warn("Selecione um produto da lista.");
+                                                                                    return;
+                                                                                }
+                                                                                const p = products.find(prod => String(prod.id) === selectedProductIdToAdd);
+                                                                                if (p) {
+                                                                                    handleProductSelect(p, productAddQty);
+                                                                                    setSelectedProductIdToAdd("");
+                                                                                    setProductAddQty(1);
+                                                                                }
+                                                                            }}
+                                                                            className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2 shrink-0 cursor-pointer"
+                                                                        >
+                                                                            <i className="bi bi-plus-lg text-sm" />
+                                                                            <span>Adicionar</span>
+                                                                        </button>
+
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={handleAddBlankLabel}
+                                                                            className="px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+                                                                            title="Adicionar etiqueta vazia para espaçamento"
+                                                                        >
+                                                                            <i className="bi bi-file-earmark-plus text-sm text-slate-400" />
+                                                                            <span>Branco</span>
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
+
                                                                 {hasMoreProducts && (
                                                                     <button 
+                                                                        type="button"
                                                                         onClick={() => fetchAllProducts(true)}
-                                                                        className="w-full py-2 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 transition-colors"
+                                                                        className="w-full py-2 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 transition-colors cursor-pointer"
                                                                     >
                                                                         <i className="bi bi-arrow-down-short text-lg" /> Carregar Mais Produtos
                                                                     </button>
