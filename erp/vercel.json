@@ -4,6 +4,18 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/facebook-catalog.csv",
+      "destination": "https://moveismorante.com.br/api/facebook-catalog.csv"
+    },
+    {
+      "source": "/api/facebook-catalog",
+      "destination": "https://moveismorante.com.br/api/facebook-catalog.csv"
+    },
+    {
+      "source": "/api/facebook-catalog/sync",
+      "destination": "https://moveismorante.com.br/api/facebook-catalog/sync"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
