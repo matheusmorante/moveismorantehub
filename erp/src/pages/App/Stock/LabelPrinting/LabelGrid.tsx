@@ -158,9 +158,11 @@ const LabelGrid: React.FC<Props> = ({
                                     config={{
                                         ...config,
                                         isBlank: item.isBlank,
-                                        text: item.isBlank ? '' : (item.name || (item.type === 'logo' ? '' : (config.text || ''))),
+                                        showName: item.showName !== false,
+                                        text: item.isBlank ? '' : (item.showName === false ? '' : (item.name || (item.type === 'logo' ? '' : (config.text || '')))),
                                         price: item.isBlank ? '' : (item.price || (item.type === 'logo' ? '' : (config.price || ''))),
                                         promoPrice: item.isBlank ? '' : (item.promoPrice || (item.type === 'logo' ? '' : (config.promoPrice || ''))),
+                                        showPromoPrice: Boolean((item.promoPrice && item.promoPrice.trim() !== '') || config.showPromoPrice),
                                         sku: item.isBlank ? '' : (item.sku || (item.type === 'logo' ? '' : (config.sku || ''))),
                                         extraFields: item.isBlank ? [] : (item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || []))),
                                         imageFit: item.imageFit || config.imageFit,

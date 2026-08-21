@@ -104,6 +104,7 @@ export interface GridModel {
     fontFamily?: string;
     imageScale?: number;
     previewImage?: string | null;
+    showPromoPrice?: boolean;
 }
 
 interface LabelGridModelModalProps {

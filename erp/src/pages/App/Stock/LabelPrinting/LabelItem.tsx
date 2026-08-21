@@ -161,17 +161,25 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
                         <Barcode text={config.qrContent || config.sku || ''} height={10} />
                     </div>
                 ) : (
-                    <div style={{ ...textStyle, position: 'relative' }}>
-                        {el.text}
-                        {el.id === 'oldPrice' && hasPromo && (
-                            <div style={{
-                                position: 'absolute', top: '50%', left: '-5%', right: '-5%',
-                                height: 'calc( (6 / 500) * 100cqh )',
-                                backgroundColor: '#ef4444', borderRadius: '9999px',
-                                opacity: 0.8, transform: 'translateY(-50%) rotate(-2deg)'
-                            }} />
-                        )}
-                    </div>
+                    el.id === 'oldPrice' && hasPromo ? (
+                        <div style={{ ...textStyle, display: 'inline-flex', alignItems: 'center', justifySelf: 'center', gap: '0.3em', whiteSpace: 'nowrap' }}>
+                            <span>De</span>
+                            <span style={{ position: 'relative', color: config.oldPriceColor || '#dc2626', fontWeight: '950' }}>
+                                {formatPrice(config.price || '')}
+                                <div style={{
+                                    position: 'absolute', top: '50%', left: '-3%', right: '-3%',
+                                    height: 'calc( (6 / 500) * 100cqh )',
+                                    backgroundColor: config.oldPriceColor || '#dc2626', borderRadius: '9999px',
+                                    opacity: 0.9, transform: 'translateY(-50%)'
+                                }} />
+                            </span>
+                            <span>por:</span>
+                        </div>
+                    ) : (
+                        <div style={{ ...textStyle, position: 'relative' }}>
+                            {el.text}
+                        </div>
+                    )
                 )}
             </div>
         );

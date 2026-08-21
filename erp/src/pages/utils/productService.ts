@@ -1591,7 +1591,7 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
             .from('orders')
             .select('order_data')
             .neq('order_data->>deleted', 'true')
-            .order('id', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(100);
 
         const { data: purchaseData } = await supabase

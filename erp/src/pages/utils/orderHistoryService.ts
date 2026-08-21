@@ -42,7 +42,7 @@ export const fetchOrdersPage = async (
         query = query.eq('id', filters.searchId);
     }
 
-    query = query.order('id', { ascending: false }).range(firstRow, lastRow);
+    query = query.order('created_at', { ascending: false }).range(firstRow, lastRow);
 
     const { data, count, error } = await query;
     if (error) {
@@ -71,8 +71,8 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
             const { data, error } = await supabase
                 .from(TABLE_NAME)
                 .select('*')
-                .order('id', { ascending: false })
-                .limit(500);
+                .order('created_at', { ascending: false })
+                .limit(2000);
 
             if (aborted) {
                 console.log('[OrdersSync] Fetch completed but subscription was cancelled, ignoring.');
@@ -747,7 +747,7 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .select('order_data')
-            .order('id', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(200);
 
         if (error) throw error;
@@ -778,7 +778,7 @@ export const getOrdersByProductId = async (productId: string, productSku?: strin
     try {
         const idStr = String(productId);
         const queryPromises: any[] = [];
-        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('id', { ascending: false });
+        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
 
         // 1. Busca por ID em itens e assistência
         queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: idStr }] }));
@@ -821,7 +821,7 @@ export const getOrdersByProductId = async (productId: string, productSku?: strin
             }
         });
 
-        return Array.from(uniqueOrders.values()).sort((a, b) => Number(b.id) - Number(a.id));
+        return Array.from(uniqueOrders.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
     } catch (error) {
         console.error("Erro ao buscar pedidos por produto:", error);
         return [];
@@ -834,7 +834,7 @@ export const getOrdersByProductId = async (productId: string, productSku?: strin
 export const getOrdersByCustomerInfo = async (fullName: string, phone?: string, email?: string): Promise<Order[]> => {
     try {
         const queryPromises: any[] = [];
-        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('id', { ascending: false });
+        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
 
         if (fullName) {
             queryPromises.push(baseQuery().contains('order_data', { customerData: { fullName } }));

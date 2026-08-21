@@ -226,8 +226,68 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                             )}
                         </div>
 
+                        {/* Opções de Design Avançado (Título, Preço e Preço Promocional) */}
+                        {printingMode === 'advanced' && !item.isBlank && (
+                            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between gap-2">
+                                    <label className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                                        <input 
+                                            type="checkbox"
+                                            checked={item.showName !== false}
+                                            onChange={e => updateItem(idx, { showName: e.target.checked })}
+                                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <span>Incluir Título do Produto</span>
+                                    </label>
+                                </div>
+
+                                {item.showName !== false && (
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">
+                                            Título na Etiqueta
+                                        </label>
+                                        <input 
+                                            type="text"
+                                            value={item.name || ''}
+                                            onChange={e => updateItem(idx, { name: e.target.value })}
+                                            placeholder="Ex: Guarda-Roupa Casal..."
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-black uppercase outline-none focus:border-blue-500 transition-all text-slate-800 dark:text-slate-100"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">
+                                            Preço de Venda
+                                        </label>
+                                        <input 
+                                            type="text"
+                                            value={item.price || ''}
+                                            onChange={e => updateItem(idx, { price: e.target.value })}
+                                            placeholder="R$ 0,00"
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:border-blue-500 transition-all text-emerald-600 dark:text-emerald-400"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">
+                                            Preço Promocional
+                                        </label>
+                                        <input 
+                                            type="text"
+                                            value={item.promoPrice || ''}
+                                            onChange={e => updateItem(idx, { promoPrice: e.target.value })}
+                                            placeholder="R$ 0,00 (opcional)"
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:border-blue-500 transition-all text-blue-600 dark:text-blue-400"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Campos Dinâmicos (SKU, Lote, etc) */}
-                        {!item.isBlank && (
+                        {!item.isBlank && item.extraFields && item.extraFields.length > 0 && (
                             <div className="flex flex-wrap gap-2 pt-2">
                                 {item.extraFields?.map((f: any) => (
                                     <div key={f.id} className="min-w-[100px] flex-1">

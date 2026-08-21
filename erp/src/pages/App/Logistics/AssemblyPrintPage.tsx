@@ -24,7 +24,7 @@ const AssemblyPrintPage = () => {
             const { data: dbOrders } = await supabase
                 .from('orders')
                 .select('id, order_data')
-                .order('id', { ascending: false });
+                .order('created_at', { ascending: false });
 
             const allOrders = (dbOrders as any[] || []).map(row => ({
                 ...(row.order_data || {}),

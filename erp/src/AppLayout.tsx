@@ -210,7 +210,7 @@ export default function AppLayout() {
         setActiveMenu={setActiveMenu}
       />
 
-      <main className={`flex-1 ${isMobileAppView ? 'p-1 sm:p-4' : 'p-4 xl:p-8'} overflow-x-hidden`}>
+      <main className={`flex-1 ${isMobileAppView ? 'p-1 sm:p-4' : 'p-4 xl:p-8'} overflow-x-clip`}>
         <Outlet />
       </main>
 

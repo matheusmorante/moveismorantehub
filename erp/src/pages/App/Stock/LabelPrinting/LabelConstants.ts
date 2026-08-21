@@ -141,8 +141,22 @@ export const DEFAULT_LAYOUT_MODELS: GridModel[] = [
     { id: '2x3_std', name: '6 Etiquetas (2x3)', columns: 2, rows: 3, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 5, icon: 'bi-grid-1x2', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     { id: '3x3_std', name: '9 Etiquetas (3x3)', columns: 3, rows: 3, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 5, icon: 'bi-grid-3x3', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     
-    // Preços (Gôndola) - Com tipografia padrão
-    { id: 'preco_2x5_restored', name: '10 Etiquetas (2x5)', columns: 2, rows: 5, marginT: 8.5, marginB: 8.5, marginL: 4, marginR: 4, gapH: 2.5, gapV: 0, icon: 'bi-grid-1x2-fill', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 11, nameColor: '#1e293b', priceFontSize: 28, priceColor: '#1e293b', promoFontSize: 22, promoColor: '#16a34a', priceFormat: 'split' },
+    // Preços (Gôndola) - Arte Oferta Laranja Padrão
+    { 
+        id: 'preco_2x5_restored', 
+        name: '10 Etiquetas (2x5) - Oferta Laranja', 
+        columns: 2, rows: 5, 
+        marginT: 8.5, marginB: 8.5, marginL: 4, marginR: 4, gapH: 2.5, gapV: 0, 
+        icon: 'bi-grid-1x2-fill', paperSize: 'A4', category: 'precos', type: 'rect', 
+        bg_color: '#ff7900', 
+        nameFontSize: 11, nameColor: '#000000', nameBold: true, nameAlign: 'left', namePosX: 10, namePosY: 15, nameWidth: 80,
+        priceFontSize: 80, priceColor: '#1e3a8a', promoPriceColor: '#1e3a8a', priceBold: true, priceAlign: 'center', pricePosY: 65, priceWidth: 80,
+        oldPriceColor: '#cc0000', oldPriceBold: true, oldPriceFontSize: 12, oldPriceAlign: 'left', oldPricePosX: 10, oldPricePosY: 25, oldPriceWidth: 80,
+        priceFormat: 'split', 
+        priceSymbolColor: '#000000', priceSymbolFontSize: 22, priceSymbolBold: true, priceSymbolPosX: 8, priceSymbolPosY: 42,
+        priceDecimalsColor: '#000000', priceDecimalsFontSize: 22, priceDecimalsBold: true, priceDecimalsPosX: 85, priceDecimalsPosY: 42,
+        showPromoPrice: true
+    },
     { id: 'preco_1x1', name: '1 Etiqueta (1x1)', columns: 1, rows: 1, marginT: 20, marginB: 20, marginL: 20, marginR: 20, gapH: 0, gapV: 0, icon: 'bi-card-text', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 12, nameColor: '#1e293b', priceFontSize: 32, priceColor: '#1e293b', promoPriceFontSize: 24, promoPriceColor: '#16a34a', bg_color: '#ffffff', priceFormat: 'split' },
     { id: 'preco_2x4', name: '8 Etiquetas (2x4)', columns: 2, rows: 4, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 10, icon: 'bi-tags', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 10, nameColor: '#1e293b', priceFontSize: 24, priceColor: '#1e293b', promoPriceFontSize: 20, promoPriceColor: '#16a34a', bg_color: '#ffffff' },
     { id: 'preco_3x7', name: '21 Etiquetas (3x7)', columns: 3, rows: 7, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 2, gapV: 2, icon: 'bi-grid-3x3-gap', paperSize: 'A4', category: 'precos', type: 'rect', nameFontSize: 7, nameColor: '#1e293b', priceFontSize: 14, priceColor: '#1e293b', promoPriceFontSize: 11, promoPriceColor: '#16a34a', bg_color: '#ffffff' },
