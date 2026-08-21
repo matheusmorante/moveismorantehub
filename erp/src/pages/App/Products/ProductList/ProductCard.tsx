@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import Product from "../../../types/product.type";
 import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
@@ -180,6 +181,15 @@ const ProductCard = ({
                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Ver Pedidos Vinculados</span>
                                         </button>
                                     )}
+
+                                    <Link
+                                        to={`/marketing/posts?product=${product.id}`}
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                    >
+                                        <i className="bi bi-instagram text-pink-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Posts Redes Sociais</span>
+                                    </Link>
 
                                     {!product.isVariation && onDuplicate && (
                                         <button

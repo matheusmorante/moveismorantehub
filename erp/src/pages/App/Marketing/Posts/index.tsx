@@ -401,8 +401,18 @@ export default function MarketingPosts() {
           `)
           .order("name");
 
-        if (error) throw error;
-        setProducts((prodData as any) || []);
+        const loadedProducts = (prodData as any) || [];
+        setProducts(loadedProducts);
+
+        // Auto-seleciona o produto caso seu ID seja passado na URL (?product=ID)
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetId = urlParams.get('product') || urlParams.get('productId') || urlParams.get('id');
+        if (targetId && loadedProducts.length > 0) {
+          const found = loadedProducts.find((p: any) => p.id === targetId);
+          if (found) {
+            setSelectedProductId(found.id);
+          }
+        }
 
         // Carrega configurações de marketing padrão
         const { data: styleData } = await supabase
