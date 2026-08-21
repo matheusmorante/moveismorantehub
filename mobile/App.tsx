@@ -2194,10 +2194,6 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
                   elevation: 2,
                   marginBottom: 14,
                   overflow: 'hidden',
-                  borderLeftWidth: 5,
-                  borderLeftColor: isAssemblyOutside ? '#e11d48'
-                    : isAssemblyDepot ? '#d97706'
-                    : primaryColor,
                 }}
               >
                 {/* ═══ HEADER COLORIDO com todos os badges ═══ */}
