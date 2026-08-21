@@ -987,80 +987,24 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                 ))}
                             </div>
 
-                            {/* 4. AJUSTE DE POSIÇÃO X / Y (EXCETO FUNDO) */}
-                            {selectedElement !== 'background' && (
-                                <>
-                                    <div className="h-5 w-px bg-slate-300 dark:bg-slate-800 shrink-0" />
-                                    <div className="flex items-center gap-1.5 shrink-0 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-300 dark:border-slate-700">
-                                        <i className="bi bi-arrows-move text-slate-500 text-xs" />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (selectedElement === 'title') setTitlePos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'deText') setDePos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'normalPrice') setNormalPricePos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'porText') setPorPos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'currencySymbol') setCurrencyPos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'promoPrice') setPromoPricePos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'cents') setCentsPos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'opportunityBadge') setBadgePos(p => ({ ...p, x: p.x - 2 }));
-                                                else if (selectedElement === 'installments') setInstallmentsPos(p => ({ ...p, x: p.x - 2 }));
-                                            }}
-                                            className="w-5 h-5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-xs cursor-pointer"
-                                        >
-                                            <i className="bi bi-arrow-left" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (selectedElement === 'title') setTitlePos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'deText') setDePos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'normalPrice') setNormalPricePos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'porText') setPorPos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'currencySymbol') setCurrencyPos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'promoPrice') setPromoPricePos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'cents') setCentsPos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'opportunityBadge') setBadgePos(p => ({ ...p, y: p.y - 2 }));
-                                                else if (selectedElement === 'installments') setInstallmentsPos(p => ({ ...p, y: p.y - 2 }));
-                                            }}
-                                            className="w-5 h-5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-xs cursor-pointer"
-                                        >
-                                            <i className="bi bi-arrow-up" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (selectedElement === 'title') setTitlePos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'deText') setDePos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'normalPrice') setNormalPricePos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'porText') setPorPos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'currencySymbol') setCurrencyPos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'promoPrice') setPromoPricePos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'cents') setCentsPos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'opportunityBadge') setBadgePos(p => ({ ...p, y: p.y + 2 }));
-                                                else if (selectedElement === 'installments') setInstallmentsPos(p => ({ ...p, y: p.y + 2 }));
-                                            }}
-                                            className="w-5 h-5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-xs cursor-pointer"
-                                        >
-                                            <i className="bi bi-arrow-down" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (selectedElement === 'title') setTitlePos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'deText') setDePos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'normalPrice') setNormalPricePos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'porText') setPorPos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'currencySymbol') setCurrencyPos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'promoPrice') setPromoPricePos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'cents') setCentsPos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'opportunityBadge') setBadgePos(p => ({ ...p, x: p.x + 2 }));
-                                                else if (selectedElement === 'installments') setInstallmentsPos(p => ({ ...p, x: p.x + 2 }));
-                                            }}
-                                            className="w-5 h-5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-xs cursor-pointer"
-                                        >
-                                            <i className="bi bi-arrow-right" />
-                                        </button>
+                            {/* 4. RESET DE POSIÇÃO SE DESLOCADO COM TECLADO FÍSICO OU MOUSE */}
+                            {selectedElement !== 'background' && (() => {
+                                const curPos = 
+                                    selectedElement === 'title' ? titlePos :
+                                    selectedElement === 'deText' ? dePos :
+                                    selectedElement === 'normalPrice' ? normalPricePos :
+                                    selectedElement === 'porText' ? porPos :
+                                    selectedElement === 'currencySymbol' ? currencyPos :
+                                    selectedElement === 'promoPrice' ? promoPricePos :
+                                    selectedElement === 'cents' ? centsPos :
+                                    selectedElement === 'opportunityBadge' ? badgePos :
+                                    installmentsPos;
+                                
+                                if (curPos.x === 0 && curPos.y === 0) return null;
+
+                                return (
+                                    <>
+                                        <div className="h-5 w-px bg-slate-300 dark:bg-slate-800 shrink-0" />
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -1074,13 +1018,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                                 else if (selectedElement === 'opportunityBadge') setBadgePos({ x: 0, y: 0 });
                                                 else if (selectedElement === 'installments') setInstallmentsPos({ x: 0, y: 0 });
                                             }}
-                                            className="text-[9px] font-black uppercase text-slate-500 hover:text-slate-800 ml-1 cursor-pointer"
+                                            className="px-2.5 py-1 text-[9px] font-black uppercase text-slate-500 hover:text-slate-800 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg shrink-0 cursor-pointer"
+                                            title="Resetar posição X/Y para o centro original (0,0)"
                                         >
-                                            0,0
+                                            Resetar Posição (X:{curPos.x} Y:{curPos.y})
                                         </button>
-                                    </div>
-                                </>
-                            )}
+                                    </>
+                                );
+                            })()}
 
                             {/* 5. VISIBILIDADE TOGGLE */}
                             {(() => {
