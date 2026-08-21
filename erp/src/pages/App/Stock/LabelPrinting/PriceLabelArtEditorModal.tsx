@@ -158,6 +158,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
     const previewRef = useRef<HTMLDivElement>(null);
+    
+    // Drag de Posição
     const dragRef = useRef<{
         isDragging: boolean;
         layer: PriceLabelLayerKey;
@@ -170,6 +172,21 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         startX: 0,
         startY: 0,
         initialPos: { x: 0, y: 0 }
+    });
+
+    // Resize do Elemento através do canto inferior direito
+    const resizeRef = useRef<{
+        isResizing: boolean;
+        layer: PriceLabelLayerKey;
+        startX: number;
+        startY: number;
+        initialVal: number;
+    }>({
+        isResizing: false,
+        layer: null,
+        startX: 0,
+        startY: 0,
+        initialVal: 0
     });
 
     // Carrega modelo global salvo anteriormente
@@ -367,8 +384,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         window.addEventListener('touchend', handleMouseUp);
     }, [titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, badgePos, installmentsPos]);
 
-    if (!isOpen) return null;
-
     const formatDisplayPrice = (val: string) => {
         if (!val) return '0';
         const clean = val.replace(/[^\d,.]/g, '');
@@ -393,6 +408,74 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     const currentPriceDigits = String(getIntegerPart(promoPrice || normalPrice)).replace(/\D/g, '').length;
     const effectiveScale = calculateEffectivePriceScale(promoPrice || normalPrice);
+
+    // REDIMENSIONAR ELEMENTO ARRASTANDO O CANTO INFERIOR DIREITO
+    const startResizing = useCallback((layer: PriceLabelLayerKey, e: React.MouseEvent | React.TouchEvent) => {
+        e.stopPropagation();
+        setSelectedElement(layer);
+
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        let initial = 14;
+        if (layer === 'title') initial = titleFontSize;
+        else if (layer === 'deText') initial = deFontSize;
+        else if (layer === 'normalPrice') initial = normalPriceFontSize;
+        else if (layer === 'porText') initial = porFontSize;
+        else if (layer === 'currencySymbol') initial = currencyFontSize;
+        else if (layer === 'cents') initial = centsFontSize;
+        else if (layer === 'installments') initial = installmentsFontSize;
+        else if (layer === 'promoPrice') initial = effectiveScale;
+
+        resizeRef.current = {
+            isResizing: true,
+            layer,
+            startX: clientX,
+            startY: clientY,
+            initialVal: initial
+        };
+
+        const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
+            if (!resizeRef.current.isResizing || !resizeRef.current.layer) return;
+            const curX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
+            const curY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
+
+            const delta = (curX - resizeRef.current.startX) + (curY - resizeRef.current.startY);
+            const l = resizeRef.current.layer;
+
+            if (l === 'promoPrice') {
+                const newScale = Math.max(40, Math.min(220, Math.round(resizeRef.current.initialVal + delta * 0.35)));
+                if (currentPriceDigits <= 2) setScaleTens(newScale);
+                else if (currentPriceDigits === 3) setScaleHundreds(newScale);
+                else if (currentPriceDigits === 4) setScaleThousands(newScale);
+                else setScaleTenThousands(newScale);
+            } else {
+                const newSize = Math.max(8, Math.min(64, Math.round(resizeRef.current.initialVal + delta * 0.18)));
+                if (l === 'title') setTitleFontSize(newSize);
+                else if (l === 'deText') setDeFontSize(newSize);
+                else if (l === 'normalPrice') setNormalPriceFontSize(newSize);
+                else if (l === 'porText') setPorFontSize(newSize);
+                else if (l === 'currencySymbol') setCurrencyFontSize(newSize);
+                else if (l === 'cents') setCentsFontSize(newSize);
+                else if (l === 'installments') setInstallmentsFontSize(newSize);
+            }
+        };
+
+        const handleMouseUp = () => {
+            resizeRef.current.isResizing = false;
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchmove', handleMouseMove);
+            window.removeEventListener('touchend', handleMouseUp);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('touchmove', handleMouseMove, { passive: false });
+        window.addEventListener('touchend', handleMouseUp);
+    }, [titleFontSize, deFontSize, normalPriceFontSize, porFontSize, currencyFontSize, centsFontSize, installmentsFontSize, effectiveScale, currentPriceDigits]);
+
+    if (!isOpen) return null;
 
     const priceLabelLayers: { 
         key: NonNullable<PriceLabelLayerKey>; 
@@ -849,7 +932,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         <input
                                             type="number"
                                             min="8"
-                                            max="54"
+                                            max="64"
                                             value={
                                                 selectedElement === 'title' ? titleFontSize :
                                                 selectedElement === 'deText' ? deFontSize :
@@ -1087,29 +1170,43 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                             setSelectedElement('background');
                         }}
                         className={`w-full aspect-[1.75/1] rounded-3xl shadow-2xl relative p-6 sm:p-10 flex flex-col justify-between select-none transition-all duration-200 cursor-pointer ${
-                            selectedElement === 'background' ? 'ring-4 ring-yellow-400 shadow-yellow-500/20' : ''
+                            selectedElement === 'background' ? 'ring-2 ring-blue-500 shadow-blue-500/20' : ''
                         }`}
                     >
-                        {/* 1. CABEÇALHO DA ETIQUETA: NOME DO PRODUTO (ARRASTÁVEL / CLICÁVEL) */}
+                        {/* 1. CABEÇALHO DA ETIQUETA: NOME DO PRODUTO (ARRASTÁVEL / CLICÁVEL / REDIMENSIONÁVEL) */}
                         {showTitle && (
-                            <div
-                                onMouseDown={(e) => startDragging('title', e)}
-                                onTouchStart={(e) => startDragging('title', e)}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedElement('title');
-                                }}
-                                style={{ 
-                                    color: titleColor, 
-                                    fontSize: `${titleFontSize}px`,
-                                    transform: `translate(${titlePos.x}px, ${titlePos.y}px)`,
-                                    cursor: 'move'
-                                }}
-                                className={`font-black uppercase tracking-tight text-center leading-tight p-1.5 rounded-xl transition-shadow border border-transparent select-none z-10 ${
-                                    selectedElement === 'title' ? 'bg-white/40 ring-2 ring-yellow-400 border-white shadow-md' : 'hover:bg-white/20'
-                                }`}
-                            >
-                                {title || 'TÍTULO DO PRODUTO'}
+                            <div className="flex justify-center w-full z-10">
+                                <div
+                                    onMouseDown={(e) => startDragging('title', e)}
+                                    onTouchStart={(e) => startDragging('title', e)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedElement('title');
+                                    }}
+                                    style={{ 
+                                        color: titleColor, 
+                                        fontSize: `${titleFontSize}px`,
+                                        transform: `translate(${titlePos.x}px, ${titlePos.y}px)`,
+                                        cursor: 'move'
+                                    }}
+                                    className={`relative inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-tight px-2 py-0.5 select-none transition-shadow ${
+                                        selectedElement === 'title' 
+                                            ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                            : 'border border-transparent hover:bg-white/20'
+                                    }`}
+                                >
+                                    <span>{title || 'TÍTULO DO PRODUTO'}</span>
+                                    
+                                    {/* Canto Inferior Direito: Redimensionar */}
+                                    {selectedElement === 'title' && (
+                                        <div
+                                            onMouseDown={(e) => startResizing('title', e)}
+                                            onTouchStart={(e) => startResizing('title', e)}
+                                            title="Arraste para redimensionar"
+                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                        />
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -1117,11 +1214,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         <div className="flex items-center justify-between text-black font-black mt-2 z-10 gap-3 flex-nowrap w-full">
                             
                             {/* BLOCO PREÇO ORIGINAL COM DE, NÚMERO E POR: SEPARADOS */}
-                            <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl leading-none p-1 rounded-xl select-none whitespace-nowrap shrink-0">
+                            <div className="flex items-center gap-1 text-base sm:text-lg md:text-xl leading-none select-none whitespace-nowrap shrink-0">
                                 
-                                {/* TEXTO "DE" (EDITÁVEL / ARRASTÁVEL) */}
+                                {/* TEXTO "DE" (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL) */}
                                 {showDe && (
-                                    <span 
+                                    <div
                                         onMouseDown={(e) => startDragging('deText', e)}
                                         onTouchStart={(e) => startDragging('deText', e)}
                                         onClick={(e) => {
@@ -1134,17 +1231,27 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                             transform: `translate(${dePos.x}px, ${dePos.y}px)`,
                                             cursor: 'move'
                                         }}
-                                        className={`p-0.5 rounded cursor-pointer transition-shadow ${
-                                            selectedElement === 'deText' ? 'ring-2 ring-yellow-400 bg-white/40 shadow-xs' : 'hover:bg-white/20'
+                                        className={`relative inline-flex items-center justify-center px-1 py-0.5 select-none transition-shadow ${
+                                            selectedElement === 'deText' 
+                                                ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                                : 'border border-transparent hover:bg-white/20'
                                         }`}
                                     >
-                                        {deText}
-                                    </span>
+                                        <span>{deText}</span>
+                                        {selectedElement === 'deText' && (
+                                            <div
+                                                onMouseDown={(e) => startResizing('deText', e)}
+                                                onTouchStart={(e) => startResizing('deText', e)}
+                                                title="Arraste para redimensionar"
+                                                className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                            />
+                                        )}
+                                    </div>
                                 )}
 
-                                {/* VALOR DO PREÇO NORMAL COM RISCO (EDITÁVEL / ARRASTÁVEL) */}
+                                {/* VALOR DO PREÇO NORMAL COM RISCO (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL) */}
                                 {showNormalPrice && (
-                                    <span 
+                                    <div
                                         onMouseDown={(e) => startDragging('normalPrice', e)}
                                         onTouchStart={(e) => startDragging('normalPrice', e)}
                                         onClick={(e) => {
@@ -1157,19 +1264,30 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                             transform: `translate(${normalPricePos.x}px, ${normalPricePos.y}px)`,
                                             cursor: 'move'
                                         }}
-                                        className={`relative font-black px-1 inline-flex items-center whitespace-nowrap rounded transition-shadow cursor-pointer ${
-                                            selectedElement === 'normalPrice' ? 'ring-2 ring-yellow-400 bg-white/40 shadow-xs' : 'hover:bg-white/20'
+                                        className={`relative inline-flex items-center justify-center font-black px-1.5 py-0.5 whitespace-nowrap select-none transition-shadow ${
+                                            selectedElement === 'normalPrice' 
+                                                ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                                : 'border border-transparent hover:bg-white/20'
                                         }`}
                                     >
-                                        R$ {formatDisplayPrice(normalPrice)}
+                                        <span>R$ {formatDisplayPrice(normalPrice)}</span>
                                         {/* RISCO HORIZONTAL VERMELHO */}
-                                        <span className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] bg-red-600 rounded-full shadow-xs pointer-events-none" />
-                                    </span>
+                                        <span className="absolute left-0.5 right-0.5 top-1/2 -translate-y-1/2 h-[3px] bg-red-600 rounded-none shadow-xs pointer-events-none" />
+                                        
+                                        {selectedElement === 'normalPrice' && (
+                                            <div
+                                                onMouseDown={(e) => startResizing('normalPrice', e)}
+                                                onTouchStart={(e) => startResizing('normalPrice', e)}
+                                                title="Arraste para redimensionar"
+                                                className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                            />
+                                        )}
+                                    </div>
                                 )}
 
-                                {/* TEXTO "POR:" (EDITÁVEL / ARRASTÁVEL) */}
+                                {/* TEXTO "POR:" (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL) */}
                                 {showPor && (
-                                    <span 
+                                    <div
                                         onMouseDown={(e) => startDragging('porText', e)}
                                         onTouchStart={(e) => startDragging('porText', e)}
                                         onClick={(e) => {
@@ -1182,12 +1300,22 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                             transform: `translate(${porPos.x}px, ${porPos.y}px)`,
                                             cursor: 'move'
                                         }}
-                                        className={`p-0.5 rounded cursor-pointer transition-shadow ${
-                                            selectedElement === 'porText' ? 'ring-2 ring-yellow-400 bg-white/40 shadow-xs' : 'hover:bg-white/20'
+                                        className={`relative inline-flex items-center justify-center px-1 py-0.5 select-none transition-shadow ${
+                                            selectedElement === 'porText' 
+                                                ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                                : 'border border-transparent hover:bg-white/20'
                                         }`}
                                     >
-                                        {porText}
-                                    </span>
+                                        <span>{porText}</span>
+                                        {selectedElement === 'porText' && (
+                                            <div
+                                                onMouseDown={(e) => startResizing('porText', e)}
+                                                onTouchStart={(e) => startResizing('porText', e)}
+                                                title="Arraste para redimensionar"
+                                                className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                            />
+                                        )}
+                                    </div>
                                 )}
                             </div>
 
@@ -1206,8 +1334,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         transform: `translate(${badgePos.x}px, ${badgePos.y}px)`,
                                         cursor: 'move'
                                     }}
-                                    className={`px-4 py-2 text-xs sm:text-sm font-black uppercase rounded-2xl shadow-md transition-all flex items-center gap-2 select-none whitespace-nowrap shrink-0 leading-none cursor-pointer ${
-                                        selectedElement === 'opportunityBadge' ? 'ring-2 ring-yellow-400 scale-105 shadow-md' : 'hover:scale-105'
+                                    className={`relative inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-black uppercase rounded-2xl shadow-md select-none whitespace-nowrap shrink-0 leading-none transition-shadow ${
+                                        selectedElement === 'opportunityBadge' 
+                                            ? 'ring-2 ring-blue-500 shadow-blue-500/30' 
+                                            : 'hover:scale-102'
                                     }`}
                                 >
                                     {showOpportunityFlame && (
@@ -1218,12 +1348,12 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                             )}
                         </div>
 
-                        {/* 3. CENTRO: SÍMBOLO R$, PREÇO PRINCIPAL E CENTAVOS (TODOS INDIVIDUALMENTE ARRASTÁVEIS E EDITÁVEIS) */}
+                        {/* 3. CENTRO: SÍMBOLO R$, PREÇO PRINCIPAL E CENTAVOS (TODOS INDIVIDUALMENTE ARRASTÁVEIS, EDITÁVEIS E REDIMENSIONÁVEIS) */}
                         <div className="relative my-auto flex items-center justify-center w-full select-none z-10 min-h-[140px]">
                             
-                            {/* SÍMBOLO DA MOEDA "R$" (EDITÁVEL / ARRASTÁVEL) */}
+                            {/* SÍMBOLO DA MOEDA "R$" (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL) */}
                             {showCurrency && (
-                                <span 
+                                <div
                                     onMouseDown={(e) => startDragging('currencySymbol', e)}
                                     onTouchStart={(e) => startDragging('currencySymbol', e)}
                                     onClick={(e) => {
@@ -1236,17 +1366,27 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         transform: `translate(${currencyPos.x}px, ${currencyPos.y}px)`,
                                         cursor: 'move'
                                     }}
-                                    className={`absolute left-2 top-0 font-black leading-none p-1 rounded-lg transition-shadow cursor-pointer ${
-                                        selectedElement === 'currencySymbol' ? 'bg-white/40 ring-2 ring-yellow-400 shadow-xs' : 'hover:bg-white/20'
+                                    className={`absolute left-2 top-0 font-black leading-none px-1.5 py-0.5 select-none transition-shadow ${
+                                        selectedElement === 'currencySymbol' 
+                                            ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                            : 'border border-transparent hover:bg-white/20'
                                     }`}
                                 >
-                                    {currencySymbol}
-                                </span>
+                                    <span>{currencySymbol}</span>
+                                    {selectedElement === 'currencySymbol' && (
+                                        <div
+                                            onMouseDown={(e) => startResizing('currencySymbol', e)}
+                                            onTouchStart={(e) => startResizing('currencySymbol', e)}
+                                            title="Arraste para redimensionar"
+                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                        />
+                                    )}
+                                </div>
                             )}
 
-                            {/* DÍGITOS DO PREÇO PRINCIPAL (EDITÁVEL / ARRASTÁVEL) */}
+                            {/* DÍGITOS DO PREÇO PRINCIPAL (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL PELO CANTO INFERIOR DIREITO) */}
                             {showPromoPrice && (
-                                <span 
+                                <div
                                     onMouseDown={(e) => startDragging('promoPrice', e)}
                                     onTouchStart={(e) => startDragging('promoPrice', e)}
                                     onClick={(e) => {
@@ -1258,17 +1398,29 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         transform: `translate(${promoPricePos.x}px, ${promoPricePos.y}px) scale(${effectiveScale / 100})`,
                                         cursor: 'move'
                                     }}
-                                    className={`text-8xl sm:text-9xl md:text-[10rem] font-black tracking-tighter drop-shadow-md leading-none my-1 p-1 rounded-2xl transition-transform duration-100 cursor-pointer ${
-                                        selectedElement === 'promoPrice' ? 'bg-white/30 ring-2 ring-yellow-400 shadow-md' : 'hover:bg-white/10'
+                                    className={`relative inline-flex items-center justify-center px-2 py-0.5 select-none transition-transform duration-75 ${
+                                        selectedElement === 'promoPrice' 
+                                            ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                            : 'border border-transparent hover:bg-white/10'
                                     }`}
                                 >
-                                    {getIntegerPart(promoPrice || normalPrice)}
-                                </span>
+                                    <span className="text-8xl sm:text-9xl md:text-[10rem] font-black tracking-tighter drop-shadow-md leading-none my-1">
+                                        {getIntegerPart(promoPrice || normalPrice)}
+                                    </span>
+                                    {selectedElement === 'promoPrice' && (
+                                        <div
+                                            onMouseDown={(e) => startResizing('promoPrice', e)}
+                                            onTouchStart={(e) => startResizing('promoPrice', e)}
+                                            title="Arraste para redimensionar escala do preço"
+                                            className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                        />
+                                    )}
+                                </div>
                             )}
 
-                            {/* CENTAVOS ",00" (EDITÁVEL / ARRASTÁVEL) */}
+                            {/* CENTAVOS ",00" (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL) */}
                             {showCents && (
-                                <span 
+                                <div
                                     onMouseDown={(e) => startDragging('cents', e)}
                                     onTouchStart={(e) => startDragging('cents', e)}
                                     onClick={(e) => {
@@ -1281,35 +1433,57 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         transform: `translate(${centsPos.x}px, ${centsPos.y}px)`,
                                         cursor: 'move'
                                     }}
-                                    className={`absolute right-2 top-0 font-black leading-none p-1 rounded-lg transition-shadow cursor-pointer ${
-                                        selectedElement === 'cents' ? 'bg-white/40 ring-2 ring-yellow-400 shadow-xs' : 'hover:bg-white/20'
+                                    className={`absolute right-2 top-0 font-black leading-none px-1.5 py-0.5 select-none transition-shadow ${
+                                        selectedElement === 'cents' 
+                                            ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                            : 'border border-transparent hover:bg-white/20'
                                     }`}
                                 >
-                                    {centsText}
-                                </span>
+                                    <span>{centsText}</span>
+                                    {selectedElement === 'cents' && (
+                                        <div
+                                            onMouseDown={(e) => startResizing('cents', e)}
+                                            onTouchStart={(e) => startResizing('cents', e)}
+                                            title="Arraste para redimensionar"
+                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                        />
+                                    )}
+                                </div>
                             )}
                         </div>
 
-                        {/* 4. RODAPÉ: PARCELAMENTO (EDITÁVEL / ARRASTÁVEL) */}
+                        {/* 4. RODAPÉ: PARCELAMENTO (EDITÁVEL / ARRASTÁVEL / REDIMENSIONÁVEL) */}
                         {showInstallments && installments && (
-                            <div
-                                onMouseDown={(e) => startDragging('installments', e)}
-                                onTouchStart={(e) => startDragging('installments', e)}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedElement('installments');
-                                }}
-                                style={{
-                                    color: installmentsColor,
-                                    fontSize: `${installmentsFontSize}px`,
-                                    transform: `translate(${installmentsPos.x}px, ${installmentsPos.y}px)`,
-                                    cursor: 'move'
-                                }}
-                                className={`font-black uppercase tracking-tight text-center leading-none p-1.5 rounded-xl transition-shadow select-none z-10 cursor-pointer ${
-                                    selectedElement === 'installments' ? 'bg-white/40 ring-2 ring-yellow-400 shadow-md' : 'hover:bg-white/20'
-                                }`}
-                            >
-                                {installments}
+                            <div className="flex justify-center w-full z-10">
+                                <div
+                                    onMouseDown={(e) => startDragging('installments', e)}
+                                    onTouchStart={(e) => startDragging('installments', e)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedElement('installments');
+                                    }}
+                                    style={{
+                                        color: installmentsColor,
+                                        fontSize: `${installmentsFontSize}px`,
+                                        transform: `translate(${installmentsPos.x}px, ${installmentsPos.y}px)`,
+                                        cursor: 'move'
+                                    }}
+                                    className={`relative inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-none px-2 py-0.5 select-none transition-shadow ${
+                                        selectedElement === 'installments' 
+                                            ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
+                                            : 'border border-transparent hover:bg-white/20'
+                                    }`}
+                                >
+                                    <span>{installments}</span>
+                                    {selectedElement === 'installments' && (
+                                        <div
+                                            onMouseDown={(e) => startResizing('installments', e)}
+                                            onTouchStart={(e) => startResizing('installments', e)}
+                                            title="Arraste para redimensionar"
+                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                                        />
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
