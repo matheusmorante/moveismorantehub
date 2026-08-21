@@ -2108,6 +2108,7 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
 
             const isAssemblyOutside = orderAssemblyKind === 'outside' || hasItemAssemblyOutside;
             const isAssemblyDepot = orderAssemblyKind === 'depot' || hasItemAssemblyDepot;
+            const isOnlyInternalAssembly = isAssemblyDepot;
 
             // Rótulo Principal de Logística (Entrega / Retirada / Assistência)
             let primaryTag = 'ENTREGA';
@@ -3130,14 +3131,18 @@ Texto base para refinamento: "${smartText}"`;
         console.warn('Fallback local ativado para o resumo da IA:', err);
       }
 
-      if (mode === 'today') {
-        setAiSummaryToday(smartText);
-        await AsyncStorage.setItem('@morante_ai_summary_today', smartText);
-        await AsyncStorage.setItem('@morante_ai_summary_fingerprint_today', currentFingerprint);
-      } else if (mode === 'tomorrow') {
-        setAiSummaryTomorrow(smartText);
-        await AsyncStorage.setItem('@morante_ai_summary_tomorrow', smartText);
-        await AsyncStorage.setItem('@morante_ai_summary_fingerprint_tomorrow', currentFingerprint);
+      try {
+        if (mode === 'today') {
+          setAiSummaryToday(smartText);
+          await AsyncStorage.setItem('@morante_ai_summary_today', smartText).catch(() => {});
+          await AsyncStorage.setItem('@morante_ai_summary_fingerprint_today', currentFingerprint).catch(() => {});
+        } else if (mode === 'tomorrow') {
+          setAiSummaryTomorrow(smartText);
+          await AsyncStorage.setItem('@morante_ai_summary_tomorrow', smartText).catch(() => {});
+          await AsyncStorage.setItem('@morante_ai_summary_fingerprint_tomorrow', currentFingerprint).catch(() => {});
+        }
+      } catch (storageErr) {
+        console.warn('Cota de armazenamento excedida para AsyncStorage:', storageErr);
       }
     } catch (err) {
       console.warn('Erro ao gerar resumo de entregas com IA:', err);
