@@ -170,7 +170,7 @@ const OrderHistoryCard = ({
             onClick={() => onEdit(order)}
         >
             {/* Card Header com faixa colorida + todos os badges */}
-            <div className={`${headerAccentClass} px-3 pt-2.5 pb-2 flex flex-col gap-1.5`}>
+            <div className={`${headerAccentClass} rounded-t-xl px-3 pt-2.5 pb-2 flex flex-col gap-1.5`}>
                 <div className="flex justify-between items-center w-full">
                     <div className="flex items-center gap-2">
                         <input
