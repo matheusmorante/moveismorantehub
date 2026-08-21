@@ -154,7 +154,6 @@ export const useProducts = (filters?: any) => {
 
     // Modos paralelos: servidor usa serverProducts, local usa transformedProducts
     const serverTransformed = useMemo(() => {
-        if (!isLargeScreen) return [];
         // Para server pagination, os produtos já vêm da página correta
         // mas ainda precisamos fazer o flatten de variações JSON
         const flattened: any[] = [];
