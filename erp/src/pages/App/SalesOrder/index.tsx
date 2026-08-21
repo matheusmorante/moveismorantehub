@@ -161,7 +161,7 @@ const SalesOrder = () => {
     };
 
     return (
-        <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-100 dark:bg-slate-950 transition-colors duration-300 relative">
+        <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 p-2 sm:p-4 lg:p-6">
                 <div className="flex flex-col gap-3 mb-3">

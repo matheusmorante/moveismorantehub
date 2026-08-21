@@ -27,7 +27,7 @@ export const useProducts = (filters?: any) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(30);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 

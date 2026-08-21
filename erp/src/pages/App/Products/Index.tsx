@@ -153,8 +153,8 @@ const Products = () => {
         toast.info("Produto duplicado! Revise os dados e salve para concluir.");
     };
     return (
-        <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
-            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-8">
+        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
+            <div className="flex-1 flex flex-col min-w-0 p-4 md:p-8">
                 <div className="flex flex-col gap-6 flex-1 min-h-0">
                     {/* Header Actions Container */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 px-2">

@@ -16,7 +16,7 @@ const isValidOrderRow = (row: any) =>
 
 export const fetchOrdersPage = async (
     page = 1, 
-    pageSize = 10,
+    pageSize = 30,
     filters?: any
 ): Promise<{ orders: Order[]; total: number }> => {
     const firstRow = Math.max(0, (page - 1) * pageSize);

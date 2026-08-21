@@ -5,7 +5,7 @@ import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 30;
 const CARD_VIEW_BREAKPOINT = 1024;
 
 export const useOrderHistory = (filters?: any) => {
