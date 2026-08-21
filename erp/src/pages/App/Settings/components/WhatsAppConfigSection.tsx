@@ -149,14 +149,12 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                             <input
                                 type="text"
                                 readOnly
-                                value={`${(typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') ? window.location.origin : 'https://morantehub.vercel.app'}/api/facebook-catalog.csv`}
+                                value="https://moveismorante.com.br/api/facebook-catalog.csv"
                                 className="bg-slate-150 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-4 pr-12 py-3 text-[10px] outline-none w-full font-mono text-slate-500"
                             />
                             <button
                                 onClick={() => {
-                                    const prodOrigin = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') ? window.location.origin : 'https://morantehub.vercel.app';
-                                    const url = `${prodOrigin}/api/facebook-catalog.csv`;
-                                    navigator.clipboard.writeText(url);
+                                    navigator.clipboard.writeText("https://moveismorante.com.br/api/facebook-catalog.csv");
                                     toast.success("Link do catálogo copiado! 📋");
                                 }}
                                 className="absolute right-2 p-2 text-blue-500 hover:text-blue-600 transition-colors"
@@ -167,7 +165,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                         </div>
                         <button
                             onClick={() => {
-                                window.open('/api/facebook-catalog.csv', '_blank');
+                                window.open('https://moveismorante.com.br/api/facebook-catalog.csv', '_blank');
                             }}
                             className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-blue-500/10"
                         >
