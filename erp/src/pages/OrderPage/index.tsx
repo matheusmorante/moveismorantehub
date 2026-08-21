@@ -164,7 +164,7 @@ const OrderPage = () => {
                 ) : (
                     hasPayments && (
                         <div className="space-y-2">
-                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">CONDIÇÕES COMERCIAIS</div>
+                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-2">PAGAMENTOS</div>
                             <div className="bg-white rounded-3xl overflow-hidden">
                                 <PaymentsTable
                                     payments={order.payments}

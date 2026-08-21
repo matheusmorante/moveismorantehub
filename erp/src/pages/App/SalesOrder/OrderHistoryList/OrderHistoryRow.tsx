@@ -121,22 +121,31 @@ const OrderHistoryRow = ({
         });
     };
 
-    const isHandlingAssembly = (item: any) => {
-        const hLabel = normalize(item.handlingType);
+    const isHandlingDepot = (item: any) => {
+        const hLabel = normalize(item?.handlingType || item?.handling);
         const opt = getMatchingOption(hLabel);
-        return opt?.includeInAssemblySchedule || false;
+        if (opt?.includeInAssemblySchedule) return true;
+        if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada') || hLabel.includes('montagem no depósito')) return true;
+        return false;
     };
 
     const isHandlingOutside = (item: any) => {
-        const hLabel = normalize(item.handlingType);
+        const hLabel = normalize(item?.handlingType || item?.handling);
         const opt = getMatchingOption(hLabel);
-        return opt?.isAssemblyOutside || false;
+        if (opt?.isAssemblyOutside) return true;
+        if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora') || hLabel.includes('montagem no endereco') || hLabel.includes('montagem no local')) return true;
+        return false;
     };
 
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
-    const hasAssemblyConfig = allOrderItems.some(isHandlingAssembly);
-    const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
-    const isOnlyInternalAssembly = hasAssemblyConfig && !isAssemblyOutside;
+    const orderHandling = normalize(
+        order.handlingType || order.handling || order.shipping?.handlingType || order.shipping?.handling || ''
+    );
+    const isOrderAssemblyOutside = orderHandling.includes('montagem fora') || orderHandling.includes('montagem na entrega') || orderHandling.includes('montagem no endereco');
+    const isOrderAssemblyDepot = orderHandling.includes('montagem no deposito') || orderHandling.includes('montagem para retirada') || orderHandling.includes('montagem no depósito');
+
+    const hasAssemblyOutside = isOrderAssemblyOutside || allOrderItems.some(isHandlingOutside);
+    const hasAssemblyDepot = isOrderAssemblyDepot || allOrderItems.some(isHandlingDepot);
     
     const cellBgClass = 'bg-white dark:bg-slate-900';
     const rowBorderClass = order.status === 'draft'
@@ -494,7 +503,7 @@ const OrderHistoryRow = ({
                                 )}
 
                                 {/* Assembly Badges: mantidos por último na sequência dos rótulos */}
-                                {isOnlyInternalAssembly && (
+                                {hasAssemblyDepot && (
                                     <div
                                         className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md border border-orange-100 dark:border-orange-900/30 shadow-sm"
                                         title="MONTAGEM NO DEPÓSITO"
@@ -504,7 +513,7 @@ const OrderHistoryRow = ({
                                     </div>
                                 )}
 
-                                {isAssemblyOutside && (
+                                {hasAssemblyOutside && (
                                     <div
                                         className="flex items-center gap-1.5 px-2 py-0.5 bg-red-600 text-white rounded-md border border-red-700 shadow-sm"
                                         title="MONTAGEM FORA (NA CASA DO CLIENTE)"

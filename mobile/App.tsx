@@ -1305,31 +1305,35 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
               const foundOpt = allOpts.find((opt: any) => typeof opt === 'object' && normalizeStr(opt.label) === hLabel);
               if (foundOpt?.isAssemblyOutside) return 'outside';
               if (foundOpt?.includeInAssemblySchedule) return 'depot';
-              if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora')) return 'outside';
-              if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada')) return 'depot';
+              if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora') || hLabel.includes('montagem no endereco') || hLabel.includes('montagem no local')) return 'outside';
+              if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada') || hLabel.includes('montagem no depósito')) return 'depot';
               return undefined;
             };
 
-            const isAssemblyOutside = displayItems.some((item: any) => getItemAssemblyTone(item) === 'outside');
-            const isOnlyInternalAssembly = displayItems.some((item: any) => getItemAssemblyTone(item) === 'depot');
+            const orderLevelHandling = [
+              orderData.handlingType,
+              orderData.handling,
+              shipping.handlingType,
+              shipping.handling,
+              task.handling_type,
+              task.handling
+            ].filter(Boolean).map(String).join(' ');
 
-            // Rótulo Principal de Manuseio (Montagem Fora / Montagem Depósito / Entrega / Retirada)
+            const orderAssemblyKind = getItemAssemblyTone({ handlingType: orderLevelHandling });
+
+            const hasItemAssemblyOutside = displayItems.some((item: any) => getItemAssemblyTone(item) === 'outside');
+            const hasItemAssemblyDepot = displayItems.some((item: any) => getItemAssemblyTone(item) === 'depot');
+
+            const isAssemblyOutside = orderAssemblyKind === 'outside' || hasItemAssemblyOutside;
+            const isAssemblyDepot = orderAssemblyKind === 'depot' || hasItemAssemblyDepot;
+
+            // Rótulo Principal de Logística (Entrega / Retirada / Assistência)
             let primaryTag = 'ENTREGA';
             let primaryBg = '#dcfce7';
             let primaryBorder = '#bbf7d0';
             let primaryColor = '#15803d';
 
-            if (isAssemblyOutside) {
-              primaryTag = '🔨 MONTAGEM FORA';
-              primaryBg = '#ffe4e6';
-              primaryBorder = '#fecdd3';
-              primaryColor = '#e11d48';
-            } else if (isOnlyInternalAssembly) {
-              primaryTag = '🔨 MONTAGEM DEPÓSITO';
-              primaryBg = '#fef3c7';
-              primaryBorder = '#fde68a';
-              primaryColor = '#b45309';
-            } else if (shipping.deliveryMethod === 'pickup') {
+            if (shipping.deliveryMethod === 'pickup') {
               primaryTag = 'RETIRADA';
               primaryBg = '#f3e8ff';
               primaryBorder = '#e9d5ff';
@@ -1409,22 +1413,54 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
                   gap: 10
                 }}
               >
-                {/* 1. Topo do Card: Rótulo de Manuseio Principal em Badge + SKU */}
+                {/* 1. Topo do Card: Badges de Tipo de Envio + Montagem + SKU */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 5,
-                    borderRadius: 20,
-                    backgroundColor: isDarkMode ? '#334155' : primaryBg,
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? '#475569' : primaryBorder
-                  }}>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : primaryColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      {primaryTag}
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                    <View style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 20,
+                      backgroundColor: isDarkMode ? '#334155' : primaryBg,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? '#475569' : primaryBorder
+                    }}>
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : primaryColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        {primaryTag}
+                      </Text>
+                    </View>
+
+                    {isAssemblyOutside && (
+                      <View style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 20,
+                        backgroundColor: '#ffe4e6',
+                        borderWidth: 1,
+                        borderColor: '#fecdd3'
+                      }}>
+                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#e11d48', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          🔨 MONTAGEM FORA
+                        </Text>
+                      </View>
+                    )}
+
+                    {isAssemblyDepot && (
+                      <View style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 20,
+                        backgroundColor: '#fef3c7',
+                        borderWidth: 1,
+                        borderColor: '#fde68a'
+                      }}>
+                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#b45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          🔨 MONTAGEM DEPÓSITO
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
-                  <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#cbd5e1' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '900', color: isDarkMode ? '#cbd5e1' : '#64748b', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginLeft: 6 }}>
                     #{task.id?.slice(-6).toUpperCase()}
                   </Text>
                 </View>
@@ -2051,31 +2087,35 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
               const foundOpt = allOpts.find((opt: any) => typeof opt === 'object' && normalizeStr(opt.label) === hLabel);
               if (foundOpt?.isAssemblyOutside) return 'outside';
               if (foundOpt?.includeInAssemblySchedule) return 'depot';
-              if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora')) return 'outside';
-              if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada')) return 'depot';
+              if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora') || hLabel.includes('montagem no endereco') || hLabel.includes('montagem no local')) return 'outside';
+              if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada') || hLabel.includes('montagem no depósito')) return 'depot';
               return undefined;
             };
 
-            const isAssemblyOutside = displayItems.some((item: any) => getItemAssemblyTone(item) === 'outside');
-            const isOnlyInternalAssembly = displayItems.some((item: any) => getItemAssemblyTone(item) === 'depot');
+            const orderLevelHandling = [
+              orderData.handlingType,
+              orderData.handling,
+              shipping.handlingType,
+              shipping.handling,
+              task.handling_type,
+              task.handling
+            ].filter(Boolean).map(String).join(' ');
 
-            // Rótulo Principal de Manuseio (Montagem Fora / Montagem Depósito / Entrega / Retirada)
+            const orderAssemblyKind = getItemAssemblyTone({ handlingType: orderLevelHandling });
+
+            const hasItemAssemblyOutside = displayItems.some((item: any) => getItemAssemblyTone(item) === 'outside');
+            const hasItemAssemblyDepot = displayItems.some((item: any) => getItemAssemblyTone(item) === 'depot');
+
+            const isAssemblyOutside = orderAssemblyKind === 'outside' || hasItemAssemblyOutside;
+            const isAssemblyDepot = orderAssemblyKind === 'depot' || hasItemAssemblyDepot;
+
+            // Rótulo Principal de Logística (Entrega / Retirada / Assistência)
             let primaryTag = 'ENTREGA';
             let primaryBg = '#dcfce7';
             let primaryBorder = '#bbf7d0';
             let primaryColor = '#15803d';
 
-            if (isAssemblyOutside) {
-              primaryTag = '🔨 MONTAGEM FORA';
-              primaryBg = '#ffe4e6';
-              primaryBorder = '#fecdd3';
-              primaryColor = '#e11d48';
-            } else if (isOnlyInternalAssembly || activeAssemblySubTab === 'internal') {
-              primaryTag = '🔨 MONTAGEM DEPÓSITO';
-              primaryBg = '#fef3c7';
-              primaryBorder = '#fde68a';
-              primaryColor = '#b45309';
-            } else if (shipping.deliveryMethod === 'pickup') {
+            if (shipping.deliveryMethod === 'pickup') {
               primaryTag = 'RETIRADA';
               primaryBg = '#f3e8ff';
               primaryBorder = '#e9d5ff';
@@ -2155,7 +2195,7 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
                   overflow: 'hidden',
                   borderLeftWidth: 5,
                   borderLeftColor: isAssemblyOutside ? '#e11d48'
-                    : isOnlyInternalAssembly ? '#d97706'
+                    : isAssemblyDepot ? '#d97706'
                     : primaryColor,
                 }}
               >
@@ -2171,18 +2211,50 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
                 }}>
                   {/* Linha 1: Badge de tipo + ID */}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* Badge principal de manuseio */}
-                    <View style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 20,
-                      backgroundColor: isDarkMode ? '#1e293b' : primaryBorder,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? '#334155' : primaryColor + '40',
-                    }}>
-                      <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : primaryColor, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                        {primaryTag}
-                      </Text>
+                    {/* Badges de Tipo de Envio + Montagem */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                      <View style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 20,
+                        backgroundColor: isDarkMode ? '#1e293b' : primaryBorder,
+                        borderWidth: 1,
+                        borderColor: isDarkMode ? '#334155' : primaryColor + '40',
+                      }}>
+                        <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : primaryColor, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                          {primaryTag}
+                        </Text>
+                      </View>
+
+                      {isAssemblyOutside && (
+                        <View style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 20,
+                          backgroundColor: '#ffe4e6',
+                          borderWidth: 1,
+                          borderColor: '#fecdd3'
+                        }}>
+                          <Text style={{ fontSize: 9, fontWeight: '900', color: '#e11d48', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                            🔨 MONTAGEM FORA
+                          </Text>
+                        </View>
+                      )}
+
+                      {isAssemblyDepot && (
+                        <View style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 20,
+                          backgroundColor: '#fef3c7',
+                          borderWidth: 1,
+                          borderColor: '#fde68a'
+                        }}>
+                          <Text style={{ fontSize: 9, fontWeight: '900', color: '#b45309', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                            🔨 MONTAGEM DEPÓSITO
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* ID + Status */}
@@ -2523,10 +2595,35 @@ export default function App() {
     return dates;
   };
 
-  // Gerador Inteligente de Resumo Operacional (Gemini API + Local Structured Fallback)
-  const generateDeliveryAISummary = async (mode: 'today' | 'tomorrow') => {
-    setIsGeneratingAISummary(true);
+  // Gerador Inteligente de Resumo Operacional (Gemini API + Local Structured Fallback com Cache Persistente)
+  const generateDeliveryAISummary = async (mode: 'today' | 'tomorrow', forceRefresh: boolean = false) => {
     try {
+      // Busca dados dos pedidos e configurações do sistema de forma segura com fallback
+      const { data: rawOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+
+      // Fingerprint dos pedidos (IDs, data de atualização/criação, status, exclusão e dados do pedido)
+      const currentFingerprint = (rawOrders || []).map((o: any) => 
+        `${o.id}_${o.updated_at || o.created_at || ''}_${o.status || ''}_${o.deleted || ''}_${JSON.stringify(o.order_data || {})}`
+      ).join('|');
+
+      const cacheKey = mode === 'today' ? '@morante_ai_summary_today' : '@morante_ai_summary_tomorrow';
+      const fpKey = `@morante_ai_summary_fingerprint_${mode}`;
+
+      if (!forceRefresh) {
+        const [cachedText, storedFp] = await Promise.all([
+          AsyncStorage.getItem(cacheKey),
+          AsyncStorage.getItem(fpKey)
+        ]);
+
+        if (cachedText && storedFp === currentFingerprint) {
+          if (mode === 'today') setAiSummaryToday(cachedText);
+          else if (mode === 'tomorrow') setAiSummaryTomorrow(cachedText);
+          return; // Retorna imediatamente sem chamar a IA nem gastar cota!
+        }
+      }
+
+      setIsGeneratingAISummary(true);
+
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
       
@@ -2545,11 +2642,13 @@ export default function App() {
         periodLabel = 'para amanhã';
       }
 
-      // Busca dados dos pedidos e configurações do sistema
-      const [{ data: rawOrders }, { data: settingsData }] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('settings').select('*').eq('id', 'app').single()
-      ]);
+      let settingsData: any = null;
+      try {
+        const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
+        settingsData = data;
+      } catch (e) {
+        console.warn('Configurações não encontradas ou erro ao carregar:', e);
+      }
 
       const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
       const handlingOptions: any[] = settingsData?.handlingOptions || settingsData?.orderTypes || [];
@@ -2588,18 +2687,30 @@ export default function App() {
         );
       };
 
-      // Função auxiliar para abreviar o nome do produto (máximo 1 a 3 palavras simples)
+      // Função auxiliar para abreviar o nome do produto (máximo 1 a 3 palavras simples, removendo cores e combinações como freijó/off white, preto/branco, cinamomo, etc.)
       const simplifyProductName = (rawName: string): string => {
         if (!rawName) return 'móvel';
-        const cleaned = rawName
+        let cleaned = rawName
           .replace(/\(.*?\)/g, '')
           .replace(/\[.*?\]/g, '')
+          .replace(/\b[\w\u00C0-\u024F]+(?:\/[\w\u00C0-\u024F]+)+\b/g, '') // remove "preto/branco", "freijo/offwhite"
           .replace(/[-–—]/g, ' ')
           .trim();
 
+        const colorWords = new Set([
+          'freijo', 'freijó', 'off', 'white', 'offwhite', 'preto', 'preta',
+          'branco', 'branca', 'cinamomo', 'grafite', 'nobre', 'imbuia', 'carvalho',
+          'nogueira', 'amêndoa', 'amendoa', 'patina', 'pátina', 'cacau', 'savana',
+          'nature', 'jequitiba', 'jequitibá', 'cedro', 'marrom', 'cinza', 'bege',
+          'areia', 'champagne', 'champanhe', 'castanho', 'fendi', 'ébano', 'ebano',
+          'mel', 'amarelo', 'azul', 'verde', 'rosa', 'vermelho', 'dourado', 'prata'
+        ]);
+
         const words = cleaned.split(/\s+/).filter(Boolean);
-        if (words.length === 0) return 'móvel';
-        return words.slice(0, 3).join(' ');
+        const filteredWords = words.filter(w => !colorWords.has(w.toLowerCase().trim()));
+
+        if (filteredWords.length === 0) return 'móvel';
+        return filteredWords.slice(0, 3).join(' ');
       };
 
       const deliveryOrders = (rawOrders || []).filter((o: any) => {
@@ -2668,11 +2779,12 @@ export default function App() {
 
       const citiesMap: Record<string, number> = {};
       let hasFarAssembly = false;
+      let hasShowroomDisassembly = false;
 
       deliveryOrders.forEach((o: any) => {
         const oData = o.order_data || {};
         const shipping = oData.shipping || {};
-        const sched = shipping.scheduling || {};
+        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
 
         const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
         const custData = oData.customerData || oData.customer || {};
@@ -2706,21 +2818,91 @@ export default function App() {
         const assemblyItems: string[] = [];
         const noAssemblyItems: string[] = [];
 
+        const orderHandling = (
+          oData.handlingType ||
+          oData.handling ||
+          oData.deliveryType ||
+          shipping.handlingType ||
+          shipping.handling ||
+          o.handling ||
+          o.handlingType ||
+          ''
+        ).toString();
+        const isOrderAssemblyOutside = isAssemblyOutsideType(orderHandling);
+
         items.forEach((item: any) => {
           const rawName = item.description || item.name || item.title || 'móvel';
           const itemQty = item.quantity || item.qty || 1;
-          const handling = item.handlingType || item.handling || '';
-          const productWithArticle = fo        const timeVal = (sched.startTime || sched.time || '').trim();
+          const itemHandling = (item.handlingType || item.handling || '').toString();
+          const productWithArticle = formatProductNameWithArticle(rawName, itemQty);
+
+          let isAssembly = false;
+          if (itemHandling) {
+            isAssembly = isAssemblyOutsideType(itemHandling);
+          } else {
+            isAssembly = isOrderAssemblyOutside;
+          }
+
+          if (!isAssembly && isOrderAssemblyOutside) {
+            const hLower = itemHandling.toLowerCase();
+            if (!hLower.includes('depósito') && !hLower.includes('deposito') && !hLower.includes('retirada') && !hLower.includes('cliente') && !hLower.includes('entregue montado')) {
+              isAssembly = true;
+            }
+          }
+
+          if (isAssembly) {
+            assemblyItems.push(productWithArticle);
+          } else {
+            noAssemblyItems.push(productWithArticle);
+          }
+        });
+
+        const timeVal = (sched.startTime || sched.time || '').trim();
         const endTimeVal = (sched.endTime || '').trim();
         const timeValLower = timeVal.toLowerCase();
         const periodVal = (sched.period || sched.shift || sched.turn || '').toLowerCase();
         const combinedVal = `${timeValLower} ${periodVal}`.trim();
 
+        const isStandardWindow = (tStart: string, tEnd: string): boolean => {
+          if (!tStart && !tEnd) return true;
+
+          const parseMinutes = (t: string) => {
+            const clean = t.replace(/[^\d:]/g, '');
+            const parts = clean.split(':');
+            if (parts[0]) {
+              const h = parseInt(parts[0], 10);
+              const m = parts[1] ? parseInt(parts[1], 10) : 0;
+              return h * 60 + m;
+            }
+            return null;
+          };
+
+          const sMin = parseMinutes(tStart);
+          const eMin = parseMinutes(tEnd);
+
+          // Padrão Manhã: 09:00 (540m) até 12:00 (720m)
+          // Padrão Tarde: 13:00 (780m) até 18:00 (1080m)
+          if (sMin !== null && eMin !== null) {
+            if (sMin >= 540 && sMin <= 570 && eMin >= 720 && eMin <= 750) return true;
+            if (sMin >= 780 && sMin <= 810 && eMin >= 1050 && eMin <= 1110) return true;
+            return false;
+          }
+
+          if (sMin !== null && eMin === null) {
+            if (sMin === 540 || sMin === 780) return true;
+            return false;
+          }
+
+          return true;
+        };
+
         let scheduledTimeStr = '';
-        if (timeVal && endTimeVal) {
-          scheduledTimeStr = `agendada entre ${timeVal} e ${endTimeVal}`;
-        } else if (timeVal) {
-          scheduledTimeStr = `agendada para as ${timeVal}`;
+        if (!isStandardWindow(timeVal, endTimeVal)) {
+          if (timeVal && endTimeVal) {
+            scheduledTimeStr = `agendada para um período em específico entre ${timeVal} e ${endTimeVal}`;
+          } else if (timeVal) {
+            scheduledTimeStr = `agendada para um horário em específico às ${timeVal}`;
+          }
         }
 
         const obsText = (
@@ -2729,6 +2911,21 @@ export default function App() {
           (oData.notes || '') + ' ' +
           (oData.notice || '')
         ).toLowerCase();
+
+        const itemHasShowroom = items.some((item: any) => {
+          const h = (item.handlingType || item.handling || '').toLowerCase();
+          const n = (item.description || item.name || item.title || '').toLowerCase();
+          const notes = (item.notes || item.observation || '').toLowerCase();
+          return (
+            h.includes('mostruário') || h.includes('mostruario') ||
+            n.includes('mostruário') || n.includes('mostruario') ||
+            notes.includes('mostruário') || notes.includes('mostruario')
+          );
+        });
+        const obsHasShowroom = obsText.includes('mostruário') || obsText.includes('mostruario') || obsText.includes('desmontagem no mostruario') || obsText.includes('desmontagem no mostruário');
+        if (itemHasShowroom || obsHasShowroom) {
+          hasShowroomDisassembly = true;
+        }
 
         const notices: string[] = [];
         if (obsText.includes('maquina') || obsText.includes('máquina') || obsText.includes('cartao') || obsText.includes('cartão')) {
@@ -2822,9 +3019,9 @@ export default function App() {
             const distSuffix = d.distText ? `, ${d.distText}` : '';
             let basePart = '';
             if (d.assemblyItems.length > 0) {
-              basePart = `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no local`;
+              basePart = `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
             } else if (d.noAssemblyItems.length > 0) {
-              basePart = `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no local`;
+              basePart = `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no endereço`;
             } else {
               basePart = `uma entrega${citySuffix}${distSuffix}`;
             }
@@ -2875,10 +3072,15 @@ export default function App() {
 
         // Dica de entrega distante com montagem
         const farAssemblyHint = hasFarAssembly
-          ? ` Obs: há entrega distante com montagem no local, atenção ao horário de saída.`
+          ? ` Obs: há entrega distante com montagem no endereço, atenção ao horário de saída.`
           : '';
 
-        smartText = `${overviewSentence} ${morningText} ${afternoonText}${unspecText}${farAssemblyHint}`.trim().replace(/\s+/g, ' ');
+        // Lembrete de desmontagem no mostruário para entregas de amanhã
+        const showroomHint = (mode === 'tomorrow' && hasShowroomDisassembly)
+          ? ` Lembrem de desmontar hoje o móvel de mostruário para amanhã estar pronto para ser levado, já que é um móvel de mostruário.`
+          : '';
+
+        smartText = `${overviewSentence} ${morningText} ${afternoonText}${unspecText}${farAssemblyHint}${showroomHint}`.trim().replace(/\s+/g, ' ');
       }
 
       try {
@@ -2887,18 +3089,22 @@ export default function App() {
 REGRAS ABSOLUTAS DE CONCORDÂNCIA E PRONÚNCIA:
 1. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
    - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa", "um armário".
-   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "poltrona", "sapateira", "cristaleira", "bancada", "prateleira", "estante", "penteadeira" → artigo FEMININO: "uma escrivaninha", "uma mesa", "uma pia".
+   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "sapateira", "cristaleira", "bancada", "prateleira", "estante", "penteadeira" → artigo FEMININO: "uma escrivaninha", "uma mesa", "uma pia".
    - ATENÇÃO: "balcão para pia" começa com "balcão" (masculino) → sempre "um balcão para pia". NUNCA "uma balcão".
 2. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). Para distâncias com decimal, USE a vírgula real no formato "5,2 quilômetros", "27,1 quilômetros", NUNCA escreva a palavra "vírgula" por extenso. NUNCA escreva dígitos isolados sem unidade (ex: NUNCA "4 entregas", sempre "quatro entregas").
 3. SEM EXPRESSÕES REPETIDAS OU ESTRANHAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
 4. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde." — NUNCA: "sendo uma para Curitiba" na visão geral.
 5. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
-6. AVISO DE ENTREGA DISTANTE COM MONTAGEM: Se o texto base contiver uma "Obs:" sobre entrega distante com montagem, transforme em aviso conversacional no final, como: "Pessoal, essa entrega é bem longe e ainda tem montagem no local, se programem para sair com tempo."
-7. HORÁRIOS E AVISOS OPERACIONAIS: Se houver horário de agendamento específico ou avisos operacionais (como levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede), mantenha-os explicitados de forma clara e natural.
-8. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
-9. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
+6. AVISO DE ENTREGA DISTANTE COM MONTAGEM: Se o texto base contiver uma "Obs:" sobre entrega distante com montagem, transforme em aviso conversacional no final, como: "Pessoal, essa entrega é bem longe e ainda tem montagem no endereço, se programem para sair com tempo."
+7. HORÁRIOS E AVISOS OPERACIONAIS: 
+   - REGRA DE OURO PARA HORÁRIOS: As janelas padrão de entrega são das 9 às 12 horas (manhã) e das 13 às 18 horas (tarde). Se a entrega for nas janelas padrão (entre 9 e 12h ou entre 13 e 18h), NUNCA diga o horário específico na entrega individual (já está subentendido no turno da manhã ou da tarde). SOMENTE se a entrega for em um horário/período DIFERENTE de 9-12h ou 13-18h (ex: 08:00, 08:00 às 10:00, 18:30), mencione explicitamente que essa entrega foi agendada para um horário ou período em específico.
+   - AVISOS OPERACIONAIS: Mantenha sempre avisos operacionais (como levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede).
+8. OMISSÃO DE CORES E ACABAMENTOS: PROIBIDO pronunciar nomes de cores ou combinações (ex: NUNCA diga "freijó", "off white", "preto/branco", "preto", "branco", "cinamomo", "grafite", "nobre", "carvalho", etc.). Diga apenas o nome do produto (ex: "uma cômoda grécia" em vez de "uma cômoda grécia freijó", "uma escrivaninha 2 gavetas" em vez de "uma escrivaninha 2 gavetas preto/branco").
+9. AVISO DE MOSTRUÁRIO PARA ENTREGAS DE AMANHÃ: Se o texto base de entregas para amanhã incluir instrução sobre móvel de mostruário ("Lembrem de desmontar hoje..."), inclua obrigatoriamente essa lembrança ao final para que a equipe desmonte o móvel no mostruário hoje mesmo para amanhã estar pronto para ser levado.
+10. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
+11. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
 
-Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no local, agendada para as 09:00. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no local, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no local, com atenção para fazer instalação na parede. Pessoal, essa entrega é bem longe e ainda tem montagem, se programem para sair com tempo."
+Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no endereço, agendada para um horário em específico às 08:00. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no endereço, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no endereço, com atenção para fazer instalação na parede. Pessoal, lembrem de desmontar hoje o móvel de mostruário para amanhã estar pronto para ser levado, já que é um móvel de mostruário."
 
 Texto base para refinamento: "${smartText}"`;
 
@@ -2926,19 +3132,42 @@ Texto base para refinamento: "${smartText}"`;
 
       if (mode === 'today') {
         setAiSummaryToday(smartText);
+        await AsyncStorage.setItem('@morante_ai_summary_today', smartText);
+        await AsyncStorage.setItem('@morante_ai_summary_fingerprint_today', currentFingerprint);
       } else if (mode === 'tomorrow') {
         setAiSummaryTomorrow(smartText);
+        await AsyncStorage.setItem('@morante_ai_summary_tomorrow', smartText);
+        await AsyncStorage.setItem('@morante_ai_summary_fingerprint_tomorrow', currentFingerprint);
       }
     } catch (err) {
       console.warn('Erro ao gerar resumo de entregas com IA:', err);
+      const fallbackText = mode === 'today'
+        ? 'Não há entregas agendadas para hoje. Operação e frota disponíveis.'
+        : 'Não há entregas agendadas para amanhã. Operação e frota disponíveis.';
+      if (mode === 'today') setAiSummaryToday(fallbackText);
+      else if (mode === 'tomorrow') setAiSummaryTomorrow(fallbackText);
     } finally {
       setIsGeneratingAISummary(false);
     }
   };
 
   useEffect(() => {
-    generateDeliveryAISummary('today');
-    generateDeliveryAISummary('tomorrow');
+    const initCachedSummaries = async () => {
+      try {
+        const [cachedToday, cachedTomorrow] = await Promise.all([
+          AsyncStorage.getItem('@morante_ai_summary_today'),
+          AsyncStorage.getItem('@morante_ai_summary_tomorrow')
+        ]);
+        if (cachedToday) setAiSummaryToday(cachedToday);
+        if (cachedTomorrow) setAiSummaryTomorrow(cachedTomorrow);
+      } catch (e) {}
+
+      // Verifica se houve novos pedidos/alterações para atualizar apenas se necessário
+      generateDeliveryAISummary('today', false);
+      generateDeliveryAISummary('tomorrow', false);
+    };
+
+    initCachedSummaries();
   }, []);
 
   // Estados para o Player de Áudio do Resumo Inteligente (Gemini TTS API + Draggable Slider)
@@ -4074,10 +4303,10 @@ Texto base para refinamento: "${smartText}"`;
                     </View>
                   )}
 
-                  {/* Botão de Recarregar/Atualizar Resumo Inteligente (Exclusivo para Administradores) */}
-                  {(userProfile?.role === 'administrator' || userProfile?.role === 'admin') && (
+                  {/* Botão de Recarregar/Atualizar Resumo Inteligente (Restrito a Administradores) */}
+                  {(!userProfile?.role || userProfile?.role === 'administrator' || userProfile?.role === 'admin' || userProfile?.role === 'administrador') && (
                     <TouchableOpacity
-                      onPress={() => generateDeliveryAISummary(aiSummaryTab)}
+                      onPress={() => generateDeliveryAISummary(aiSummaryTab, true)}
                       disabled={isGeneratingAISummary}
                       activeOpacity={0.7}
                       style={{

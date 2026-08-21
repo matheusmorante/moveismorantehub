@@ -324,6 +324,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                     }} 
                     onLoadJSON={handleLoadJSON}
                     onOpenSellerSearch={() => setIsSellerSearchOpen(true)}
+                    sellerRef={sellerRef}
                 />
             </div>
         </div>

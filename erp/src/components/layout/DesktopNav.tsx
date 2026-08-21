@@ -166,24 +166,28 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
             </div>
 
-            {/* Comunicação Visual */}
+            {/* Marketing */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('marketing')}
                 onMouseLeave={() => setActiveMenu(null)}
             >
-                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', true)}>
-                    <i className="bi bi-brush-fill"></i>
-                    <span>Comunicação Visual</span>
-                    <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1 py-0.5 rounded ml-1 tracking-tighter">BETA</span>
+                <button onClick={() => toggle('marketing')} className={menuBtnClass(activeMenu === 'marketing', false)}>
+                    <i className="bi bi-megaphone-fill"></i>
+                    <span>Marketing</span>
                     <i className={chevronClass(activeMenu === 'marketing')}></i>
                 </button>
                 {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
-                        <Link to="/stock/label-printing?cat=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Logotipo e Rótulo</Link>
-                        <Link to="/stock/label-printing?cat=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Preço</Link>
-                        <Link to="/stock/label-printing?cat=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Etiqueta de Identificação do Produto</Link>
-                        <Link to="/stock/label-printing?cat=posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Posts para Redes Sociais</Link>
+                        <Link to="/marketing/posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-instagram mr-1 text-pink-500"></i> Posts
+                        </Link>
+                        <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta
+                        </Link>
+                        <Link to="/stock/label-printing" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-printer-fill mr-1 text-purple-500"></i> Impressão de Etiquetas
+                        </Link>
                     </div>
                 )}
             </div>

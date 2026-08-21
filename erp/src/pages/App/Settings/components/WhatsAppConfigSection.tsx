@@ -149,12 +149,13 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                             <input
                                 type="text"
                                 readOnly
-                                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/facebook-catalog.csv`}
+                                value={`${(typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') ? window.location.origin : 'https://morantehub.vercel.app'}/api/facebook-catalog.csv`}
                                 className="bg-slate-150 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-4 pr-12 py-3 text-[10px] outline-none w-full font-mono text-slate-500"
                             />
                             <button
                                 onClick={() => {
-                                    const url = `${window.location.origin}/api/facebook-catalog.csv`;
+                                    const prodOrigin = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') ? window.location.origin : 'https://morantehub.vercel.app';
+                                    const url = `${prodOrigin}/api/facebook-catalog.csv`;
                                     navigator.clipboard.writeText(url);
                                     toast.success("Link do catálogo copiado! 📋");
                                 }}

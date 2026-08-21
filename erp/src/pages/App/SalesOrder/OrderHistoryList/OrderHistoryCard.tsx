@@ -97,21 +97,31 @@ const OrderHistoryCard = ({
         });
     };
 
-    const isHandlingAssembly = (item: any) => {
-        const hLabel = normalize(item.handlingType);
+    const isHandlingDepot = (item: any) => {
+        const hLabel = normalize(item?.handlingType || item?.handling);
         const opt = getMatchingOption(hLabel);
-        return opt?.includeInAssemblySchedule || false;
+        if (opt?.includeInAssemblySchedule) return true;
+        if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada') || hLabel.includes('montagem no depósito')) return true;
+        return false;
     };
 
     const isHandlingOutside = (item: any) => {
-        const hLabel = normalize(item.handlingType);
+        const hLabel = normalize(item?.handlingType || item?.handling);
         const opt = getMatchingOption(hLabel);
-        return opt?.isAssemblyOutside || false;
+        if (opt?.isAssemblyOutside) return true;
+        if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora') || hLabel.includes('montagem no endereco') || hLabel.includes('montagem no local')) return true;
+        return false;
     };
 
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
-    const hasAssemblyConfig = allOrderItems.some(isHandlingAssembly);
-    const isAssemblyOutside = allOrderItems.some(isHandlingOutside);
+    const orderHandling = normalize(
+        order.handlingType || order.handling || order.shipping?.handlingType || order.shipping?.handling || ''
+    );
+    const isOrderAssemblyOutside = orderHandling.includes('montagem fora') || orderHandling.includes('montagem na entrega') || orderHandling.includes('montagem no endereco');
+    const isOrderAssemblyDepot = orderHandling.includes('montagem no deposito') || orderHandling.includes('montagem para retirada') || orderHandling.includes('montagem no depósito');
+
+    const hasAssemblyOutside = isOrderAssemblyOutside || allOrderItems.some(isHandlingOutside);
+    const hasAssemblyDepot = isOrderAssemblyDepot || allOrderItems.some(isHandlingDepot);
 
     // Marketing Origin Logic
     const mOrigin1 = (order.marketingOrigin || "").toLowerCase();
@@ -294,10 +304,17 @@ const OrderHistoryCard = ({
                         </span>
                     )}
 
-                    {hasAssemblyConfig && (
-                        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${isAssemblyOutside ? 'bg-red-600 text-white border-red-700' : 'bg-amber-50 text-amber-700 border-amber-100'}`} title={isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}>
-                            <i className={`bi bi-hammer text-[8px] ${isAssemblyOutside ? 'text-white' : ''}`} />
-                            <span>{isAssemblyOutside ? 'Montagem Fora' : 'Montagem no Depósito'}</span>
+                    {hasAssemblyOutside && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
+                            <i className="bi bi-hammer text-[8px] text-white" />
+                            <span>Montagem Fora</span>
+                        </span>
+                    )}
+
+                    {hasAssemblyDepot && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/40 shadow-xs" title="Montagem no Depósito">
+                            <i className="bi bi-hammer text-[8px]" />
+                            <span>Montagem no Depósito</span>
                         </span>
                     )}
 

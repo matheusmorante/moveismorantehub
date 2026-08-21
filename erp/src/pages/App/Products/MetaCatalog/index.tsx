@@ -2,7 +2,14 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 
 export default function MetaCatalog() {
-    const csvUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/facebook-catalog.csv`;
+    const getProductionOrigin = () => {
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            return window.location.origin;
+        }
+        return 'https://morantehub.vercel.app';
+    };
+
+    const csvUrl = `${getProductionOrigin()}/api/facebook-catalog.csv`;
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {

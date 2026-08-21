@@ -8,7 +8,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
     const [trashedPeople, setTrashedPeople] = useState<Person[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 

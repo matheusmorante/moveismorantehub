@@ -89,16 +89,14 @@ const menuItems = [
     },
     {
         key: 'marketing' as MenuKey,
-        label: 'Comunicação Visual',
-        icon: 'bi-brush',
+        label: 'Marketing',
+        icon: 'bi-megaphone',
         color: 'text-pink-500',
         bg: 'bg-pink-50 dark:bg-pink-900/20',
-        beta: true,
         links: [
-            { to: '/stock/label-printing?cat=logos', icon: 'bi-palette-fill', iconColor: 'text-purple-500', label: 'Etiqueta de Logotipo' },
-            { to: '/stock/label-printing?cat=precos', icon: 'bi-tag-fill', iconColor: 'text-amber-500', label: 'Etiqueta de Preço' },
-            { to: '/stock/label-printing?cat=identificacao', icon: 'bi-qr-code-scan', iconColor: 'text-blue-500', label: 'Etiqueta de Identificação' },
-            { to: '/stock/label-printing?cat=posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Posts para Redes Sociais' },
+            { to: '/marketing/posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Posts para Redes Sociais' },
+            { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta (Feed CSV)' },
+            { to: '/stock/label-printing', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Etiquetas' },
         ]
     },
 ];

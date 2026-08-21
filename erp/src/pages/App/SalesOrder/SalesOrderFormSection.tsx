@@ -17,9 +17,10 @@ type SalesOrderFormSectionProps = {
     scrollRef?: React.RefObject<HTMLDivElement>;
     onLoadJSON?: (data: any) => void;
     onOpenSellerSearch?: () => void;
+    sellerRef?: React.RefObject<HTMLButtonElement>;
 };
 
-const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch }: SalesOrderFormSectionProps) => {
+const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch, sellerRef }: SalesOrderFormSectionProps) => {
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
@@ -74,6 +75,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <button
                                         type="button"
+                                        ref={sellerRef}
                                         onClick={onOpenSellerSearch}
                                         className="flex items-center gap-3 w-full p-4 text-left bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
                                     >

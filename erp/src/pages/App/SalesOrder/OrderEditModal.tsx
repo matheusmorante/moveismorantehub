@@ -406,6 +406,8 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                             }
                         }}
                         onLoadJSON={handleLoadJSON}
+                        onOpenSellerSearch={() => setIsSellerSearchOpen(true)}
+                        sellerRef={sellerRef}
                     />
                 ) : (
                     <OrderStatusTimeline orderId={effectiveOrder.id!} />

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
-import { fetchOrdersPage, moveToTrash, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { subscribeToOrders, moveToTrash, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const CARD_VIEW_BREAKPOINT = 1024;
 
 export const useOrderHistory = (filters?: any) => {
@@ -35,44 +35,32 @@ export const useOrderHistory = (filters?: any) => {
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
     const loadMore = () => {
-        if (!useInfiniteScroll || loadingMore || orders.length >= totalDatabaseItems) return;
+        if (!useInfiniteScroll || loadingMore || (currentPage * PAGE_SIZE) >= totalDatabaseItems) return;
         setLoadingMore(true);
         setCurrentPage(prev => prev + 1);
     };
 
     useEffect(() => {
         let active = true;
-        setLoading(currentPage === 1);
+        setLoading(true);
 
-        fetchOrdersPage(currentPage, PAGE_SIZE)
-            .then(({ orders: pageOrders, total }) => {
-                if (!active) return;
-                setTotalDatabaseItems(total);
-                setOrders(prev => useInfiniteScroll && currentPage > 1
-                    ? [...prev, ...pageOrders.filter(order => !prev.some(existing => existing.id === order.id))]
-                    : pageOrders
-                );
-            })
-            .catch(error => {
-                if (!active) return;
-                console.error('[Orders] Page fetch error:', error);
-                setOrders(currentPage === 1 ? [] : orders);
-            })
-            .finally(() => {
-                if (!active) return;
-                setLoading(false);
-                setLoadingMore(false);
-            });
+        const unsub = subscribeToOrders((allOrders) => {
+            if (!active) return;
+            setOrders(allOrders);
+            setTotalDatabaseItems(allOrders.length);
+            setLoading(false);
+            setLoadingMore(false);
+        });
 
         return () => {
             active = false;
+            unsub();
         };
-    }, [refreshSignal, currentPage, useInfiniteScroll, filters]);
+    }, [refreshSignal]);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
         setCurrentPage(1);
-        setOrders([]);
         setSelectedOrders([]);
     }, [filters]);
 
@@ -202,12 +190,29 @@ export const useOrderHistory = (filters?: any) => {
             });
     }, [orders, filters]);
 
-    const totalItems = totalDatabaseItems;
-    const hasMore = useInfiniteScroll && orders.length < totalDatabaseItems;
+    const hasActiveFilter = Boolean(
+        filters?.customerName ||
+        filters?.productName ||
+        filters?.seller ||
+        filters?.status ||
+        filters?.orderType ||
+        filters?.showTrash ||
+        filters?.isDraft ||
+        filters?.dateRange?.start ||
+        filters?.dateRange?.end
+    );
+
+    const totalItems = filteredOrders.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    const hasMore = useInfiniteScroll && (currentPage * PAGE_SIZE) < totalItems;
 
     const displayedOrders = useMemo(() => {
-        return filteredOrders;
-    }, [filteredOrders]);
+        if (useInfiniteScroll) {
+            return filteredOrders.slice(0, currentPage * PAGE_SIZE);
+        }
+        const startIndex = (currentPage - 1) * PAGE_SIZE;
+        return filteredOrders.slice(startIndex, startIndex + PAGE_SIZE);
+    }, [filteredOrders, currentPage, useInfiniteScroll]);
 
     const handleDelete = async (id: string) => {
         await moveToTrash(id);
@@ -414,7 +419,7 @@ export const useOrderHistory = (filters?: any) => {
         loadMore,
         currentPage,
         itemsPerPage: PAGE_SIZE,
-        totalPages: Math.ceil(totalDatabaseItems / PAGE_SIZE),
+        totalPages,
         setCurrentPage,
         isMobile,
         isCardView,

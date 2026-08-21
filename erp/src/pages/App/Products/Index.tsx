@@ -298,6 +298,7 @@ const Products = () => {
                                 ref={productListRef}
                                 onRefresh={() => productListRef.current?.refresh()}
                             />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -351,7 +352,6 @@ const Products = () => {
                                 ref={trashListRef}
                                 onRefresh={() => productListRef.current?.refresh()}
                             />
-
                         </div>
                     </div>
                 </div>

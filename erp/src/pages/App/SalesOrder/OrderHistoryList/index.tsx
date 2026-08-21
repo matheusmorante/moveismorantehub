@@ -64,6 +64,16 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         useInfiniteScroll
     } = useOrderHistory(filters);
 
+    // Auto-scroll to top when page changes
+    React.useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const scrollContainers = document.querySelectorAll('.overflow-y-auto, .overflow-auto, main');
+        scrollContainers.forEach(el => {
+            el.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }, [currentPage]);
+
+    // IntersectionObserver for infinite scroll in Card View
     const observerRef = React.useRef<IntersectionObserver | null>(null);
     const sentinelRef = React.useCallback((node: HTMLDivElement | null) => {
         if (loading) return;
@@ -262,35 +272,64 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
                 {!useInfiniteScroll && (
                 <div className="flex items-center justify-center gap-2 py-3 border-t border-slate-100 dark:border-slate-800">
-                    {currentPage > 1 && (
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={currentPage <= 1}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
+                    >
+                        Anterior
+                    </button>
+
+                    {/* Slot Esquerdo: Página Anterior */}
+                    <div className="w-9 h-9 flex items-center justify-center">
+                        {currentPage > 1 ? (
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                className="w-9 h-9 rounded-xl text-xs font-black border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer"
+                            >
+                                {currentPage - 1}
+                            </button>
+                        ) : (
+                            <div className="w-9 h-9 rounded-xl border border-slate-100 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/30 opacity-20 pointer-events-none" />
+                        )}
+                    </div>
+
+                    {/* Slot do Meio: Página Atual (Azul, Desativado) */}
+                    <div className="w-9 h-9 flex items-center justify-center">
                         <button
                             type="button"
-                            onClick={() => setCurrentPage(currentPage - 1)}
-                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-900"
+                            disabled
+                            className="w-9 h-9 rounded-xl text-xs font-black bg-blue-600 text-white shadow-md shadow-blue-500/20 cursor-default"
                         >
-                            Anterior
+                            {currentPage}
                         </button>
-                    )}
-                    {getPageButtons().map(page => (
-                        <button
-                            type="button"
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            aria-current={page === currentPage ? 'page' : undefined}
-                            className={`w-9 h-9 rounded-lg text-xs font-black ${page === currentPage ? 'bg-blue-600 text-white ring-2 ring-blue-200 dark:ring-blue-900' : 'border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'}`}
-                        >
-                            {page}
-                        </button>
-                    ))}
-                    {currentPage < totalPages && (
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(currentPage + 1)}
-                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-900"
-                        >
-                            Próxima
-                        </button>
-                    )}
+                    </div>
+
+                    {/* Slot Direito: Página Seguinte */}
+                    <div className="w-9 h-9 flex items-center justify-center">
+                        {currentPage < totalPages ? (
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                className="w-9 h-9 rounded-xl text-xs font-black border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer"
+                            >
+                                {currentPage + 1}
+                            </button>
+                        ) : (
+                            <div className="w-9 h-9 rounded-xl border border-slate-100 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/30 opacity-20 pointer-events-none" />
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={currentPage >= totalPages}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
+                    >
+                        Próxima
+                    </button>
                 </div>
                 )}
 

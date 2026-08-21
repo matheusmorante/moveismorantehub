@@ -263,26 +263,24 @@ const ProductCard = ({
                             </span>
                         </div>
                     )}
-                    <div className="flex justify-between items-center gap-2 mt-2 w-full">
-                        <div className="flex flex-wrap gap-1.5 items-center">
-                            {product.isDraft && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                                    <i className="bi bi-file-earmark-text" /> Rascunho
-                                </span>
-                            )}
-                            {!isParent && (
-                                <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                    Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
-                                </button>
-                            )}
-                            {oppName && (
-                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 select-none shadow-2xs">
-                                    <i className="bi bi-fire text-amber-600 dark:text-amber-400 text-[9px]" />
-                                    {oppName}
-                                </span>
-                            )}
-                        </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2 w-full">
+                        {!isVariation && oppName && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 select-none shadow-2xs">
+                                <i className="bi bi-fire text-amber-600 dark:text-amber-400 text-[9px]" />
+                                {oppName}
+                            </span>
+                        )}
+                        {product.isDraft && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                                <i className="bi bi-file-earmark-text" /> Rascunho
+                            </span>
+                        )}
+                        {!isParent && (
+                            <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -342,16 +340,19 @@ const ProductCard = ({
             {/* Se for pai, renderiza a lista de filhos sempre abertas */}
             {isParent && (product as any).allVariations && (product as any).allVariations.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-2">
-                    {(product as any).allVariations.map((v: any) => {
+                    {(product as any).allVariations.map((v: any, index: number) => {
                         const varName = v.attributes && Array.isArray(v.attributes)
                             ? v.attributes.map((attr: any) => attr.value).filter(Boolean).join(' ')
                             : v.attributes && typeof v.attributes === 'object'
                             ? Object.values(v.attributes).filter(Boolean).join(' ')
                             : v.displayName || v.name || '';
 
+                        const varSku = v.sku || `${product.sku || product.code}-${String(index + 1).padStart(2, '0')}`;
+                        const targetVarCatalogId = `${product.id}_${varSku}`;
+
                         return (
                             <div 
-                                key={v.id} 
+                                key={v.id || index} 
                                 className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-xl transition-colors group/var"
                             >
                                 <div className="flex items-center gap-2.5 min-w-0">
@@ -368,10 +369,14 @@ const ProductCard = ({
                                                 {varName}
                                             </span>
                                             <div className="flex gap-1 shrink-0">
-                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border ${v.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(targetVarCatalogId); }} 
+                                                    title="Clique para alternar status desta variação no Catálogo"
+                                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 transition-opacity ${v.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}
+                                                >
                                                     <span className={`w-1 h-1 rounded-full ${v.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                                     Catálogo · {v.status === 'published' ? 'Publicado' : 'Ocultado'}
-                                                </span>
+                                                </button>
                                             </div>
                                         </div>
                                         <span className="text-[9px] font-mono text-slate-400">

@@ -17,23 +17,28 @@ const Body = ({ items }: Props) => {
             {items.map((item, index) => {
                 const fixedDiscount = getFixedDiscount(item);
                 const total = (item.unitPrice - (fixedDiscount || 0)) * item.quantity;
-                const handlingOpt = allOptions.find(o => o.label === (item.handlingType || "").trim());
-                const bgColor = handlingOpt?.color || 'transparent';
+                const handlingLabel = (item.handlingType || item.condition || "").trim();
+                const handlingOpt = allOptions.find(o => o.label === handlingLabel);
+                const bgColor = handlingOpt?.color || '#3b82f6';
 
                 return (
                     <tr key={index} className="text-sm">
-                        <td className="px-3 py-1 font-bold text-slate-700 uppercase leading-tight text-[13px]">
-                            {item.description}
-                        </td>
-                        <td 
-                            className="px-1 py-0.5 text-center font-bold uppercase text-[9px] leading-tight print-exact-bg"
-                            style={{ 
-                                backgroundColor: bgColor !== 'transparent' ? `${bgColor}20` : 'transparent',
-                                color: bgColor !== 'transparent' ? bgColor : '#64748b',
-                                borderLeft: bgColor !== 'transparent' ? `4px solid ${bgColor}` : 'none'
-                            }}
-                        >
-                            {item.handlingType || item.condition || "-"}
+                        <td className="px-3 py-1.5 font-bold text-slate-700 uppercase leading-tight text-[13px]">
+                            <div>{item.description}</div>
+                            {handlingLabel && handlingLabel !== '-' && (
+                                <div className="mt-1">
+                                    <span 
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border print-exact-bg"
+                                        style={{ 
+                                            backgroundColor: bgColor !== 'transparent' ? `${bgColor}18` : '#f1f5f9',
+                                            color: bgColor !== 'transparent' ? bgColor : '#475569',
+                                            borderColor: bgColor !== 'transparent' ? `${bgColor}40` : '#cbd5e1'
+                                        }}
+                                    >
+                                        {handlingLabel}
+                                    </span>
+                                </div>
+                            )}
                         </td>
                         <td className="px-1 py-0.5 text-right font-bold text-slate-600 whitespace-nowrap">
                             <UnitDisplay value={item.quantity} />

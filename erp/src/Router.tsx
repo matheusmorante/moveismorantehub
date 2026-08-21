@@ -37,6 +37,7 @@ import FinanceSettings from './pages/App/Finance/Settings';
 import LabelPrinting from './pages/App/Stock/LabelPrinting/Index';
 import SystemDocs from './pages/App/SystemDocs/Index';
 import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
+import MarketingPosts from './pages/App/Marketing/Posts';
 import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
 import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
@@ -155,6 +156,9 @@ function Router() {
             <Route path='/stock/bling' element={<BlingStock />} />
             <Route path='/stock/label-printing' element={<LabelPrinting />} />
             <Route path='/design/labels' element={<LabelPrinting />} />
+            <Route path='/marketing' element={<MarketingPosts />} />
+            <Route path='/marketing/posts' element={<MarketingPosts />} />
+            <Route path='/marketing/meta-catalog' element={<MetaCatalog />} />
             <Route path='/marketing/channel-catalog' element={<ChannelCatalog />} />
             <Route path='/registrations/services' element={<Services />} />
             <Route path='/registrations/variations' element={<Variations />} />
