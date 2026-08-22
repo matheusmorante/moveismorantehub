@@ -184,6 +184,15 @@ const Profile = () => {
                             <a
                                 href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
                                 download="morantehub-v1.0.apk"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    const link = document.createElement('a');
+                                    link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
+                                    link.setAttribute('download', 'morantehub-v1.0.apk');
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                }}
                                 className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <i className="bi bi-download text-base"></i>

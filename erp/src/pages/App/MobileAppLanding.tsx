@@ -49,9 +49,18 @@ export default function MobileAppLanding() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
              <a 
-               href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
-               download="morantehub-v1.0.apk"
-               className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
+                href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
+                download="morantehub-v1.0.apk"
+                onClick={(e) => {
+                    e.preventDefault();
+                    const link = document.createElement('a');
+                    link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
+                    link.setAttribute('download', 'morantehub-v1.0.apk');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }}
+                className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
              >
                 <i className="bi bi-google-play text-xl"></i>
                 Download Android APK (v1.0)

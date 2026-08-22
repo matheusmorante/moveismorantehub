@@ -31,8 +31,18 @@ export default function FloatingActionsHub() {
         {/* Download App (Integrated here as well for clean UI) */}
         <div className="relative group">
           <a 
-            href="/mobile-app"
-            className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-premium-lg hover:scale-110 active:scale-95 transition-all duration-300"
+            href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
+            download="morantehub-v1.0.apk"
+            onClick={(e) => {
+                e.preventDefault();
+                const link = document.createElement('a');
+                link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
+                link.setAttribute('download', 'morantehub-v1.0.apk');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }}
+            className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-premium-lg hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer"
           >
             <i className="bi bi-phone-vibrate text-xl"></i>
           </a>

@@ -299,40 +299,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         };
     }, [isDataFillModalOpen, dataFillTab, productSearchTerm]);
 
-    // Função para aplicar os dados de um produto selecionado da lista
+    // Função para aplicar os dados de um produto selecionado da lista (apenas Nome/Título)
     const handleApplyProductToLabel = (prod: any) => {
         const prodName = extractProductName(prod);
         setTitle(prodName);
         setShowTitle(true);
 
-        const normalPriceVal = Number(prod.unit_price || 0);
-        const promoPriceVal = Number(prod.promo_price || 0);
-
-        if (promoPriceVal > 0 && promoPriceVal < normalPriceVal) {
-            // Há promoção: Preço normal no "DE:", preço promocional no "POR:"
-            setShowNormalPrice(true);
-            setShowDe(true);
-            setShowPor(true);
-            setShowPromoPrice(true);
-            setNormalPrice(normalPriceVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-
-            const [intPart, decPart] = promoPriceVal.toFixed(2).split('.');
-            setPromoPrice(intPart);
-            setCentsText(`,${decPart}`);
-        } else {
-            // Sem promoção
-            setShowNormalPrice(false);
-            setShowDe(false);
-            setShowPor(true);
-            setShowPromoPrice(true);
-
-            const [intPart, decPart] = normalPriceVal.toFixed(2).split('.');
-            setPromoPrice(intPart);
-            setCentsText(`,${decPart}`);
-        }
-
         setIsDataFillModalOpen(false);
-        toast.success(`Dados de "${prodName}" aplicados na etiqueta!`);
+        toast.success(`Nome "${prodName}" aplicado na etiqueta!`);
     };
 
     const isInitializedRef = useRef(false);
@@ -1473,15 +1447,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
-                    {/* BOTÃO PREENCHER DADOS DA ETIQUETA / PUXAR PRODUTO */}
+                    {/* BOTÃO PREENCHER DADOS */}
                     <button
                         type="button"
                         onClick={() => setIsDataFillModalOpen(true)}
-                        title="Preencher valores da etiqueta ou puxar produto da lista de produtos"
+                        title="Preencher dados da etiqueta ou puxar produto da lista"
                         className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 active:scale-95 flex items-center gap-2 cursor-pointer shrink-0"
                     >
                         <i className="bi bi-pencil-square text-sm" />
-                        <span>Preencher Dados / Puxar Produto</span>
+                        <span>Preencher Dados</span>
                     </button>
 
                 </div>
