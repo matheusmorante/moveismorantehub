@@ -180,7 +180,18 @@ const Profile = () => {
                         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">{profile?.full_name || 'Usuário'}</h2>
                         <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mt-1">{profile?.role}</p>
 
-                        <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800">
+                        <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
+                            <a
+                                href="https://expo.dev/artifacts/eas/bsW1HSZvkwGOHeR6YUSMnr-CFBl4UTx6tW2AGfcSeeI.apk"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download="morantehub-v1.0.apk"
+                                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <i className="bi bi-download text-base"></i>
+                                Baixar App Mobile (v1.0)
+                            </a>
+
                             <button
                                 onClick={logout}
                                 className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"

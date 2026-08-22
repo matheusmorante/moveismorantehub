@@ -46,7 +46,7 @@ async function callAIBackend(endpoint: string, body: any) {
  * Chama diretamente a API Gemini (sem backend intermediário).
  * Lê o body de erro para expor o motivo real da falha (quota, chave inválida, etc.)
  */
-async function callGeminiDirect(prompt: string): Promise<string> {
+async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Promise<string> {
     const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY : '');
     const apiKey = (rawApiKey || '').trim();
     console.log("[Gemini API Key Check]:", apiKey ? `Carregada (${apiKey.substring(0, 10)}...)` : "Vazia/Não encontrada");
@@ -55,14 +55,25 @@ async function callGeminiDirect(prompt: string): Promise<string> {
     }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
+    const bodyPayload: any = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+            thinkingConfig: { thinkingBudget: 0 }
+        }
+    };
+
+    if (isJsonMode) {
+        bodyPayload.generationConfig.responseMimeType = "application/json";
+    }
+
     const response = await fetch(url, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-        })
+        body: JSON.stringify(bodyPayload)
     });
 
     if (!response.ok) {
@@ -537,5 +548,220 @@ REGRAS FINAIS:
             console.error("Erro ao aperfeiçoar descrição:", error);
             throw new Error(error?.message || "Falha ao aperfeiçoar descrição com o Gemini.");
         }
+    },
+
+    async parseOrderFromFreeText(
+        freeText: string, 
+        sellerList?: string[], 
+        customHandlingOptions?: string[]
+    ): Promise<{
+        rawJSON: any;
+        summary: string;
+        identifiedFields: {
+            clientName?: string;
+            clientPhone?: string;
+            clientAddress?: string;
+            sellerName?: string;
+            itemsCount?: number;
+            totalAmount?: number;
+            paymentMethod?: string;
+            deliveryMethod?: string;
+            schedulingDate?: string;
+        };
+        warnings: string[];
+        missingRequiredFields: string[];
+    }> {
+        if (!freeText || !freeText.trim()) {
+            throw new Error("Por favor, digite ou fale os dados do pedido antes de gerar.");
+        }
+
+        const validHandlingOptions = customHandlingOptions && customHandlingOptions.length > 0
+            ? customHandlingOptions
+            : [
+                "Na caixa > Montagem no deposito > Entregue montado",
+                "Na caixa > Montagem no local da entrega",
+                "De mostruário montado > Entregue montado",
+                "Na caixa > Montagem por conta do cliente",
+                "Item não necessita de montagem",
+                "De mostruário > Desmontagem do mostruário > Montagem na entrega",
+                "De mostruario > Entregue desmontado para o cliente montar"
+            ];
+
+        const validPaymentMethods = ["Pix", "Dinheiro", "Cartão de Crédito", "Cartão de Débito", "Promissória", "Boleto"];
+        const validDeliveryMethods = ["delivery", "pickup"];
+        const validConditions = ["novo", "salvado", "outlet"];
+        const validMarketingOrigins = ["paid", "organic"];
+
+        const sellersInfo = sellerList && sellerList.length > 0 
+            ? `LISTA OFICIAL DE VENDEDORES CADASTRADOS (Escolha exatamente um se identificado): ${sellerList.join(", ")}` 
+            : "";
+
+        const prompt = `Você é uma inteligência artificial especialista em ERP para a loja 'Móveis Morante'.
+Sua missão é extrair todas as informações de um pedido de venda a partir de um texto livre e retornar um JSON estrito para autopreenchimento do formulário de pedidos.
+
+REGRAS ABSOLUTAS E OBRIGATÓRIAS PARA CAMPOS DE SELEÇÃO (SELECTS):
+1. A IA É PROIBIDA DE INVENTAR, CRIAR OU ADICIONAR OPÇÕES QUE NÃO EXISTAM NAS LISTAS ABAIXO.
+2. Para cada campo de seleção, você DEVE selecionar ESTRITAMENTE e EXATAMENTE uma das opções válidas fornecidas, respeitando acentos, maiúsculas e minúsculas:
+
+• MANUSEIO DO PRODUTO ("handlingType"):
+  Escolha EXATAMENTE uma destas opções permitidas:
+  ${validHandlingOptions.map(o => `"${o}"`).join("\n  ")}
+
+• FORMA DE PAGAMENTO ("payments[].method"):
+  Escolha EXATAMENTE uma destas opções: ${validPaymentMethods.map(m => `"${m}"`).join(", ")}
+
+• MÉTODO DE ENVIO ("shipping.deliveryMethod"):
+  Escolha EXATAMENTE "delivery" (para entrega) ou "pickup" (para retirada na loja).
+
+• CONDIÇÃO DO ITEM ("items[].condition"):
+  Escolha EXATAMENTE "novo", "salvado" ou "outlet".
+
+• ORIGEM DE MARKETING ("client.marketingOrigin"):
+  Escolha EXATAMENTE "paid" (se for Tráfego Pago) ou "organic" (se for Orgânico).
+
+${sellersInfo}
+
+DATA ATUAL DE REFERÊNCIA: ${new Date().toISOString().split('T')[0]}
+
+ESTRUTURA DE EXTRAÇÃO:
+1. CLIENTE ("client"):
+   - "fullName": Nome completo do cliente.
+   - "phone": Telefone com DDD.
+   - "cpfCnpj": CPF ou CNPJ.
+   - "marketingOrigin": "paid" ou "organic".
+   - "fullAddress": Objeto com "street", "number", "neighborhood", "city", "state", "complement", "cep", "observation".
+   - Omita a chave "client" se não houver dados de cliente.
+
+2. PEDIDO ("order"):
+   - "seller": Nome do vendedor (Mapeie obrigatoriamente para a lista de vendedores se aplicável).
+   - "date": Data do pedido YYYY-MM-DD.
+   - "observation": Observações gerais.
+   - "shipping":
+     * "deliveryMethod": "delivery" ou "pickup".
+     * "value": Valor numérico do frete.
+     * "scheduling": { "notInformed": boolean, "dateType": "fixed"|"range", "date": "YYYY-MM-DD", "endDate"?: "YYYY-MM-DD", "type": "fixed"|"range", "time"?: "HH:MM", "startTime"?: "HH:MM", "endTime"?: "HH:MM" }
+   - "items": Array de produtos. Cada item:
+     * "description": Nome do produto/móvel.
+     * "quantity": Quantidade numérica (mínimo 1).
+     * "unitPrice": Preço unitário numérico.
+     * "handlingType": UMA DAS OPÇÕES PERMITIDAS LISTADAS ACIMA.
+     * "condition": "novo", "salvado" ou "outlet".
+   - "payments": Array de pagamentos. Cada pagamento:
+     * "method": UMA DAS FORMAS DE PAGAMENTO PERMITIDAS.
+     * "amount": Valor numérico.
+     * "status": "Pago" ou "Pendente".
+
+3. AVISOS E CAMPOS OBRIGATÓRIOS FALTANTES:
+   - "warnings": Array de avisos sobre dados incompletos.
+   - "missingRequiredFields": Array de campos essenciais ausentes (Ex: "Nome do cliente não informado", "Forma de pagamento não especificada", etc.).
+
+RETORNE EXCLUSIVAMENTE UM OBJETO JSON COM ESTA ESTRUTURA:
+{
+  "rawJSON": {
+    "client": { ... },
+    "order": { ... }
+  },
+  "summary": "Resumo amigável em 1 ou 2 linhas",
+  "identifiedFields": { ... },
+  "warnings": [ ... ],
+  "missingRequiredFields": [ ... ]
+}
+
+TEXTO INFORMADO PELO USUÁRIO:
+"""
+${freeText}
+"""`;
+
+        const textResponse = await callGeminiDirect(prompt);
+        let cleanJson = textResponse.trim();
+        if (cleanJson.startsWith('```json')) {
+            cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+        } else if (cleanJson.startsWith('```')) {
+            cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+        }
+
+        const match = cleanJson.match(/\{[\s\S]*\}/);
+        const jsonStr = match ? match[0] : cleanJson;
+        const parsed = JSON.parse(jsonStr);
+        const rawJSON = parsed.rawJSON || parsed;
+
+        // SANITIZAÇÃO RIGOROSA PÓS-IA (Garantia de 100% de conformidade com os selects)
+        if (rawJSON?.order) {
+            // 1. Sanitizar Vendedor
+            if (sellerList && sellerList.length > 0 && rawJSON.order.seller) {
+                const foundSeller = sellerList.find(s => 
+                    s.toLowerCase().trim() === String(rawJSON.order.seller).toLowerCase().trim() ||
+                    s.toLowerCase().includes(String(rawJSON.order.seller).toLowerCase()) ||
+                    String(rawJSON.order.seller).toLowerCase().includes(s.toLowerCase())
+                );
+                if (foundSeller) {
+                    rawJSON.order.seller = foundSeller;
+                }
+            }
+
+            // 2. Sanitizar Método de Envio
+            if (rawJSON.order.shipping?.deliveryMethod) {
+                if (!validDeliveryMethods.includes(rawJSON.order.shipping.deliveryMethod)) {
+                    rawJSON.order.shipping.deliveryMethod = "delivery";
+                }
+            }
+
+            // 3. Sanitizar Itens (HandlingType e Condition)
+            if (Array.isArray(rawJSON.order.items)) {
+                rawJSON.order.items = rawJSON.order.items.map((item: any) => {
+                    let hType = item.handlingType;
+                    if (hType) {
+                        const exactMatch = validHandlingOptions.find(opt => opt.toLowerCase().trim() === String(hType).toLowerCase().trim());
+                        if (exactMatch) {
+                            hType = exactMatch;
+                        } else {
+                            const partialMatch = validHandlingOptions.find(opt => opt.toLowerCase().includes(String(hType).toLowerCase()) || String(hType).toLowerCase().includes(opt.toLowerCase()));
+                            hType = partialMatch || validHandlingOptions[0];
+                        }
+                    } else {
+                        hType = validHandlingOptions[0];
+                    }
+
+                    let cond = (item.condition || "novo").toLowerCase();
+                    if (!validConditions.includes(cond)) {
+                        cond = "novo";
+                    }
+
+                    return {
+                        ...item,
+                        handlingType: hType,
+                        condition: cond
+                    };
+                });
+            }
+
+            // 4. Sanitizar Pagamentos (Method)
+            if (Array.isArray(rawJSON.order.payments)) {
+                rawJSON.order.payments = rawJSON.order.payments.map((pay: any) => {
+                    let method = pay.method || "Pix";
+                    const foundMethod = validPaymentMethods.find(m => m.toLowerCase() === String(method).toLowerCase());
+                    return {
+                        ...pay,
+                        method: foundMethod || "Pix"
+                    };
+                });
+            }
+        }
+
+        // Sanitizar Origem do Cliente
+        if (rawJSON?.client?.marketingOrigin) {
+            if (!validMarketingOrigins.includes(rawJSON.client.marketingOrigin)) {
+                rawJSON.client.marketingOrigin = "organic";
+            }
+        }
+
+        return {
+            rawJSON,
+            summary: parsed.summary || "Pedido analisado com sucesso pela IA.",
+            identifiedFields: parsed.identifiedFields || {},
+            warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+            missingRequiredFields: Array.isArray(parsed.missingRequiredFields) ? parsed.missingRequiredFields : []
+        };
     }
 };
+

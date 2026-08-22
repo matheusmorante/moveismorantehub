@@ -81,20 +81,21 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                         onAddNewSeller={onOpenSellerSearch}
                                     />
 
-                                    <label className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl">
-                                        <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                                            <i className="bi bi-calendar-event-fill" />
-                                        </span>
-                                        <span className="flex flex-col min-w-0">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Data do pedido</span>
-                                            <input
-                                                type="datetime-local"
-                                                value={state.orderDate}
-                                                onChange={(e) => actions.setOrderDate(e.target.value)}
-                                                className="bg-transparent border-0 p-0 focus:ring-0 text-sm font-black text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
-                                            />
-                                        </span>
-                                    </label>
+                                    <div className="flex flex-col relative w-full group">
+                                        <div className="flex items-center justify-between mb-2 ml-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                                <i className="bi bi-calendar-event text-blue-500 text-xs" />
+                                                Data do Pedido
+                                            </label>
+                                        </div>
+
+                                        <input
+                                            type="datetime-local"
+                                            value={state.orderDate}
+                                            onChange={(e) => actions.setOrderDate(e.target.value)}
+                                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-100 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]"
+                                        />
+                                    </div>
                                 </div>
                             </SectionCard>
                         </div>

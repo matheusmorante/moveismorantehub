@@ -48,15 +48,16 @@ export default function MobileAppLanding() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
-             <button 
-               onClick={() => {
-                 window.open('/morantehub.apk', '_blank');
-               }}
+             <a 
+               href="https://expo.dev/artifacts/eas/bsW1HSZvkwGOHeR6YUSMnr-CFBl4UTx6tW2AGfcSeeI.apk"
+               target="_blank"
+               rel="noopener noreferrer"
+               download="morantehub-v1.0.apk"
                className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95"
              >
                 <i className="bi bi-google-play text-xl"></i>
-                Download Android (.APK)
-             </button>
+                Download Android APK (v1.0)
+             </a>
 
              <button 
                onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}

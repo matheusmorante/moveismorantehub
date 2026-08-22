@@ -57,9 +57,11 @@ const mapToDB = (product: Partial<Product>) => {
 
     if (product.id !== undefined && product.id !== '') data.id = product.id;
     if (product.code !== undefined) data.code = product.code;
-    if (product.name !== undefined) {
-        data.name = product.name;
-        data.slug = product.name
+
+    const nameCandidate = product.name || product.title || product.marketplaceTitle || product.description;
+    if (nameCandidate !== undefined && nameCandidate !== '') {
+        data.name = nameCandidate;
+        data.slug = nameCandidate
             .toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
@@ -721,9 +723,19 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
             dbData.category_id = null;
         }
 
-        // Upsert no Supabase
-        const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
-        if (prodErr) throw prodErr;
+        // Salvar no Supabase (Update se o ID existir, senão Upsert)
+        if (dbData.id) {
+            const { error: updateErr } = await supabase.from(TABLE_NAME).update(dbData).eq('id', dbData.id);
+            if (updateErr) {
+                dbData.name = dbData.name || product.description || 'Produto Sem Nome';
+                const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
+                if (prodErr) throw prodErr;
+            }
+        } else {
+            dbData.name = dbData.name || product.description || 'Produto Sem Nome';
+            const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
+            if (prodErr) throw prodErr;
+        }
 
         // Atualizar category_id primário e sincronizar tabela product_categories
         if (product.id && Array.isArray(product.categoryIds)) {

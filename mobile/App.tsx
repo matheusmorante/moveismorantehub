@@ -174,26 +174,25 @@ function OrderDetailsBody({ order, isDarkMode }: { order: any; isDarkMode: boole
           }
 
           return (
-            <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {/* Observações Gerais do Pedido */}
               {generalList.map((obsText, gIdx) => (
                 <View 
                   key={`gen-${gIdx}`} 
                   style={{ 
-                    backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', 
-                    borderRadius: 14, 
-                    padding: 12, 
+                    backgroundColor: isDarkMode ? '#2d1c03' : '#fef3c7', 
+                    borderRadius: 12, 
+                    paddingVertical: 8, 
+                    paddingHorizontal: 12, 
                     borderWidth: 1, 
-                    borderColor: isDarkMode ? '#334155' : '#fde68a', 
-                    gap: 4 
+                    borderColor: isDarkMode ? '#78350f' : '#fde68a',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6
                   }}
                 >
-                  <View style={{ alignSelf: 'flex-start', backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }}>
-                      📌 OBSERVAÇÕES IMPORTANTES {generalList.length > 1 ? `#${gIdx + 1}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#1e293b', lineHeight: 18 }}>
+                  <Text style={{ fontSize: 13 }}>📌</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#fde68a' : '#92400e' }}>
                     {obsText}
                   </Text>
                 </View>
@@ -204,20 +203,19 @@ function OrderDetailsBody({ order, isDarkMode }: { order: any; isDarkMode: boole
                 <View 
                   key={`ship-${sIdx}`} 
                   style={{ 
-                    backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', 
-                    borderRadius: 14, 
-                    padding: 12, 
+                    backgroundColor: isDarkMode ? '#0f172a' : '#eff6ff', 
+                    borderRadius: 12, 
+                    paddingVertical: 8, 
+                    paddingHorizontal: 12, 
                     borderWidth: 1, 
-                    borderColor: isDarkMode ? '#334155' : '#bfdbfe', 
-                    gap: 4 
+                    borderColor: isDarkMode ? '#1e3a8a' : '#bfdbfe',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6
                   }}
                 >
-                  <View style={{ alignSelf: 'flex-start', backgroundColor: '#eff6ff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#1d4ed8', textTransform: 'uppercase' }}>
-                      🚚 OBSERVAÇÃO DE ENTREGA / LOGÍSTICA {shippingList.length > 1 ? `#${sIdx + 1}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#1e293b', lineHeight: 18 }}>
+                  <Text style={{ fontSize: 13 }}>🚚</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#93c5fd' : '#1e40af' }}>
                     {shipText}
                   </Text>
                 </View>
@@ -228,20 +226,19 @@ function OrderDetailsBody({ order, isDarkMode }: { order: any; isDarkMode: boole
                 <View 
                   key={`int-${iIdx}`} 
                   style={{ 
-                    backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', 
-                    borderRadius: 14, 
-                    padding: 12, 
+                    backgroundColor: isDarkMode ? '#1f132b' : '#f3e8ff', 
+                    borderRadius: 12, 
+                    paddingVertical: 8, 
+                    paddingHorizontal: 12, 
                     borderWidth: 1, 
-                    borderColor: isDarkMode ? '#334155' : '#e9d5ff', 
-                    gap: 4 
+                    borderColor: isDarkMode ? '#581c87' : '#e9d5ff',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6
                   }}
                 >
-                  <View style={{ alignSelf: 'flex-start', backgroundColor: '#f3e8ff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#7e22ce', textTransform: 'uppercase' }}>
-                      ⚙️ NOTA INTERNA DO VENDEDOR {internalList.length > 1 ? `#${iIdx + 1}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#1e293b', lineHeight: 18 }}>
+                  <Text style={{ fontSize: 13 }}>⚙️</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#d8b4fe' : '#6b21a8' }}>
                     {intText}
                   </Text>
                 </View>
@@ -487,7 +484,7 @@ function OrderDetailsBody({ order, isDarkMode }: { order: any; isDarkMode: boole
 }
 
 // Componente Nativo: Lista de Pedidos (100% React Native sem WebView)
-function NativeOrdersScreen({ isDarkMode }: { isDarkMode: boolean }) {
+function NativeOrdersScreen({ isDarkMode, isAdmin = true }: { isDarkMode: boolean; isAdmin?: boolean }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -686,16 +683,27 @@ function NativeOrdersScreen({ isDarkMode }: { isDarkMode: boolean }) {
                     )}
                   </View>
 
-                  <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation(); setEditingStatusOrder(item); }}
-                    style={{ backgroundColor: statusInfo.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                  >
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusInfo.text }} />
-                    <Text style={{ fontSize: 10, fontWeight: '900', color: statusInfo.text, textTransform: 'uppercase' }}>
-                      {statusInfo.label}
-                    </Text>
-                    <ChevronDown size={10} color={statusInfo.text} />
-                  </TouchableOpacity>
+                  {isAdmin ? (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); setEditingStatusOrder(item); }}
+                      style={{ backgroundColor: statusInfo.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    >
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusInfo.text }} />
+                      <Text style={{ fontSize: 10, fontWeight: '900', color: statusInfo.text, textTransform: 'uppercase' }}>
+                        {statusInfo.label}
+                      </Text>
+                      <ChevronDown size={10} color={statusInfo.text} />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={{ backgroundColor: statusInfo.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    >
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusInfo.text }} />
+                      <Text style={{ fontSize: 10, fontWeight: '900', color: statusInfo.text, textTransform: 'uppercase' }}>
+                        {statusInfo.label}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <Text style={{ fontSize: 14, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#0f172a', marginBottom: 6 }}>
@@ -770,19 +778,34 @@ function NativeOrdersScreen({ isDarkMode }: { isDarkMode: boolean }) {
               </View>
             </View>
 
-            <TouchableOpacity
-              onPress={() => setEditingStatusOrder(selectedDetailOrder)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 14,
-                backgroundColor: getStatusColor(selectedDetailOrder?.status || 'draft').bg
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '900', color: getStatusColor(selectedDetailOrder?.status || 'draft').text, textTransform: 'uppercase' }}>
-                {getStatusColor(selectedDetailOrder?.status || 'draft').label}
-              </Text>
-            </TouchableOpacity>
+            {isAdmin ? (
+              <TouchableOpacity
+                onPress={() => setEditingStatusOrder(selectedDetailOrder)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 14,
+                  backgroundColor: getStatusColor(selectedDetailOrder?.status || 'draft').bg
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '900', color: getStatusColor(selectedDetailOrder?.status || 'draft').text, textTransform: 'uppercase' }}>
+                  {getStatusColor(selectedDetailOrder?.status || 'draft').label}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 14,
+                  backgroundColor: getStatusColor(selectedDetailOrder?.status || 'draft').bg
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '900', color: getStatusColor(selectedDetailOrder?.status || 'draft').text, textTransform: 'uppercase' }}>
+                  {getStatusColor(selectedDetailOrder?.status || 'draft').label}
+                </Text>
+              </View>
+            )}
           </View>
           {/* Conteúdo com Scroll Vertical Extenso */}
           <OrderDetailsBody order={selectedDetailOrder} isDarkMode={isDarkMode} />
@@ -887,7 +910,7 @@ function NativeOrdersScreen({ isDarkMode }: { isDarkMode: boolean }) {
 }
 
 // Componente Nativo: Logística / Cronograma de Agendamentos (100% React Native sem WebView)
-function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boolean; onSelectOrder?: (order: any) => void }) {
+function NativeLogisticsScreen({ isDarkMode, isAdmin = true, onSelectOrder }: { isDarkMode: boolean; isAdmin?: boolean; onSelectOrder?: (order: any) => void }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1504,25 +1527,46 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
                     </Text>
                   </View>
 
-                  <TouchableOpacity
-                    onPress={() => handleStatusToggle(task.id, task.status)}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 14,
-                      backgroundColor: isDarkMode ? '#334155' : statusBg,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? '#475569' : statusBorder,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4
-                    }}
-                  >
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : statusColor, textTransform: 'uppercase' }}>
-                      {statusLabel}
-                    </Text>
-                  </TouchableOpacity>
+                  {isAdmin ? (
+                    <TouchableOpacity
+                      onPress={() => handleStatusToggle(task.id, task.status)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 14,
+                        backgroundColor: isDarkMode ? '#334155' : statusBg,
+                        borderWidth: 1,
+                        borderColor: isDarkMode ? '#475569' : statusBorder,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : statusColor, textTransform: 'uppercase' }}>
+                        {statusLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 14,
+                        backgroundColor: isDarkMode ? '#334155' : statusBg,
+                        borderWidth: 1,
+                        borderColor: isDarkMode ? '#475569' : statusBorder,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: isDarkMode ? '#f8fafc' : statusColor, textTransform: 'uppercase' }}>
+                        {statusLabel}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* 3. Nome do Cliente (Caixa Alta / Negrito) */}
@@ -4188,7 +4232,10 @@ Texto base para refinamento: "${smartText}"`;
     }
   };
 
-  const canSeeReports = userProfile?.role === 'administrator' || userProfile?.role === 'manager';
+  const roleStr = (userProfile?.role || 'administrator').toLowerCase();
+  const isAdmin = roleStr === 'administrator' || roleStr === 'admin' || roleStr === 'master' || roleStr === 'administrador';
+  const isAssemblerDriver = roleStr === 'assembler_driver' || roleStr === 'montador' || roleStr === 'entregador' || roleStr === 'driver' || roleStr === 'assembler' || roleStr === 'montador_entregador' || roleStr === 'montador/entregador';
+  const canSeeReports = !isAssemblerDriver && (isAdmin || roleStr === 'manager');
 
   // Se estiver na tela de login ou não tiver perfil autenticado, exibe login 100% Nativo Mobile
   if (currentTab === 'login' || !userProfile) {
@@ -4707,22 +4754,24 @@ Texto base para refinamento: "${smartText}"`;
             </View>
           </ScrollView>
         ) : currentTab === 'pedidos' ? (
-          <NativeOrdersScreen isDarkMode={isDarkMode} />
+          <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} />
         ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
-          <NativeLogisticsScreen isDarkMode={isDarkMode} onSelectOrder={(order) => setAppSelectedOrder(order)} />
+          <NativeLogisticsScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={(order) => setAppSelectedOrder(order)} />
         ) : currentTab === 'montagens' ? (
           <NativeAssembliesScreen 
             isDarkMode={isDarkMode} 
             initialSubTab={assemblySubTab}
             onSelectOrder={(order) => setAppSelectedOrder(order)} 
           />
-        ) : (
+        ) : canSeeReports ? (
           <NativeReportsScreen isDarkMode={isDarkMode} />
+        ) : (
+          <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} />
         )}
       </View>
 
       {/* Barra de Navegação Nativa */}
-      <View style={styles.bottomNav}>
+      <View style={[styles.bottomNav, isDarkMode && { backgroundColor: '#0f172a', borderTopColor: '#1e293b' }]}>
         <TouchableOpacity 
           style={[styles.navItem, currentTab === 'home' && styles.navItemActive]}
           onPress={() => handleTabChange('home', WEB_URL)}
@@ -4855,7 +4904,7 @@ Texto base para refinamento: "${smartText}"`;
                 <View style={styles.roleBadgeContainer}>
                   <ShieldCheck size={12} color="#10b981" style={{ marginRight: 4 }} />
                   <Text style={styles.roleBadgeText}>
-                    {userProfile?.role === 'administrator' ? 'Administrador Master' : (userProfile?.role || 'Colaborador')}
+                    {isAdmin ? 'Administrador Master' : isAssemblerDriver ? 'Montador / Entregador' : (userProfile?.role === 'seller' ? 'Vendedor' : (userProfile?.role || 'Colaborador'))}
                   </Text>
                 </View>
               </View>
@@ -5362,12 +5411,13 @@ const styles = StyleSheet.create({
   infoBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#334155', padding: 16, borderRadius: 20, marginTop: 25 },
   infoText: { flex: 1, fontSize: 10, fontWeight: '600', color: '#f8fafc', lineHeight: 16 },
   bottomNav: {
-    height: 75,
+    height: Platform.OS === 'ios' ? 92 : 88,
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
-    paddingBottom: 15,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 25,
     justifyContent: 'space-around',
     alignItems: 'center',
   },

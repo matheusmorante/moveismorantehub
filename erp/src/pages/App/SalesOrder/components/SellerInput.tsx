@@ -8,6 +8,7 @@ interface SellerInputProps {
     onAddNewSeller?: () => void;
     placeholder?: string;
     className?: string;
+    isAIFilling?: boolean;
 }
 
 export const SellerInput: React.FC<SellerInputProps> = ({
@@ -15,7 +16,8 @@ export const SellerInput: React.FC<SellerInputProps> = ({
     onChange,
     onAddNewSeller,
     placeholder = "Digite para buscar vendedor...",
-    className = ""
+    className = "",
+    isAIFilling = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [employees, setEmployees] = useState<Person[]>([]);
@@ -54,44 +56,57 @@ export const SellerInput: React.FC<SellerInputProps> = ({
     });
 
     return (
-        <div ref={containerRef} className={`relative flex-1 ${className}`}>
-            <div className="flex items-center gap-3 w-full p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all cursor-text">
-                <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <i className="bi bi-person-badge-fill text-lg" />
-                </span>
-                <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Vendedor</span>
-                    <input
-                        type="text"
-                        value={filterText}
-                        onChange={(e) => {
-                            const newVal = e.target.value;
-                            setFilterText(newVal);
-                            onChange(newVal);
-                            setIsOpen(true);
-                        }}
-                        onFocus={() => setIsOpen(true)}
-                        placeholder={placeholder}
-                        className="bg-transparent border-0 p-0 focus:ring-0 text-sm font-black text-slate-800 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal outline-none w-full"
-                    />
-                </div>
-                {filterText ? (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setFilterText('');
-                            onChange('');
-                            setIsOpen(true);
-                        }}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 transition-colors"
-                        title="Limpar vendedor"
-                    >
-                        <i className="bi bi-x-circle-fill text-sm" />
-                    </button>
-                ) : (
-                    <i className="bi bi-chevron-down text-xs text-slate-400" />
+        <div ref={containerRef} className={`relative flex-1 flex flex-col group ${className}`}>
+            <div className="flex items-center justify-between mb-2 ml-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                    <i className="bi bi-person-badge text-blue-500 text-xs" />
+                    Vendedor
+                </label>
+
+                {isAIFilling && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm animate-pulse">
+                        <i className="bi bi-stars" /> IA trabalhando neste campo...
+                    </span>
                 )}
+            </div>
+
+            <div className="relative flex items-center">
+                <input
+                    type="text"
+                    value={filterText}
+                    onChange={(e) => {
+                        const newVal = e.target.value;
+                        setFilterText(newVal);
+                        onChange(newVal);
+                        setIsOpen(true);
+                    }}
+                    onFocus={() => setIsOpen(true)}
+                    placeholder={placeholder}
+                    className={`w-full bg-slate-50 dark:bg-slate-900 border px-4 py-3 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none transition-all ${
+                        isAIFilling
+                        ? 'border-violet-500 ring-4 ring-violet-500/30 shadow-lg shadow-violet-500/20 animate-pulse bg-violet-50/20 dark:bg-violet-950/20'
+                        : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                    }`}
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {filterText ? (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setFilterText('');
+                                onChange('');
+                                setIsOpen(true);
+                            }}
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                            title="Limpar vendedor"
+                        >
+                            <i className="bi bi-x-circle-fill text-sm" />
+                        </button>
+                    ) : (
+                        <i className={`bi bi-chevron-down text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    )}
+                </div>
             </div>
 
             {/* Dropdown Modal que aparece diretamente abaixo do campo de texto com base no filtro */}

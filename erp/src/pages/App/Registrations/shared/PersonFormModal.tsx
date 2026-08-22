@@ -419,8 +419,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 required
                                 value={formData.fullName}
                                 onValueChange={(val) => setFormData({ ...formData, fullName: val })}
-                                tableName="people"
-                                columnName="full_name"
+                                disableSuggestions={true}
                                 placeholder={isEmployee ? 'Nome do Funcionário' : (formData.personType === 'PJ' ? 'Razão Social da Empresa' : 'Nome do Cliente')}
                                 icon="bi-person"
                             />

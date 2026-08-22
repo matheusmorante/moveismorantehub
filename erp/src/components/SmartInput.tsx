@@ -13,6 +13,7 @@ interface SmartInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     error?: boolean;
     isSelected?: boolean;
     forceSelection?: boolean; // If true, requires selecting from list, else reverts
+    disableSuggestions?: boolean;
 }
 
 const SmartInput: React.FC<SmartInputProps> = ({
@@ -28,6 +29,7 @@ const SmartInput: React.FC<SmartInputProps> = ({
     error,
     isSelected = false,
     forceSelection = false,
+    disableSuggestions = false,
     ...props
 }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +44,7 @@ const SmartInput: React.FC<SmartInputProps> = ({
 
     // Fetch dynamic suggestions if table and column are provided
     useEffect(() => {
-        if (!tableName || !columnName) return;
+        if (disableSuggestions || !tableName || !columnName) return;
 
         const fetchRecent = async () => {
             try {
@@ -66,15 +68,17 @@ const SmartInput: React.FC<SmartInputProps> = ({
         };
 
         fetchRecent();
-    }, [tableName, columnName]);
+    }, [tableName, columnName, disableSuggestions]);
 
     const allSuggestions = useMemo(() => {
+        if (disableSuggestions) return [];
         const combined = [...new Set([...patterns, ...suggestions, ...dynamicSuggestions])];
         return combined;
-    }, [patterns, suggestions, dynamicSuggestions]);
+    }, [patterns, suggestions, dynamicSuggestions, disableSuggestions]);
 
     const filteredSuggestions = useMemo(() => {
-        const query = (String(inputValue || "")).toLowerCase();
+        if (disableSuggestions) return [];
+        const query = (String(inputValue || "")).toLowerCase().trim();
         if (!query) return allSuggestions.slice(0, 10); 
 
         const patternMatches = patterns.filter(s => s.toLowerCase().startsWith(query));
@@ -87,23 +91,12 @@ const SmartInput: React.FC<SmartInputProps> = ({
             !otherMatches.includes(s)
         );
 
-        const results = [...patternMatches, ...otherMatches, ...containsMatches].slice(0, 30);
-        
-        // Add "Usar..." option for new entries if not an exact match
-        if (query && !results.some(s => s.toLowerCase() === query)) {
-            results.unshift(`Usar "${inputValue}"`);
-        }
-
-        return results;
-    }, [inputValue, allSuggestions, patterns]);
+        return [...patternMatches, ...otherMatches, ...containsMatches].slice(0, 30);
+    }, [inputValue, allSuggestions, patterns, disableSuggestions]);
 
     const handleSelect = (suggestion: string) => {
-        let finalValue = suggestion;
-        if (suggestion.startsWith('Usar "') && suggestion.endsWith('"')) {
-            finalValue = suggestion.slice(6, -1);
-        }
-        setInputValue(finalValue);
-        onValueChange(finalValue);
+        setInputValue(suggestion);
+        onValueChange(suggestion);
         setIsOpen(false);
     };
 
@@ -121,8 +114,8 @@ const SmartInput: React.FC<SmartInputProps> = ({
     }, [value, forceSelection]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (!isOpen) {
-            if (e.key === "ArrowDown") setIsOpen(true);
+        if (!isOpen || disableSuggestions) {
+            if (e.key === "ArrowDown" && !disableSuggestions) setIsOpen(true);
             return;
         }
 
@@ -161,10 +154,14 @@ const SmartInput: React.FC<SmartInputProps> = ({
                         if (!forceSelection) {
                             onValueChange(val); // Update parent immediately for non-selection fields
                         }
-                        setIsOpen(true);
+                        if (!disableSuggestions) {
+                            setIsOpen(true);
+                        }
                         setActiveIndex(-1);
                     }}
-                    onFocus={() => setIsOpen(true)}
+                    onFocus={() => {
+                        if (!disableSuggestions) setIsOpen(true);
+                    }}
                     onKeyDown={handleKeyDown}
                     className={`w-full ${icon ? 'pl-11' : 'px-4'} py-4 bg-slate-50 dark:bg-slate-950 rounded-2xl outline-none transition-all text-sm font-bold dark:text-slate-100 
                         ${error 
@@ -175,27 +172,26 @@ const SmartInput: React.FC<SmartInputProps> = ({
                         ${className}`}
                 />
 
-                <DropdownPortal anchorRef={containerRef} isOpen={isOpen && filteredSuggestions.length > 0}>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-2 flex flex-col gap-1 max-h-60 overflow-y-auto custom-scrollbar">
-                            {filteredSuggestions.map((suggestion, index) => (
-                                <button
-                                    key={index}
-                                    type="button"
-                                    onClick={() => handleSelect(suggestion)}
-                                    onMouseEnter={() => setActiveIndex(index)}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${index === activeIndex ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
-                                >
-                                    <i className={`bi ${index === activeIndex ? 'bi-check2' : 'bi-plus'} text-sm opacity-50`} />
-                                    <span className="text-sm font-bold">{suggestion}</span>
-                                </button>
-                            ))}
+                {!disableSuggestions && (
+                    <DropdownPortal anchorRef={containerRef} isOpen={isOpen && filteredSuggestions.length > 0}>
+                        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-2 flex flex-col gap-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                {filteredSuggestions.map((suggestion, index) => (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() => handleSelect(suggestion)}
+                                        onMouseEnter={() => setActiveIndex(index)}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${index === activeIndex ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                        <i className={`bi ${index === activeIndex ? 'bi-check2' : 'bi-person'} text-sm opacity-50`} />
+                                        <span className="text-sm font-bold">{suggestion}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Sugestões inteligentes</p>
-                        </div>
-                    </div>
-                </DropdownPortal>
+                    </DropdownPortal>
+                )}
             </div>
         </div>
     );

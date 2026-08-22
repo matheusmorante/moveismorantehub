@@ -581,9 +581,7 @@ export const useProducts = (filters?: any) => {
                 const { error: productError } = await supabase
                     .from('products')
                     .update({ status: newStatus })
-                    .eq('id', id)
-                    .select('id')
-                    .single();
+                    .eq('id', id);
                 if (productError) throw productError;
             }
 
