@@ -117,7 +117,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
     return (
         <div
-            className="fixed inset-0 z-50 flex flex-col lg:hidden"
+            className="fixed inset-0 z-[99999] flex flex-col lg:hidden"
             style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15,23,42,0.75)' }}
         >
             {/* Modal Fullscreen */}

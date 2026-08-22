@@ -82,7 +82,7 @@ export default function AppLayout() {
 
       {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
       {!isMobileAppView && (
-        <header className="w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 z-50 shadow-premium transition-all duration-500">
+        <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 ${activeMenu ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
           <div className="flex items-center gap-6 xl:gap-12 h-full">
             <button
               className="lg:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
@@ -143,7 +143,7 @@ export default function AppLayout() {
               </button>
 
               {/* Menu Dropdown */}
-              <div className="absolute top-full pt-2 right-0 w-64 opacity-0 scale-95 origin-top-right translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-500 z-[60]">
+              <div className="absolute top-full pt-2 right-0 w-64 opacity-0 scale-95 origin-top-right translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-500 z-[99999]">
                 <div className="bg-white/80 dark:bg-slate-900/80 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-premium-lg p-3 backdrop-blur-2xl">
                   <div className="p-5 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-3 text-center">
                     <p className="text-xs font-black text-slate-800 dark:text-slate-100 mb-1">{profile?.full_name || 'Usuário'}</p>

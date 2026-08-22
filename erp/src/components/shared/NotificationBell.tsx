@@ -90,7 +90,7 @@ const NotificationBell: React.FC = () => {
 
             {/* Dropdown */}
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-[360px] max-h-[520px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl z-[60] flex flex-col overflow-hidden animate-slide-up">
+                <div className="absolute top-full right-0 mt-2 w-[360px] max-h-[520px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl z-[99999] flex flex-col overflow-hidden animate-slide-up">
                     {/* Header */}
                     <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
                         <div className="flex items-center gap-3">

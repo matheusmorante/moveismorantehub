@@ -172,11 +172,14 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         }
     }, [id, order, navigate, orderId]);
 
+    const loadedOrderIdRef = useRef<string | null>(null);
+
     useEffect(() => {
-        if (effectiveOrder && effectiveOrder.id) {
+        if (effectiveOrder && effectiveOrder.id && loadedOrderIdRef.current !== effectiveOrder.id) {
+            loadedOrderIdRef.current = effectiveOrder.id;
             form.actions.loadOrderForEditing(effectiveOrder);
         }
-    }, [effectiveOrder?.id, form.actions.loadOrderForEditing]);
+    }, [effectiveOrder, form.actions]);
 
     const handleUpdate = useCallback(async (e?: React.MouseEvent) => {
         e?.preventDefault();

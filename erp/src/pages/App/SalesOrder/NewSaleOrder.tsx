@@ -146,13 +146,17 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
         }
     }, [applyOrderData]);
 
+    const loadedInitialRef = React.useRef(false);
     React.useEffect(() => {
+        if (loadedInitialRef.current) return;
         if (initialOrder) {
+            loadedInitialRef.current = true;
             form.actions.loadOrderForEditing(initialOrder);
         } else if (searchParams.get("duplicate") === "true") {
             const dupData = sessionStorage.getItem("pdv_duplicate_order");
             if (dupData) {
                 try {
+                    loadedInitialRef.current = true;
                     const parsed = JSON.parse(dupData);
                     form.actions.loadOrderForEditing(parsed);
                     sessionStorage.removeItem("pdv_duplicate_order");

@@ -470,7 +470,11 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         seller,
         marketingOrigin,
         date: formatToStorageDate(orderDate),
-    }), [currentOrderId, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate]);
+        assistanceItems,
+        assistanceServiceValue,
+        assistanceCost,
+        linkedOrderId,
+    }), [currentOrderId, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, orderType]);
 
     const isValidForCompletion = useMemo(() => validateBase(getOrderData('scheduled')), [getOrderData]);
 
