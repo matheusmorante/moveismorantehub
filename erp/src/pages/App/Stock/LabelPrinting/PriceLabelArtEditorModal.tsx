@@ -179,6 +179,162 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
     const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
 
+    // ESTADO DO MODAL DE PREENCHIMENTO DE DADOS / BUSCA DE PRODUTO DA LISTA
+    const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
+    const [dataFillTab, setDataFillTab] = useState<'search' | 'manual'>('search');
+    const [productSearchTerm, setProductSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+
+    const extractProductName = (prod: any): string => {
+        const candidate = prod.name || prod.title || prod.marketplaceTitle || prod.description || 'PRODUTO SEM NOME';
+        return String(candidate).split('\n')[0].trim().toUpperCase();
+    };
+
+    // Efeito para buscar produtos no Supabase e no Cache Local quando o usuário digita na aba de busca
+    useEffect(() => {
+        if (!isDataFillModalOpen || dataFillTab !== 'search') return;
+        
+        let isCurrent = true;
+        const timer = setTimeout(async () => {
+            setIsSearchingProducts(true);
+            try {
+                // 1. Coletar do localStorage como primeira fonte instantânea
+                let localItems: any[] = [];
+                try {
+                    const rawLocal = localStorage.getItem('local_products');
+                    if (rawLocal) {
+                        const parsed = JSON.parse(rawLocal);
+                        if (Array.isArray(parsed)) localItems = parsed;
+                    }
+                } catch (e) {}
+
+                const term = productSearchTerm.trim().toLowerCase();
+
+                // Filtrar itens do cache local se houver busca
+                let filteredLocal = localItems;
+                if (term) {
+                    filteredLocal = localItems.filter((p: any) => {
+                        const desc = String(p.name || p.title || p.marketplaceTitle || p.description || '').toLowerCase();
+                        const code = String(p.code || p.sku || '').toLowerCase();
+                        return desc.includes(term) || code.includes(term);
+                    });
+                }
+
+                // 2. Buscar também no Supabase para garantir produtos recém-criados no banco
+                let dbData: any[] = [];
+                try {
+                    let query = supabase
+                        .from('products')
+                        .select('*, product_images(*)')
+                        .eq('deleted', false)
+                        .order('created_at', { ascending: false })
+                        .limit(40);
+
+                    if (term) {
+                        query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`);
+                    }
+
+                    const res = await query;
+                    if (res.data) dbData = res.data;
+                } catch (dbErr) {
+                    console.warn('[Etiqueta] Aviso ao consultar Supabase:', dbErr);
+                }
+
+                if (isCurrent) {
+                    const combinedMap = new Map();
+
+                    // Adicionar do localStorage primeiro
+                    filteredLocal.forEach((p: any) => {
+                        if (p && p.id) {
+                            combinedMap.set(String(p.id), {
+                                id: String(p.id),
+                                name: extractProductName(p),
+                                description: extractProductName(p),
+                                code: p.code || p.sku || '',
+                                unit_price: p.unitPrice ?? p.price ?? p.unit_price ?? 0,
+                                promo_price: p.promoPrice ?? p.promo_price ?? 0,
+                                images: Array.isArray(p.images) ? p.images : (p.image_url ? [p.image_url] : [])
+                            });
+                        }
+                    });
+
+                    // Complementar com do Supabase
+                    if (Array.isArray(dbData)) {
+                        dbData.forEach((p: any) => {
+                            let imgs: string[] = [];
+                            if (Array.isArray(p.product_images) && p.product_images.length > 0) {
+                                imgs = p.product_images.map((imgObj: any) => imgObj.image_url).filter(Boolean);
+                            } else if (Array.isArray(p.images)) {
+                                imgs = p.images;
+                            } else if (p.image_url) {
+                                imgs = [p.image_url];
+                            }
+
+                            const resolvedName = extractProductName(p);
+                            combinedMap.set(String(p.id), {
+                                id: String(p.id),
+                                name: resolvedName,
+                                description: resolvedName,
+                                code: p.code || p.sku || '',
+                                unit_price: p.price ?? p.unit_price ?? 0,
+                                promo_price: p.promo_price ?? 0,
+                                images: imgs
+                            });
+                        });
+                    }
+
+                    setSearchResults(Array.from(combinedMap.values()));
+                }
+            } catch (e) {
+                console.error("Erro ao buscar produtos para etiqueta:", e);
+            } finally {
+                if (isCurrent) setIsSearchingProducts(false);
+            }
+        }, 150);
+
+        return () => {
+            isCurrent = false;
+            clearTimeout(timer);
+        };
+    }, [isDataFillModalOpen, dataFillTab, productSearchTerm]);
+
+    // Função para aplicar os dados de um produto selecionado da lista
+    const handleApplyProductToLabel = (prod: any) => {
+        const prodName = extractProductName(prod);
+        setTitle(prodName);
+        setShowTitle(true);
+
+        const normalPriceVal = Number(prod.unit_price || 0);
+        const promoPriceVal = Number(prod.promo_price || 0);
+
+        if (promoPriceVal > 0 && promoPriceVal < normalPriceVal) {
+            // Há promoção: Preço normal no "DE:", preço promocional no "POR:"
+            setShowNormalPrice(true);
+            setShowDe(true);
+            setShowPor(true);
+            setShowPromoPrice(true);
+            setNormalPrice(normalPriceVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+            const [intPart, decPart] = promoPriceVal.toFixed(2).split('.');
+            setPromoPrice(intPart);
+            setCentsText(`,${decPart}`);
+        } else {
+            // Sem promoção
+            setShowNormalPrice(false);
+            setShowDe(false);
+            setShowPor(true);
+            setShowPromoPrice(true);
+
+            const [intPart, decPart] = normalPriceVal.toFixed(2).split('.');
+            setPromoPrice(intPart);
+            setCentsText(`,${decPart}`);
+        }
+
+        setIsDataFillModalOpen(false);
+        toast.success(`Dados de "${prodName}" aplicados na etiqueta!`);
+    };
+
     const isInitializedRef = useRef(false);
     const previewRef = useRef<HTMLDivElement>(null);
     
@@ -937,6 +1093,38 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         }
     };
 
+    // SELEÇÃO UNIFICADA PLANO CARTESIANO (TIPO DE ETIQUETA X GRANDEZA)
+    const handleSelectCartesianPreset = (newOppId: string, newMag: 'tens' | 'hundreds' | 'thousands') => {
+        if (newOppId !== selectedOppId) {
+            setSelectedOppId(newOppId);
+            const oppSaved = localStorage.getItem(getOppTemplateKey(newOppId));
+            let loadedSnapshot: any = null;
+            if (oppSaved) {
+                try {
+                    loadedSnapshot = JSON.parse(oppSaved);
+                } catch (e) {}
+            }
+            if (!loadedSnapshot) {
+                const salvadoSaved = localStorage.getItem(getOppTemplateKey('salvado')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+                if (salvadoSaved) {
+                    try { loadedSnapshot = JSON.parse(salvadoSaved); } catch (e) {}
+                }
+            }
+            if (loadedSnapshot) {
+                applySnapshot({
+                    ...loadedSnapshot,
+                    selectedOppId: newOppId,
+                    selectedMagnitude: newMag
+                });
+                return;
+            }
+        }
+
+        if (newMag !== selectedMagnitude) {
+            handleSwitchMagnitude(newMag);
+        }
+    };
+
     // APLICAÇÃO DE COR
     const handleColorSelect = (newColor: string) => {
         if (selectedElement === 'title') setTitleColor(newColor);
@@ -1257,41 +1445,44 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
-                    {/* SELETOR DE TIPO DE ETIQUETA */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-                            Tipo de Etiqueta:
-                        </span>
+                    {/* SELETOR UNIFICADO: PLANO CARTESIANO (TIPO DE ETIQUETA × GRANDEZA) */}
+                    <div className="flex items-center shrink-0">
                         <select
-                            value={selectedOppId}
-                            onChange={(e) => handleSelectOpportunityContext(e.target.value)}
-                            className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
+                            value={`${selectedOppId}___${selectedMagnitude}`}
+                            onChange={(e) => {
+                                const [oppId, mag] = e.target.value.split('___');
+                                handleSelectCartesianPreset(oppId, mag as 'tens' | 'hundreds' | 'thousands');
+                            }}
+                            className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 text-slate-900 dark:text-white border border-blue-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs max-w-[340px] sm:max-w-[420px] truncate"
                         >
-                            {allOppOptions.map(opt => (
-                                <option key={opt.id} value={opt.id}>
-                                    {opt.name}
-                                </option>
+                            {allOppOptions.map(opp => (
+                                <optgroup key={opp.id} label={`🏷️ ETIQUETA: ${opp.name}`}>
+                                    <option value={`${opp.id}___tens`}>
+                                        {opp.name} — Dezena (Preços até R$ 99)
+                                    </option>
+                                    <option value={`${opp.id}___hundreds`}>
+                                        {opp.name} — Centena (Preços de R$ 100 a R$ 999)
+                                    </option>
+                                    <option value={`${opp.id}___thousands`}>
+                                        {opp.name} — Milhar (Preços de R$ 1.000 ou mais)
+                                    </option>
+                                </optgroup>
                             ))}
                         </select>
                     </div>
 
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
-                    {/* SELETOR GLOBAL DE ORDEM DE GRANDEZA NO MENU SUPERIOR */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wide">
-                            Grandeza:
-                        </span>
-                        <select
-                            value={selectedMagnitude}
-                            onChange={e => handleSwitchMagnitude(e.target.value as 'tens' | 'hundreds' | 'thousands')}
-                            className="bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 rounded-xl px-2.5 py-1 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
-                        >
-                            <option value="tens">Dezena (R$ 99)</option>
-                            <option value="hundreds">Centena (R$ 999)</option>
-                            <option value="thousands">Milhar (R$ 1.499)</option>
-                        </select>
-                    </div>
+                    {/* BOTÃO PREENCHER DADOS DA ETIQUETA / PUXAR PRODUTO */}
+                    <button
+                        type="button"
+                        onClick={() => setIsDataFillModalOpen(true)}
+                        title="Preencher valores da etiqueta ou puxar produto da lista de produtos"
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 active:scale-95 flex items-center gap-2 cursor-pointer shrink-0"
+                    >
+                        <i className="bi bi-pencil-square text-sm" />
+                        <span>Preencher Dados / Puxar Produto</span>
+                    </button>
 
                 </div>
 
@@ -1998,6 +2189,249 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Preenchimento de Dados da Etiqueta / Puxar Produto (zIndex: 9999) */}
+            {isDataFillModalOpen && (
+                <div 
+                    style={{ zIndex: 9999 }}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+                >
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
+                        {/* Topo do Modal */}
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg font-black">
+                                    <i className="bi bi-pencil-square" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                                        Dados da Etiqueta de Preço
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-bold">
+                                        Preencha manualmente os campos ou selecione um produto do catálogo
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => setIsDataFillModalOpen(false)} 
+                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
+                            >
+                                <i className="bi bi-x-lg text-sm" />
+                            </button>
+                        </div>
+
+                        {/* Navegação por Abas do Modal */}
+                        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl mb-4 shrink-0 border border-slate-200 dark:border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setDataFillTab('search')}
+                                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                                    dataFillTab === 'search'
+                                        ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md'
+                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                }`}
+                            >
+                                <i className="bi bi-search text-sm" />
+                                <span>Puxar Produto da Lista</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDataFillTab('manual')}
+                                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                                    dataFillTab === 'manual'
+                                        ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md'
+                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                }`}
+                            >
+                                <i className="bi bi-sliders text-sm" />
+                                <span>Preenchimento Manual</span>
+                            </button>
+                        </div>
+
+                        {/* Conteúdo Aba 1: Puxar Produto da Lista */}
+                        {dataFillTab === 'search' && (
+                            <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-3">
+                                {/* Campo de Busca */}
+                                <div className="relative shrink-0">
+                                    <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                                    <input
+                                        type="text"
+                                        value={productSearchTerm}
+                                        onChange={(e) => setProductSearchTerm(e.target.value)}
+                                        placeholder="Digite o nome, código ou SKU do produto..."
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                                    />
+                                    {isSearchingProducts && (
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                            <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Lista de Resultados */}
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1 min-h-[220px]">
+                                    {searchResults.length === 0 ? (
+                                        <div className="py-12 text-center text-slate-400">
+                                            <i className="bi bi-box-seam text-3xl mb-2 block text-slate-300 dark:text-slate-700" />
+                                            <p className="text-xs font-bold">Nenhum produto encontrado</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">Digite um termo no campo acima para pesquisar no catálogo do ERP</p>
+                                        </div>
+                                    ) : (
+                                        searchResults.map(prod => {
+                                            const name = extractProductName(prod);
+                                            const hasPromo = Number(prod.promo_price || 0) > 0;
+                                            const mainImage = Array.isArray(prod.images) && prod.images.length > 0 ? prod.images[0] : null;
+
+                                            return (
+                                                <div
+                                                    key={prod.id}
+                                                    onClick={() => handleApplyProductToLabel(prod)}
+                                                    className="p-3 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl flex items-center justify-between transition-all cursor-pointer group"
+                                                >
+                                                    <div className="flex items-center gap-3.5 min-w-0">
+                                                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+                                                            {mainImage ? (
+                                                                <img src={mainImage} alt={name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <i className="bi bi-image text-slate-300 text-lg" />
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="text-xs font-black text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors uppercase">
+                                                                {name}
+                                                            </h4>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                {prod.code && (
+                                                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-md uppercase">
+                                                                        CÓD: {prod.code}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 shrink-0 text-right">
+                                                        <div>
+                                                            {hasPromo ? (
+                                                                <>
+                                                                    <span className="text-[10px] text-slate-400 line-through block font-bold">
+                                                                        R$ {Number(prod.unit_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    </span>
+                                                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 block">
+                                                                        R$ {Number(prod.promo_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-sm font-black text-slate-800 dark:text-white block">
+                                                                    R$ {Number(prod.unit_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider group-hover:bg-emerald-700 shadow-sm transition"
+                                                        >
+                                                            Puxar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Conteúdo Aba 2: Preenchimento Manual */}
+                        {dataFillTab === 'manual' && (
+                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1 min-h-[220px]">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase">Nome / Título do Produto</label>
+                                    <input
+                                        type="text"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value.toUpperCase())}
+                                        placeholder="Ex: COLCHÃO DE ESPUMA D28..."
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase">Preço Normal (DE:)</label>
+                                        <input
+                                            type="text"
+                                            value={normalPrice}
+                                            onChange={(e) => setNormalPrice(e.target.value)}
+                                            placeholder="Ex: 499,00"
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase">Preço Principal Reais (POR:)</label>
+                                        <input
+                                            type="text"
+                                            value={promoPrice}
+                                            onChange={(e) => setPromoPrice(e.target.value)}
+                                            placeholder="Ex: 299"
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase">Centavos</label>
+                                        <input
+                                            type="text"
+                                            value={centsText}
+                                            onChange={(e) => setCentsText(e.target.value)}
+                                            placeholder="Ex: ,00"
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase">Símbolo da Moeda</label>
+                                        <input
+                                            type="text"
+                                            value={currencySymbol}
+                                            onChange={(e) => setCurrencySymbol(e.target.value)}
+                                            placeholder="Ex: R$"
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase">Frase de Parcelamento</label>
+                                    <input
+                                        type="text"
+                                        value={installments}
+                                        onChange={(e) => setInstallments(e.target.value)}
+                                        placeholder="Ex: Em até 10x sem juros no cartão"
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsDataFillModalOpen(false);
+                                        toast.success("Campos atualizados na etiqueta!");
+                                    }}
+                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md mt-2 cursor-pointer"
+                                >
+                                    Aplicar na Etiqueta
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

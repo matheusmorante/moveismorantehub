@@ -182,11 +182,9 @@ const Profile = () => {
 
                         <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
                             <a
-                                href="https://expo.dev/artifacts/eas/bsW1HSZvkwGOHeR6YUSMnr-CFBl4UTx6tW2AGfcSeeI.apk"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
                                 download="morantehub-v1.0.apk"
-                                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <i className="bi bi-download text-base"></i>
                                 Baixar App Mobile (v1.0)
