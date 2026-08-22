@@ -894,23 +894,26 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
   const [selectedFilter, setSelectedFilter] = useState<'default' | 'week' | 'month' | 'all'>('default');
   const [typeFilters, setTypeFilters] = useState<string[]>(['delivery', 'pickup', 'assistance']);
   const [erpSettings, setErpSettings] = useState<any>(null);
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDateCollapse = (dClean: string) => {
+    setCollapsedDates(prev => ({
+      ...prev,
+      [dClean]: !prev[dClean]
+    }));
+  };
 
   useEffect(() => {
     const fetchRealSettings = async () => {
       try {
-        const { data: globalRow } = await supabase
-          .from('app_settings')
+        const { data: settingsData } = await supabase
+          .from('settings')
           .select('*')
-          .eq('id', 'global')
+          .eq('id', 'app')
           .single();
 
-        if (globalRow?.deliveryHandlingOptions || globalRow?.pickupHandlingOptions) {
-          setErpSettings(globalRow);
-        } else {
-          const { data: settingsData } = await supabase.from('company_settings').select('*').single();
-          if (settingsData?.settings) {
-            setErpSettings(settingsData.settings);
-          }
+        if (settingsData) {
+          setErpSettings(settingsData);
         }
       } catch (err) {
         console.warn('Erro ao buscar manuseios do ERP em NativeLogisticsScreen:', err);
@@ -1152,48 +1155,49 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
           marginBottom: 10,
           overflow: 'hidden'
         }}>
-          {/* Cabeçalho Clicável do Tópico de Pendentes */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => setIsPendingExpanded(prev => !prev)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+            onPress={() => setIsPendingExpanded(!isPendingExpanded)}
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
               justifyContent: 'space-between',
               paddingVertical: 12,
               paddingHorizontal: 14,
               backgroundColor: isDarkMode ? '#3b2204' : '#fef3c7',
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-              <Clock size={18} color="#d97706" />
-              <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#fde68a' : '#b45309' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Clock size={16} color="#d97706" />
+              <Text style={{ fontSize: 12, fontWeight: '900', color: isDarkMode ? '#fbbf24' : '#b45309' }}>
                 {pendingOrders.length} {pendingOrders.length === 1 ? 'Agendamento Pendente' : 'Agendamentos Pendentes'}
               </Text>
             </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isDarkMode ? '#78350f' : '#fde68a', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-              <Text style={{ fontSize: 10, fontWeight: '900', color: isDarkMode ? '#fef3c7' : '#92400e' }}>
-                {isPendingExpanded ? 'Ocultar' : 'Ver todos'}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: isDarkMode ? '#fbbf24' : '#b45309' }}>
+                {isPendingExpanded ? 'Recolher' : 'Visualizar'}
               </Text>
               {isPendingExpanded ? (
-                <ChevronUp size={14} color={isDarkMode ? '#fef3c7' : '#92400e'} />
+                <ChevronUp size={16} color={isDarkMode ? '#fbbf24' : '#b45309'} />
               ) : (
-                <ChevronDown size={14} color={isDarkMode ? '#fef3c7' : '#92400e'} />
+                <ChevronDown size={16} color={isDarkMode ? '#fbbf24' : '#b45309'} />
               )}
             </View>
           </TouchableOpacity>
 
-          {/* Lista Expandida de Pedidos Pendentes */}
-          {isPendingExpanded ? (
-            <View style={{ padding: 12, gap: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#78350f' : '#fde68a' }}>
-              {pendingOrders.map((po: any) => {
-                const poData = po.order_data || {};
+          {isPendingExpanded && (
+            <View style={{ gap: 8, paddingTop: 4 }}>
+              {pendingOrders.map(pTask => {
+                const pData = pTask.order_data || {};
+                const pCustomer = pData.customerData?.fullName || pTask.customer_name || 'Cliente';
+                const pMethod = pData.shipping?.deliveryMethod === 'pickup' ? '🛍️ Retirada' : '🚚 Entrega';
+                const pTotal = getOrderTotalValue(pTask);
+
                 return (
                   <TouchableOpacity
-                    key={po.id}
-                    activeOpacity={0.8}
-                    onPress={() => onSelectOrder && onSelectOrder(po)}
+                    key={pTask.id}
+                    activeOpacity={0.7}
+                    onPress={() => onSelectOrder && onSelectOrder(pTask)}
                     style={{
                       backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
                       borderRadius: 12,
@@ -1201,24 +1205,26 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
                       borderWidth: 1,
                       borderColor: isDarkMode ? '#334155' : '#fde68a',
                       flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
                     }}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '900', color: '#d97706' }}>#{po.id?.slice(-6).toUpperCase()}</Text>
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#1e293b', marginTop: 2 }}>
-                        {poData.customerData?.fullName || po.customer_name || 'Cliente'}
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#1e293b' }} numberOfLines={1}>
+                        {pCustomer}
+                      </Text>
+                      <Text style={{ fontSize: 10, fontWeight: '600', color: '#94a3b8', marginTop: 2 }}>
+                        {pMethod} • Sem data definida
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#dc2626', backgroundColor: isDarkMode ? '#450a0a' : '#fee2e2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, textTransform: 'uppercase' }}>
-                      Pendente
+                    <Text style={{ fontSize: 11, fontWeight: '900', color: '#2563eb' }}>
+                      R$ {pTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-          ) : null}
+          )}
         </View>
       ) : null}
     </View>
@@ -1238,7 +1244,7 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
             dateClean: grp.dateClean,
             title: grp.dayOfWeek ? `${grp.dayOfWeek}, ${grp.formattedDate}` : grp.formattedDate,
             count: grp.items.length,
-            data: grp.items
+            data: collapsedDates[grp.dateClean] ? [] : grp.items
           }))}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={true}
@@ -1253,38 +1259,52 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
               </View>
             ) : null
           }
-          renderSectionHeader={({ section }) => (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff',
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: isDarkMode ? '#334155' : '#bfdbfe',
-              marginBottom: 10,
-              marginTop: 6,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08,
-              shadowRadius: 4,
-              elevation: 3
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Calendar size={15} color="#2563eb" />
-                <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#1e3a8a' }}>
-                  {section.title}
-                </Text>
-              </View>
-              <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 }}>
-                <Text style={{ fontSize: 10, fontWeight: '900', color: '#ffffff' }}>
-                  {section.count} {section.count === 1 ? 'agendamento' : 'agendamentos'}
-                </Text>
-              </View>
-            </View>
-          )}
+          renderSectionHeader={({ section }) => {
+            const isCollapsed = collapsedDates[section.dateClean];
+            return (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => toggleDateCollapse(section.dateClean)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff',
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#334155' : '#bfdbfe',
+                  marginBottom: isCollapsed ? 6 : 10,
+                  marginTop: 6,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 4,
+                  elevation: 3
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <Calendar size={15} color="#2563eb" />
+                  <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#1e3a8a' }}>
+                    {section.title}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '900', color: '#ffffff' }}>
+                      {section.count} {section.count === 1 ? 'agendamento' : 'agendamentos'}
+                    </Text>
+                  </View>
+                  {isCollapsed ? (
+                    <ChevronDown size={16} color={isDarkMode ? '#94a3b8' : '#2563eb'} />
+                  ) : (
+                    <ChevronUp size={16} color={isDarkMode ? '#94a3b8' : '#2563eb'} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
           renderItem={({ item: task }) => {
             const orderData = task.order_data || {};
             const customerName = orderData.customerData?.fullName || task.customer_name || 'Cliente';
@@ -1676,16 +1696,39 @@ function NativeLogisticsScreen({ isDarkMode, onSelectOrder }: { isDarkMode: bool
 }
 
 // Componente Nativo: Montagens / Cronograma de Montagens no Depósito (100% React Native sem WebView)
-function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boolean; onSelectOrder?: (order: any) => void }) {
+function NativeAssembliesScreen({ 
+  isDarkMode, 
+  initialSubTab = 'internal',
+  onSelectOrder 
+}: { 
+  isDarkMode: boolean; 
+  initialSubTab?: 'internal' | 'outside';
+  onSelectOrder?: (order: any) => void 
+}) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'default' | 'today' | 'week' | 'month' | 'all'>('default');
   const [showAssemblyPeriodModal, setShowAssemblyPeriodModal] = useState(false);
   const [erpSettings, setErpSettings] = useState<any>(null);
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDateCollapse = (dClean: string) => {
+    setCollapsedDates(prev => ({
+      ...prev,
+      [dClean]: !prev[dClean]
+    }));
+  };
 
   // Estado das Sub-Abas de Montagens: 'internal' (No Depósito) vs 'outside' (Montagens Fora)
-  const [activeAssemblySubTab, setActiveAssemblySubTab] = useState<'internal' | 'outside'>('internal');
+  const [activeAssemblySubTab, setActiveAssemblySubTab] = useState<'internal' | 'outside'>(initialSubTab);
+  const isInternalTab = activeAssemblySubTab === 'internal';
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveAssemblySubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [internalHandlingLabels, setInternalHandlingLabels] = useState<string[]>([
     'Na caixa > Montagem no deposito > Entregue montado',
     'De caixa > Montagem para retirada'
@@ -2022,7 +2065,7 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
             dateClean: grp.dateClean,
             title: grp.dayOfWeek ? `${grp.dayOfWeek}, ${grp.formattedDate}` : grp.formattedDate,
             count: grp.items.length,
-            data: grp.items
+            data: collapsedDates[grp.dateClean] ? [] : grp.items
           }))}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={true}
@@ -2035,38 +2078,58 @@ function NativeAssembliesScreen({ isDarkMode, onSelectOrder }: { isDarkMode: boo
               <Text style={{ fontSize: 13, fontWeight: '800', color: '#64748b', marginTop: 12 }}>Nenhuma montagem pendente no período</Text>
             </View>
           }
-          renderSectionHeader={({ section }) => (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: isDarkMode ? '#1e293b' : '#fff7ed',
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: isDarkMode ? '#334155' : '#ffedd5',
-              marginBottom: 10,
-              marginTop: 6,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08,
-              shadowRadius: 4,
-              elevation: 3
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Calendar size={15} color="#f97316" />
-                <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#9a3412' }}>
-                  {section.title}
-                </Text>
-              </View>
-              <View style={{ backgroundColor: '#f97316', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 }}>
-                <Text style={{ fontSize: 10, fontWeight: '900', color: '#ffffff' }}>
-                  {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
-                </Text>
-              </View>
-            </View>
-          )}
+          renderSectionHeader={({ section }) => {
+            const isCollapsed = collapsedDates[section.dateClean];
+            const badgeBg = isInternalTab ? '#f97316' : '#dc2626';
+            const iconColor = isInternalTab ? '#f97316' : '#dc2626';
+            const textColor = isDarkMode ? '#f8fafc' : (isInternalTab ? '#9a3412' : '#991b1b');
+            const bgHeader = isDarkMode ? '#1e293b' : (isInternalTab ? '#fff7ed' : '#fef2f2');
+            const borderColor = isDarkMode ? '#334155' : (isInternalTab ? '#ffedd5' : '#fee2e2');
+
+            return (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => toggleDateCollapse(section.dateClean)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: bgHeader,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: borderColor,
+                  marginBottom: isCollapsed ? 6 : 10,
+                  marginTop: 6,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 4,
+                  elevation: 3
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <Calendar size={15} color={iconColor} />
+                  <Text style={{ fontSize: 13, fontWeight: '900', color: textColor }}>
+                    {section.title}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: badgeBg, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '900', color: '#ffffff' }}>
+                      {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
+                    </Text>
+                  </View>
+                  {isCollapsed ? (
+                    <ChevronDown size={16} color={isDarkMode ? '#94a3b8' : iconColor} />
+                  ) : (
+                    <ChevronUp size={16} color={isDarkMode ? '#94a3b8' : iconColor} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
           renderItem={({ item: task }) => {
             const orderData = task.order_data || {};
             const customerName = orderData.customerData?.fullName || task.customer_name || (task.isShowroom ? 'Mostruário da Loja' : 'Consumidor');
@@ -2552,6 +2615,7 @@ export default function App() {
   const [assistancesCount, setAssistancesCount] = useState(0);
   const [returnsCount, setReturnsCount] = useState(0);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [assemblySubTab, setAssemblySubTab] = useState<'internal' | 'outside'>('internal');
   const webViewRef = useRef<WebView>(null);
 
   // Estados para o Resumo Inteligente de Entregas via IA Gemini
@@ -3511,26 +3575,37 @@ Texto base para refinamento: "${smartText}"`;
     let endDateStr = todayStr;
 
     if (periodId === 'this_week') {
-      const dayOfWeek = localNow.getDay(); // 0 = Domingo, 1 = Segunda...
+      const dayOfWeek = localNow.getDay(); // 0 = Domingo
       const start = new Date(localNow.getTime() - (dayOfWeek * 24 * 60 * 60 * 1000));
+      const end = new Date(start.getTime() + (6 * 24 * 60 * 60 * 1000));
       startDateStr = start.toISOString().split('T')[0];
+      endDateStr = end.toISOString().split('T')[0];
     } else if (periodId === 'this_month') {
       const start = new Date(localNow.getFullYear(), localNow.getMonth(), 1);
+      const end = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0);
       startDateStr = start.toISOString().split('T')[0];
+      endDateStr = end.toISOString().split('T')[0];
     } else if (periodId === 'last_30_days') {
       const start = new Date(localNow.getTime() - (30 * 24 * 60 * 60 * 1000));
       startDateStr = start.toISOString().split('T')[0];
+      endDateStr = todayStr;
     } else if (periodId === 'this_quarter') {
       const currentMonth = localNow.getMonth();
       const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
       const start = new Date(localNow.getFullYear(), quarterStartMonth, 1);
+      const end = new Date(localNow.getFullYear(), quarterStartMonth + 3, 0);
       startDateStr = start.toISOString().split('T')[0];
+      endDateStr = end.toISOString().split('T')[0];
     } else if (periodId === 'this_year') {
       const start = new Date(localNow.getFullYear(), 0, 1);
+      const end = new Date(localNow.getFullYear(), 11, 31);
       startDateStr = start.toISOString().split('T')[0];
+      endDateStr = end.toISOString().split('T')[0];
     } else if (periodId === 'last_year') {
-      const start = new Date(localNow.getTime() - (365 * 24 * 60 * 60 * 1000));
+      const start = new Date(localNow.getFullYear() - 1, 0, 1);
+      const end = new Date(localNow.getFullYear() - 1, 11, 31);
       startDateStr = start.toISOString().split('T')[0];
+      endDateStr = end.toISOString().split('T')[0];
     }
 
     return { startDateStr, endDateStr };
@@ -3538,7 +3613,15 @@ Texto base para refinamento: "${smartText}"`;
 
   const isDateInRange = (dateStr: string, startDateStr: string, endDateStr: string) => {
     if (!dateStr) return false;
-    const cleanDate = dateStr.split('T')[0];
+    let cleanDate = dateStr;
+    if (cleanDate.includes('/')) {
+      const parts = cleanDate.split('T')[0].split('/');
+      if (parts.length === 3) {
+        cleanDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    } else {
+      cleanDate = cleanDate.split('T')[0];
+    }
     return cleanDate >= startDateStr && cleanDate <= endDateStr;
   };
 
@@ -3596,7 +3679,7 @@ Texto base para refinamento: "${smartText}"`;
 
       const { data: orders, error: ordersErr } = await supabase
         .from('orders')
-        .select('id, status, created_at, order_data');
+        .select('*');
 
       if (ordersErr) throw ordersErr;
 
@@ -3606,7 +3689,7 @@ Texto base para refinamento: "${smartText}"`;
       let assistanceCnt = 0;
       let returnCnt = 0;
 
-      // Busca configurações do ERP para diferenciar manuseio
+      // Busca configurações reais do ERP para diferenciar manuseio
       const { data: settingsData } = await supabase.from('settings').select('*').eq('id', 'app').single();
       const deliveryOpts = settingsData?.deliveryHandlingOptions || [];
       const pickupOpts = settingsData?.pickupHandlingOptions || [];
@@ -3616,41 +3699,69 @@ Texto base para refinamento: "${smartText}"`;
 
       if (orders) {
         orders.forEach((o: any) => {
+          if (o.deleted || o.is_deleted || o.status === 'deleted' || o.status === 'cancelled') return;
+
           const orderData = o.order_data || {};
+          if (orderData.deleted) return;
+
           const shipping = orderData.shipping || {};
+          const sched = shipping.scheduling || {};
+          const isShowroom = orderData.orderType === 'showroom' || o.order_type === 'showroom';
           const items = orderData.items || o.items || [];
-          const schedDate = shipping.scheduling?.date || orderData.scheduledDate || o.created_at;
+          
+          const schedDate = isShowroom
+            ? (orderData.showcaseDate || orderData.deadlineDate || sched.date || o.created_at)
+            : (sched.date || o.scheduled_date || orderData.scheduledDate || o.created_at);
 
           if (isDateInRange(schedDate, startDateStr, endDateStr)) {
             // 1. Entregas
-            if (o.status !== 'cancelled' && shipping.deliveryMethod === 'delivery') {
+            if (shipping.deliveryMethod === 'delivery' || (!shipping.deliveryMethod && orderData.orderType !== 'pickup')) {
               deliveryCnt++;
             }
 
             // 2. Montagens no Depósito (Martelo Amarelo) e Montagens Fora (Martelo Vermelho)
-            // Conta por PRODUTO (qty), não por pedido
-            if (o.status !== 'cancelled') {
-              items.forEach((i: any) => {
-                const hLabel = normalize(i.handlingType || i.handling_type || i.handling || '');
-                if (!hLabel) return;
-                const itemQty = Number(i.qty || i.quantity || 1);
+            // Conta a quantidade exata de cada item / móvel configurado para montagem
+            const isPickup = shipping.deliveryMethod === 'pickup';
+            const modalityOptions = isPickup ? pickupOpts : deliveryOpts;
 
-                const opt = allOpts.find((oObj: any) => typeof oObj === 'object' && normalize(oObj.label) === hLabel);
+            const orderLevelHandling = [
+              orderData.handlingType,
+              orderData.handling,
+              shipping.handlingType,
+              shipping.handling,
+              o.handling_type,
+              o.handling
+            ].filter(Boolean).map(String).join(' ');
+
+            items.forEach((i: any) => {
+              const hLabel = normalize(i.handlingType || i.handling_type || i.handling || orderLevelHandling || '');
+              const itemQty = Math.max(1, Number(i.quantity ?? i.qty ?? i.qtd ?? 1));
+
+              if (hLabel) {
+                const opt = modalityOptions.find((oObj: any) => typeof oObj === 'object' && normalize(oObj.label) === hLabel)
+                  || allOpts.find((oObj: any) => typeof oObj === 'object' && normalize(oObj.label) === hLabel);
+
                 if (opt) {
-                  if (opt.isAssemblyOutside) assemblyOutsideCnt += itemQty;
-                  else if (opt.includeInAssemblySchedule) assemblyInternalCnt += itemQty;
-                } else if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada')) {
-                  assemblyInternalCnt += itemQty;
-                } else if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora')) {
-                  assemblyOutsideCnt += itemQty;
+                  if (opt.isAssemblyOutside) {
+                    assemblyOutsideCnt += itemQty;
+                  } else if (opt.includeInAssemblySchedule) {
+                    assemblyInternalCnt += itemQty;
+                  }
+                } else {
+                  // Fallbacks por texto
+                  if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora') || hLabel.includes('montagem no local') || hLabel.includes('montagem no endereco')) {
+                    assemblyOutsideCnt += itemQty;
+                  } else if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada') || hLabel.includes('montagem no depósito')) {
+                    assemblyInternalCnt += itemQty;
+                  }
                 }
-              });
-            }
+              }
+            });
 
             // 3. Assistências
             const isAssistance = orderData.orderType === 'assistance' || 
-              o.status === 'assistance' || 
-              items.some((i: any) => i.handlingType && i.handlingType.toLowerCase().includes('assist'));
+              o.order_type === 'assistance' ||
+              o.status === 'assistance';
             if (isAssistance) {
               assistanceCnt++;
             }
@@ -3672,8 +3783,6 @@ Texto base para refinamento: "${smartText}"`;
         .from('showcase_assemblies')
         .select('*');
 
-      // Adiciona montagens de mosruário no período como Montagem no Depósito (Martelo Amarelo)
-      // Cada montagem de mosruário conta como 1 produto
       if (showcaseData) {
         showcaseData.forEach((s: any) => {
           if (s.status !== 'completed' && isDateInRange(s.date, startDateStr, endDateStr)) {
@@ -4525,7 +4634,10 @@ Texto base para refinamento: "${smartText}"`;
               {/* Card 2: Montagens no Depósito (Martelo Amarelo) */}
               <TouchableOpacity 
                 style={[styles.statCardGrid, { backgroundColor: isDarkMode ? '#1e293b' : '#fefce8', borderColor: isDarkMode ? '#334155' : '#fef08a' }]}
-                onPress={() => handleTabChange('montagens', `${WEB_URL}/assembly-schedule`)}
+                onPress={() => {
+                  setAssemblySubTab('internal');
+                  handleTabChange('montagens', `${WEB_URL}/assembly-schedule`);
+                }}
               >
                 <View style={[styles.statIconWrapper, { backgroundColor: isDarkMode ? '#334155' : '#fef3c7' }]}>
                   <Hammer size={22} color="#eab308" />
@@ -4543,7 +4655,10 @@ Texto base para refinamento: "${smartText}"`;
               {/* Card 3: Montagens Fora / Na Entrega (Martelo Vermelho) */}
               <TouchableOpacity 
                 style={[styles.statCardGrid, { backgroundColor: isDarkMode ? '#1e293b' : '#fff1f2', borderColor: isDarkMode ? '#334155' : '#fecdd3' }]}
-                onPress={() => handleTabChange('logistica', `${WEB_URL}/delivery-schedule`)}
+                onPress={() => {
+                  setAssemblySubTab('outside');
+                  handleTabChange('montagens', `${WEB_URL}/assembly-schedule`);
+                }}
               >
                 <View style={[styles.statIconWrapper, { backgroundColor: isDarkMode ? '#334155' : '#fee2e2' }]}>
                   <Hammer size={22} color="#ef4444" />
@@ -4555,13 +4670,13 @@ Texto base para refinamento: "${smartText}"`;
                     {assembliesOutsideCount} <Text style={{ fontSize: 13, fontWeight: '600' }}>{assembliesOutsideCount === 1 ? 'móvel' : 'móveis'}</Text>
                   </Text>
                 )}
-                <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#e11d48' }]}>devem ser montados na entrega</Text>
+                <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#e11d48' }]}>devem ser montados fora</Text>
               </TouchableOpacity>
 
               {/* Card 3: Assistências */}
               <TouchableOpacity 
                 style={[styles.statCardGrid, styles.assistanceCard]}
-                onPress={() => handleTabChange('pedidos', `${WEB_URL}/sales-order`)}
+                onPress={() => handleTabChange('entregas', `${WEB_URL}/delivery-schedule`)}
               >
                 <View style={styles.statIconWrapper}>
                   <Wrench size={22} color="#d97706" />
@@ -4596,7 +4711,11 @@ Texto base para refinamento: "${smartText}"`;
         ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
           <NativeLogisticsScreen isDarkMode={isDarkMode} onSelectOrder={(order) => setAppSelectedOrder(order)} />
         ) : currentTab === 'montagens' ? (
-          <NativeAssembliesScreen isDarkMode={isDarkMode} onSelectOrder={(order) => setAppSelectedOrder(order)} />
+          <NativeAssembliesScreen 
+            isDarkMode={isDarkMode} 
+            initialSubTab={assemblySubTab}
+            onSelectOrder={(order) => setAppSelectedOrder(order)} 
+          />
         ) : (
           <NativeReportsScreen isDarkMode={isDarkMode} />
         )}

@@ -25,24 +25,29 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                 
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                            <i className="bi bi-box-seam-fill text-lg"></i>
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm">
+                            <i className="bi bi-check2-circle text-xl"></i>
                         </div>
                         <div>
-                            <h3 className="text-base font-black text-slate-800 dark:text-slate-100">Etapas Pós-Venda</h3>
-                            <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-base font-black text-slate-800 dark:text-slate-100">Ações Pós-Venda</h3>
+                                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                                    Cadastrado
+                                </span>
+                            </div>
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mt-0.5">
                                 Pedido #{order.id} • {order.customerData?.fullName || 'Cliente não informado'}
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 transition-colors">
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 transition-colors" title="Fechar">
                         <i className="bi bi-x-lg"></i>
                     </button>
                 </div>
 
                 <div className="p-6 flex flex-col gap-3">
-                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
-                        O pedido foi finalizado com sucesso! Selecione abaixo as ações que deseja realizar agora:
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        O pedido <strong>já foi cadastrado e gravado</strong> no sistema. Você pode executar as ações rápidas abaixo ou simplesmente fechar esta janela.
                     </p>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -90,9 +95,10 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                 <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all"
+                        className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all flex items-center gap-2"
                     >
-                        Concluir
+                        <i className="bi bi-check2"></i>
+                        <span>Fechar / Ir para Lista</span>
                     </button>
                 </div>
             </div>

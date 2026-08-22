@@ -4,7 +4,7 @@ import Shipping from "../types/Shipping.type";
 
 export const calcItemTotalValue = (item: Item): number => {
     const fixedDiscount = getFixedDiscount(item);
-    return (item.unitPrice - fixedDiscount) * item.quantity
+    return Math.max(0, (item.unitPrice - fixedDiscount)) * (item.quantity || 1);
 };
 
 export const calcItemsTotalValue = (items: Item[]) => {

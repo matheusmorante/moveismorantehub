@@ -28,7 +28,7 @@ const FormFooter = ({
     buttonLabel, 
     colorScheme = 'emerald' 
 }: FormFooterProps) => {
-    const isLastStep = currentStep === 5;
+    const isLastStep = currentStep === 6;
 
     return (
         <div className="border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md py-4 px-6 transition-all duration-300 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none shrink-0 z-50">
@@ -47,7 +47,7 @@ const FormFooter = ({
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-800/40 rounded-xl border border-slate-100/50 dark:border-slate-800/50 transition-all">
                             <div className={`w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
                             <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none">
-                                {isSavingDraft ? 'Sincronizando...' : 'Alterações Salvas'}
+                                {isSavingDraft ? 'Sincronizando...' : 'Salvamento Automático'}
                             </span>
                         </div>
                     </div>

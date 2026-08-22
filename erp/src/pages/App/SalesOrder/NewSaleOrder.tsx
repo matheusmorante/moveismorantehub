@@ -242,18 +242,6 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2 w-full xl:w-auto justify-center xl:justify-end">
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={form.state.isSaving}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
-                        >
-                            {form.state.isSaving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="bi bi-cloud-arrow-up text-xs" />}
-                            {isBudget ? 'Salvar' : isReturn ? 'Salvar' : 'Cadastrar'}
-                        </button>
-                    </div>
-
                     <button
                         type="button"
                         onClick={onClose}
