@@ -366,7 +366,6 @@ const Products: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Filtros Avançados</h3>
-                                    <p className="text-[10px] font-bold text-slate-400">Refine a busca por categorias, status e estoque</p>
                                 </div>
                             </div>
                             <button 

@@ -47,17 +47,8 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
         });
     };
 
-    return (
-        <aside className="w-full bg-white dark:bg-slate-900 flex flex-col h-full overflow-y-auto transition-colors">
-            <div className="p-4 md:p-8 border-b border-slate-50 dark:border-slate-800">
-                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-                    <i className="bi bi-filter-left text-blue-600 dark:text-blue-500"></i>
-                    Filtros Avançados
-                </h3>
-                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Refine por categoria e status</p>
-            </div>
-
-            <div className="p-4 md:p-8 flex flex-col gap-6">
+        <aside className="w-full bg-transparent flex flex-col h-full transition-colors">
+            <div className="p-1 flex flex-col gap-4">
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categorias</label>
