@@ -427,10 +427,10 @@ const LabelPrinting: React.FC = () => {
         const from = isLoadMore ? products.length : 0;
         const to = from + ITEMS_PER_PAGE - 1;
 
-        // 2. Busca Seletiva (Apenas o que a etiqueta usa) para economizar Banda (Egress)
+        // 2. Busca Seletiva para economizar Banda (Egress)
         const { data, error } = await supabase
             .from('products')
-            .select('id, description, unitPrice, costPrice, stock, active, hasVariations, variations, images, categoryIds, category, unit')
+            .select('*')
             .is('deleted_at', null)
             .order('description', { ascending: true })
             .range(from, to);
@@ -469,6 +469,7 @@ const LabelPrinting: React.FC = () => {
             }
         };
         fetchCustomLayouts();
+        fetchAllProducts();
     }, []);
 
     useEffect(() => {
@@ -727,8 +728,9 @@ const LabelPrinting: React.FC = () => {
     };
 
     const handleProductSelect = (product: Product, quantity: number = 1) => {
-        const variationName = (product as any).variation || (product as any).variationName || (product as any).name;
-        let fullName = (product.description || '');
+        const productTitle = product.title || product.name || product.description || '';
+        const variationName = (product as any).variation || (product as any).variationName;
+        let fullName = productTitle;
         if (product.isVariation && variationName && !fullName.includes(variationName)) {
             fullName = `${fullName} - ${variationName}`;
         }
@@ -1158,7 +1160,7 @@ const LabelPrinting: React.FC = () => {
                                              </div>
 
                                              {/* CENTRO / MEIO: FORMULÁRIO DE BUSCA E ADIÇÃO DE PRODUTOS */}
-                                             {selectedCategory === 'precos' && printingMode === 'advanced' && (
+                                             {(selectedCategory === 'precos' || selectedCategory === 'identificacao') && (
                                                  <div className="flex flex-1 max-w-2xl items-center gap-2 mx-0 xl:mx-4">
                                                      <ProductSearchInput 
                                                          products={products}

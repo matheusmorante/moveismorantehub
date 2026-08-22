@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product from '@/pages/types/product.type';
+import { supabase } from '@/pages/utils/supabaseConfig';
+import { processProductData } from '../LabelUtils';
 
 interface ProductSearchInputProps {
     products: Product[];
@@ -20,15 +22,24 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     placeholder = "Digite para buscar produto...",
     className = ""
 }) => {
+    // Retorna o Título/Nome do produto priorizando title, name e description
+    const getProductTitle = (p?: Product | null) => {
+        if (!p) return '';
+        return p.title || p.name || p.description || '';
+    };
+
     const [isOpen, setIsOpen] = useState(false);
-    const [filterText, setFilterText] = useState(selectedProduct?.description || '');
+    const [filterText, setFilterText] = useState(getProductTitle(selectedProduct));
+    const [dbSearchResults, setDbSearchResults] = useState<Product[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         if (!selectedProduct) {
             setFilterText('');
         } else {
-            setFilterText(selectedProduct.description || '');
+            setFilterText(getProductTitle(selectedProduct));
         }
     }, [selectedProduct]);
 
@@ -42,16 +53,82 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = products.filter(p => {
-        if (!filterText.trim()) return true;
-        const term = filterText.toLowerCase();
-        return (
-            (p.description || '').toLowerCase().includes(term) ||
-            (p.code || '').toLowerCase().includes(term) ||
-            (p.sku || '').toLowerCase().includes(term) ||
-            (p.category || '').toLowerCase().includes(term)
-        );
-    });
+    // BUSCA AO VIVO NO SUPABASE POR TÍTULO, NOME, CÓDIGO, SKU OU DESCRIÇÃO
+    useEffect(() => {
+        if (!filterText.trim() || filterText.trim().length < 2) {
+            setDbSearchResults([]);
+            setIsLoading(false);
+            return;
+        }
+
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        searchTimeoutRef.current = setTimeout(async () => {
+            setIsLoading(true);
+            try {
+                const term = filterText.trim();
+                const words = term.split(/\s+/).filter(w => w.length > 0);
+
+                let query = supabase
+                    .from('products')
+                    .select('*')
+                    .is('deleted_at', null);
+
+                if (words.length === 1) {
+                    const w = words[0];
+                    query = query.or(`title.ilike.%${w}%,name.ilike.%${w}%,description.ilike.%${w}%,code.ilike.%${w}%,sku.ilike.%${w}%,variations::text.ilike.%${w}%`);
+                } else {
+                    words.forEach(w => {
+                        query = query.or(`title.ilike.%${w}%,name.ilike.%${w}%,description.ilike.%${w}%`);
+                    });
+                }
+
+                const { data, error } = await query.limit(50);
+
+                if (data && !error) {
+                    const processed = processProductData(data);
+                    setDbSearchResults(processed);
+                } else if (error) {
+                    console.error("Erro no Supabase ao buscar produto:", error);
+                }
+            } catch (err) {
+                console.error("Erro na busca de produtos:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        }, 200);
+
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
+    }, [filterText]);
+
+    // COMBINA OS PRODUTOS DA PROP LOCAL COM OS RESULTADOS AO VIVO DO BANCO DE DADOS
+    const combinedProducts = React.useMemo(() => {
+        const term = filterText.trim().toLowerCase();
+        
+        // 1. Filtrar lista local por título, nome, código ou SKU
+        const localFiltered = (products || []).filter(p => {
+            if (!term) return true;
+            const pTitle = getProductTitle(p).toLowerCase();
+            const pCode = (p.code || '').toLowerCase();
+            const pSku = (p.sku || '').toLowerCase();
+            const pDesc = (p.description || '').toLowerCase();
+            const pCat = (p.category || '').toLowerCase();
+            return pTitle.includes(term) || pDesc.includes(term) || pCode.includes(term) || pSku.includes(term) || pCat.includes(term);
+        });
+
+        // 2. Mesclar com resultados remotos do Supabase evitando duplicatas por ID
+        const map = new Map<string, Product>();
+        localFiltered.forEach(p => { if (p.id) map.set(String(p.id), p); });
+        dbSearchResults.forEach(p => { if (p.id) map.set(String(p.id), p); });
+
+        return Array.from(map.values());
+    }, [products, dbSearchResults, filterText]);
 
     const formatCurrency = (val: number | string | undefined) => {
         if (!val) return 'R$ 0,00';
@@ -64,7 +141,11 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
         <div ref={containerRef} className={`relative flex-1 ${className}`}>
             <div className="flex items-center gap-3 w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all cursor-text min-w-[240px]">
                 <span className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <i className="bi bi-search text-xs" />
+                    {isLoading ? (
+                        <i className="bi bi-arrow-repeat text-xs animate-spin text-blue-500" />
+                    ) : (
+                        <i className="bi bi-search text-xs" />
+                    )}
                 </span>
 
                 <div className="flex flex-col min-w-0 flex-1">
@@ -106,18 +187,24 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
             {/* Dropdown Popover Modal filtrado */}
             {isOpen && (
                 <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar p-1.5 animate-slide-up">
-                    {filtered.length > 0 ? (
+                    {isLoading && combinedProducts.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400 text-xs font-bold flex items-center justify-center gap-2">
+                            <i className="bi bi-arrow-repeat animate-spin text-sm text-blue-500" />
+                            <span>Buscando produtos no banco de dados...</span>
+                        </div>
+                    ) : combinedProducts.length > 0 ? (
                         <div className="flex flex-col gap-0.5">
-                            {filtered.slice(0, 50).map((p) => {
+                            {combinedProducts.slice(0, 50).map((p) => {
                                 const isSelected = selectedProduct?.id === p.id;
-                                const priceText = formatCurrency(p.unitPrice || (p as any).price);
+                                const title = getProductTitle(p);
+                                const priceText = formatCurrency(p.unitPrice || (p as any).unit_price || (p as any).price);
                                 
                                 return (
                                     <button
                                         key={p.id}
                                         type="button"
                                         onClick={() => {
-                                            setFilterText(p.description);
+                                            setFilterText(title);
                                             onSelectProduct(p);
                                             setIsOpen(false);
                                         }}
@@ -136,7 +223,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                                                 )}
                                             </div>
                                             <div className="flex flex-col min-w-0">
-                                                <span className="text-xs font-black uppercase truncate">{p.description}</span>
+                                                <span className="text-xs font-black uppercase truncate">{title}</span>
                                                 <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-tight">
                                                     {(p.sku || p.code) && (
                                                         <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">
