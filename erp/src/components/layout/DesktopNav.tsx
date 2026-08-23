@@ -154,21 +154,12 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
                         <a 
-                            href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk" 
+                            href="/app-release.apk"
                             download="morantehub-v1.0.apk"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                const link = document.createElement('a');
-                                link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
-                                link.setAttribute('download', 'morantehub-v1.0.apk');
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                            }}
-                            className={`${dropdownItemClass} text-blue-600 dark:text-blue-400 cursor-pointer`}
+                            className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
                         >
-                             <i className="bi bi-phone-vibrate"></i>
-                             Baixar App Mobile (APK)
+                            <i className="bi bi-android2 text-blue-500"></i>
+                            <span>Baixar App Android</span>
                         </a>
                     </div>
                 )}

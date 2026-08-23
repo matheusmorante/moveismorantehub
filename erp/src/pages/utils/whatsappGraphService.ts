@@ -156,6 +156,64 @@ export const whatsappGraphService = {
     },
 
     /**
+     * Sincroniza uma lista inteira de produtos em lotes via Batch Request da Meta Graph API
+     */
+    syncBatchProductsToCatalog: async (productsList: any[]) => {
+        const { whatsappConfig } = getSettings();
+        if (!whatsappConfig?.catalogId) throw new Error("Catalog ID não configurado.");
+
+        if (!productsList || productsList.length === 0) return { success: true, count: 0 };
+
+        // A Meta limita batch a 50 itens por requisição
+        const BATCH_SIZE = 50;
+        let syncedCount = 0;
+
+        for (let i = 0; i < productsList.length; i += BATCH_SIZE) {
+            const chunk = productsList.slice(i, i + BATCH_SIZE);
+            const requests = chunk.map(product => {
+                const rawPrice = product.unitPrice ?? product.unit_price ?? product.price ?? product.sales_price ?? 0;
+                const priceCents = Math.round(Number(rawPrice) * 100);
+                const isAvailable = (product.stock > 0 || product.current_stock > 0) && product.active !== false;
+
+                return {
+                    method: 'UPDATE',
+                    retailer_id: String(product.code || product.sku || product.id),
+                    data: {
+                        name: product.description || product.name,
+                        description: product.whatsappDescription || product.whatsapp_description || product.description || product.name,
+                        price: priceCents,
+                        currency: 'BRL',
+                        condition: product.condition === 'usado' ? 'used' : 'new',
+                        availability: isAvailable ? 'in stock' : 'out of stock',
+                        image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.image_url || 'https://moveismorante.com.br/logo.png'),
+                        brand: product.brand || 'Móveis Morante',
+                        url: `https://moveismorante.com.br/p/${product.id}`,
+                        category: product.groupName || product.group_name || 'Furniture'
+                    }
+                };
+            });
+
+            const response = await fetch(
+                `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/batch`,
+                {
+                    method: 'POST',
+                    headers: whatsappGraphService.getHeaders(),
+                    body: JSON.stringify({ requests })
+                }
+            );
+
+            const data = await response.json();
+            if (data.error) {
+                console.error("[WhatsAppService] Erro no Lote Meta API:", data.error);
+                throw new Error(data.error.message || "Erro no envio em lote da Meta API.");
+            }
+            syncedCount += chunk.length;
+        }
+
+        return { success: true, count: syncedCount };
+    },
+
+    /**
      * Lista as coleções (product sets) do catálogo na Meta
      */
     listProductSets: async (): Promise<{ id: string; name: string; filter: string }[]> => {

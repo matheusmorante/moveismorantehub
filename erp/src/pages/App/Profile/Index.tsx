@@ -182,21 +182,12 @@ const Profile = () => {
 
                         <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
                             <a
-                                href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
+                                href="/app-release.apk"
                                 download="morantehub-v1.0.apk"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    const link = document.createElement('a');
-                                    link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
-                                    link.setAttribute('download', 'morantehub-v1.0.apk');
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                }}
-                                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                                className="w-full px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 active:scale-98 transition-all"
                             >
-                                <i className="bi bi-download text-base"></i>
-                                Baixar App Mobile (v1.0)
+                                <i className="bi bi-android2 text-base"></i>
+                                Baixar App Android (v1.0)
                             </a>
 
                             <button

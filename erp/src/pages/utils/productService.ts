@@ -838,8 +838,15 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
 
         // Sincronizar catálogo do Meta assincronamente (background) sempre que um produto é atualizado
         fetch('/api/facebook-catalog/sync', { method: 'POST' }).catch(err => {
-            console.warn('[Meta Sync] Falha silenciosa ao sincronizar catálogo do Meta:', err);
+            console.warn('[Meta Sync] Falha silenciosa ao sincronizar catálogo do Meta (CSV):', err);
         });
+
+        // Sincronizar diretamente via WhatsApp/Meta Graph API (Batch/Single)
+        import('./whatsappGraphService').then(({ whatsappGraphService }) => {
+            whatsappGraphService.syncProductToCatalog(product, 'UPDATE').catch(err => {
+                console.warn('[Meta Graph Sync] Falha silenciosa no sync direto via API:', err);
+            });
+        }).catch(() => {});
     } catch (err: any) {
         console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
         throw new Error(err.message || "Erro ao salvar no Supabase");

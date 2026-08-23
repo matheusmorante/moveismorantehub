@@ -31,21 +31,13 @@ export default function FloatingActionsHub() {
         {/* Download App (Integrated here as well for clean UI) */}
         <div className="relative group">
           <a 
-            href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
+            href="/app-release.apk"
             download="morantehub-v1.0.apk"
-            onClick={(e) => {
-                e.preventDefault();
-                const link = document.createElement('a');
-                link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
-                link.setAttribute('download', 'morantehub-v1.0.apk');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }}
-            className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-premium-lg hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer"
-          >
-            <i className="bi bi-phone-vibrate text-xl"></i>
-          </a>
+            className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+            title="Baixar App Mobile Android"
+        >
+            <i className="bi bi-android2 text-lg text-emerald-400"></i>
+        </a>
           <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap tracking-widest pointer-events-none shadow-xl">
             Baixar App Mobile
           </span>

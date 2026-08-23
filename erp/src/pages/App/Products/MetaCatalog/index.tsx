@@ -42,6 +42,33 @@ export default function MetaCatalog() {
 
                 <div className="flex items-center gap-2">
                     <button
+                        onClick={async () => {
+                            try {
+                                toast.info("Iniciando sincronização via Meta Graph API... 🔄");
+                                const { supabase } = await import('@/pages/utils/supabaseConfig');
+                                const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
+                                
+                                const { data: prods, error } = await supabase
+                                    .from('products')
+                                    .select('*')
+                                    .eq('active', true);
+                                    
+                                if (error) throw error;
+                                
+                                const res = await whatsappGraphService.syncBatchProductsToCatalog(prods || []);
+                                toast.success(`Sincronização concluída! ${res.count} produtos atualizados no Meta Catalog via Graph API. 🎉`);
+                            } catch (err: any) {
+                                console.error("Erro no sync Meta Graph API:", err);
+                                toast.error(err.message || "Erro ao sincronizar com a Meta Graph API.");
+                            }
+                        }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20"
+                    >
+                        <i className="bi bi-arrow-repeat text-sm" />
+                        <span>Sincronizar via Graph API</span>
+                    </button>
+
+                    <button
                         onClick={handleDownload}
                         className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20"
                     >

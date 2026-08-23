@@ -175,21 +175,12 @@ export default function AppLayout() {
                         </Link>
                         
                         <a 
-                          href="/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk"
+                          href="/app-release.apk"
                           download="morantehub-v1.0.apk"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const link = document.createElement('a');
-                            link.href = '/application-ac6c9f5d-99f3-4426-ada9-173fe6a5c489.apk';
-                            link.setAttribute('download', 'morantehub-v1.0.apk');
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                          className="flex items-center gap-4 p-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest border border-blue-100 dark:border-blue-800 mt-2 cursor-pointer"
+                          className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
                         >
-                          <i className="bi bi-phone-vibrate text-lg"></i>
-                          Baixar App Mobile (APK)
+                          <i className="bi bi-android2 text-blue-400"></i>
+                          <span>Baixar App Android</span>
                         </a>
                       </>
                     )}
