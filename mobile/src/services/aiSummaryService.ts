@@ -1,368 +1,530 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
-import {
-  formatTimeNatural,
-  formatDistanceNatural,
-  formatProductNameWithArticle,
-  isAssemblyOutsideType
-} from '../utils/aiSummaryHelper';
 
 export const generateDeliveryAISummary = async (
   mode: 'today' | 'tomorrow' | 'next5days',
   forceRefresh: boolean = false,
-  setAiSummaryToday: (val: string) => void,
-  setAiSummaryTomorrow: (val: string) => void,
-  setIsGeneratingAISummary: (val: boolean) => void
+  setAiSummaryToday?: (val: string) => void,
+  setAiSummaryTomorrow?: (val: string) => void,
+  setIsGeneratingAISummary?: (val: boolean) => void
 ) => {
-  try {
-    const { data: rawOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-
-    const currentFingerprint = (rawOrders || []).map((o: any) =>
-      `${o.id}_${o.updated_at || o.created_at || ''}_${o.status || ''}_${o.deleted ? '1' : '0'}`
-    ).join('|');
-
-    const cacheKey = mode === 'today' ? '@morante_ai_summary_today' : '@morante_ai_summary_tomorrow';
-    const fpKey = `@morante_ai_summary_fingerprint_${mode}`;
-
-    if (!forceRefresh) {
-      const [cachedText, storedFp] = await Promise.all([
-        AsyncStorage.getItem(cacheKey),
-        AsyncStorage.getItem(fpKey)
-      ]);
-
-      if (cachedText && storedFp === currentFingerprint) {
-        if (mode === 'today') setAiSummaryToday(cachedText);
-        else if (mode === 'tomorrow') setAiSummaryTomorrow(cachedText);
-        return;
-      }
-    }
-
-    setIsGeneratingAISummary(true);
-
-    const getLocalDateString = (d: Date): string => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    const parseOrderDateStr = (rawDate: any): string => {
-      if (!rawDate) return '';
-      const str = String(rawDate).trim();
-      if (str.includes('/')) {
-        const parts = str.split('/');
-        if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-      return str.split('T')[0];
-    };
-
-    const now = new Date();
-    const todayStr = getLocalDateString(now);
-
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = getLocalDateString(tomorrow);
-
-    let targetDates: string[] = [todayStr];
-    let periodLabel = 'para hoje';
-
-    if (mode === 'today') {
-      targetDates = [todayStr];
-      periodLabel = 'para hoje';
-    } else if (mode === 'tomorrow') {
-      targetDates = [tomorrowStr];
-      periodLabel = 'para amanhã';
-    }
-
-    let geminiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
     try {
-      const { data: storeSettings } = await supabase.from('store_settings').select('value').eq('key', 'gemini_api_key').maybeSingle();
-      if (storeSettings?.value) {
-        geminiKey = storeSettings.value.apiKey || storeSettings.value;
-      }
-    } catch (e) {}
+      // Busca dados dos pedidos e configurações do sistema de forma segura com fallback
+      const { data: rawOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
 
-    const deliveryOrders = (rawOrders || []).filter((o: any) => {
-      const oData = o.order_data || {};
-      if (oData.deleted || o.deleted) return false;
-      const orderStatus = (o.status || oData.status || '').toLowerCase();
-      if (orderStatus === 'draft' || orderStatus === 'rascunho') return false;
+      // Fingerprint dos pedidos (IDs, data de atualização/criação, status, exclusão e dados do pedido)
+      const currentFingerprint = (rawOrders || []).map((o: any) => 
+        `${o.id}_${o.updated_at || o.created_at || ''}_${o.status || ''}_${o.deleted || ''}_${JSON.stringify(o.order_data || {})}`
+      ).join('|');
 
-      const shipping = oData.shipping || {};
-      const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-      const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
-      const schedDate = parseOrderDateStr(rawSchedDate);
+      const cacheKey = mode === 'today' ? '@morante_ai_summary_today' : '@morante_ai_summary_tomorrow';
+      const fpKey = `@morante_ai_summary_fingerprint_${mode}`;
 
-      return targetDates.includes(schedDate);
-    });
+      if (!forceRefresh) {
+        const [cachedText, storedFp] = await Promise.all([
+          AsyncStorage.getItem(cacheKey),
+          AsyncStorage.getItem(fpKey)
+        ]);
 
-    const morningDeliveries: any[] = [];
-    const afternoonDeliveries: any[] = [];
-    const unspecifiedDeliveries: any[] = [];
-    let hasShowroomDisassembly = false;
-
-    deliveryOrders.forEach((o: any) => {
-      const oData = o.order_data || {};
-      const shipping = oData.shipping || {};
-      const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-      const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
-      const custData = oData.customerData || oData.customer || {};
-      const custAddr = custData.address || custData.fullAddress || {};
-
-      const rawCity = (deliveryAddr.city || shipping.city || custAddr.city || custData.city || o.city || '').trim();
-      const rawNeighborhood = (deliveryAddr.neighborhood || shipping.neighborhood || custAddr.neighborhood || custData.neighborhood || '').trim();
-      const city = rawCity || rawNeighborhood || 'Colombo';
-
-      const items = oData.items || o.items || [];
-      const allProductsWithArticles: string[] = [];
-      let hasAssembly = false;
-
-      const orderHandling = (oData.handlingType || oData.handling || oData.deliveryType || shipping.handlingType || shipping.handling || o.handling || o.handlingType || '').toString();
-      const isOrderAssemblyOutside = isAssemblyOutsideType(orderHandling);
-
-      items.forEach((item: any) => {
-        const rawName = item.description || item.name || item.title || 'móvel';
-        const itemQty = item.quantity || item.qty || 1;
-        const itemHandling = (item.handlingType || item.handling || '').toString();
-        const productWithArticle = formatProductNameWithArticle(rawName, itemQty);
-        allProductsWithArticles.push(productWithArticle);
-
-        const isItemAssembly = itemHandling ? isAssemblyOutsideType(itemHandling) : isOrderAssemblyOutside;
-        if (isItemAssembly) hasAssembly = true;
-      });
-
-      const timeVal = (sched.startTime || sched.time || '').trim();
-      const endTimeVal = (sched.endTime || '').trim();
-      const timeValLower = timeVal.toLowerCase();
-      const periodVal = (sched.period || sched.shift || sched.turn || '').toLowerCase();
-      const combinedVal = `${timeValLower} ${periodVal}`.trim();
-
-      let timeNatural = '';
-      if (timeVal || endTimeVal) {
-        timeNatural = formatTimeNatural(timeVal, endTimeVal);
-      }
-
-      const distRaw = shipping.distance ?? shipping.distanceKm ?? o.distance ?? o.distanceKm;
-      const distNum = typeof distRaw === 'number' ? distRaw : (parseFloat(distRaw) || null);
-      const distCategory: 'close' | 'far' = (distNum !== null && distNum > 8) || (city.toLowerCase() !== 'colombo') ? 'far' : 'close';
-      const distNatural = formatDistanceNatural(distNum);
-
-      const obsText = ((oData.observation || '') + ' ' + (o.observation || '') + ' ' + (oData.notes || '') + ' ' + (oData.notice || '')).trim();
-      const notices: string[] = [];
-      const obsLower = obsText.toLowerCase();
-
-      const locationInfoText = ((deliveryAddr.complement || '') + ' ' + (deliveryAddr.address || '') + ' ' + (deliveryAddr.street || '') + ' ' + (deliveryAddr.type || '') + ' ' + (shipping.addressType || '') + ' ' + (custAddr.complement || '') + ' ' + (custAddr.address || '') + ' ' + obsText).toLowerCase();
-
-      const isApartmentOrKitnetOrFundos = locationInfoText.includes('apto') || locationInfoText.includes('apartamento') || locationInfoText.includes('apt') || locationInfoText.includes('kitnet') || locationInfoText.includes('kit') || locationInfoText.includes('quitinete') || locationInfoText.includes('fundos') || locationInfoText.includes('nos fundos');
-
-      if (isApartmentOrKitnetOrFundos) {
-        if (locationInfoText.includes('apto') || locationInfoText.includes('apartamento') || locationInfoText.includes('apt')) {
-          notices.push('ligar quando chegar (apartamento)');
-        } else if (locationInfoText.includes('kitnet') || locationInfoText.includes('kit') || locationInfoText.includes('quitinete')) {
-          notices.push('ligar quando chegar (kitnet)');
-        } else {
-          notices.push('ligar quando chegar (casa nos fundos)');
+        if (cachedText && storedFp === currentFingerprint) {
+          if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(cachedText);
+          else if (mode === 'tomorrow' && setAiSummaryTomorrow) setAiSummaryTomorrow(cachedText);
+          return; // Retorna imediatamente sem chamar a IA nem gastar cota!
         }
       }
 
-      if (obsLower.includes('ligar antes') || obsLower.includes('avisar antes') || obsLower.includes('chamar antes') || obsLower.includes('whatsapp antes') || obsLower.includes('avisar quando estiver indo')) {
-        notices.push('ligar antes de ir');
+      if (setIsGeneratingAISummary) setIsGeneratingAISummary(true);
+
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      let targetDates: string[] = [todayStr];
+      let periodLabel = 'para hoje';
+
+      if (mode === 'today') {
+        targetDates = [todayStr];
+        periodLabel = 'para hoje';
+      } else if (mode === 'tomorrow') {
+        targetDates = [tomorrowStr];
+        periodLabel = 'para amanhã';
       }
 
-      const payments = oData.payments || o.payments || (oData.payment ? [oData.payment] : []);
-      const isPendingCardPayment = payments.some((p: any) => {
-        const method = (p.method || p.paymentMethod || p.type || '').toLowerCase();
-        const status = (p.status || p.paymentStatus || oData.paymentStatus || o.payment_status || '').toLowerCase();
-        const isCard = method.includes('card') || method.includes('cartao') || method.includes('cartão') || method.includes('debito') || method.includes('débito') || method.includes('credito') || method.includes('crédito');
-        const isPending = status.includes('pend') || status.includes('receber') || status.includes('entrega') || status === 'unpaid';
-        return isCard && isPending;
-      }) || (oData.balanceDue && oData.balanceDue > 0 && ((oData.paymentMethod || '').toLowerCase().includes('cart') || (oData.paymentMethod || '').toLowerCase().includes('deb') || (oData.paymentMethod || '').toLowerCase().includes('cred')));
-
-      if (isPendingCardPayment || obsLower.includes('maquina') || obsLower.includes('máquina') || obsLower.includes('maquininha')) {
-        notices.push('levar máquina de cartão');
+      let settingsData: any = null;
+      try {
+        const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
+        settingsData = data;
+      } catch (e) {
+        console.warn('Configurações não encontradas ou erro ao carregar:', e);
       }
 
-      if (obsLower.includes('troco')) {
-        const trocoMatch = obsLower.match(/troco\s+(?:para|de)?\s*R?\$?\s*(\d+)/i);
-        if (trocoMatch && trocoMatch[1]) {
-          notices.push(`levar troco para ${trocoMatch[1]} reais`);
-        } else {
-          notices.push('levar troco');
+      const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
+      const handlingOptions: any[] = settingsData?.handlingOptions || settingsData?.orderTypes || [];
+
+      // Função auxiliar para verificar se a modalidade/manuseio REALMENTE é montagem fora/no local da entrega
+      const isAssemblyOutsideType = (handlingTypeStr: string) => {
+        if (!handlingTypeStr) return false;
+        const hLower = handlingTypeStr.toLowerCase().trim();
+
+        // 1. Verifica na configuração cadastrada de manuseio no ERP
+        if (Array.isArray(handlingOptions) && handlingOptions.length > 0) {
+          const matchedOpt = handlingOptions.find((opt: any) =>
+            opt.label && opt.label.toLowerCase().trim() === hLower
+          );
+          if (matchedOpt && typeof matchedOpt.isAssemblyOutside === 'boolean') {
+            return matchedOpt.isAssemblyOutside;
+          }
         }
-      }
 
-      if (obsLower.includes('cooktop') || obsLower.includes('recorte')) notices.push('fazer recorte para cooktop');
-      if (obsLower.includes('forro') || obsLower.includes('furo') || obsLower.includes('serra copo') || obsLower.includes('cerra copo')) notices.push('fazer furo no forro e lembrar de levar serra copo');
-      if (obsLower.includes('nota fiscal') || obsLower.includes('levar nota') || /\bnf\b/.test(obsLower)) notices.push('levar nota fiscal');
+        // 2. Fallbacks de segurança: se for montagem no depósito ou por conta do cliente, NÃO é montagem fora
+        if (
+          hLower.includes('depósito') ||
+          hLower.includes('deposito') ||
+          hLower.includes('retirada') ||
+          hLower.includes('cliente') ||
+          hLower.includes('entregue montado')
+        ) {
+          return false;
+        }
 
-      const hasWallMountService = items.some((item: any) => {
-        const n = (item.description || item.name || item.title || '').toLowerCase();
-        return n.includes('instalação') || n.includes('instalacao') || n.includes('parede') || n.includes('fixação') || n.includes('fixacao');
-      });
-      if (hasWallMountService || obsLower.includes('instalação na parede') || obsLower.includes('instalacao na parede') || obsLower.includes('fixar na parede')) notices.push('fazer instalação na parede');
-      if (obsLower.includes('desmontagem') || obsLower.includes('mostruário') || obsLower.includes('mostruario')) {
-        notices.push('fazer desmontagem no mostruário');
-        hasShowroomDisassembly = true;
-      }
-
-      const deliveryInfo = {
-        city,
-        isColombo: city.toLowerCase() === 'colombo',
-        distNum,
-        distCategory,
-        distNatural,
-        hasAssembly,
-        allProductsWithArticles,
-        timeNatural,
-        notices
+        // Se contiver indicação explícita de montagem no local/fora
+        return (
+          hLower.includes('montagem no local') ||
+          hLower.includes('montagem fora') ||
+          hLower.includes('montagem na entrega')
+        );
       };
 
-      const isMorning = combinedVal.includes('manhã') || combinedVal.includes('manha') || combinedVal.includes('morning') || /^(06|07|08|09|10|11):/.test(timeValLower);
-      const isAfternoon = combinedVal.includes('tarde') || combinedVal.includes('afternoon') || /^(12|13|14|15|16|17|18):/.test(timeValLower);
+      // Função auxiliar para abreviar o nome do produto (máximo 1 a 3 palavras simples, removendo cores e combinações como freijó/off white, preto/branco, cinamomo, etc.)
+      const simplifyProductName = (rawName: string): string => {
+        if (!rawName) return 'móvel';
+        let cleaned = rawName
+          .replace(/\(.*?\)/g, '')
+          .replace(/\[.*?\]/g, '')
+          .replace(/\b[\w\u00C0-\u024F]+(?:\/[\w\u00C0-\u024F]+)+\b/g, '') // remove "preto/branco", "freijo/offwhite"
+          .replace(/[-–—]/g, ' ')
+          .trim();
 
-      if (isMorning) morningDeliveries.push(deliveryInfo);
-      else if (isAfternoon) afternoonDeliveries.push(deliveryInfo);
-      else unspecifiedDeliveries.push(deliveryInfo);
-    });
+        const colorWords = new Set([
+          'freijo', 'freijó', 'off', 'white', 'offwhite', 'preto', 'preta',
+          'branco', 'branca', 'cinamomo', 'grafite', 'nobre', 'imbuia', 'carvalho',
+          'nogueira', 'amêndoa', 'amendoa', 'patina', 'pátina', 'cacau', 'savana',
+          'nature', 'jequitiba', 'jequitibá', 'cedro', 'marrom', 'cinza', 'bege',
+          'areia', 'champagne', 'champanhe', 'castanho', 'fendi', 'ébano', 'ebano',
+          'mel', 'amarelo', 'azul', 'verde', 'rosa', 'vermelho', 'dourado', 'prata'
+        ]);
 
-    const totalDeliveries = deliveryOrders.length;
-    let smartText = '';
+        const words = cleaned.split(/\s+/).filter(Boolean);
+        const filteredWords = words.filter(w => !colorWords.has(w.toLowerCase().trim()));
 
-    if (totalDeliveries === 0) {
-      smartText = `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos.`;
-    } else {
-      const buildShiftData = (shiftTitle: string, deliveries: any[]) => {
-        if (deliveries.length === 0) return null;
-        const count = deliveries.length;
+        if (filteredWords.length === 0) return 'móvel';
+        return filteredWords.slice(0, 3).join(' ');
+      };
 
-        const standardDeliveries = deliveries.filter(d => d.distCategory === 'close' && !d.hasAssembly && !d.timeNatural && d.notices.length === 0);
-        const allProducts = deliveries.flatMap(d => d.allProductsWithArticles);
-        const exceptionDeliveries = deliveries.filter(d => !standardDeliveries.includes(d));
+      const deliveryOrders = (rawOrders || []).filter((o: any) => {
+        const oData = o.order_data || {};
+        if (o.deleted || o.is_deleted || o.status === 'deleted' || o.status === 'cancelled' || oData.deleted) return false;
 
-        const productGroupMap: Record<string, number> = {};
-        allProducts.forEach(p => {
-          productGroupMap[p] = (productGroupMap[p] || 0) + 1;
-        });
+        const shipping = oData.shipping || {};
+        const isDelivery = shipping.deliveryMethod === 'delivery' || !shipping.deliveryMethod;
+        const schedDate = (shipping.scheduling?.date || o.scheduled_date || o.created_at || '').split('T')[0];
 
-        const groupedProductsList = Object.entries(productGroupMap).map(([pName, pQty]) => {
-          if (pQty > 1 && !pName.startsWith('dois') && !pName.startsWith('duas')) {
-            return `${pQty} ${pName.replace(/^(um|uma)\s+/i, '')}s`;
-          }
-          return pName;
-        });
+        if (!isDelivery) return false;
+        return targetDates.includes(schedDate);
+      });
 
-        return {
-          shiftTitle,
-          count,
-          groupedProductsList,
-          exceptionsCount: exceptionDeliveries.length,
-          exceptions: exceptionDeliveries.map(e => ({
-            location: e.isColombo ? 'na região próxima' : `em ${e.city}`,
-            distance: e.distNatural,
-            hasAssembly: e.hasAssembly ? 'com montagem no endereço' : 'sem montagem',
-            time: e.timeNatural || 'horário padrão do turno',
-            products: e.allProductsWithArticles,
-            actions: e.notices
-          })),
-          shiftActions: Array.from(new Set(deliveries.flatMap(d => d.notices)))
+      // Helper para formatar o nome do produto com o artigo gramatical correto (um / uma / dois / duas)
+      const formatProductNameWithArticle = (rawName: string, itemQty: number = 1): string => {
+        const short = simplifyProductName(rawName).toLowerCase();
+        // Usa apenas a PRIMEIRA palavra para determinar o gênero (evita falsos positivos como "balcão para pia")
+        const firstWord = short.split(' ')[0];
+
+        const feminineFirstWords = [
+          'escrivaninha', 'cômoda', 'comoda', 'pia', 'mesa', 'cadeira',
+          'poltrona', 'cozinha', 'cama', 'sapateira', 'cristaleira', 'bancada',
+          'prateleira', 'estante', 'estação', 'banheira', 'penteadeira'
+        ];
+        const isFeminine = feminineFirstWords.some(fw => firstWord === fw || firstWord.startsWith(fw));
+
+        if (itemQty === 1) {
+          return `${isFeminine ? 'uma' : 'um'} ${short}`;
+        } else if (itemQty === 2) {
+          return `${isFeminine ? 'duas' : 'dois'} ${short}s`;
+        } else {
+          return `${itemQty} ${short}s`;
+        }
+      };
+
+      // Helper para converter números cardinais por extenso (até 30, outros ficam em dígitos)
+      const numWord = (n: number): string => {
+        const words: Record<number, string> = {
+          0: 'zero', 1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco',
+          6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
+          11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
+          16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
+          21: 'vinte e uma', 22: 'vinte e duas', 23: 'vinte e três', 24: 'vinte e quatro',
+          25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito',
+          29: 'vinte e nove', 30: 'trinta'
         };
+        return words[n] ?? String(n);
       };
 
-      const morningShift = buildShiftData('manhã', morningDeliveries);
-      const afternoonShift = buildShiftData('tarde', afternoonDeliveries);
-      const unspecShift = buildShiftData('sem horário definido', unspecifiedDeliveries);
+      // Helper para converter distâncias — usa vírgula real para o TTS ler corretamente
+      const formatDistanceConversational = (distNum: number | null): string => {
+        if (distNum === null || isNaN(distNum)) return '';
+        if (distNum <= 5) return 'pertinho';
 
-      const allDayNotices = Array.from(new Set([
-        ...morningDeliveries.flatMap(d => d.notices),
-        ...afternoonDeliveries.flatMap(d => d.notices),
-        ...unspecifiedDeliveries.flatMap(d => d.notices)
-      ]));
-
-      const structuredPayload = {
-        period: periodLabel === 'para hoje' ? 'hoje' : 'amanhã',
-        totalDeliveries,
-        morningCount: morningDeliveries.length,
-        afternoonCount: afternoonDeliveries.length,
-        unspecifiedCount: unspecifiedDeliveries.length,
-        hasShowroomDisassembly,
-        shifts: [morningShift, afternoonShift, unspecShift].filter(Boolean),
-        allDayActionableNotices: allDayNotices
+        const numStr = distNum.toFixed(1).replace('.', ',');
+        if (distNum <= 10) return `não tão perto, a ${numStr} quilômetros`;
+        if (distNum <= 20) return `meio longe, a ${numStr} quilômetros`;
+        return `bem longe, a ${numStr} quilômetros`;
       };
 
-      const geminiPrompt = `Você é o supervisor de logística da Móveis Morante conversando em áudio no WhatsApp com a equipe de motoristas e montadores.
-Sua missão é transformar os dados estruturados das entregas abaixo em um resumo falado EXTREMAMENTE NATURAL, AGRADÁVEL, DIRETO E FLUIDO para conversão em sintetizador de voz (Audio TTS).
+      // Coleções de entregas por turno
+      const morningDeliveries: any[] = [];
+      const afternoonDeliveries: any[] = [];
+      const unspecifiedDeliveries: any[] = [];
 
-REGRAS OBRIGATÓRIAS DO RESUMO:
-1. COMECE COM O TOTAL E A DIVISÃO DOS TURNOS: Exemplo: "Hoje temos nove entregas, sendo seis pela manhã e três à tarde."
-2. ORGANIZE O CONTEÚDO POR PERÍODO ("Pela manhã...", "À tarde...").
-3. REGRA CRÍTICA DE PRODUTOS: NAS ENTREGAS NORMAIS, PROIBIDO CITAR O NOME DOS PRODUTOS! Fale apenas a quantidade de itens (ex: "uma entrega com 3 itens", "duas entregas com 1 item cada").
-4. MONTAGEM NO LOCAL: CITAR O NOME DO PRODUTO SOMENTE QUANDO HOUVER MONTAGEM NO LOCAL DA ENTREGA (ex: "com montagem no local do guarda-roupa e da cozinha").
-5. DESTACAR EXCEÇÕES INDIVIDUALMENTE. NUNCA fale "entrega em próxima". Fale "entrega próxima" ou "entrega em Curitiba".
-6. REGRAS RÍGIDAS DE LIGAÇÕES E AÇÕES OPERACIONAIS (ligar antes de ir, ligar quando chegar em apto/kitnet/fundos, levar máquina de cartão, levar troco, serra copo, recorte cooktop, parede, mostruário).
-7. HORÁRIOS EM LINGUAGEM NATURAL FALADA.
-8. DISTÂNCIAS NATURAIS. NUNCA fale a palavra "Colombo".
-9. SEÇÃO FINAL OBRIGATÓRIA DE CUIDADOS E AÇÕES: PROIBIDO USAR A PALAVRA "ATENÇÃO". Diga diretamente: "Para hoje, lembrar de...".
-10. REGRAS DE AUDIO TTS: PROIBIDO markdown, emojis, parênteses, dois-pontos, tabelas, SKUs.
-11. RETORNE APENAS O TEXTO A SER PRONUNCIADO.
+      const citiesMap: Record<string, number> = {};
+      let hasFarAssembly = false;
+      let hasShowroomDisassembly = false;
 
-DADOS ESTRUTURADOS DA OPERAÇÃO:
-${JSON.stringify(structuredPayload, null, 2)}`;
+      deliveryOrders.forEach((o: any) => {
+        const oData = o.order_data || {};
+        const shipping = oData.shipping || {};
+        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
 
-      const generateLocalFallbackSummary = (payload: any): string => {
-        if (!payload || payload.totalDeliveries === 0) {
-          return `Não há entregas agendadas para ${payload?.period || 'hoje'}. Operação e frota disponíveis.`;
-        }
-        const periodText = payload.period === 'hoje' ? 'Hoje' : 'Para amanhã';
-        let text = `${periodText} temos ${payload.totalDeliveries} entregas`;
+        const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
+        const custData = oData.customerData || oData.customer || {};
+        const custAddr = custData.address || custData.fullAddress || {};
 
-        if (payload.morningCount > 0 && payload.afternoonCount > 0) {
-          text += `, sendo ${payload.morningCount} pela manhã e ${payload.afternoonCount} à tarde.`;
-        } else if (payload.morningCount > 0) {
-          text += ` todas pela manhã.`;
-        } else if (payload.afternoonCount > 0) {
-          text += ` todas à tarde.`;
-        } else {
-          text += `.`;
-        }
+        const rawCity = (
+          deliveryAddr.city ||
+          shipping.city ||
+          custAddr.city ||
+          custData.city ||
+          o.city ||
+          ''
+        ).trim();
 
-        (payload.shifts || []).forEach((shift: any) => {
-          if (!shift) return;
-          text += ` Pela ${shift.shiftTitle}, temos ${shift.count} entregas.`;
-          if (shift.exceptions && shift.exceptions.length > 0) {
-            shift.exceptions.forEach((e: any) => {
-              text += ` Entrega ${e.location || (e.isColombo ? 'na região próxima' : `em ${e.city}`)}`;
-              if (e.distance && e.distance !== 'próxima') text += `, ${e.distance}`;
-              if (e.hasAssembly && e.hasAssembly !== 'sem montagem') {
-                text += `, com montagem no local ${e.products ? `do ${e.products.join(' e ')}` : ''}`;
-              }
-              if (e.time && e.time !== 'horário padrão do turno') text += `, agendada ${e.time}`;
-              if (e.actions && e.actions.length > 0) text += `. Lembrar de: ${e.actions.join(', ')}.`;
-              else text += `.`;
-            });
+        const rawNeighborhood = (
+          deliveryAddr.neighborhood ||
+          shipping.neighborhood ||
+          custAddr.neighborhood ||
+          custData.neighborhood ||
+          ''
+        ).trim();
+
+        const city = rawCity || rawNeighborhood || 'Colombo';
+        citiesMap[city] = (citiesMap[city] || 0) + 1;
+
+        const distRaw = shipping.distance ?? shipping.distanceKm ?? o.distance ?? o.distanceKm;
+        const distNum = typeof distRaw === 'number' ? distRaw : (parseFloat(distRaw) || null);
+        const distText = formatDistanceConversational(distNum);
+
+        const items = oData.items || o.items || [];
+        const assemblyItems: string[] = [];
+        const noAssemblyItems: string[] = [];
+
+        const orderHandling = (
+          oData.handlingType ||
+          oData.handling ||
+          oData.deliveryType ||
+          shipping.handlingType ||
+          shipping.handling ||
+          o.handling ||
+          o.handlingType ||
+          ''
+        ).toString();
+        const isOrderAssemblyOutside = isAssemblyOutsideType(orderHandling);
+
+        items.forEach((item: any) => {
+          const rawName = item.description || item.name || item.title || 'móvel';
+          const itemQty = item.quantity || item.qty || 1;
+          const itemHandling = (item.handlingType || item.handling || '').toString();
+          const productWithArticle = formatProductNameWithArticle(rawName, itemQty);
+
+          let isAssembly = false;
+          if (itemHandling) {
+            isAssembly = isAssemblyOutsideType(itemHandling);
+          } else {
+            isAssembly = isOrderAssemblyOutside;
+          }
+
+          if (!isAssembly && isOrderAssemblyOutside) {
+            const hLower = itemHandling.toLowerCase();
+            if (!hLower.includes('depósito') && !hLower.includes('deposito') && !hLower.includes('retirada') && !hLower.includes('cliente') && !hLower.includes('entregue montado')) {
+              isAssembly = true;
+            }
+          }
+
+          if (isAssembly) {
+            assemblyItems.push(productWithArticle);
+          } else {
+            noAssemblyItems.push(productWithArticle);
           }
         });
 
-        if (payload.allDayActionableNotices && payload.allDayActionableNotices.length > 0) {
-          text += ` Para ${payload.period}, lembrar de: ${payload.allDayActionableNotices.join(', ')}.`;
-        } else {
-          text += ` Para ${payload.period}, operação normal, sem observações especiais.`;
+        const timeVal = (sched.startTime || sched.time || '').trim();
+        const endTimeVal = (sched.endTime || '').trim();
+        const timeValLower = timeVal.toLowerCase();
+        const periodVal = (sched.period || sched.shift || sched.turn || '').toLowerCase();
+        const combinedVal = `${timeValLower} ${periodVal}`.trim();
+
+        const isStandardWindow = (tStart: string, tEnd: string): boolean => {
+          if (!tStart && !tEnd) return true;
+
+          const parseMinutes = (t: string) => {
+            const clean = t.replace(/[^\d:]/g, '');
+            const parts = clean.split(':');
+            if (parts[0]) {
+              const h = parseInt(parts[0], 10);
+              const m = parts[1] ? parseInt(parts[1], 10) : 0;
+              return h * 60 + m;
+            }
+            return null;
+          };
+
+          const sMin = parseMinutes(tStart);
+          const eMin = parseMinutes(tEnd);
+
+          // Padrão Manhã: 09:00 (540m) até 12:00 (720m)
+          // Padrão Tarde: 13:00 (780m) até 18:00 (1080m)
+          if (sMin !== null && eMin !== null) {
+            if (sMin >= 540 && sMin <= 570 && eMin >= 720 && eMin <= 750) return true;
+            if (sMin >= 780 && sMin <= 810 && eMin >= 1050 && eMin <= 1110) return true;
+            return false;
+          }
+
+          if (sMin !== null && eMin === null) {
+            if (sMin === 540 || sMin === 780) return true;
+            return false;
+          }
+
+          return true;
+        };
+
+        let scheduledTimeStr = '';
+        if (!isStandardWindow(timeVal, endTimeVal)) {
+          if (timeVal && endTimeVal) {
+            scheduledTimeStr = `agendada para um período em específico entre ${timeVal} e ${endTimeVal}`;
+          } else if (timeVal) {
+            scheduledTimeStr = `agendada para um horário em específico às ${timeVal}`;
+          }
         }
 
-        return text;
-      };
+        const obsText = (
+          (oData.observation || '') + ' ' +
+          (o.observation || '') + ' ' +
+          (oData.notes || '') + ' ' +
+          (oData.notice || '')
+        ).toLowerCase();
+
+        const itemHasShowroom = items.some((item: any) => {
+          const h = (item.handlingType || item.handling || '').toLowerCase();
+          const n = (item.description || item.name || item.title || '').toLowerCase();
+          const notes = (item.notes || item.observation || '').toLowerCase();
+          return (
+            h.includes('mostruário') || h.includes('mostruario') ||
+            n.includes('mostruário') || n.includes('mostruario') ||
+            notes.includes('mostruário') || notes.includes('mostruario')
+          );
+        });
+        const obsHasShowroom = obsText.includes('mostruário') || obsText.includes('mostruario') || obsText.includes('desmontagem no mostruario') || obsText.includes('desmontagem no mostruário');
+        if (itemHasShowroom || obsHasShowroom) {
+          hasShowroomDisassembly = true;
+        }
+
+        const notices: string[] = [];
+        if (obsText.includes('maquina') || obsText.includes('máquina') || obsText.includes('cartao') || obsText.includes('cartão')) {
+          notices.push('levar máquina de cartão');
+        }
+        if (obsText.includes('cooktop') || obsText.includes('recorte')) {
+          notices.push('fazer recorte para cooktop');
+        }
+        if (obsText.includes('forro') || obsText.includes('furo') || obsText.includes('serra copo') || obsText.includes('cerra copo')) {
+          notices.push('fazer furo no forro e lembrar de levar serra copo');
+        }
+        if (obsText.includes('ligar antes') || obsText.includes('avisar antes') || obsText.includes('chamar antes') || obsText.includes('whatsapp antes')) {
+          notices.push('ligar antes de ir');
+        }
+        if (obsText.includes('nota fiscal') || obsText.includes('levar nota') || /\bnf\b/.test(obsText)) {
+          notices.push('levar nota fiscal');
+        }
+
+        const hasWallMountService = items.some((item: any) => {
+          const n = (item.description || item.name || item.title || '').toLowerCase();
+          return n.includes('instalação') || n.includes('instalacao') || n.includes('parede') || n.includes('fixação') || n.includes('fixacao');
+        });
+        if (hasWallMountService || obsText.includes('instalação na parede') || obsText.includes('instalacao na parede') || obsText.includes('fixar na parede')) {
+          notices.push('fazer instalação na parede');
+        }
+
+        const isMorning =
+          combinedVal.includes('manhã') || combinedVal.includes('manha') ||
+          combinedVal.includes('morning') ||
+          /^(06|07|08|09|10|11):/.test(timeValLower);
+
+        const isAfternoon =
+          combinedVal.includes('tarde') || combinedVal.includes('afternoon') ||
+          /^(12|13|14|15|16|17|18):/.test(timeValLower);
+
+        const deliveryInfo = {
+          city,
+          isColombo: city.toLowerCase() === 'colombo',
+          distText,
+          assemblyItems,
+          noAssemblyItems,
+          scheduledTimeStr,
+          notices
+        };
+
+        if (isMorning) morningDeliveries.push(deliveryInfo);
+        else if (isAfternoon) afternoonDeliveries.push(deliveryInfo);
+        else unspecifiedDeliveries.push(deliveryInfo);
+      });
+
+      const totalDeliveries = deliveryOrders.length;
+      let smartText = '';
+
+      if (totalDeliveries === 0) {
+        smartText = `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos.`;
+      } else {
+        const morningCount = morningDeliveries.length;
+        const afternoonCount = afternoonDeliveries.length;
+        const unspecCount = unspecifiedDeliveries.length;
+
+        // Visão geral: conta todos os turnos
+        let shiftIntro = '';
+        const hasMorning = morningCount > 0;
+        const hasAfternoon = afternoonCount > 0;
+        const hasUnspec = unspecCount > 0;
+
+        if (hasMorning && hasAfternoon && !hasUnspec) {
+          shiftIntro = `, com ${numWord(morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
+        } else if (hasMorning && hasAfternoon && hasUnspec) {
+          const totalMorning = morningCount + unspecCount;
+          shiftIntro = `, com ${numWord(totalMorning)} pela manhã e ${numWord(afternoonCount)} à tarde`;
+        } else if (hasMorning && !hasAfternoon) {
+          const totalMorning = morningCount + unspecCount;
+          shiftIntro = totalMorning === 1 ? `, no período da manhã` : `, todas no período da manhã`;
+        } else if (hasAfternoon && !hasMorning && !hasUnspec) {
+          shiftIntro = afternoonCount === 1 ? `, no período da tarde` : `, todas no período da tarde`;
+        } else if (hasAfternoon && hasUnspec) {
+          shiftIntro = `, com ${numWord(unspecCount + morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
+        } else if (hasUnspec && !hasMorning && !hasAfternoon) {
+          shiftIntro = unspecCount === 1 ? `, sem horário definido` : `, sem horário definido`;
+        }
+
+        const deliveriesWord = numWord(totalDeliveries);
+        const deliveriesText = totalDeliveries === 1 ? 'uma entrega programada' : `${deliveriesWord} entregas programadas`;
+        const overviewSentence = `Para ${periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${deliveriesText}${shiftIntro}.`;
+
+        // Helper para formatar uma lista de entregas em texto
+        const formatDeliveryParts = (deliveries: any[]) =>
+          deliveries.map(d => {
+            const citySuffix = d.isColombo ? '' : ` para ${d.city}`;
+            const distSuffix = d.distText ? `, ${d.distText}` : '';
+            let basePart = '';
+            if (d.assemblyItems.length > 0) {
+              basePart = `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
+            } else if (d.noAssemblyItems.length > 0) {
+              basePart = `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no endereço`;
+            } else {
+              basePart = `uma entrega${citySuffix}${distSuffix}`;
+            }
+
+            if (d.scheduledTimeStr) {
+              basePart += `, ${d.scheduledTimeStr}`;
+            }
+
+            if (d.notices && d.notices.length > 0) {
+              basePart += `, com atenção para ${d.notices.join(' e ')}`;
+            }
+
+            return basePart;
+          });
+
+        // Detalhamento da Manhã
+        let morningText = '';
+        const morningAll = hasAfternoon
+          ? morningDeliveries
+          : [...morningDeliveries, ...unspecifiedDeliveries];
+
+        if (morningAll.length > 0) {
+          const parts = formatDeliveryParts(morningAll);
+          morningText = parts.length === 1
+            ? `Pela manhã, temos ${parts[0]}.`
+            : `Pela manhã, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
+        } else if (hasAfternoon) {
+          morningText = `Pela manhã não temos entregas.`;
+        }
+
+        // Detalhamento da Tarde
+        let afternoonText = '';
+        if (afternoonDeliveries.length > 0) {
+          const parts = formatDeliveryParts(afternoonDeliveries);
+          afternoonText = parts.length === 1
+            ? `À tarde, temos ${parts[0]}.`
+            : `À tarde, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
+        }
+
+        // Entregas sem turno definido quando há tarde mas não manhã
+        let unspecText = '';
+        if (hasAfternoon && hasUnspec && !hasMorning) {
+          const parts = formatDeliveryParts(unspecifiedDeliveries);
+          unspecText = parts.length === 1
+            ? ` Também temos ${parts[0]}, sem horário definido.`
+            : ` Também temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}, sem horário definido.`;
+        }
+
+        // Dica de entrega distante com montagem
+        const farAssemblyHint = hasFarAssembly
+          ? ` Obs: há entrega distante com montagem no endereço, atenção ao horário de saída.`
+          : '';
+
+        // Lembrete de desmontagem no mostruário para entregas de amanhã
+        const showroomHint = (mode === 'tomorrow' && hasShowroomDisassembly)
+          ? ` Lembrem de desmontar hoje o móvel de mostruário para amanhã estar pronto para ser levado, já que é um móvel de mostruário.`
+          : '';
+
+        smartText = `${overviewSentence} ${morningText} ${afternoonText}${unspecText}${farAssemblyHint}${showroomHint}`.trim().replace(/\s+/g, ' ');
+      }
 
       try {
-        if (geminiKey) {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const geminiPrompt = `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas. Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS). O texto já está estruturado; só refine a fluência sem alterar os dados.
 
+REGRAS ABSOLUTAS DE CONCORDÂNCIA E PRONÚNCIA:
+1. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
+   - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa", "um armário".
+   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "sapateira", "cristaleira", "bancada", "prateleira", "estante", "penteadeira" → artigo FEMININO: "uma escrivaninha", "uma mesa", "uma pia".
+   - ATENÇÃO: "balcão para pia" começa com "balcão" (masculino) → sempre "um balcão para pia". NUNCA "uma balcão".
+2. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). Para distâncias com decimal, USE a vírgula real no formato "5,2 quilômetros", "27,1 quilômetros", NUNCA escreva a palavra "vírgula" por extenso. NUNCA escreva dígitos isolados sem unidade (ex: NUNCA "4 entregas", sempre "quatro entregas").
+3. SEM EXPRESSÕES REPETIDAS OU ESTRANHAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
+4. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde." — NUNCA: "sendo uma para Curitiba" na visão geral.
+5. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
+6. AVISO DE ENTREGA DISTANTE COM MONTAGEM: Se o texto base contiver uma "Obs:" sobre entrega distante com montagem, transforme em aviso conversacional no final, como: "Pessoal, essa entrega é bem longe e ainda tem montagem no endereço, se programem para sair com tempo."
+7. HORÁRIOS E AVISOS OPERACIONAIS: 
+   - REGRA DE OURO PARA HORÁRIOS: As janelas padrão de entrega são das 9 às 12 horas (manhã) e das 13 às 18 horas (tarde). Se a entrega for nas janelas padrão (entre 9 e 12h ou entre 13 e 18h), NUNCA diga o horário específico na entrega individual (já está subentendido no turno da manhã ou da tarde). SOMENTE se a entrega for em um horário/período DIFERENTE de 9-12h ou 13-18h (ex: 08:00, 08:00 às 10:00, 18:30), mencione explicitamente que essa entrega foi agendada para um horário ou período em específico.
+   - AVISOS OPERACIONAIS: Mantenha sempre avisos operacionais (como levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede).
+8. OMISSÃO DE CORES E ACABAMENTOS: PROIBIDO pronunciar nomes de cores ou combinações (ex: NUNCA diga "freijó", "off white", "preto/branco", "preto", "branco", "cinamomo", "grafite", "nobre", "carvalho", etc.). Diga apenas o nome do produto (ex: "uma cômoda grécia" em vez de "uma cômoda grécia freijó", "uma escrivaninha 2 gavetas" em vez de "uma escrivaninha 2 gavetas preto/branco").
+9. AVISO DE MOSTRUÁRIO PARA ENTREGAS DE AMANHÃ: Se o texto base de entregas para amanhã incluir instrução sobre móvel de mostruário ("Lembrem de desmontar hoje..."), inclua obrigatoriamente essa lembrança ao final para que a equipe desmonte o móvel no mostruário hoje mesmo para amanhã estar pronto para ser levado.
+10. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
+11. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
+
+Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no endereço, agendada para um horário em específico às 08:00. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no endereço, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no endereço, com atenção para fazer instalação na parede. Pessoal, lembrem de desmontar hoje o móvel de mostruário para amanhã estar pronto para ser levado, já que é um móvel de mostruário."
+
+Texto base para refinamento: "${smartText}"`;
+
+        if (geminiKey) {
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt }] }] }),
-            signal: controller.signal
-          }).finally(() => clearTimeout(timeoutId));
-
+            body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt }] }] })
+          });
           if (res.ok) {
             const resJson = await res.json();
             const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -375,36 +537,31 @@ ${JSON.stringify(structuredPayload, null, 2)}`;
             }
           }
         }
-      } catch (fetchErr) {
-        console.warn('Erro/Timeout ao chamar API do Gemini para o resumo:', fetchErr);
+      } catch (err) {
+        console.warn('Fallback local ativado para o resumo da IA:', err);
       }
 
-      if (!smartText || !smartText.trim()) {
-        smartText = generateLocalFallbackSummary(structuredPayload);
+      try {
+        if (mode === 'today' && setAiSummaryToday) {
+          setAiSummaryToday(smartText);
+          await AsyncStorage.setItem('@morante_ai_summary_today', smartText).catch(() => {});
+          await AsyncStorage.setItem('@morante_ai_summary_fingerprint_today', currentFingerprint).catch(() => {});
+        } else if (mode === 'tomorrow' && setAiSummaryTomorrow) {
+          setAiSummaryTomorrow(smartText);
+          await AsyncStorage.setItem('@morante_ai_summary_tomorrow', smartText).catch(() => {});
+          await AsyncStorage.setItem('@morante_ai_summary_fingerprint_tomorrow', currentFingerprint).catch(() => {});
+        }
+      } catch (storageErr) {
+        console.warn('Cota de armazenamento excedida para AsyncStorage:', storageErr);
       }
+    } catch (err) {
+      console.warn('Erro ao gerar resumo de entregas com IA:', err);
+      const fallbackText = mode === 'today'
+        ? 'Não há entregas agendadas para hoje. Operação e frota disponíveis.'
+        : 'Não há entregas agendadas para amanhã. Operação e frota disponíveis.';
+      if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(fallbackText);
+      else if (mode === 'tomorrow' && setAiSummaryTomorrow) setAiSummaryTomorrow(fallbackText);
+    } finally {
+      if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
     }
-
-    try {
-      if (mode === 'today') {
-        setAiSummaryToday(smartText);
-        await AsyncStorage.setItem('@morante_ai_summary_today', smartText).catch(() => {});
-        await AsyncStorage.setItem('@morante_ai_summary_fingerprint_today', currentFingerprint).catch(() => {});
-      } else if (mode === 'tomorrow') {
-        setAiSummaryTomorrow(smartText);
-        await AsyncStorage.setItem('@morante_ai_summary_tomorrow', smartText).catch(() => {});
-        await AsyncStorage.setItem('@morante_ai_summary_fingerprint_tomorrow', currentFingerprint).catch(() => {});
-      }
-    } catch (storageErr) {
-      console.warn('Cota de armazenamento excedida para AsyncStorage:', storageErr);
-    }
-  } catch (err) {
-    console.warn('Erro ao gerar resumo de entregas com IA:', err);
-    const fallbackText = mode === 'today'
-      ? 'Não há entregas agendadas para hoje. Operação e frota disponíveis.'
-      : 'Não há entregas agendadas para amanhã. Operação e frota disponíveis.';
-    if (mode === 'today') setAiSummaryToday(fallbackText);
-    else if (mode === 'tomorrow') setAiSummaryTomorrow(fallbackText);
-  } finally {
-    setIsGeneratingAISummary(false);
-  }
-};
+    };
