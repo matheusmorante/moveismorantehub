@@ -18,6 +18,7 @@ function App() {
         draggable
         pauseOnHover
         theme="colored"
+        style={{ marginTop: '65px' }}
       />
     </ErrorBoundary>
   );

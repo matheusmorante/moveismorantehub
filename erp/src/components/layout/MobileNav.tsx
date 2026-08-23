@@ -96,7 +96,7 @@ const menuItems = [
         bg: 'bg-pink-50 dark:bg-pink-900/20',
         links: [
             { to: '/marketing/posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Posts para Redes Sociais' },
-            { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta (Feed CSV)' },
+            { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta' },
             { to: '/stock/label-printing?category=logos', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Logotipos e Artes' },
         ]
     },

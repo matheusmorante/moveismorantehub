@@ -77,6 +77,7 @@ export default function AppLayout() {
         newestOnTop={false}
         closeOnClick
         theme={theme === 'dark' ? 'dark' : 'colored'}
+        style={{ marginTop: '65px' }}
         draggable
       />
 

@@ -100,21 +100,68 @@ export const whatsappGraphService = {
         const rawPrice = product.unitPrice ?? product.unit_price ?? product.price ?? 0;
         const priceCents = Math.round(Number(rawPrice) * 100);
         
+        const isInactiveOrHidden = product.active === false || product.hidden === true || product.deleted === true;
+        const targetAction = isInactiveOrHidden ? 'DELETE' : action;
+
+        const cleanTitle = product.name || product.title || (product.description ? String(product.description).split('\n')[0] : 'Produto Morante');
+        const cleanDescription = product.whatsappDescription || product.whatsapp_description || product.description || cleanTitle;
+
+        // Processar e sanitizar imagens para a Meta
+        let singleImageUrls: string[] = [];
+        if (Array.isArray(product.images) && product.images.length > 0) {
+            product.images.forEach((imgItem: any) => {
+                if (imgItem) {
+                    String(imgItem).split(',').forEach(url => {
+                        const trimmed = url.trim();
+                        if (trimmed && !singleImageUrls.includes(trimmed)) singleImageUrls.push(trimmed);
+                    });
+                }
+            });
+        } else if (product.image_url) {
+            String(product.image_url).split(',').forEach(url => {
+                const trimmed = url.trim();
+                if (trimmed && !singleImageUrls.includes(trimmed)) singleImageUrls.push(trimmed);
+            });
+        }
+
+        const fallbackUrl = 'https://moveismorante.com.br/logo.png';
+        const SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
+        const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
+
+        const sanitizeUrl = (urlStr: string) => {
+            if (!urlStr) return fallbackUrl;
+            let str = urlStr.trim();
+            if (SUPABASE_STORAGE_PATTERN.test(str)) {
+                const match = str.match(SUPABASE_STORAGE_PATTERN);
+                if (match && match[1]) {
+                    const fileName = match[1].split('/').pop();
+                    str = `${R2_BASE_URL}/${fileName}`;
+                }
+            }
+            if (!str.startsWith('http://') && !str.startsWith('https://')) str = `https://${str}`;
+            return str.replace(/\s+/g, '%20');
+        };
+
+        const sanitizedSingleImages = singleImageUrls.map(sanitizeUrl).filter(Boolean);
+        const mainImageUrl = sanitizedSingleImages.length > 0 ? sanitizedSingleImages[0] : fallbackUrl;
+        const additionalImageUrls = sanitizedSingleImages.length > 1 ? sanitizedSingleImages.slice(1, 10) : [];
+
         const batchRequest = {
             requests: [
                 {
-                    method: action,
-                    retailer_id: product.code || product.sku || product.id,
-                    data: action === 'UPDATE' ? {
-                        name: product.description || product.name,
-                        description: product.whatsappDescription || product.description || product.name,
+                    method: targetAction,
+                    retailer_id: String(product.code || product.sku || product.id),
+                    data: targetAction === 'UPDATE' ? {
+                        name: cleanTitle,
+                        description: cleanDescription,
                         price: priceCents,
                         currency: 'BRL',
                         condition: product.condition === 'usado' ? 'used' : 'new',
-                        availability: (product.stock > 0 && product.active) ? 'in stock' : 'out of stock',
-                        image_url: product.images?.[0] || product.image_url,
+                        availability: 'in stock',
+                        image_url: mainImageUrl,
+                        additional_image_urls: additionalImageUrls,
                         brand: product.brand || 'Móveis Morante',
-                        url: `https://moveismorante.com.br/p/${product.id}`, // Placeholder URL
+                        url: `https://moveismorante.com.br/p/${product.id}`,
                         category: product.groupName || 'Furniture'
                     } : undefined
                 }
@@ -133,12 +180,18 @@ export const whatsappGraphService = {
 
             const data = await response.json();
             
-            if (data.error) {
-                console.error("[WhatsAppService] Erro no Batch Sync:", data.error);
-                if (data.error.code === 200 || data.error.message?.includes("blocked")) {
+            if (!response.ok || data.error) {
+                console.error("[WhatsAppService] Erro no Batch Sync:", data.error || data);
+                const code = data.error?.code;
+                const msg = data.error?.message || "";
+
+                if (code === 190 || code === 100 || response.status === 401 || msg.includes("Application has been deleted") || msg.includes("invalid")) {
+                    throw new Error("Token do Meta expirado ou inválido. Atualize o 'Token de Acesso' nas Configurações > WhatsApp API.");
+                }
+                if (data.error?.code === 200 || data.error?.message?.includes("blocked")) {
                     throw new Error("Acesso à API Bloqueado: Verifique se o Token tem permissão 'catalog_management' e se o Catálogo ID está correto no Gerenciador de Negócios.");
                 }
-                throw new Error(data.error.message || "Erro desconhecido ao sincronizar.");
+                throw new Error(msg || "Erro desconhecido ao sincronizar.");
             }
 
             return data;
@@ -158,7 +211,7 @@ export const whatsappGraphService = {
     /**
      * Sincroniza uma lista inteira de produtos em lotes via Batch Request da Meta Graph API
      */
-    syncBatchProductsToCatalog: async (productsList: any[]) => {
+    syncBatchProductsToCatalog: async (productsList: any[], onProgress?: (processed: number, total: number) => void) => {
         const { whatsappConfig } = getSettings();
         if (!whatsappConfig?.catalogId) throw new Error("Catalog ID não configurado.");
 
@@ -167,25 +220,135 @@ export const whatsappGraphService = {
         // A Meta limita batch a 50 itens por requisição
         const BATCH_SIZE = 50;
         let syncedCount = 0;
+        const total = productsList.length;
+
+        if (onProgress) onProgress(0, total);
 
         for (let i = 0; i < productsList.length; i += BATCH_SIZE) {
             const chunk = productsList.slice(i, i + BATCH_SIZE);
             const requests = chunk.map(product => {
+                const isHidden = product.status === 'hidden' || product.hidden === true;
+                const isDeleted = product.deleted === true || product.deleted_at !== undefined && product.deleted_at !== null;
+                const isInactiveOrHidden = isHidden || isDeleted;
+                const retailerId = String(product.code || product.sku || product.id);
+
+                // Se estiver explicitamente oculto ou deletado na lixeira, remove do catálogo via DELETE
+                if (isInactiveOrHidden) {
+                    return {
+                        method: 'DELETE',
+                        retailer_id: retailerId
+                    };
+                }
+
+                const cleanTitle = product.name || product.title || (product.description ? String(product.description).split('\n')[0] : 'Produto Morante');
+                const baseProdDesc = product.whatsappDescription || product.whatsapp_description || product.description || cleanTitle;
+
+                const globalPrefix = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
+
+💳 Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito
+
+🚨⚠️ Aceitamos Senff com juros.
+
+✅ À vista tem desconto no pix, débito ou dinheiro!
+
+
+✅ Sem taxa de frete para endereços próximos.
+
+
+✅ Montagem Incluída para a retirada ou entrega.
+
+
+✅ Atendimento Via WhatsApp
+
+https://wa.me/5541997493547
+
+
+🛒 VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:
+
+https://moveismorante.com.br
+
+___________________________________
+
+Móveis Morante
+
+▶ CNPJ: 44.512 248/0001-07
+
+🕒 Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )
+
+🗺📍Rua Cascavel, 306, Guaraituba, Colombo - PR
+
+____________________________________
+
+
+👁🗨 ESPECIFICAÇÕES:`;
+
+                const cleanDescription = `${globalPrefix}\n\n${baseProdDesc}`;
                 const rawPrice = product.unitPrice ?? product.unit_price ?? product.price ?? product.sales_price ?? 0;
                 const priceCents = Math.round(Number(rawPrice) * 100);
-                const isAvailable = (product.stock > 0 || product.current_stock > 0) && product.active !== false;
+
+                // Processar todas as imagens do produto
+                let allImageUrls: string[] = [];
+                if (Array.isArray(product.images) && product.images.length > 0) {
+                    product.images.forEach((imgItem: any) => {
+                        if (imgItem) {
+                            String(imgItem).split(',').forEach(url => {
+                                const trimmed = url.trim();
+                                if (trimmed && !allImageUrls.includes(trimmed)) {
+                                    allImageUrls.push(trimmed);
+                                }
+                            });
+                        }
+                    });
+                } else if (product.image_url) {
+                    String(product.image_url).split(',').forEach(url => {
+                        const trimmed = url.trim();
+                        if (trimmed && !allImageUrls.includes(trimmed)) {
+                            allImageUrls.push(trimmed);
+                        }
+                    });
+                }
+
+                const fallbackUrl = 'https://moveismorante.com.br/logo.png';
+                const SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
+                const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
+
+                // Função helper para converter e sanitizar URLs para Cloudflare R2 exclusivamente
+                const sanitizeUrl = (urlStr: string) => {
+                    if (!urlStr) return fallbackUrl;
+                    let str = urlStr.trim();
+
+                    // Se a URL for do Supabase Storage, redireciona dinamicamente para o R2 da Cloudflare
+                    if (SUPABASE_STORAGE_PATTERN.test(str)) {
+                        const match = str.match(SUPABASE_STORAGE_PATTERN);
+                        if (match && match[1]) {
+                            const fileName = match[1].split('/').pop();
+                            str = `${R2_BASE_URL}/${fileName}`;
+                        }
+                    }
+
+                    if (!str.startsWith('http://') && !str.startsWith('https://')) {
+                        str = `https://${str}`;
+                    }
+                    // Codificar espaços e caracteres especiais mantendo o protocolo HTTPS
+                    return str.replace(/\s+/g, '%20');
+                };
+
+                const sanitizedImages = allImageUrls.map(sanitizeUrl).filter(Boolean);
+                const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : fallbackUrl;
+                const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : []; // Meta suporta até 10 imagens adicionais
 
                 return {
                     method: 'UPDATE',
-                    retailer_id: String(product.code || product.sku || product.id),
+                    retailer_id: retailerId,
                     data: {
-                        name: product.description || product.name,
-                        description: product.whatsappDescription || product.whatsapp_description || product.description || product.name,
+                        name: cleanTitle,
+                        description: cleanDescription,
                         price: priceCents,
                         currency: 'BRL',
                         condition: product.condition === 'usado' ? 'used' : 'new',
-                        availability: isAvailable ? 'in stock' : 'out of stock',
-                        image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.image_url || 'https://moveismorante.com.br/logo.png'),
+                        availability: 'in stock',
+                        image_url: mainImageUrl,
+                        additional_image_urls: additionalImageUrls,
                         brand: product.brand || 'Móveis Morante',
                         url: `https://moveismorante.com.br/p/${product.id}`,
                         category: product.groupName || product.group_name || 'Furniture'
@@ -203,11 +366,18 @@ export const whatsappGraphService = {
             );
 
             const data = await response.json();
-            if (data.error) {
-                console.error("[WhatsAppService] Erro no Lote Meta API:", data.error);
-                throw new Error(data.error.message || "Erro no envio em lote da Meta API.");
+            if (!response.ok || data.error) {
+                console.error("[WhatsAppService] Erro no Lote Meta API:", data.error || data);
+                const code = data.error?.code;
+                const msg = data.error?.message || "";
+
+                if (code === 190 || code === 100 || response.status === 401 || msg.includes("Application has been deleted") || msg.includes("invalid")) {
+                    throw new Error("Token do Meta expirado ou inválido (App excluído/desativado). Atualize o 'Token de Acesso' nas Configurações > WhatsApp API.");
+                }
+                throw new Error(msg || "Erro no envio em lote da Meta API.");
             }
             syncedCount += chunk.length;
+            if (onProgress) onProgress(syncedCount, total);
         }
 
         return { success: true, count: syncedCount };

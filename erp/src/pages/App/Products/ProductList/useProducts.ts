@@ -607,11 +607,21 @@ export const useProducts = (filters?: any) => {
                 .filter(child => child.id)
                 .map(child => updateProduct(child.id!, { status: newStatus })));
 
-            toast.success(`Produto ${newStatus === 'published' ? 'publicado! Adicionado ao Feed Meta CSV.' : 'ocultado! Removido do Feed Meta CSV.'}`);
+            // Sincronização direta via Graph API com a Meta
+            try {
+                const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
+                const targetProd = parentProduct || { id, status: newStatus };
+                await whatsappGraphService.syncProductToCatalog({ ...targetProd, status: newStatus }, newStatus === 'published' ? 'UPDATE' : 'DELETE');
+                toast.success(`Sincronizado com Meta Graph API: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'}! 🚀`);
+            } catch (graphErr: any) {
+                console.warn('[Meta Graph Sync Warn]:', graphErr);
+                toast.info(`Status local alterado. (Meta API: ${graphErr.message || 'offline'})`);
+            }
+
             refresh();
         } catch (error) {
             console.error('Erro ao alternar catálogo:', error);
-            toast.error('Erro ao alterar status no Catálogo Digital / Feed Meta CSV.');
+            toast.error('Erro ao alterar status no Catálogo Digital.');
         }
     };
 

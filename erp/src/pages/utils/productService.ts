@@ -841,10 +841,16 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
             console.warn('[Meta Sync] Falha silenciosa ao sincronizar catálogo do Meta (CSV):', err);
         });
 
-        // Sincronizar diretamente via WhatsApp/Meta Graph API (Batch/Single)
+        // Sincronizar diretamente via WhatsApp/Meta Graph API (Batch/Single) com notificação
         import('./whatsappGraphService').then(({ whatsappGraphService }) => {
-            whatsappGraphService.syncProductToCatalog(product, 'UPDATE').catch(err => {
-                console.warn('[Meta Graph Sync] Falha silenciosa no sync direto via API:', err);
+            const isPublished = product.status === 'published' && product.active !== false;
+            const action = isPublished ? 'UPDATE' : 'DELETE';
+            whatsappGraphService.syncProductToCatalog(product, action).then(() => {
+                import('react-toastify').then(({ toast }) => {
+                    toast.success(`Meta Graph API: Produto ${isPublished ? 'sincronizado com o Catálogo' : 'removido do Catálogo'}! 🚀`);
+                }).catch(() => {});
+            }).catch(err => {
+                console.warn('[Meta Graph Sync] Falha no sync direto via API:', err);
             });
         }).catch(() => {});
     } catch (err: any) {
