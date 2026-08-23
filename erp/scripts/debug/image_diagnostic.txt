@@ -1,6 +1,0 @@
-API Error: {
-  code: '42703',
-  details: null,
-  hint: null,
-  message: 'column products.name does not exist'
-}

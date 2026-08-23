@@ -19,3 +19,8 @@ Este documento registra regras específicas e lógicas de funcionamento do Moran
 
 - **Permissão de Push**: Não execute `git push` automaticamente nas alterações efetuadas. Realize apenas as modificações necessárias no código e aguarde a solicitação explícita do usuário para enviar as alterações para o repositório remoto.
 
+## 4. Modularização e Código Limpo (Limite de 200 Linhas por Arquivo)
+
+- **Regra de Ouro de Modularização e Responsabilidade unica**:
+  - Sempre que criar ou editar um arquivo de código no projeto, se o arquivo ultrapassar **500 linhas ou ter mais de uma responsabilidade**, ele deve ser modularizado (dividido em arquivos menores, sub-componentes ou helpers em pastas dedicadas).
+  - Após concluir qualquer tarefa, verifique os arquivos modificados e aplique a refatoração necessária para manter o código limpo, legível, com responsabilidade unica, fácil de depurar e bem organizado.

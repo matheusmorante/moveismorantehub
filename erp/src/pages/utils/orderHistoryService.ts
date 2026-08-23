@@ -4,6 +4,43 @@ import { capitalizeOrder } from "./formatters";
 import { saveInventoryMove, getAvailableLots, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
+
+export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
+    const sched = shipping?.scheduling || {};
+    if (sched.pendingScheduling) return 'Agendamento: Pendente';
+
+    const formatDateStr = (dStr: string) => {
+        if (!dStr) return '';
+        const clean = dStr.split('T')[0];
+        const parts = clean.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return clean;
+    };
+
+    const startDate = sched.date || order?.scheduled_date || order?.order_data?.scheduledDate;
+    const endDate = sched.endDate;
+
+    let dateLabel = '';
+    if (sched.dateType === 'range' && endDate && startDate) {
+        dateLabel = `${formatDateStr(startDate)} até ${formatDateStr(endDate)}`;
+    } else if (startDate) {
+        dateLabel = formatDateStr(startDate);
+    }
+
+    let timeLabel = '';
+    if (sched.type === 'range' && sched.startTime && sched.endTime) {
+        timeLabel = `${sched.startTime} até ${sched.endTime}`;
+    } else if (sched.startTime) {
+        timeLabel = sched.startTime;
+    } else if (sched.time) {
+        timeLabel = sched.time;
+    }
+
+    if (dateLabel && timeLabel) return `Agendado: ${dateLabel} (${timeLabel})`;
+    if (dateLabel) return `Agendado: ${dateLabel}`;
+    return '';
+};
 
 const TABLE_NAME = "orders";
 
@@ -274,6 +311,34 @@ export const saveOrder = async (order: Order): Promise<string> => {
             }
         }
 
+        // Disparar notificação em tempo real / push se for pedido agendado, montagem ou não rascunho
+        if (orderToSave.status && orderToSave.status !== 'draft') {
+            const customerName = orderToSave.customerData?.fullName || 'Cliente';
+            const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
+            const isShowroom = orderToSave.orderType === 'showroom';
+            const isDepositAssembly = orderToSave.handlingType === 'montagem_deposito' || (orderToSave.items || []).some((i: any) => (i.handlingType || '').includes('deposito'));
+            
+            let notifTitle = `🛒 Novo Pedido - ${customerName}`;
+            let notifType: 'order_created' | 'order_edited' | 'order_schedule_changed' | 'system' | 'assembly' = 'order_created';
+
+            if (isShowroom) {
+                notifTitle = `🛠️ Nova Montagem no Mostruário - ${customerName}`;
+                notifType = 'assembly';
+            } else if (isDepositAssembly) {
+                notifTitle = `🛠️ Nova Montagem no Depósito - ${customerName}`;
+                notifType = 'assembly';
+            }
+
+            dispatchAppNotification({
+                orderId: String(rowId),
+                title: notifTitle,
+                message: isShowroom ? 'Nova montagem de mostruário cadastrada' : (isDepositAssembly ? 'Nova montagem de depósito cadastrada' : `Pedido finalizado • Total: R$ ${Number(orderToSave.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`),
+                type: notifType as any,
+                scheduleText: schedText,
+                orderData: orderToSave
+            }).catch(err => console.error("[OrderCreate] Erro ao notificar app:", err));
+        }
+
         return String(rowId);
     } catch (error) {
         console.error("Erro ao salvar o pedido: ", error);
@@ -418,6 +483,8 @@ export const updateOrder = async (
     try {
         let merged: any;
 
+        let previousOrderData: any = currentOrder || null;
+
         if (currentOrder) {
             // Temos o pedido completo em memória — skip do SELECT no banco
             const { id: _id, ...rest } = { ...currentOrder, ...orderToUpdate } as any;
@@ -435,6 +502,7 @@ export const updateOrder = async (
                 throw new Error("Não foi possível encontrar o pedido original para realizar a atualização. A operação foi cancelada para evitar perda de dados.");
             }
 
+            previousOrderData = current.order_data || {};
             const { id: _id, ...rest } = { ...(current.order_data || {}), ...orderToUpdate } as any;
             merged = rest;
         }
@@ -480,10 +548,62 @@ export const updateOrder = async (
 
         if (error) throw error;
 
-        // Log status change
-        const oldStatus = currentOrder?.status;
-        const newStatus = orderToUpdate.status;
+        // Disparar notificações de atualização / agendamento
+        const oldStatus = previousOrderData?.status;
+        const newStatus = orderToUpdate.status || merged.status || oldStatus;
+        const customerName = merged.customerData?.fullName || 'Cliente';
+        const shortId = String(id).slice(-6).toUpperCase();
+        const schedText = formatOrderSchedulingText(merged.shipping, merged);
 
+        // 1. Mudança de status de rascunho -> agendado / não rascunho (ou criação com id preexistente do rascunho)
+        const isFromDraftOrNew = (!oldStatus || oldStatus === 'draft') && newStatus && newStatus !== 'draft';
+        if (isFromDraftOrNew) {
+            dispatchAppNotification({
+                orderId: String(id),
+                title: `🛒 Novo Pedido - ${customerName}`,
+                message: `O pedido de ${customerName} foi finalizado e agendado.`,
+                type: 'order_created',
+                scheduleText: schedText,
+                orderData: merged
+            }).catch(err => console.error("[OrderUpdate] Erro ao notificar pedido agendado:", err));
+        }
+
+        // 2. Alteração de agendamento (data, período, dia)
+        const oldSched = previousOrderData?.shipping?.scheduling || {};
+        const newSched = merged?.shipping?.scheduling || {};
+
+        const dateChanged = (oldSched.date || '') !== (newSched.date || '') || 
+                            (oldSched.endDate || '') !== (newSched.endDate || '') || 
+                            (oldSched.dateType || '') !== (newSched.dateType || '');
+        const timeChanged = (oldSched.time || '') !== (newSched.time || '') || 
+                            (oldSched.startTime || '') !== (newSched.startTime || '') || 
+                            (oldSched.endTime || '') !== (newSched.endTime || '') || 
+                            (oldSched.type || '') !== (newSched.type || '');
+        
+        const isScheduleEdit = (oldSched.date || newSched.date) && (dateChanged || timeChanged);
+
+        if (isScheduleEdit) {
+            dispatchAppNotification({
+                orderId: String(id),
+                title: `📅 Agendamento Alterado - ${customerName}`,
+                message: `O agendamento do pedido de ${customerName} foi alterado.`,
+                type: 'order_schedule_changed',
+                scheduleText: schedText,
+                orderData: merged
+            }).catch(err => console.error("[OrderUpdate] Erro ao notificar alteração de agendamento:", err));
+        } else if (oldStatus && oldStatus !== 'draft' && newStatus !== 'draft' && oldStatus === newStatus) {
+            // Edição geral do pedido (que não é rascunho)
+            dispatchAppNotification({
+                orderId: String(id),
+                title: `✏️ Pedido Alterado - ${customerName}`,
+                message: `O pedido de ${customerName} foi alterado no sistema.`,
+                type: 'order_edited',
+                scheduleText: schedText,
+                orderData: merged
+            }).catch(err => console.error("[OrderUpdate] Erro ao notificar alteração geral:", err));
+        }
+
+        // Log status change
         if (newStatus && oldStatus !== newStatus) {
             try {
                 await supabase.from('order_status_history').insert([{

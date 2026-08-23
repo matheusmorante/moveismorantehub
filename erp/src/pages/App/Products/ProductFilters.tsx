@@ -47,6 +47,7 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
         });
     };
 
+    return (
         <aside className="w-full bg-transparent flex flex-col h-full transition-colors">
             <div className="p-1 flex flex-col gap-4">
                 <div className="flex flex-col gap-6">

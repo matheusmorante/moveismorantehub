@@ -56,7 +56,8 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     const isDeliveryTask = (order as any).taskType === 'delivery';
     const isAssemblyTask = (order as any).taskType === 'assembly';
 
-    const typeLabel = isAssemblyTask ? 'MONTAGEM' : (isAssistance ? 'ASSISTÊNCIA' : (isPickupTask ? 'RETIRADA' : 'ENTREGA'));
+    const isPickup = order.shipping?.deliveryMethod === 'pickup' || isPickupTask;
+    const primaryTypeLabel = isAssistance ? 'ASSISTÊNCIA' : (isPickup ? 'RETIRADA' : 'ENTREGA');
 
     // Assistance orders store time at top level; regular orders use shipping.scheduling
     const scheduling = order.shipping?.scheduling;
@@ -100,20 +101,22 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
         return undefined;
     };
     
-    const isAssemblyOutside = allItems.some(item => {
+    const hasOutsideAssembly = allItems.some(item => {
         if (!item) return false;
-        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        const hLabel = (item.handlingType || item.handling || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
-        return foundOpt?.isAssemblyOutside === true;
+        if (foundOpt?.isAssemblyOutside) return true;
+        return hLabel.includes('fora') || hLabel.includes('externa') || hLabel.includes('cliente') || hLabel.includes('montador');
     });
 
-    const isOnlyInternalAssembly = allItems.some(item => {
+    const hasInternalAssembly = allItems.some(item => {
         if (!item) return false;
-        const hLabel = (item.handlingType || "").trim().toLowerCase();
+        const hLabel = (item.handlingType || item.handling || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
-        return foundOpt?.includeInAssemblySchedule === true && !foundOpt?.isAssemblyOutside;
+        if (foundOpt?.includeInAssemblySchedule && !foundOpt?.isAssemblyOutside) return true;
+        return (hLabel.includes('loja') || hLabel.includes('deposito') || hLabel.includes('depósito') || hLabel.includes('interna') || hLabel.includes('montado')) && !hLabel.includes('fora');
     });
 
     const getHandlingColor = (label?: string) => {
@@ -127,11 +130,26 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
             className={`group border rounded-2xl shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-0.5 hover:shadow-md ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
         >
             {/* Card Header: Type & Link Indicator */}
-            <div className={`px-3.5 py-2 border-b dark:border-slate-800 flex justify-between items-center ${isAssemblyOutside ? 'bg-red-50/50 dark:bg-red-950/20' : isOnlyInternalAssembly || isAssemblyTask ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
-                <div className="flex items-center gap-1.5">
-                    <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 ${isAssemblyOutside ? 'bg-red-600 shadow-sm' : (isAssemblyTask || isOnlyInternalAssembly) ? 'bg-amber-500 shadow-sm' : cls.dotBg + ' shadow-sm'}`}>
-                        {isAssemblyOutside ? '🔨 Montagem Fora' : (isAssemblyTask || isOnlyInternalAssembly) ? '🔨 Montagem Depósito' : typeLabel}
+            <div className={`px-3.5 py-2 border-b dark:border-slate-800 flex justify-between items-center ${hasOutsideAssembly ? 'bg-red-50/50 dark:bg-red-950/20' : hasInternalAssembly || isAssemblyTask ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
+                <div className="flex items-center flex-wrap gap-1.5">
+                    {/* Rótulo Primário (Entrega / Retirada / Assistência) */}
+                    <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 ${cls.dotBg} shadow-sm`}>
+                        {primaryTypeLabel}
                     </span>
+
+                    {/* Rótulo de Montagem Depósito */}
+                    {(hasInternalAssembly || (isAssemblyTask && !hasOutsideAssembly)) && (
+                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 bg-amber-500 shadow-sm">
+                            🔨 Montagem Depósito
+                        </span>
+                    )}
+
+                    {/* Rótulo de Montagem Fora */}
+                    {hasOutsideAssembly && (
+                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 bg-red-600 shadow-sm">
+                            🔨 Montagem Fora
+                        </span>
+                    )}
                 </div>
             </div>
 

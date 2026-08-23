@@ -607,9 +607,19 @@ const OrderHistoryRow = ({
                                                             if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
                                                             
-                                                            // Logic for switching between Generate and Undo return
-                                                            if (btn.key === 'generateReturn' && (order.returnOrderId || order.orderType === 'return')) return false;
-                                                            if (btn.key === 'undoReturn' && !order.returnOrderId && order.orderType !== 'return') return false;
+                                                            const hasReturn = !!(
+                                                                order.returnOrderId ||
+                                                                order.orderType === 'return' ||
+                                                                order.status === 'returned' ||
+                                                                (order as any).hasReturn ||
+                                                                (order as any).returned ||
+                                                                (order.order_data as any)?.returnOrderId ||
+                                                                (order.order_data as any)?.returned ||
+                                                                (order.order_data as any)?.status === 'returned'
+                                                            );
+
+                                                            if (btn.key === 'generateReturn' && hasReturn) return false;
+                                                            if (btn.key === 'undoReturn' && !hasReturn) return false;
                                                             
                                                             return true;
                                                         }).map((btn) => {

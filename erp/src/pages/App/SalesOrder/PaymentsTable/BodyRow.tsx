@@ -1,7 +1,6 @@
 import paymentMethods from "./paymentMethods";
 import { PaymentsSummary, Payment } from '../../../types/payments.type'
 import CurrencyInput from '../../../../components/CurrencyInput';
-import ToggleValueTypeBtn from '../ToggleValueTypeBtn';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { calcPaymentTotalValue } from '../../../utils/calculations';
@@ -14,18 +13,42 @@ interface Props {
     payment: Payment,
     summary: PaymentsSummary,
     onChange: (idx: number, key: keyof Payment, value: number | string) => void,
-    onToggleFeeType: () => void,
+    onChangeFee: (idx: number, fee: number, feeType: 'fixed' | 'percentage') => void,
     onDelete: () => void,
     idx: number,
     isMobile?: boolean
 }
 
 
-const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, isMobile }: Props) => {
+const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMobile }: Props) => {
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const feeReaisVal = payment.feeType === 'fixed' 
+        ? payment.fee 
+        : (payment.amount > 0 ? (payment.amount * payment.fee) / 100 : 0);
+
+    const feePercentVal = payment.feeType === 'percentage' 
+        ? payment.fee 
+        : (payment.amount > 0 ? (payment.fee / payment.amount) * 100 : 0);
+
+    const [tempFeeReais, setTempFeeReais] = useState<number>(feeReaisVal);
+    const [tempFeePercent, setTempFeePercent] = useState<number>(feePercentVal);
+
+    useEffect(() => {
+        setTempFeeReais(feeReaisVal);
+        setTempFeePercent(feePercentVal);
+    }, [payment.fee, payment.feeType, payment.amount]);
+
+    const commitFeeReais = () => {
+        onChangeFee(idx, tempFeeReais, 'fixed');
+    };
+
+    const commitFeePercent = () => {
+        onChangeFee(idx, tempFeePercent, 'percentage');
+    };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -120,20 +143,22 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                         </button>
                     </div>
 
-                    {/* Inputs Grid */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Inputs Grid (Valor, Taxa R$, Taxa %) */}
+                    <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400">Valor</label>
                             <div className="flex items-center gap-1 group/input">
                                 <CurrencyInput
                                     value={payment.amount}
                                     onChange={(value: number) => onChange(idx, 'amount', value)}
+                                    showBadge={true}
+                                    badgeText="R$"
                                 />
                                 {summary.amountRemaining > 0 && (
                                     <button
                                         type="button"
                                         onClick={() => onChange(idx, 'amount', payment.amount + summary.amountRemaining)}
-                                        className="p-2 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all"
+                                        className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all shrink-0"
                                         title="Puxar saldo"
                                     >
                                         <i className="bi bi-magic" />
@@ -143,18 +168,25 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                         </div>
 
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400">Taxa</label>
-                            <div className='flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-xl pr-2 border border-slate-100 dark:border-slate-800'>
-                                <CurrencyOrPercentInput
-                                    value={payment.fee}
-                                    prefix={payment.feeType === "fixed" ? "R$ " : ""}
-                                    suffix={payment.feeType === "fixed" ? "" : " %"}
-                                    onChange={(value: number) => onChange(idx, 'fee', value)}
-                                />
-                                <ToggleValueTypeBtn onClick={onToggleFeeType}>
-                                    {payment.feeType === 'fixed' ? 'R$' : '%'}
-                                </ToggleValueTypeBtn>
-                            </div>
+                            <label className="text-[9px] font-black uppercase text-slate-400">Taxa R$</label>
+                            <CurrencyInput
+                                value={tempFeeReais}
+                                onChange={(val: number) => setTempFeeReais(val)}
+                                onBlur={commitFeeReais}
+                                showBadge={true}
+                                badgeText="R$"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-400">Taxa %</label>
+                            <CurrencyOrPercentInput
+                                value={tempFeePercent}
+                                onChange={(val: number) => setTempFeePercent(val)}
+                                onBlur={commitFeePercent}
+                                showBadge={true}
+                                badgeText="%"
+                            />
                         </div>
                     </div>
 
@@ -277,15 +309,15 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                 <div className="flex items-center gap-1 group/input">
                     <CurrencyInput
                         value={payment.amount}
-                        onChange={
-                            (value: number) => onChange(idx, 'amount', value)
-                        }
+                        onChange={(value: number) => onChange(idx, 'amount', value)}
+                        showBadge={true}
+                        badgeText="R$"
                     />
                     {summary.amountRemaining > 0 && (
                         <button
                             type="button"
                             onClick={() => onChange(idx, 'amount', payment.amount + summary.amountRemaining)}
-                            className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
+                            className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all shrink-0"
                             title={`Puxar saldo restante (${formatCurrency(summary.amountRemaining)})`}
                         >
                             <i className="bi bi-magic" />
@@ -293,25 +325,23 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
                     )}
                 </div>
             </td>
-            <td className='px-4 py-2'>
-                <div className='flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-lg pr-2 border border-slate-100/50 dark:border-slate-800/50 group-focus-within:border-indigo-200 dark:group-focus-within:border-indigo-500/30 transition-all'>
-                    <CurrencyOrPercentInput
-                        value={payment.fee}
-                        prefix={payment.feeType === "fixed" ? "R$ " : ""}
-                        suffix={payment.feeType === "fixed" ? "" : " %"}
-                        onChange={
-                            (
-                                value: number
-                            ) => onChange(
-                                idx, 'fee', value
-                            )
-
-                        }
-                    />
-                    <ToggleValueTypeBtn onClick={onToggleFeeType}>
-                        {payment.feeType === 'fixed' ? 'R$' : '%'}
-                    </ToggleValueTypeBtn>
-                </div>
+            <td className="px-4 py-2">
+                <CurrencyInput
+                    value={tempFeeReais}
+                    onChange={(val: number) => setTempFeeReais(val)}
+                    onBlur={commitFeeReais}
+                    showBadge={true}
+                    badgeText="R$"
+                />
+            </td>
+            <td className="px-4 py-2">
+                <CurrencyOrPercentInput
+                    value={tempFeePercent}
+                    onChange={(val: number) => setTempFeePercent(val)}
+                    onBlur={commitFeePercent}
+                    showBadge={true}
+                    badgeText="%"
+                />
             </td>
             <td className="px-4 py-2 text-right">
                 <div className="font-bold text-slate-700 dark:text-slate-200">
@@ -321,7 +351,7 @@ const BodyRow = ({ payment, summary, onChange, onToggleFeeType, onDelete, idx, i
             <td className="px-4 py-2">
                 <div className="relative group/status min-w-[140px]">
                     <select
-                        className="w-full bg-transparent border border-slate-100 dark:border-slate-800 group-hover/status:border-indigo-300 dark:group-hover/status:border-indigo-600 focus:border-indigo-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm dark:text-slate-200 appearance-none"
+                        className="w-full bg-transparent border border-slate-100 dark:border-slate-800 group-hover/status:border-indigo-300 dark:group-hover/status:border-indigo-600 focus:border-indigo-500 px-3 py-2 rounded-xl outline-none transition-all text-sm dark:text-slate-200 appearance-none"
                         value={payment.status}
                         onChange={e => {
                             const val = e.target.value;

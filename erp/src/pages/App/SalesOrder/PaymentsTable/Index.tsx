@@ -59,18 +59,20 @@ const PaymentsTable = ({ payments, setPayments, summary }: Props) => {
         <table className="w-full border-collapse">
             <colgroup>
                 <col className="w-auto" />
-                <col className="w-[110px]" />
                 <col className="w-[120px]" />
-                <col className="w-[110px]" />
+                <col className="w-[120px]" />
+                <col className="w-[100px]" />
+                <col className="w-[120px]" />
                 <col className="w-auto" />
                 <col className="w-[60px]" />
             </colgroup>
             <thead className="bg-slate-50/50 dark:bg-slate-800/40">
                 <tr>
                     <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Pagamento</th>
-                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Valor</th>
-                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">Taxa</th>
-                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Total</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">Valor</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">Taxa R$</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Taxa %</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">Total</th>
                     <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</th>
                     <th className="px-4 py-3 text-center border-none bg-transparent">
                         <button

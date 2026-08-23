@@ -37,7 +37,25 @@ const OrderActions = ({ order }: { order: Order }) => {
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-6">
-      {buttons.filter(btn => !btn.orderTypes || btn.orderTypes.includes(order.orderType || 'sale')).map((btn, idx) => {
+      {buttons.filter(btn => {
+        if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
+
+        const hasReturn = !!(
+            order.returnOrderId ||
+            order.orderType === 'return' ||
+            order.status === 'returned' ||
+            (order as any).hasReturn ||
+            (order as any).returned ||
+            (order.order_data as any)?.returnOrderId ||
+            (order.order_data as any)?.returned ||
+            (order.order_data as any)?.status === 'returned'
+        );
+
+        if (btn.key === 'generateReturn' && hasReturn) return false;
+        if (btn.key === 'undoReturn' && !hasReturn) return false;
+
+        return true;
+      }).map((btn, idx) => {
         const isPrintAction = btn.action === 'PRINT_RECEIPT' || btn.action === 'PRINT_SHIPPING_ORDER' || btn.action === 'PRINT_ASSISTANCE_OS';
         const isAssistance = order.orderType === 'assistance';
         const orderErrors = isPrintAction 

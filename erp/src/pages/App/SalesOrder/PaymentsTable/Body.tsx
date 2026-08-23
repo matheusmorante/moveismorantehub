@@ -11,23 +11,15 @@ interface Props {
 }
 
 const Body = ({ payments, setPayments, summary, isMobile }: Props) => {
-    const toggleFeeType = (idx: number) => {
+    const changeFee = (idx: number, fee: number, feeType: 'fixed' | 'percentage') => {
         setPayments((prev: Payment[]) => {
             const newPayments = [...prev];
-            const newPayment = { ...newPayments[idx] };
-
-            if (newPayment.feeType === "fixed") {
-                newPayment.fee = newPayment.fee / newPayment.amount * 100;
-                newPayment.feeType = "percentage";
-            } else {
-                newPayment.fee = newPayment.fee * newPayment.amount / 100;
-                newPayment.feeType = "fixed";
-            }
-
-            newPayments[idx] = newPayment
-            return newPayments
-        })
-    }
+            let newPayment = { ...newPayments[idx], fee, feeType };
+            newPayment = sanitizePayment(newPayment);
+            newPayments[idx] = newPayment;
+            return newPayments;
+        });
+    };
 
     const changePayments = (
         idx: number,
@@ -37,12 +29,12 @@ const Body = ({ payments, setPayments, summary, isMobile }: Props) => {
         setPayments((prev: Payment[]) => {
             const newPayments = [...prev];
             let newPayment = { ...newPayments[idx], [key]: value };
-            newPayment = sanitizePayment(newPayment)
+            newPayment = sanitizePayment(newPayment);
 
-            newPayments[idx] = newPayment
+            newPayments[idx] = newPayment;
 
-            return newPayments
-        })
+            return newPayments;
+        });
     };
 
     const deletePayment = (
@@ -50,13 +42,13 @@ const Body = ({ payments, setPayments, summary, isMobile }: Props) => {
     ) => {
         setPayments((prev: Payment[]) => {
             return [...prev].filter((_, idx) => idx !== targetIdx);
-        })
+        });
     };
 
     const content = payments.map((payment, idx) => (
         <BodyRow
             key={idx}
-            onToggleFeeType={() => toggleFeeType(idx)}
+            onChangeFee={changeFee}
             onChange={changePayments}
             onDelete={() => deletePayment(idx)}
             payment={payment}

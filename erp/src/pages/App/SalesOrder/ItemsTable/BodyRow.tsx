@@ -365,15 +365,15 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         disabled={item.isComboItem}
                     />
                 </div>
-            </td>
             <td className="px-2 py-2">
                 {!item.isComboItem ? (
-                    <div style={{ width: '105px' }} className="ml-auto">
+                    <div style={{ width: '115px' }} className="ml-auto">
                         <CurrencyInput
                             value={tempUnitPrice}
                             onChange={(val: number) => setTempUnitPrice(val)}
                             onBlur={commitUnitPrice}
-                            className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-xs font-bold"
+                            showBadge={true}
+                            badgeText="R$"
                         />
                     </div>
                 ) : (
@@ -382,42 +382,44 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
             </td>
             <td className="px-2 py-2 text-right">
                 {!item.isComboItem && (
-                    <div style={{ width: '95px' }} className="ml-auto">
+                    <div style={{ width: '115px' }} className="ml-auto">
                         <CurrencyInput
                             value={tempDiscountValue}
                             max={item.unitPrice || undefined}
                             onChange={(val: number) => setTempDiscountValue(val)}
                             onBlur={commitDiscountValue}
-                            className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none"
+                            showBadge={true}
+                            badgeText="R$"
                         />
                     </div>
                 )}
             </td>
             <td className="px-2 py-2 text-right">
                 {!item.isComboItem && (
-                    <div style={{ width: '78px' }} className="ml-auto">
+                    <div style={{ width: '90px' }} className="ml-auto">
                         <CurrencyOrPercentInput
-                            prefix=""
-                            suffix=" %"
                             value={tempDiscountPercent}
                             max={100}
                             onChange={(val: number) => setTempDiscountPercent(val)}
                             onBlur={commitDiscountPercent}
-                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                            showBadge={true}
+                            badgeText="%"
                         />
                     </div>
                 )}
             </td>
             <td className="px-2 py-2">
-                <div style={{ width: '105px' }} className="ml-auto">
+                <div style={{ width: '115px' }} className="ml-auto">
                     <CurrencyInput
                         value={tempSubtotal}
                         max={item.unitPrice || undefined}
                         onChange={(val: number) => setTempSubtotal(val)}
                         onBlur={commitSubtotal}
-                        className="w-full text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-xs font-bold"
+                        showBadge={true}
+                        badgeText="R$"
                     />
                 </div>
+            </td>
             </td>
             <td className="px-2 py-2 text-right">
                 <div className="font-bold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap">
