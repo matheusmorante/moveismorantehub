@@ -130,7 +130,7 @@ export const whatsappGraphService = {
 
         const sanitizeUrl = (urlStr: string) => {
             if (!urlStr) return fallbackUrl;
-            let str = urlStr.trim();
+            let str = String(urlStr).trim().split('?')[0];
             if (SUPABASE_STORAGE_PATTERN.test(str)) {
                 const match = str.match(SUPABASE_STORAGE_PATTERN);
                 if (match && match[1]) {
@@ -139,7 +139,7 @@ export const whatsappGraphService = {
                 }
             }
             if (!str.startsWith('http://') && !str.startsWith('https://')) str = `https://${str}`;
-            return str.replace(/\s+/g, '%20');
+            return encodeURI(str);
         };
 
         const sanitizedSingleImages = singleImageUrls.map(sanitizeUrl).filter(Boolean);
@@ -312,12 +312,15 @@ ____________________________________
                 const SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
                 const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
 
-                // Função helper para converter e sanitizar URLs para Cloudflare R2 exclusivamente
+                // Função helper para converter e sanitizar URLs exatamente como no Feed CSV
                 const sanitizeUrl = (urlStr: string) => {
                     if (!urlStr) return fallbackUrl;
-                    let str = urlStr.trim();
+                    let str = String(urlStr).trim();
+                    
+                    // Se houver query params desnecessários, limpa para manter o link direto da imagem
+                    str = str.split('?')[0];
 
-                    // Se a URL for do Supabase Storage, redireciona dinamicamente para o R2 da Cloudflare
+                    // Se for uma imagem legada do Supabase Storage, mapeia dinamicamente para o R2 da Cloudflare
                     if (SUPABASE_STORAGE_PATTERN.test(str)) {
                         const match = str.match(SUPABASE_STORAGE_PATTERN);
                         if (match && match[1]) {
@@ -329,8 +332,7 @@ ____________________________________
                     if (!str.startsWith('http://') && !str.startsWith('https://')) {
                         str = `https://${str}`;
                     }
-                    // Codificar espaços e caracteres especiais mantendo o protocolo HTTPS
-                    return str.replace(/\s+/g, '%20');
+                    return encodeURI(str);
                 };
 
                 const sanitizedImages = allImageUrls.map(sanitizeUrl).filter(Boolean);

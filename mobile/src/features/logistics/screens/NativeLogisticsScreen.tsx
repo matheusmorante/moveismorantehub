@@ -297,23 +297,21 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
       <View style={styles.topRow}>
         <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>Cronograma Logístico</Text>
         
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {/* Botão Select de Período estilo Dashboard */}
-          <TouchableOpacity
-            style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
-            onPress={() => setShowPeriodModal(true)}
+        {/* Botão Select de Período posicionado à direita */}
+        <TouchableOpacity
+          style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
+          onPress={() => setShowPeriodModal(true)}
+        >
+          <Calendar size={13} color="#2563eb" style={{ marginRight: 4 }} />
+          <Text 
+            numberOfLines={1} 
+            ellipsizeMode="tail"
+            style={[styles.selectBtnText, isDarkMode && styles.textDark]}
           >
-            <Calendar size={13} color="#2563eb" style={{ marginRight: 6 }} />
-            <Text style={[styles.selectBtnText, isDarkMode && styles.textDark]}>
-              {currentPeriodLabel}
-            </Text>
-            <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={onRefresh} style={{ padding: 6 }}>
-            <RefreshCw size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-          </TouchableOpacity>
-        </View>
+            {currentPeriodLabel}
+          </Text>
+          <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -434,7 +432,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 10
   },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    flexWrap: 'wrap', 
+    gap: 8 
+  },
   screenTitle: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   textDark: { color: '#f8fafc' },
   selectBtn: {
@@ -567,12 +571,12 @@ const styles = StyleSheet.create({
   itemsContainerDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },
   itemsSectionTitle: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 0.5 },
   itemsPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  itemPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
+  itemPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, maxWidth: '100%' },
   itemPillDefault: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
   itemPillInternal: { backgroundColor: '#fef3c7', borderColor: '#fde68a' },
   itemPillOutside: { backgroundColor: '#fff1f2', borderColor: '#fecdd3' },
   itemPillDark: { backgroundColor: '#1e293b' },
-  itemPillText: { fontSize: 11, fontWeight: '700' },
+  itemPillText: { fontSize: 11, fontWeight: '700', flexShrink: 1 },
   itemPillTextDefault: { color: '#64748b' },
   itemPillTextInternal: { color: '#b45309' },
   itemPillTextOutside: { color: '#991b1b' }
