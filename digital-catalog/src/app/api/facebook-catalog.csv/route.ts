@@ -3,13 +3,29 @@ import { supabase } from "@/lib/supabase/client"
 
 export const dynamic = "force-dynamic"
 
+const R2_BASE_URL = "https://pub-389127050a434f568c29dc66bdce2567.r2.dev"
+const SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i
+
+function mapToR2Url(urlStr: any): string {
+  if (!urlStr) return ""
+  let str = String(urlStr).trim()
+  if (SUPABASE_STORAGE_PATTERN.test(str)) {
+    const match = str.match(SUPABASE_STORAGE_PATTERN)
+    if (match && match[1]) {
+      const fileName = match[1].split("/").pop()?.split("?")[0]
+      return `${R2_BASE_URL}/${fileName}`
+    }
+  }
+  return str
+}
+
 function stripHtml(html: string): string {
   if (!html) return ""
   let text = html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p\s*>/gi, "\n")
-    .replace(/<\/div\s*>/gi, "\n")
-    .replace(/<\/li\s*>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/p\s*>/gi, " ")
+    .replace(/<\/div\s*>/gi, " ")
+    .replace(/<\/li\s*>/gi, " ")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -17,16 +33,18 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
   return text
 }
 
-// Helper para tratar valores do CSV (mantém quebras de linha reais envelopando o campo em aspas duplas, seguindo o padrão RFC 4180 de CSV)
+// Helper para tratar valores do CSV sem quebrar linhas na estrutura do arquivo
 function formatCsvValue(val: any): string {
   if (val === null || val === undefined) return ""
-  let str = String(val)
+  let str = String(val).replace(/[\r\n]+/g, " ").trim()
   
-  // Se contiver quebras de linha, aspas ou vírgulas, envolve em aspas e escapa aspas internas
-  if (/[\r\n",]/.test(str)) {
+  if (/[",]/.test(str)) {
     str = `"${str.replace(/"/g, '""')}"`
   }
   return str
@@ -182,14 +200,14 @@ export async function GET(request: Request) {
           }
 
           // Se a variação tiver imagem própria, trata se houver lista separada por vírgula
-          let varImageLink = parentImage
-          let varAdditionalImages = additionalImages
+          let varImageLink = mapToR2Url(parentImage)
+          let varAdditionalImages = additionalImages.split(',').map(mapToR2Url).filter(Boolean).join(',')
 
           if (v.image_url) {
             const varImagesList = v.image_url.split(",").map((url: any) => url.trim()).filter(Boolean)
             if (varImagesList.length > 0) {
-              varImageLink = varImagesList[0]
-              varAdditionalImages = varImagesList.slice(1).join(",")
+              varImageLink = mapToR2Url(varImagesList[0])
+              varAdditionalImages = varImagesList.slice(1).map(mapToR2Url).filter(Boolean).join(",")
             }
           }
 
@@ -249,8 +267,8 @@ export async function GET(request: Request) {
           p.name, // title
           descWithPrefix, // description
           `${origin}/produto/${p.slug}`, // link
-          parentImage, // image_link
-          additionalImages, // additional_image_link
+          mapToR2Url(parentImage), // image_link
+          additionalImages.split(',').map(mapToR2Url).filter(Boolean).join(','), // additional_image_link
           "in stock", // availability
           descWithPrefix, // rich_text_description
           priceFormatted, // price
