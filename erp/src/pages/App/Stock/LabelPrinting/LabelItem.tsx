@@ -140,8 +140,8 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
 
     // t = base do template (raiz) + dados específicos da magnitude
     const t = { ...template, ...magDesign };
-
-    const bgColor = oppColors['background'] || t.bgColor || config.bg_color || '#ff7900';
+    const defaultFallbackBg = (oppId === 'salvado') ? '#ff7900' : '#ffffff';
+    const bgColor = oppColors['background'] || t.bgColor || (oppId === 'none' ? '#ffffff' : config.bg_color) || defaultFallbackBg;
     const titleColor = oppColors['title'] || t.titleColor || '#000000';
     const deColor = oppColors['deText'] || t.deColor || '#000000';
     const normalPriceColor = oppColors['normalPrice'] || t.normalPriceColor || '#000000';

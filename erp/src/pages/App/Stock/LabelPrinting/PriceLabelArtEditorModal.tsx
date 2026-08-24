@@ -64,7 +64,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     initialProduct
 }) => {
     // COR DE FUNDO PADRÃO
-    const defaultBgColor = config.bg_color || '#ff7900';
+    const getDefaultBg = (oppId: string) => oppId === 'none' ? '#ffffff' : (config.bg_color || '#ff7900');
 
     // MARGEM DE SEGURANÇA DA IMPRESSÃO
     const [showSafetyMargin, setShowSafetyMargin] = useState(true);
@@ -196,6 +196,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [dePricePorGroupGap, setDePricePorGroupGap] = useState<number>(10);
 
     // 11. FUNDO DA ETIQUETA
+    const defaultBgColor = getDefaultBg(selectedOppId);
     const [bgColor, setBgColor] = useState<string>(defaultBgColor);
 
     // Estado de Seleção e Menus
@@ -591,7 +592,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (s.dePricePorGroupRotation !== undefined) setDePricePorGroupRotation(s.dePricePorGroupRotation);
         if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
 
-        if (s.bgColor && s.bgColor !== '#ffffff') {
+        if (s.bgColor) {
             setBgColor(s.bgColor);
         } else if (defaultBgColor) {
             setBgColor(defaultBgColor);
@@ -787,19 +788,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (!savedGlobal && selectedOppId === 'salvado') {
             savedGlobal = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
         }
-        
-        if (!savedGlobal) {
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k && (k.includes('price_label_art') || k.includes('morante_') || k.includes('template'))) {
-                    const val = localStorage.getItem(k);
-                    if (val && val.includes('promoPrice')) {
-                        savedGlobal = val;
-                        break;
-                    }
-                }
-            }
-        }
 
         if (savedGlobal) {
             try {
@@ -808,13 +796,17 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             } catch (e) {
                 console.error("Erro ao restaurar template da etiqueta:", e);
             }
+        } else {
+            // Se a oportunidade selecionada ainda não tem um template próprio salvo
+            const initialBg = selectedOppId === 'none' ? '#ffffff' : (selectedOppId === 'salvado' ? '#ff7900' : '#ffffff');
+            setBgColor(initialBg);
         }
 
         // Marca como inicializado após aplicar a restauração
         setTimeout(() => {
             isInitializedRef.current = true;
         }, 100);
-    }, [isOpen]);
+    }, [isOpen, selectedOppId]);
 
     // Carrega oportunidades cadastradas no Supabase
     useEffect(() => {

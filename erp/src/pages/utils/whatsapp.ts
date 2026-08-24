@@ -147,31 +147,7 @@ const safeSendWhatsAppOrFallback = async ({
     fallbackUrl: string;
     successMessage: string;
 }) => {
-    const settings = getSettings();
-    const config = settings.whatsappConfig;
-    const hasCloudApi = !!(config?.accessToken && config?.phoneNumberId);
-
-    if (!hasCloudApi) {
-        window.open(fallbackUrl, "_blank");
-        return;
-    }
-
-    const win = window.open('about:blank', '_blank');
-    try {
-        await whatsappGraphService.sendTextMessage(phone, message);
-        if (win && !win.closed) {
-            win.close();
-        }
-        toast.success(successMessage);
-    } catch (error) {
-        console.error("Erro no envio pela API WhatsApp:", error);
-        toast.info("Redirecionando para envio manual via WhatsApp...");
-        if (win && !win.closed) {
-            win.location.href = fallbackUrl;
-        } else {
-            window.open(fallbackUrl, "_blank");
-        }
-    }
+    window.open(fallbackUrl, "_blank");
 };
 
 export const sendDirectShippingMessage = async (order: Order) => {
