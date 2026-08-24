@@ -31,18 +31,6 @@ const InventoryNotificationsSection = ({ settings, onChange }: InventoryNotifica
 
     return (
         <div className="flex flex-col">
-            <div className="p-8 bg-amber-50/30 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/30">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-200 dark:shadow-none">
-                        <i className="bi bi-bell-fill text-2xl"></i>
-                    </div>
-                    <div>
-                        <h4 className="font-black text-slate-800 dark:text-slate-100 text-lg tracking-tight uppercase">Notificações de Inventário</h4>
-                        <p className="text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-widest mt-0.5">Selecione quais condições devem gerar alertas</p>
-                    </div>
-                </div>
-            </div>
-
             <div className="p-8 space-y-8">
                 <div className="flex flex-col gap-4">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Condições Monitoradas</label>

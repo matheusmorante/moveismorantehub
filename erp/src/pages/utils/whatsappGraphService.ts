@@ -451,5 +451,53 @@ ____________________________________
             throw new Error(data.error.message);
         }
         return data;
+    },
+
+    /**
+     * Sends an interactive message with quick reply button via Cloud API
+     */
+    sendInteractiveButtonMessage: async (to: string, text: string, buttonTitle: string = 'Confirmar Entrega', buttonId: string = 'confirm_delivery') => {
+        const { whatsappConfig } = getSettings();
+        if (!whatsappConfig?.phoneNumberId) throw new Error("Phone Number ID não configurado.");
+
+        const cleanPhone = to.replace(/\D/g, '');
+        const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+
+        try {
+            const response = await fetch(
+                `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
+                {
+                    method: 'POST',
+                    headers: whatsappGraphService.getHeaders(),
+                    body: JSON.stringify({
+                        messaging_product: 'whatsapp',
+                        recipient_type: 'individual',
+                        to: formattedPhone,
+                        type: 'interactive',
+                        interactive: {
+                            type: 'button',
+                            body: { text },
+                            action: {
+                                buttons: [
+                                    {
+                                        type: 'reply',
+                                        reply: { id: buttonId, title: buttonTitle }
+                                    }
+                                ]
+                            }
+                        }
+                    })
+                }
+            );
+
+            const data = await response.json();
+            if (data.error) {
+                console.warn("Erro ao enviar mensagem interativa WhatsApp, tentando fallback de texto simples:", data.error);
+                return await whatsappGraphService.sendTextMessage(to, `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`);
+            }
+            return data;
+        } catch (err) {
+            return await whatsappGraphService.sendTextMessage(to, `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`);
+        }
     }
 };

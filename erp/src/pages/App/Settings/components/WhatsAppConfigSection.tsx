@@ -175,6 +175,31 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                     </div>
                 </div>
             </div>
+
+            {/* Seção Descrição Base — Catálogo Meta */}
+            <div className="p-6 md:p-8 border-t border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
+                            Descrição Base — Catálogo Meta
+                        </h4>
+                        <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-[8px] font-black rounded text-emerald-600 dark:text-emerald-400">
+                            INFORMAÇÕES FIXAS DA LOJA
+                        </span>
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+                        Texto com informações fixas da sua empresa (endereço, horários de atendimento, contatos) que será incluído automaticamente antes da descrição de cada produto no Catálogo Meta.
+                    </p>
+
+                    <textarea
+                        rows={4}
+                        value={settings.channelBaseDescriptions?.whatsapp || ''}
+                        onChange={(e) => onChange('channelBaseDescriptions.whatsapp', e.target.value)}
+                        placeholder={`🏠 *Móveis Morante*\n📍 R. Cascavel, 306 - Colombo - PR\n⌚ Seg-Sex: 8h às 18h | Sáb: 8h às 13h\n📞 (41) 99749-3547\n\n――――――――――――`}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 text-xs font-mono leading-relaxed"
+                    />
+                </div>
+            </div>
         </div>
     );
 }

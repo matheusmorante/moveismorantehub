@@ -43,7 +43,6 @@ const categories: any[] = [
     { id: 'automacao', label: 'Automação de Pedidos', icon: 'bi-magic', group: 'system', keywords: ['automação', 'imprimir', 'recibo', 'whatsapp', 'entrega', 'cliente'] },
     { id: 'whatsapp', label: 'WhatsApp & Catálogo', icon: 'bi-whatsapp', group: 'system', keywords: ['whatsapp', 'api', 'token', 'catálogo', 'marketplace', 'vendas'] },
     { id: 'notificacoes', label: 'Notificações', icon: 'bi-bell-fill', group: 'system', keywords: ['notificação', 'alerta', 'estoque', 'novo', 'usado', 'salvado'] },
-    { id: 'canais', label: 'Descrições por Canal', icon: 'bi-megaphone-fill', group: 'system', keywords: ['whatsapp', 'ecommerce', 'canal', 'marketplace', 'base', 'descrição', 'loja'] },
     { id: 'templates', label: 'Mensagens & Templates', icon: 'bi-chat-quote-fill', group: 'system', keywords: ['mensagem', 'template', 'whatsapp', 'texto', 'avaliação', 'confirmação', 'grupo', 'promoções', 'ofertas'] },
     { id: 'regras', label: 'Regras de Negócio', icon: 'bi-gear-wide-connected', group: 'system', keywords: ['regra', 'estoque', 'negativo', 'reserva', 'venda'] },
     { id: 'obrigatorios', label: 'Campos Obrigatórios', icon: 'bi-shield-check', group: 'system', keywords: ['obrigatório', 'bloqueio', 'venda', 'cadastro', 'cpf', 'cnpj', 'telefone', 'rg', 'endereço', 'estoque', 'email', 'cargo'] },
@@ -114,7 +113,6 @@ export default function Settings(): any {
             saveTimeoutRef.current = setTimeout(async () => {
                 await saveSettings(next);
                 setIsSaving(false);
-                toast.success("Configurações salvas com sucesso! ✨", { autoClose: 5000 });
             }, 1000);
 
             return next;
@@ -125,6 +123,11 @@ export default function Settings(): any {
     //     saveSettings(settings);
     //     toast.success("Configurações aplicadas com sucesso! ✨");
     // };
+
+    const isAdminGroup = (id: string) => {
+        const cat = categories.find(c => c.id === id);
+        return cat?.group === 'system';
+    };
 
     const isVisible = (id: string) => {
         if (!search) return true;
@@ -137,7 +140,7 @@ export default function Settings(): any {
     };
 
     return (
-        <div className="flex flex-col gap-10 max-w-5xl mx-auto py-12 px-6 min-h-screen">
+        <div className="flex flex-col gap-10 max-w-7xl mx-auto py-12 px-6 min-h-screen">
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-slide-down">
                 <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] mb-3">
@@ -157,7 +160,7 @@ export default function Settings(): any {
                         {!isSaving && settings && (
                             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full animate-in fade-in zoom-in-95 duration-500">
                                 <i className="bi bi-cloud-check-fill text-xs" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Sincronizado</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Salvamento Automático</span>
                             </div>
                         )}
                     </div>
@@ -175,11 +178,34 @@ export default function Settings(): any {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                <SettingsSidebar categories={categories as any} isAdmin={true} />
+            <div className="max-w-4xl mx-auto w-full space-y-8 pb-48">
+                {/* Grupo 1: Minha Conta */}
+                <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 px-3 mb-3">
+                        Minha Conta
+                    </h3>
 
-                <div className="lg:col-span-9 pb-48">
-                    <SettingsSection id="empresa" title="Dados da Empresa" icon="bi-building-fill" isVisible={isVisible('empresa')}>
+                    <SettingsSection id="aparencia" title="Aparência" icon="bi-palette" isVisible={isVisible('aparencia')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('aparencia')}>
+                        <AppearanceSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="scroll" title="Rolagem Automática" icon="bi-mouse3-fill" isVisible={isVisible('scroll')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('scroll')}>
+                        <AutoScrollSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+                </div>
+
+                {/* Grupo 2: Sistema (Admin) */}
+                <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
+                    <div className="flex items-center justify-between px-3 mb-3">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                            Sistema
+                        </h3>
+                        <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                            ADMIN
+                        </span>
+                    </div>
+
+                    <SettingsSection id="empresa" title="Dados da Empresa" icon="bi-building-fill" isVisible={isVisible('empresa')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('empresa')}>
                         <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div className="flex-1 max-w-lg">
@@ -240,91 +266,86 @@ export default function Settings(): any {
                                 </div>
                             </div>
                         </div>
+                        <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div className="flex-1 max-w-lg">
+                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Endereço Completo</h4>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Endereço da sede ou loja física.</p>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={settings.companyAddress || ''}
+                                    onChange={(e) => handleChange('companyAddress', e.target.value)}
+                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-80 transition-all font-medium"
+                                />
+                            </div>
+                        </div>
                     </SettingsSection>
 
-                    <SettingsSection id="labels" title="Rótulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')}>
+                    <SettingsSection id="labels" title="Rótulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('labels')}>
                         <StatusLabelsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="logistica" title="Logística e Frete" icon="bi-truck" isVisible={isVisible('logistica')}>
+                    <SettingsSection id="logistica" title="Logística e Frete" icon="bi-truck" isVisible={isVisible('logistica')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('logistica')}>
                         <LogisticsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="manuseio" title="Manuseio e Montagem" icon="bi-hand-index-thumb" isVisible={isVisible('manuseio')}>
+                    <SettingsSection id="manuseio" title="Manuseio e Montagem" icon="bi-hand-index-thumb" isVisible={isVisible('manuseio')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('manuseio')}>
                         <HandlingSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-
-
-                    <SettingsSection id="scroll" title="Rolagem Automática" icon="bi-mouse3-fill" isVisible={isVisible('scroll')}>
-                        <AutoScrollSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="aparencia" title="Aparência" icon="bi-palette" isVisible={isVisible('aparencia')}>
-                        <AppearanceSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    {/* Seção Assistente de IA removida */}
-
-                    <SettingsSection id="automacao" title="Automação de Pedidos" icon="bi-magic" isVisible={isVisible('automacao')}>
+                    <SettingsSection id="automacao" title="Automação de Pedidos" icon="bi-magic" isVisible={isVisible('automacao')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('automacao')}>
                         <OrderAutomationSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="whatsapp" title="Integração WhatsApp" icon="bi-whatsapp" isVisible={isVisible('whatsapp')}>
+                    <SettingsSection id="whatsapp" title="WhatsApp & Catálogo" icon="bi-whatsapp" isVisible={isVisible('whatsapp')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('whatsapp')}>
                         <WhatsAppConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="notificacoes" title="Notificações de Inventário" icon="bi-bell-fill" isVisible={isVisible('notificacoes')}>
+                    <SettingsSection id="notificacoes" title="Notificações" icon="bi-bell-fill" isVisible={isVisible('notificacoes')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('notificacoes')}>
                         <InventoryNotificationsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="canais" title="Descrições Base por Canal" icon="bi-megaphone-fill" isVisible={isVisible('canais')}>
-                        <ChannelDescriptionsSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
 
-                    <SettingsSection id="templates" title="Mensagens e Templates WhatsApp" icon="bi-chat-quote-fill" isVisible={isVisible('templates')}>
+                    <SettingsSection id="templates" title="Mensagens & Templates" icon="bi-chat-quote-fill" isVisible={isVisible('templates')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('templates')}>
                         <WhatsAppTemplatesSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="regras" title="Regras de Negócio e Estoque" icon="bi-gear-wide-connected" isVisible={isVisible('regras')}>
+                    <SettingsSection id="regras" title="Regras de Negócio" icon="bi-gear-wide-connected" isVisible={isVisible('regras')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('regras')}>
                         <BusinessRulesSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="obrigatorios" title="Campos Obrigatórios" icon="bi-shield-check" isVisible={isVisible('obrigatorios')}>
+                    <SettingsSection id="obrigatorios" title="Campos Obrigatórios" icon="bi-shield-check" isVisible={isVisible('obrigatorios')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('obrigatorios')}>
                         <ValidationConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="recibo" title="Configuração de Recibo e Impressão" icon="bi-printer-fill" isVisible={isVisible('recibo')}>
+                    <SettingsSection id="recibo" title="Configuração de Recibo" icon="bi-printer-fill" isVisible={isVisible('recibo')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('recibo')}>
                         <ReceiptConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="estoqueAutomacao" title="Automação de Movimentações de Estoque" icon="bi-box-arrow-right" isVisible={isVisible('estoqueAutomacao')}>
+                    <SettingsSection id="estoqueAutomacao" title="Automação de Estoque" icon="bi-box-arrow-right" isVisible={isVisible('estoqueAutomacao')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('estoqueAutomacao')}>
                         <InventoryAutomationSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="materiais" title="Materiais de Móveis" icon="bi-hammer" isVisible={isVisible('materiais')}>
+                    <SettingsSection id="materiais" title="Materiais de Móveis" icon="bi-hammer" isVisible={isVisible('materiais')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('materiais')}>
                         <ProductMaterialsSection />
                     </SettingsSection>
 
-                    <SettingsSection id="fiscal" title="Tributação Padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible={isVisible('fiscal')}>
+                    <SettingsSection id="fiscal" title="Tributação Padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible={isVisible('fiscal')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('fiscal')}>
                         <FiscalSettingsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="bandeiras" title="Bandeiras e Juros de Cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')}>
+                    <SettingsSection id="bandeiras" title="Bandeiras e Juros de Cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bandeiras')}>
                         <CardFlagSettings settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="scanner" title="Leitor de Código de Barras" icon="bi-qr-code-scan" isVisible={isVisible('scanner')}>
+                    <SettingsSection id="scanner" title="Leitor de Código de Barras" icon="bi-qr-code-scan" isVisible={isVisible('scanner')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('scanner')}>
                         <ScannerConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="bling" title="Integração Bling (API v3)" icon="bi-clouds-fill" isVisible={isVisible('bling')}>
+                    <SettingsSection id="bling" title="Integração Bling (API v3)" icon="bi-clouds-fill" isVisible={isVisible('bling')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bling')}>
                         <BlingConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
-
-
-                    
-
                 </div>
             </div>
 

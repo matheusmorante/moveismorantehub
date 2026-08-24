@@ -16,6 +16,8 @@ export interface LabelItemConfig {
     isBlank?: boolean;
     opportunityId?: string | null;
     opportunity_id?: string | null;
+    showName?: boolean;
+    isLogoOnly?: boolean;
 }
 
 export interface LogoItemConfig {
@@ -220,7 +222,7 @@ const LabelGrid: React.FC<Props> = ({
                         >
                             {item ? (
                                 (() => {
-                                    let itemConfig = {
+                                    let itemConfig: any = {
                                         ...config,
                                         isBlank: item.isBlank,
                                         showName: item.showName !== false,
@@ -231,6 +233,8 @@ const LabelGrid: React.FC<Props> = ({
                                         sku: item.isBlank ? '' : (item.sku || (item.type === 'logo' ? '' : (config.sku || ''))),
                                         extraFields: item.isBlank ? [] : (item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || []))),
                                         imageFit: item.imageFit || config.imageFit,
+                                        opportunityId: item.opportunityId || item.opportunity_id || null,
+                                        opportunity_id: item.opportunityId || item.opportunity_id || null,
                                     };
 
                                     if (config.category === 'precos' && !item.isBlank) {
@@ -241,9 +245,11 @@ const LabelGrid: React.FC<Props> = ({
                                             savedTemplate = localStorage.getItem(`morante_price_label_art_template_${oppId}`);
                                         }
 
-                                        // Se não encontrou template de oportunidade específica, tenta carregar o padrão 'none' ou o global
+                                        // Se não encontrou template de oportunidade específica, tenta carregar 'salvado', 'none' ou o global
                                         if (!savedTemplate) {
-                                            savedTemplate = localStorage.getItem('morante_price_label_art_template_none') || 
+                                            savedTemplate = localStorage.getItem('morante_price_label_art_template_salvado') ||
+                                                            localStorage.getItem('morante_price_label_art_template_none') || 
+                                                            localStorage.getItem('morante_global_price_label_art_template') ||
                                                             localStorage.getItem('price_label_art_global');
                                         }
 
@@ -256,10 +262,14 @@ const LabelGrid: React.FC<Props> = ({
                                                 const currentMag = getMagnitudeForPrice(finalDisplayPrice);
                                                 
                                                 // Localiza as configurações visuais específicas para essa grandeza
-                                                let magnitudeDesign = {};
-                                                if (parsedTemplate.magnitudeTemplates && parsedTemplate.magnitudeTemplates[currentMag]) {
-                                                    magnitudeDesign = parsedTemplate.magnitudeTemplates[currentMag];
-                                                }
+                                                // Fallback: usa a magnitude do template salvo ou qualquer magnitude disponível
+                                                const allMagsGrid = parsedTemplate.magnitudeTemplates || {};
+                                                let magnitudeDesign: any = allMagsGrid[currentMag]
+                                                    || (parsedTemplate.selectedMagnitude && allMagsGrid[parsedTemplate.selectedMagnitude])
+                                                    || allMagsGrid['thousands']
+                                                    || allMagsGrid['hundreds']
+                                                    || allMagsGrid['tens']
+                                                    || {};
                                                 
                                                 const mergedDesign: any = {
                                                     ...parsedTemplate,

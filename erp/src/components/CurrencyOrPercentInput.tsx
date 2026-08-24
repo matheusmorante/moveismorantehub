@@ -35,8 +35,14 @@ const CurrencyOrPercentInput = ({
     const displayBadge = badgeText || (suffix.trim() || "%");
 
     if (showBadge) {
+        const isLeftBadge = displayBadge.includes("R$") || displayBadge.includes("$");
         return (
             <div className="flex items-center overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-blue-500 dark:focus-within:border-blue-500 transition-all shadow-sm">
+                {isLeftBadge && (
+                    <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-1.5 border-r border-blue-100 dark:border-blue-800/50 flex items-center justify-center shrink-0 self-stretch">
+                        {displayBadge}
+                    </div>
+                )}
                 <NumericFormat
                     id={id}
                     className={className || "w-full min-w-[60px] text-right bg-transparent px-2.5 py-1.5 outline-none transition-all text-xs font-bold text-slate-800 dark:text-slate-100"}
@@ -65,9 +71,11 @@ const CurrencyOrPercentInput = ({
                         onChange(val);
                     }}
                 />
-                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-1.5 border-l border-blue-100 dark:border-blue-800/50 flex items-center justify-center shrink-0 self-stretch">
-                    {displayBadge}
-                </div>
+                {!isLeftBadge && (
+                    <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-1.5 border-l border-blue-100 dark:border-blue-800/50 flex items-center justify-center shrink-0 self-stretch">
+                        {displayBadge}
+                    </div>
+                )}
             </div>
         );
     }

@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { LabelConfig } from './LabelConstants';
+import { PriceLabelArtRenderer } from './PriceLabelArtRenderer';
 
 const GLOBAL_PRICE_LABEL_ART_KEY = 'morante_global_price_label_art_template';
 const getOppTemplateKey = (oppId: string) => `morante_price_label_art_template_${oppId}`;
@@ -31,6 +32,7 @@ interface PriceLabelArtEditorModalProps {
 
 type PriceLabelLayerKey = 
     | 'title' 
+    | 'dePricePorGroup'
     | 'deText'
     | 'normalPrice' 
     | 'porText'
@@ -72,10 +74,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         '#000000', '#1e3a8a', '#dc2626', '#ea580c', '#ffffff', '#2563eb', '#16a34a', '#ff7900', '#7c3aed'
     ]);
 
+    // MAPEAMENTO DE CORES DE ELEMENTOS POR TIPO DE ETIQUETA (OPPORTUNITY ID)
+    const [oppColorsMap, setOppColorsMap] = useState<Record<string, Record<string, string>>>({});
+
     // 1. TÍTULO NO CABEÇALHO DA ETIQUETA
     const [title, setTitle] = useState(initialProduct?.name || config.text || 'COLCHÃO DE ESPUMA D28 LARGURA 88');
     const [showTitle, setShowTitle] = useState(true);
-    const [titleFontSize, setTitleFontSize] = useState<number>(14);
+    const [titleFontSizeTens, setTitleFontSizeTens] = useState<number>(14);
+    const [titleFontSizeHundreds, setTitleFontSizeHundreds] = useState<number>(14);
+    const [titleFontSizeThousands, setTitleFontSizeThousands] = useState<number>(14);
     const [titleColor, setTitleColor] = useState('#000000');
     const [titleFontFamily, setTitleFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [titlePos, setTitlePos] = useState({ x: 0, y: 0 });
@@ -84,7 +91,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 2. TEXTO "DE"
     const [deText, setDeText] = useState('De');
     const [showDe, setShowDe] = useState(true);
-    const [deFontSize, setDeFontSize] = useState<number>(15);
+    const [deFontSizeTens, setDeFontSizeTens] = useState<number>(15);
+    const [deFontSizeHundreds, setDeFontSizeHundreds] = useState<number>(15);
+    const [deFontSizeThousands, setDeFontSizeThousands] = useState<number>(15);
     const [deColor, setDeColor] = useState('#000000');
     const [deFontFamily, setDeFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [dePos, setDePos] = useState({ x: 0, y: 0 });
@@ -93,7 +102,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 3. PREÇO ORIGINAL (VALOR NUMÉRICO RISCADO)
     const [normalPrice, setNormalPrice] = useState(initialProduct?.price || config.price || '499,00');
     const [showNormalPrice, setShowNormalPrice] = useState(true);
-    const [normalPriceFontSize, setNormalPriceFontSize] = useState<number>(16);
+    const [normalPriceFontSizeTens, setNormalPriceFontSizeTens] = useState<number>(16);
+    const [normalPriceFontSizeHundreds, setNormalPriceFontSizeHundreds] = useState<number>(16);
+    const [normalPriceFontSizeThousands, setNormalPriceFontSizeThousands] = useState<number>(16);
     const [normalPriceColor, setNormalPriceColor] = useState('#000000');
     const [normalPriceFontFamily, setNormalPriceFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [normalPricePos, setNormalPricePos] = useState({ x: 0, y: 0 });
@@ -102,7 +113,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 4. TEXTO "POR:"
     const [porText, setPorText] = useState('por:');
     const [showPor, setShowPor] = useState(true);
-    const [porFontSize, setPorFontSize] = useState<number>(15);
+    const [porFontSizeTens, setPorFontSizeTens] = useState<number>(15);
+    const [porFontSizeHundreds, setPorFontSizeHundreds] = useState<number>(15);
+    const [porFontSizeThousands, setPorFontSizeThousands] = useState<number>(15);
     const [porColor, setPorColor] = useState('#000000');
     const [porFontFamily, setPorFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [porPos, setPorPos] = useState({ x: 0, y: 0 });
@@ -122,15 +135,19 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 6. PREÇO PRINCIPAL (NÚMERO GRANDE POR:) - POR ORDEM DE GRANDEZA
     const [promoPrice, setPromoPrice] = useState(initialProduct?.promoPrice || config.promoPrice || '399,00');
     const [showPromoPrice, setShowPromoPrice] = useState(true);
+    const [showPromoPriceTens, setShowPromoPriceTens] = useState(true);
+    const [showPromoPriceHundreds, setShowPromoPriceHundreds] = useState(true);
+    const [showPromoPriceThousands, setShowPromoPriceThousands] = useState(true);
+    const [showSizeDropdown, setShowSizeDropdown] = useState(false);
     const [priceColor, setPriceColor] = useState(config.priceColor || '#1e3a8a');
     const [promoPriceFontFamily, setPromoPriceFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [promoPricePos, setPromoPricePos] = useState({ x: 0, y: 0 });
     const [promoPriceRotation, setPromoPriceRotation] = useState<number>(0);
     
     // Escalas por Ordem de Grandeza (Dezena, Centena, Milhar, Dezena de Milhar)
-    const [scaleTens, setScaleTens] = useState<number>(115);            
+    const [scaleTens, setScaleTens] = useState<number>(120);            
     const [scaleHundreds, setScaleHundreds] = useState<number>(100);    
-    const [scaleThousands, setScaleThousands] = useState<number>(88);   
+    const [scaleThousands, setScaleThousands] = useState<number>(80);   
     const [scaleTenThousands, setScaleTenThousands] = useState<number>(75); 
 
     // 7. CENTAVOS ",00" - POR ORDEM DE GRANDEZA
@@ -165,13 +182,20 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 9. PARCELAMENTO
     const [showInstallments, setShowInstallments] = useState(false);
     const [installments, setInstallments] = useState('Em até 10x sem juros no cartão');
-    const [installmentsFontSize, setInstallmentsFontSize] = useState<number>(12);
+    const [installmentsFontSizeTens, setInstallmentsFontSizeTens] = useState<number>(12);
+    const [installmentsFontSizeHundreds, setInstallmentsFontSizeHundreds] = useState<number>(12);
+    const [installmentsFontSizeThousands, setInstallmentsFontSizeThousands] = useState<number>(12);
     const [installmentsColor, setInstallmentsColor] = useState('#000000');
     const [installmentsFontFamily, setInstallmentsFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [installmentsPos, setInstallmentsPos] = useState({ x: 0, y: 0 });
     const [installmentsRotation, setInstallmentsRotation] = useState<number>(0);
 
-    // 10. FUNDO DA ETIQUETA
+    // 10. CONTAINER AGRUPADO FLEX (DE + PREÇO ANTIGO + POR)
+    const [dePricePorGroupPos, setDePricePorGroupPos] = useState({ x: 0, y: 0 });
+    const [dePricePorGroupRotation, setDePricePorGroupRotation] = useState<number>(0);
+    const [dePricePorGroupGap, setDePricePorGroupGap] = useState<number>(10);
+
+    // 11. FUNDO DA ETIQUETA
     const [bgColor, setBgColor] = useState<string>(defaultBgColor);
 
     // Estado de Seleção e Menus
@@ -181,6 +205,50 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
     const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
     const [showColorPickerDropdown, setShowColorPickerDropdown] = useState(false);
+
+    // SISTEMA DE HISTÓRICO (REFS DECLARADAS NO TOPO DO COMPONENTE)
+    const undoStackRef = useRef<any[]>([]);
+    const redoStackRef = useRef<any[]>([]);
+    const isApplyingHistoryRef = useRef<boolean>(false);
+    const [canUndo, setCanUndo] = useState(false);
+    const [canRedo, setCanRedo] = useState(false);
+    // ESTADO DO MODAL DE TESTE DE VALORES (SLIDERS DE 0 A 9 POR DÍGITO)
+    const [isTestValuesModalOpen, setIsTestValuesModalOpen] = useState(false);
+    const testValuesBackupRef = useRef<{ promoPrice: string; normalPrice: string } | null>(null);
+
+    // Sliders de Teste para o Preço Principal (Dezena, Centena, Milhar)
+    const [testDezenaD1, setTestDezenaD1] = useState(3);
+    const [testDezenaD2, setTestDezenaD2] = useState(9);
+
+    const [testCentenaD1, setTestCentenaD1] = useState(3);
+    const [testCentenaD2, setTestCentenaD2] = useState(9);
+    const [testCentenaD3, setTestCentenaD3] = useState(9);
+
+    const [testMilharD1, setTestMilharD1] = useState(1);
+    const [testMilharD2, setTestMilharD2] = useState(3);
+    const [testMilharD3, setTestMilharD3] = useState(9);
+    const [testMilharD4, setTestMilharD4] = useState(9);
+
+    // Sliders de Teste para o Preço Antigo (normalPrice)
+    const [testNormalD1, setTestNormalD1] = useState(4);
+    const [testNormalD2, setTestNormalD2] = useState(9);
+    const [testNormalD3, setTestNormalD3] = useState(9);
+
+    const openTestValuesModal = () => {
+        testValuesBackupRef.current = {
+            promoPrice,
+            normalPrice
+        };
+        setIsTestValuesModalOpen(true);
+    };
+
+    const closeTestValuesModal = () => {
+        if (testValuesBackupRef.current) {
+            setPromoPrice(testValuesBackupRef.current.promoPrice);
+            setNormalPrice(testValuesBackupRef.current.normalPrice);
+        }
+        setIsTestValuesModalOpen(false);
+    };
 
     // ESTADO DO MODAL DE PREENCHIMENTO DE DADOS / BUSCA DE PRODUTO DA LISTA
     const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
@@ -323,12 +391,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         startX: number;
         startY: number;
         initialPos: { x: number; y: number };
+        initialPositions: Partial<Record<string, { x: number; y: number }>>;
     }>({
         isDragging: false,
         layer: null,
         startX: 0,
         startY: 0,
-        initialPos: { x: 0, y: 0 }
+        initialPos: { x: 0, y: 0 },
+        initialPositions: {}
     });
 
     // Resize do Elemento
@@ -338,6 +408,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         startX: number;
         startY: number;
         initialVal: number;
+        initialTens?: number;
+        initialHundreds?: number;
+        initialThousands?: number;
     }>({
         isResizing: false,
         layer: null,
@@ -371,32 +444,31 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         };
     }, [isOpen]);
 
-    // Histórico de Ações (Undo / Redo Stack)
-    const [historyStack, setHistoryStack] = useState<any[]>([]);
-    const [historyIndex, setHistoryIndex] = useState<number>(-1);
-    const isApplyingHistoryRef = useRef(false);
 
     // SNAPSHOT DOS VALORES DE ESTILO E POSICIONAMENTO DA MAGNITUDE ATUAL
+    // oppColorsMap é global (não por grandeza), salvo somente no getSnapshot
     const getMagnitudeSnapshot = useCallback(() => ({
-        title, showTitle, titleFontSize, titleColor, titleFontFamily, titlePos, titleRotation,
-        deText, showDe, deFontSize, deColor, deFontFamily, dePos, deRotation,
-        normalPrice, showNormalPrice, normalPriceFontSize, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
-        porText, showPor, porFontSize, porColor, porFontFamily, porPos, porRotation,
+        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation,
+        deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
+        normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
+        porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
         currencySymbol, showCurrency, currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
-        promoPrice, showPromoPrice, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
+        promoPrice, showPromoPrice, showPromoPriceTens, showPromoPriceHundreds, showPromoPriceThousands, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
         centsText, showCents, centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands, centsColor, centsFontFamily, centsPos, centsRotation,
-        showInstallments, installments, installmentsFontSize, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
-        bgColor
+        showInstallments, installments, installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
+        dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
+        bgColor,
     }), [
-        title, showTitle, titleFontSize, titleColor, titleFontFamily, titlePos, titleRotation,
-        deText, showDe, deFontSize, deColor, deFontFamily, dePos, deRotation,
-        normalPrice, showNormalPrice, normalPriceFontSize, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
-        porText, showPor, porFontSize, porColor, porFontFamily, porPos, porRotation,
+        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation,
+        deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
+        normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
+        porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
         currencySymbol, showCurrency, currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
-        promoPrice, showPromoPrice, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
+        promoPrice, showPromoPrice, showPromoPriceTens, showPromoPriceHundreds, showPromoPriceThousands, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
         centsText, showCents, centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands, centsColor, centsFontFamily, centsPos, centsRotation,
-        showInstallments, installments, installmentsFontSize, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
-        bgColor
+        showInstallments, installments, installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
+        dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
+        bgColor,
     ]);
 
     // SNAPSHOT COMPLETO DO TIPO DE ETIQUETA (INCLUINDO AS 3 ORDENS DE GRANDEZA)
@@ -410,16 +482,20 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             selectedOppId,
             selectedMagnitude,
             magnitudeTemplates: fullTemplates,
+            oppColorsMap,
             ...curMagState
         };
-    }, [selectedOppId, selectedMagnitude, magnitudeTemplates, getMagnitudeSnapshot]);
+    }, [selectedOppId, selectedMagnitude, magnitudeTemplates, getMagnitudeSnapshot, oppColorsMap]);
 
     // APLICA O SNAPSHOT DE UMA ORDEM DE GRANDEZA ESPECÍFICA
     const applyMagnitudeSnapshot = (s: any) => {
         if (!s) return;
         if (s.title !== undefined) setTitle(s.title);
         if (s.showTitle !== undefined) setShowTitle(s.showTitle);
-        if (s.titleFontSize !== undefined) setTitleFontSize(s.titleFontSize);
+        if (s.titleFontSizeTens !== undefined) setTitleFontSizeTens(s.titleFontSizeTens); else if (s.titleFontSize !== undefined) setTitleFontSizeTens(s.titleFontSize);
+        if (s.titleFontSizeHundreds !== undefined) setTitleFontSizeHundreds(s.titleFontSizeHundreds); else if (s.titleFontSize !== undefined) setTitleFontSizeHundreds(s.titleFontSize);
+        if (s.titleFontSizeThousands !== undefined) setTitleFontSizeThousands(s.titleFontSizeThousands); else if (s.titleFontSize !== undefined) setTitleFontSizeThousands(s.titleFontSize);
+
         if (s.titleColor) setTitleColor(s.titleColor);
         if (s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
         if (s.titlePos) setTitlePos(s.titlePos);
@@ -427,7 +503,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.deText !== undefined) setDeText(s.deText);
         if (s.showDe !== undefined) setShowDe(s.showDe);
-        if (s.deFontSize !== undefined) setDeFontSize(s.deFontSize);
+        if (s.deFontSizeTens !== undefined) setDeFontSizeTens(s.deFontSizeTens); else if (s.deFontSize !== undefined) setDeFontSizeTens(s.deFontSize);
+        if (s.deFontSizeHundreds !== undefined) setDeFontSizeHundreds(s.deFontSizeHundreds); else if (s.deFontSizeHundreds !== undefined) setDeFontSizeHundreds(s.deFontSize);
+        if (s.deFontSizeThousands !== undefined) setDeFontSizeThousands(s.deFontSizeThousands); else if (s.deFontSize !== undefined) setDeFontSizeThousands(s.deFontSize);
+
         if (s.deColor) setDeColor(s.deColor);
         if (s.deFontFamily) setDeFontFamily(s.deFontFamily);
         if (s.dePos) setDePos(s.dePos);
@@ -435,7 +514,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.normalPrice !== undefined) setNormalPrice(s.normalPrice);
         if (s.showNormalPrice !== undefined) setShowNormalPrice(s.showNormalPrice);
-        if (s.normalPriceFontSize !== undefined) setNormalPriceFontSize(s.normalPriceFontSize);
+        if (s.normalPriceFontSizeTens !== undefined) setNormalPriceFontSizeTens(s.normalPriceFontSizeTens); else if (s.normalPriceFontSize !== undefined) setNormalPriceFontSizeTens(s.normalPriceFontSize);
+        if (s.normalPriceFontSizeHundreds !== undefined) setNormalPriceFontSizeHundreds(s.normalPriceFontSizeHundreds); else if (s.normalPriceFontSize !== undefined) setNormalPriceFontSizeHundreds(s.normalPriceFontSize);
+        if (s.normalPriceFontSizeThousands !== undefined) setNormalPriceFontSizeThousands(s.normalPriceFontSizeThousands); else if (s.normalPriceFontSize !== undefined) setNormalPriceFontSizeThousands(s.normalPriceFontSize);
+
         if (s.normalPriceColor) setNormalPriceColor(s.normalPriceColor);
         if (s.normalPriceFontFamily) setNormalPriceFontFamily(s.normalPriceFontFamily);
         if (s.normalPricePos) setNormalPricePos(s.normalPricePos);
@@ -443,7 +525,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.porText !== undefined) setPorText(s.porText);
         if (s.showPor !== undefined) setShowPor(s.showPor);
-        if (s.porFontSize !== undefined) setPorFontSize(s.porFontSize);
+        if (s.porFontSizeTens !== undefined) setPorFontSizeTens(s.porFontSizeTens); else if (s.porFontSize !== undefined) setPorFontSizeTens(s.porFontSize);
+        if (s.porFontSizeHundreds !== undefined) setPorFontSizeHundreds(s.porFontSizeHundreds); else if (s.porFontSize !== undefined) setPorFontSizeHundreds(s.porFontSize);
+        if (s.porFontSizeThousands !== undefined) setPorFontSizeThousands(s.porFontSizeThousands); else if (s.porFontSize !== undefined) setPorFontSizeThousands(s.porFontSize);
+
         if (s.porColor) setPorColor(s.porColor);
         if (s.porFontFamily) setPorFontFamily(s.porFontFamily);
         if (s.porPos) setPorPos(s.porPos);
@@ -465,6 +550,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.promoPrice !== undefined) setPromoPrice(s.promoPrice);
         if (s.showPromoPrice !== undefined) setShowPromoPrice(s.showPromoPrice);
+        if (s.showPromoPriceTens !== undefined) setShowPromoPriceTens(s.showPromoPriceTens);
+        if (s.showPromoPriceHundreds !== undefined) setShowPromoPriceHundreds(s.showPromoPriceHundreds);
+        if (s.showPromoPriceThousands !== undefined) setShowPromoPriceThousands(s.showPromoPriceThousands);
         if (s.priceColor) setPriceColor(s.priceColor);
         if (s.promoPriceFontFamily) setPromoPriceFontFamily(s.promoPriceFontFamily);
         if (s.promoPricePos) setPromoPricePos(s.promoPricePos);
@@ -490,11 +578,18 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.showInstallments !== undefined) setShowInstallments(s.showInstallments);
         if (s.installments) setInstallments(s.installments);
-        if (s.installmentsFontSize !== undefined) setInstallmentsFontSize(s.installmentsFontSize);
+        if (s.installmentsFontSizeTens !== undefined) setInstallmentsFontSizeTens(s.installmentsFontSizeTens); else if (s.installmentsFontSize !== undefined) setInstallmentsFontSizeTens(s.installmentsFontSize);
+        if (s.installmentsFontSizeHundreds !== undefined) setInstallmentsFontSizeHundreds(s.installmentsFontSizeHundreds); else if (s.installmentsFontSize !== undefined) setInstallmentsFontSizeHundreds(s.installmentsFontSize);
+        if (s.installmentsFontSizeThousands !== undefined) setInstallmentsFontSizeThousands(s.installmentsFontSizeThousands); else if (s.installmentsFontSize !== undefined) setInstallmentsFontSizeThousands(s.installmentsFontSize);
+
         if (s.installmentsColor) setInstallmentsColor(s.installmentsColor);
         if (s.installmentsFontFamily) setInstallmentsFontFamily(s.installmentsFontFamily);
         if (s.installmentsPos) setInstallmentsPos(s.installmentsPos);
         if (s.installmentsRotation !== undefined) setInstallmentsRotation(s.installmentsRotation);
+
+        if (s.dePricePorGroupPos) setDePricePorGroupPos(s.dePricePorGroupPos);
+        if (s.dePricePorGroupRotation !== undefined) setDePricePorGroupRotation(s.dePricePorGroupRotation);
+        if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
 
         if (s.bgColor && s.bgColor !== '#ffffff') {
             setBgColor(s.bgColor);
@@ -506,7 +601,12 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const applySnapshot = (s: any) => {
         if (!s) return;
         isApplyingHistoryRef.current = true;
-        
+
+        // Restaura o mapa de cores por tipo de etiqueta
+        if (s.oppColorsMap && typeof s.oppColorsMap === 'object') {
+            setOppColorsMap(s.oppColorsMap);
+        }
+
         if (s.magnitudeTemplates) {
             setMagnitudeTemplates(s.magnitudeTemplates);
         }
@@ -548,32 +648,121 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         }
     };
 
-    const handleUndo = () => {
-        if (historyIndex > 0) {
-            const nextIdx = historyIndex - 1;
-            setHistoryIndex(nextIdx);
-            applySnapshot(historyStack[nextIdx]);
-            toast.info('Ação desfeita');
-        }
-    };
+    // ----------------------------------------------------
+    // SISTEMA ROBUSTO DE HISTÓRICO: DESFAZER (Ctrl+Z) E REFAZER (Ctrl+Y)
+    // ----------------------------------------------------
 
-    const handleRedo = () => {
-        if (historyIndex < historyStack.length - 1) {
-            const nextIdx = historyIndex + 1;
-            setHistoryIndex(nextIdx);
-            applySnapshot(historyStack[nextIdx]);
-            toast.info('Ação refeita');
-        }
-    };
-
-    // Registra o estado inicial ao abrir
+    // Registra o snapshot inicial e acompanha mudanças do editor para a pilha de Desfazer/Refazer
     useEffect(() => {
-        if (isOpen && historyStack.length === 0) {
-            const initial = getSnapshot();
-            setHistoryStack([initial]);
-            setHistoryIndex(0);
+        if (!isOpen) {
+            undoStackRef.current = [];
+            redoStackRef.current = [];
+            setCanUndo(false);
+            setCanRedo(false);
+            return;
         }
-    }, [isOpen]);
+
+        // Ao abrir, inicializa a pilha com a arte atual
+        if (undoStackRef.current.length === 0) {
+            const initialSnap = getSnapshot();
+            undoStackRef.current = [initialSnap];
+            redoStackRef.current = [];
+            setCanUndo(false);
+            setCanRedo(false);
+        }
+
+        if (isApplyingHistoryRef.current) return;
+
+        const timer = setTimeout(() => {
+            if (isApplyingHistoryRef.current) return;
+            const currentSnap = getSnapshot();
+            const stack = undoStackRef.current;
+            if (stack.length > 0) {
+                const lastSnap = stack[stack.length - 1];
+                if (JSON.stringify(lastSnap) === JSON.stringify(currentSnap)) return;
+            }
+            undoStackRef.current = [...stack.slice(-50), currentSnap];
+            redoStackRef.current = [];
+            setCanUndo(undoStackRef.current.length > 1);
+            setCanRedo(false);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [isOpen, getSnapshot]);
+
+    const handleUndo = useCallback(() => {
+        const stack = undoStackRef.current;
+        if (stack.length <= 1) return;
+
+        isApplyingHistoryRef.current = true;
+        const current = stack.pop()!;
+        redoStackRef.current.push(current);
+
+        const previous = stack[stack.length - 1];
+        applySnapshot(previous);
+
+        setCanUndo(stack.length > 1);
+        setCanRedo(true);
+
+        setTimeout(() => {
+            isApplyingHistoryRef.current = false;
+        }, 120);
+    }, []);
+
+    const handleRedo = useCallback(() => {
+        const redoStack = redoStackRef.current;
+        if (redoStack.length === 0) return;
+
+        isApplyingHistoryRef.current = true;
+        const next = redoStack.pop()!;
+        undoStackRef.current.push(next);
+
+        applySnapshot(next);
+
+        setCanUndo(undoStackRef.current.length > 1);
+        setCanRedo(redoStack.length > 0);
+
+        setTimeout(() => {
+            isApplyingHistoryRef.current = false;
+        }, 120);
+    }, []);
+
+    // Atalhos globais de teclado para Ctrl+Z e Ctrl+Y (ou Cmd+Z / Cmd+Y no Mac)
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement;
+            const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+            const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+            if (isCtrlOrCmd) {
+                const key = e.key.toLowerCase();
+                if (key === 'z') {
+                    if (e.shiftKey) {
+                        // Ctrl + Shift + Z -> Refazer
+                        e.preventDefault();
+                        handleRedo();
+                    } else {
+                        // Ctrl + Z -> Desfazer (se não estiver num campo de texto simples)
+                        if (!isInput) {
+                            e.preventDefault();
+                            handleUndo();
+                        }
+                    }
+                } else if (key === 'y') {
+                    // Ctrl + Y -> Refazer
+                    if (!isInput) {
+                        e.preventDefault();
+                        handleRedo();
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, handleUndo, handleRedo]);
 
     // Carrega modelo salvo por Oportunidade ou modelo global
     useEffect(() => {
@@ -582,24 +771,21 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             return;
         }
 
-        const ultimasSaved = localStorage.getItem(getOppTemplateKey('ultimas-unidades')) || localStorage.getItem(getOppTemplateKey('mostruario'));
-        if (ultimasSaved && !localStorage.getItem(getOppTemplateKey('salvado'))) {
-            localStorage.setItem(getOppTemplateKey('salvado'), ultimasSaved);
-            localStorage.setItem(GLOBAL_PRICE_LABEL_ART_KEY, ultimasSaved);
+        const savedOppColorsMap = localStorage.getItem('morante_hub_opp_colors_map');
+        if (savedOppColorsMap) {
+            try {
+                const parsedColors = JSON.parse(savedOppColorsMap);
+                if (parsedColors && typeof parsedColors === 'object') {
+                    setOppColorsMap(parsedColors);
+                }
+            } catch (e) {
+                console.error("Erro ao carregar mapa de cores de oportunidades:", e);
+            }
         }
 
-        const oppSaved = localStorage.getItem(getOppTemplateKey(selectedOppId));
-        const salvadoSaved = localStorage.getItem(getOppTemplateKey('salvado'));
-        
-        let savedGlobal = oppSaved;
-        if (!savedGlobal) {
-            if (selectedOppId === 'none') {
-                savedGlobal = localStorage.getItem(getOppTemplateKey('none')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-            } else if (selectedOppId === 'salvado') {
-                savedGlobal = salvadoSaved || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-            } else {
-                savedGlobal = salvadoSaved || ultimasSaved || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-            }
+        let savedGlobal = localStorage.getItem(getOppTemplateKey(selectedOppId));
+        if (!savedGlobal && selectedOppId === 'salvado') {
+            savedGlobal = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
         }
         
         if (!savedGlobal) {
@@ -633,6 +819,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // Carrega oportunidades cadastradas no Supabase
     useEffect(() => {
         if (!isOpen) return;
+
         async function fetchOpps() {
             try {
                 const { data } = await supabase.from('opportunities').select('id, name, slug, badge_color, border_color');
@@ -665,6 +852,29 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         return [...baseOptions, { id: 'salvado', name: 'QUEIMA DOS SALVADOS' }];
     }, [dbOpportunities]);
 
+    // SINCRONIZA AS CORES DOS ELEMENTOS COM A VISÃO DO TIPO DE ETIQUETA SELECIONADO
+    // ATENÇÃO: Só roda após inicialização concluída para não sobrescrever as cores
+    // restauradas pelo applySnapshot durante a abertura do modal.
+    useEffect(() => {
+        if (!selectedOppId) return;
+        // Bloqueia durante inicialização para não sobrescrever snapshot carregado
+        if (!isInitializedRef.current) return;
+
+        const currentOppColors = oppColorsMap[selectedOppId] || {};
+        // Só aplica se houver cores salvas para este tipo (evita resetar para defaults)
+        if (Object.keys(currentOppColors).length === 0) return;
+
+        setTitleColor(currentOppColors['title'] || '#000000');
+        setDeColor(currentOppColors['deText'] || '#000000');
+        setNormalPriceColor(currentOppColors['normalPrice'] || '#000000');
+        setPorColor(currentOppColors['porText'] || '#000000');
+        setCurrencyColor(currentOppColors['currencySymbol'] || '#000000');
+        setPriceColor(currentOppColors['promoPrice'] || '#1e3a8a');
+        setCentsColor(currentOppColors['cents'] || '#000000');
+        setInstallmentsColor(currentOppColors['installments'] || '#000000');
+        setBgColor(currentOppColors['background'] || defaultBgColor);
+    }, [selectedOppId, oppColorsMap, defaultBgColor]);
+
     // SALVAMENTO AUTOMÁTICO DE MODELO POR TIPO DE ETIQUETA (SOMENTE APÓS INICIALIZAÇÃO CONCLUÍDA E ESTRITAMENTE ISOLADO POR oppId)
     useEffect(() => {
         if (!isOpen || !isInitializedRef.current || isApplyingHistoryRef.current) return;
@@ -672,6 +882,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         const currentSnapshot = getSnapshot();
         // Salva ESTRITAMENTE sob a chave individual da modalidade selecionada
         localStorage.setItem(getOppTemplateKey(selectedOppId), JSON.stringify(currentSnapshot));
+        localStorage.setItem('morante_hub_opp_colors_map', JSON.stringify(oppColorsMap));
         
         // Apenas atualiza a chave global se a modalidade for salvado
         if (selectedOppId === 'salvado') {
@@ -698,14 +909,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             pricePosY: promoPricePos.y,
         });
     }, [
-        isOpen, selectedOppId, title, showTitle, titleFontSize, titleColor, titleFontFamily, titlePos, titleRotation,
-        deText, showDe, deFontSize, deColor, deFontFamily, dePos, deRotation,
-        normalPrice, showNormalPrice, normalPriceFontSize, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
-        porText, showPor, porFontSize, porColor, porFontFamily, porPos, porRotation,
+        isOpen, selectedOppId, title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation,
+        deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
+        normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
+        porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
         currencySymbol, showCurrency, currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
         promoPrice, showPromoPrice, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
         centsText, showCents, centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands, centsColor, centsFontFamily, centsPos, centsRotation,
-        showInstallments, installments, installmentsFontSize, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
+        showInstallments, installments, installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
         bgColor, magnitudeTemplates, selectedMagnitude
     ]);
 
@@ -746,6 +957,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
 
                 if (selectedElement === 'title') setTitlePos(p => ({ x: p.x + dx, y: p.y + dy }));
+                else if (selectedElement === 'dePricePorGroup') setDePricePorGroupPos(p => ({ x: p.x + dx, y: p.y + dy }));
                 else if (selectedElement === 'deText') setDePos(p => ({ x: p.x + dx, y: p.y + dy }));
                 else if (selectedElement === 'normalPrice') setNormalPricePos(p => ({ x: p.x + dx, y: p.y + dy }));
                 else if (selectedElement === 'porText') setPorPos(p => ({ x: p.x + dx, y: p.y + dy }));
@@ -758,7 +970,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, selectedElement, historyIndex, historyStack]);
+    }, [isOpen, selectedElement, handleUndo, handleRedo]);
 
     // SELEÇÃO INTELIGENTE DE ELEMENTOS (ALTERNÂNCIA DE CAMADAS SOBREPOSTAS AO RE-CLICAR E SHIFT MULTISELEÇÃO)
     const handleElementClick = useCallback((layerKey: PriceLabelLayerKey, e: React.MouseEvent) => {
@@ -766,6 +978,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         const visibleLayers: { key: PriceLabelLayerKey; label: string }[] = [
             { key: 'title', label: 'Nome do Produto' },
+            { key: 'dePricePorGroup', label: 'Grupo De / Preço / Por (Flex)' },
             { key: 'deText', label: 'Texto "De"' },
             { key: 'normalPrice', label: 'Preço Original' },
             { key: 'porText', label: 'Texto "Por"' },
@@ -776,6 +989,13 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         ];
 
         if (e.shiftKey) {
+            // Clicar com Shift em qualquer um dos itens do grupo (De, Preço Original, Por) seleciona o AGRUPAMENTO (dePricePorGroup)
+            if (['deText', 'normalPrice', 'porText', 'dePricePorGroup'].includes(layerKey as string)) {
+                setSelectedElement('dePricePorGroup');
+                setSelectedElements(new Set<PriceLabelLayerKey>(['dePricePorGroup']));
+                return;
+            }
+
             setSelectedElements(prev => {
                 const next = new Set(prev);
                 if (next.has(layerKey)) {
@@ -824,6 +1044,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     // ARRASTATOR DE ELEMENTOS NO CANVAS COM ÍMÃ E LINHAS GUIA MAGNÉTICAS (SUPORTE A MULTISELEÇÃO E MOVIMENTAÇÃO CONJUNTA)
     const startDragging = useCallback((layer: PriceLabelLayerKey, e: React.MouseEvent | React.TouchEvent) => {
+        if (!layer) return;
         e.stopPropagation();
         
         prevSelectedRef.current = selectedElement;
@@ -845,6 +1066,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             if (key) {
                 let pos = { x: 0, y: 0 };
                 if (key === 'title') pos = { ...titlePos };
+                else if (key === 'dePricePorGroup') pos = { ...dePricePorGroupPos };
                 else if (key === 'deText') pos = { ...dePos };
                 else if (key === 'normalPrice') pos = { ...normalPricePos };
                 else if (key === 'porText') pos = { ...porPos };
@@ -870,8 +1092,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             const curX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
             const curY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
             
-            const dx = Math.round((curX - dragRef.current.startX));
-            const dy = Math.round((curY - dragRef.current.startY));
+            const el = previewRef.current;
+            const s = el ? Math.min(el.clientWidth / 840, el.clientHeight / 480) : 1;
+            const currentScale = s > 0 ? s : 1;
+            const dx = Math.round((curX - dragRef.current.startX) / currentScale);
+            const dy = Math.round((curY - dragRef.current.startY) / currentScale);
 
             // Elemento principal arrastado (que ditará as correções e o ímã)
             const primaryKey = dragRef.current.layer;
@@ -929,6 +1154,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 };
 
                 if (key === 'title') setTitlePos(finalPos);
+                else if (key === 'dePricePorGroup') setDePricePorGroupPos(finalPos);
                 else if (key === 'deText') setDePos(finalPos);
                 else if (key === 'normalPrice') setNormalPricePos(finalPos);
                 else if (key === 'porText') setPorPos(finalPos);
@@ -954,7 +1180,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         window.addEventListener('touchmove', handleMouseMove, { passive: false });
         window.addEventListener('touchend', handleMouseUp);
     }, [
-        selectedElements, titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos,
+        selectedElement, selectedElements, titlePos, dePricePorGroupPos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos,
         showTitle, showDe, showNormalPrice, showPor, showCurrency, showPromoPrice, showCents, showInstallments
     ]);
 
@@ -970,15 +1196,18 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         return parts[0] || '0';
     };
 
-    // VALOR FICTÍCIO DO PREÇO PRINCIPAL BASEADO NA ORDEM DE GRANDEZA SELECIONADA (99 PARA DEZENA, 999 PARA CENTENA, 9.999 PARA MILHAR)
+    // VALOR EXIBIDO DO PREÇO PRINCIPAL
     const displayPriceNumber = useMemo(() => {
-        if (selectedMagnitude === 'tens') return '99';
-        if (selectedMagnitude === 'hundreds') return '999';
-        if (selectedMagnitude === 'thousands') return '9.999';
-        return getIntegerPart(promoPrice || normalPrice || '399');
-    }, [selectedMagnitude, promoPrice, normalPrice]);
+        return getIntegerPart(promoPrice || normalPrice || '1.999');
+    }, [promoPrice, normalPrice]);
 
     // Valores dinâmicos para renderização baseados na Ordem de Grandeza ativa ou selecionada
+    const activeTitleFontSize = selectedMagnitude === 'tens' ? titleFontSizeTens : selectedMagnitude === 'hundreds' ? titleFontSizeHundreds : titleFontSizeThousands;
+    const activeDeFontSize = selectedMagnitude === 'tens' ? deFontSizeTens : selectedMagnitude === 'hundreds' ? deFontSizeHundreds : deFontSizeThousands;
+    const activeNormalPriceFontSize = selectedMagnitude === 'tens' ? normalPriceFontSizeTens : selectedMagnitude === 'hundreds' ? normalPriceFontSizeHundreds : normalPriceFontSizeThousands;
+    const activePorFontSize = selectedMagnitude === 'tens' ? porFontSizeTens : selectedMagnitude === 'hundreds' ? porFontSizeHundreds : porFontSizeThousands;
+    const activeInstallmentsFontSize = selectedMagnitude === 'tens' ? installmentsFontSizeTens : selectedMagnitude === 'hundreds' ? installmentsFontSizeHundreds : installmentsFontSizeThousands;
+
     const activeCurrencyFontSize = 
         selectedMagnitude === 'tens' ? currencyFontSizeTens :
         selectedMagnitude === 'hundreds' ? currencyFontSizeHundreds : currencyFontSizeThousands;
@@ -1002,13 +1231,13 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
         let initial = 14;
-        if (layer === 'title') initial = titleFontSize;
-        else if (layer === 'deText') initial = deFontSize;
-        else if (layer === 'normalPrice') initial = normalPriceFontSize;
-        else if (layer === 'porText') initial = porFontSize;
+        if (layer === 'title') initial = activeTitleFontSize;
+        else if (layer === 'deText') initial = activeDeFontSize;
+        else if (layer === 'normalPrice') initial = activeNormalPriceFontSize;
+        else if (layer === 'porText') initial = activePorFontSize;
         else if (layer === 'currencySymbol') initial = activeCurrencyFontSize;
         else if (layer === 'cents') initial = activeCentsFontSize;
-        else if (layer === 'installments') initial = installmentsFontSize;
+        else if (layer === 'installments') initial = activeInstallmentsFontSize;
         else if (layer === 'promoPrice') initial = activeScale;
 
         resizeRef.current = {
@@ -1016,7 +1245,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             layer,
             startX: clientX,
             startY: clientY,
-            initialVal: initial
+            initialVal: initial,
+            initialTens: scaleTens,
+            initialHundreds: scaleHundreds,
+            initialThousands: scaleThousands
         };
 
         const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
@@ -1028,28 +1260,47 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             const l = resizeRef.current.layer;
 
             if (l === 'promoPrice') {
-                const newScale = Math.max(10, Math.round(resizeRef.current.initialVal + delta * 0.35));
-                if (selectedMagnitude === 'tens') setScaleTens(newScale);
-                else if (selectedMagnitude === 'hundreds') setScaleHundreds(newScale);
-                else if (selectedMagnitude === 'thousands') setScaleThousands(newScale);
-                else setScaleTenThousands(newScale);
+                const factor = Math.max(0.1, 1 + (delta * 0.0035));
+                const newTens = Math.max(10, Math.round((resizeRef.current.initialTens ?? scaleTens) * factor));
+                const newHundreds = Math.max(10, Math.round((resizeRef.current.initialHundreds ?? scaleHundreds) * factor));
+                const newThousands = Math.max(10, Math.round((resizeRef.current.initialThousands ?? scaleThousands) * factor));
+
+                setScaleTens(newTens);
+                setScaleHundreds(newHundreds);
+                setScaleThousands(newThousands);
             } else if (l === 'currencySymbol') {
                 const newSize = Math.max(4, Math.round(resizeRef.current.initialVal + delta * 0.18));
-                if (selectedMagnitude === 'tens') setCurrencyFontSizeTens(newSize);
-                else if (selectedMagnitude === 'hundreds') setCurrencyFontSizeHundreds(newSize);
-                else setCurrencyFontSizeThousands(newSize);
+                setCurrencyFontSizeTens(newSize);
+                setCurrencyFontSizeHundreds(newSize);
+                setCurrencyFontSizeThousands(newSize);
             } else if (l === 'cents') {
                 const newSize = Math.max(4, Math.round(resizeRef.current.initialVal + delta * 0.18));
-                if (selectedMagnitude === 'tens') setCentsFontSizeTens(newSize);
-                else if (selectedMagnitude === 'hundreds') setCentsFontSizeHundreds(newSize);
-                else setCentsFontSizeThousands(newSize);
+                setCentsFontSizeTens(newSize);
+                setCentsFontSizeHundreds(newSize);
+                setCentsFontSizeThousands(newSize);
             } else {
                 const newSize = Math.max(4, Math.round(resizeRef.current.initialVal + delta * 0.18));
-                if (l === 'title') setTitleFontSize(newSize);
-                else if (l === 'deText') setDeFontSize(newSize);
-                else if (l === 'normalPrice') setNormalPriceFontSize(newSize);
-                else if (l === 'porText') setPorFontSize(newSize);
-                else if (l === 'installments') setInstallmentsFontSize(newSize);
+                if (l === 'title') {
+                    setTitleFontSizeTens(newSize);
+                    setTitleFontSizeHundreds(newSize);
+                    setTitleFontSizeThousands(newSize);
+                } else if (l === 'deText') {
+                    setDeFontSizeTens(newSize);
+                    setDeFontSizeHundreds(newSize);
+                    setDeFontSizeThousands(newSize);
+                } else if (l === 'normalPrice') {
+                    setNormalPriceFontSizeTens(newSize);
+                    setNormalPriceFontSizeHundreds(newSize);
+                    setNormalPriceFontSizeThousands(newSize);
+                } else if (l === 'porText') {
+                    setPorFontSizeTens(newSize);
+                    setPorFontSizeHundreds(newSize);
+                    setPorFontSizeThousands(newSize);
+                } else if (l === 'installments') {
+                    setInstallmentsFontSizeTens(newSize);
+                    setInstallmentsFontSizeHundreds(newSize);
+                    setInstallmentsFontSizeThousands(newSize);
+                }
             }
         };
 
@@ -1065,7 +1316,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         window.addEventListener('mouseup', handleMouseUp);
         window.addEventListener('touchmove', handleMouseMove, { passive: false });
         window.addEventListener('touchend', handleMouseUp);
-    }, [titleFontSize, deFontSize, normalPriceFontSize, porFontSize, activeCurrencyFontSize, activeCentsFontSize, installmentsFontSize, activeScale, selectedMagnitude]);
+    }, [activeTitleFontSize, activeDeFontSize, activeNormalPriceFontSize, activePorFontSize, activeCurrencyFontSize, activeCentsFontSize, activeInstallmentsFontSize, activeScale, selectedMagnitude]);
 
     // ROTACIONAR ELEMENTO ARRASTANDO A SETA CURVADA
     const startRotating = useCallback((layer: PriceLabelLayerKey, e: React.MouseEvent | React.TouchEvent) => {
@@ -1077,6 +1328,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         let initialRot = 0;
         if (layer === 'title') initialRot = titleRotation;
+        else if (layer === 'dePricePorGroup') initialRot = dePricePorGroupRotation;
         else if (layer === 'deText') initialRot = deRotation;
         else if (layer === 'normalPrice') initialRot = normalPriceRotation;
         else if (layer === 'porText') initialRot = porRotation;
@@ -1101,6 +1353,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
             const l = rotateRef.current.layer;
             if (l === 'title') setTitleRotation(newRot);
+            else if (l === 'dePricePorGroup') setDePricePorGroupRotation(newRot);
             else if (l === 'deText') setDeRotation(newRot);
             else if (l === 'normalPrice') setNormalPriceRotation(newRot);
             else if (l === 'porText') setPorRotation(newRot);
@@ -1195,6 +1448,17 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         else if (selectedElement === 'installments') setInstallmentsColor(newColor);
         else if (selectedElement === 'background') setBgColor(newColor);
 
+        // Persiste a cor no mapa por tipo de etiqueta ativo
+        if (selectedElement && selectedOppId) {
+            setOppColorsMap(prev => ({
+                ...prev,
+                [selectedOppId]: {
+                    ...(prev[selectedOppId] || {}),
+                    [selectedElement]: newColor
+                }
+            }));
+        }
+
         setColorHistory(prev => {
             const filtered = prev.filter(c => c.toLowerCase() !== newColor.toLowerCase());
             return [newColor, ...filtered].slice(0, 10);
@@ -1216,11 +1480,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // EDICAO DE FONTE E TAMANHO EM LOTE PARA MULTISELECAO
     const handleBatchFontSize = (v: number) => {
         selectedElements.forEach(key => {
-            if (key === 'title') setTitleFontSize(v);
-            else if (key === 'deText') setDeFontSize(v);
-            else if (key === 'normalPrice') setNormalPriceFontSize(v);
-            else if (key === 'porText') setPorFontSize(v);
-            else if (key === 'installments') setInstallmentsFontSize(v);
+            if (key === 'title') { setTitleFontSizeTens(v); setTitleFontSizeHundreds(v); setTitleFontSizeThousands(v); }
+            else if (key === 'deText') { setDeFontSizeTens(v); setDeFontSizeHundreds(v); setDeFontSizeThousands(v); }
+            else if (key === 'normalPrice') { setNormalPriceFontSizeTens(v); setNormalPriceFontSizeHundreds(v); setNormalPriceFontSizeThousands(v); }
+            else if (key === 'porText') { setPorFontSizeTens(v); setPorFontSizeHundreds(v); setPorFontSizeThousands(v); }
+            else if (key === 'installments') { setInstallmentsFontSizeTens(v); setInstallmentsFontSizeHundreds(v); setInstallmentsFontSizeThousands(v); }
             else if (key === 'currencySymbol') {
                 if (selectedMagnitude === 'tens') setCurrencyFontSizeTens(v);
                 else if (selectedMagnitude === 'hundreds') setCurrencyFontSizeHundreds(v);
@@ -1429,7 +1693,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             />
             
             {/* 1. MODAL HEADER FULLWIDTH */}
-            <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 relative z-30">
                 <div className="flex items-center gap-3.5">
                     <div className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center font-black">
                         <i className="bi bi-palette-fill text-sm" />
@@ -1442,14 +1706,35 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors cursor-pointer">
+                    <button
+                        type="button"
+                        onClick={handleUndo}
+                        disabled={!canUndo}
+                        title="Desfazer alterações (Ctrl+Z)"
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                        <i className="bi bi-arrow-counterclockwise text-sm"></i>
+                        <span className="hidden sm:inline">Desfazer</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleRedo}
+                        disabled={!canRedo}
+                        title="Refazer alterações (Ctrl+Y)"
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                        <i className="bi bi-arrow-clockwise text-sm"></i>
+                        <span className="hidden sm:inline">Refazer</span>
+                    </button>
+
+                    <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors cursor-pointer ml-1">
                         <i className="bi bi-x-lg text-xs" />
                     </button>
                 </div>
             </div>
 
             {/* 2. BARRA DE MENU PRINCIPAL (SUPERIOR) */}
-            <div className="flex items-center justify-start gap-3 bg-slate-200/80 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-1.5 shrink-0 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center justify-start gap-3 bg-slate-200/80 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-1.5 shrink-0 overflow-x-auto custom-scrollbar relative z-30">
                 
                 {/* LADO ESQUERDO: ARQUIVO (DROPDOWN), CAMADAS, MARGEM DE SEGURANÇA & SELEÇÃO DE TIPO DE ETIQUETA */}
                 <div className="flex items-center gap-3 shrink-0 flex-nowrap">
@@ -1541,31 +1826,48 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
-                    {/* SELETOR UNIFICADO: PLANO CARTESIANO (TIPO DE ETIQUETA × GRANDEZA) */}
-                    <div className="flex items-center shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => setIsOppSelectModalOpen(true)}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-blue-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider"
-                            title="Escolher Tipo de Etiqueta e Grandeza"
+                    {/* SELETOR DE CONTEXTO: TIPO DE ETIQUETA (VISÃO DE CONTEXTO) */}
+                    <div className="flex items-center gap-1.5 shrink-0 bg-blue-50/70 dark:bg-slate-800/70 border border-blue-200 dark:border-slate-700 rounded-xl px-2.5 py-1">
+                        <i className="bi bi-tag-fill text-blue-600 dark:text-blue-400 text-xs shrink-0" />
+                        <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shrink-0">
+                            Visão:
+                        </span>
+                        <select
+                            value={selectedOppId}
+                            onChange={(e) => setSelectedOppId(e.target.value)}
+                            className="bg-transparent text-slate-800 dark:text-white text-xs font-black uppercase outline-none cursor-pointer pr-1"
+                            title="Alternar visão de contexto do tipo de etiqueta"
                         >
-                            <i className="bi bi-tag-fill text-blue-600 dark:text-blue-400 text-sm" />
-                            <span>Tipo de Etiqueta</span>
-                            <i className="bi bi-chevron-down text-[9px] text-slate-400" />
-                        </button>
+                            {allOppOptions.map(opp => (
+                                <option key={opp.id} value={opp.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white font-bold">
+                                    {opp.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
-                    {/* BOTÃO PREENCHER DADOS */}
+                    {/* BOTÃO PRODUTO MODELO */}
                     <button
                         type="button"
                         onClick={() => setIsDataFillModalOpen(true)}
-                        title="Preencher dados da etiqueta ou puxar produto da lista"
+                        title="Escolher produto modelo ou preencher dados da etiqueta"
                         className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-slate-800 dark:to-slate-900 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-emerald-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider shrink-0"
                     >
-                        <i className="bi bi-pencil-square text-emerald-600 dark:text-emerald-400 text-sm" />
-                        <span>Preencher Dados</span>
+                        <i className="bi bi-box-seam-fill text-emerald-600 dark:text-emerald-400 text-sm" />
+                        <span>Produto Modelo</span>
+                    </button>
+
+                    {/* BOTÃO TESTE DE VALORES */}
+                    <button
+                        type="button"
+                        onClick={openTestValuesModal}
+                        title="Simular e testar numerações nos preços da etiqueta com sliders (0 a 9)"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 hover:from-purple-100 hover:to-indigo-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-purple-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider shrink-0"
+                    >
+                        <i className="bi bi-sliders text-purple-600 dark:text-purple-400 text-sm" />
+                        <span>Teste de Valores</span>
                     </button>
 
                 </div>
@@ -1573,7 +1875,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             </div>
 
             {/* 3. BARRA DE FERRAMENTAS DO ELEMENTO SELECIONADO */}
-            <div className="flex items-center justify-start gap-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-2 shrink-0 overflow-x-auto custom-scrollbar min-h-[44px]">
+            <div className="flex items-center justify-start gap-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-2 shrink-0 overflow-visible relative z-30 min-h-[44px]">
                 
                 {/* BOTÃO DESMARCAR (SÓ ÍCONE) */}
                 <button
@@ -1653,7 +1955,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         </div>
 
                         {/* SELETOR DE FONTE / TIPOGRAFIA */}
-                        {selectedElement !== 'background' && (
+                        {selectedElement !== 'background' && selectedElement !== 'dePricePorGroup' && (
                             <div className="flex flex-col gap-0.5 items-start shrink-0">
                                 <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Fonte:</span>
                                 <select
@@ -1670,108 +1972,199 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                             </div>
                         )}
 
-                        {/* SELETOR DE ORDEM DE GRANDEZA (PARA SÍMBOLO R$, PREÇO PRINCIPAL E CENTAVOS) */}
-                        {['currencySymbol', 'promoPrice', 'cents'].includes(selectedElement) && (
+
+
+                        {/* CONTROLE DE ESPAÇAMENTO (GAP) DO GRUPO FLEX DE/POR */}
+                        {selectedElement === 'dePricePorGroup' && (
                             <div className="flex flex-col gap-0.5 items-start shrink-0">
-                                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase leading-none">Ordem de Grandeza:</span>
-                                <select
-                                    value={selectedMagnitude}
-                                    onChange={e => handleSwitchMagnitude(e.target.value as 'tens' | 'hundreds' | 'thousands')}
-                                    className="bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-xl px-2.5 py-1 text-xs font-black outline-none h-8 cursor-pointer shadow-xs"
+                                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase leading-none">Espaçamento do Grupo:</span>
+                                <div className="flex items-center gap-1 h-8">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="200"
+                                        value={dePricePorGroupGap}
+                                        onChange={e => setDePricePorGroupGap(Number(e.target.value))}
+                                        className="bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
+                                    />
+                                    <span className="text-[10px] font-bold text-slate-400">px</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* SELETOR DE TAMANHO FLUTUANTE (TEXTO LIMPO SEM BORDA OU BG) */}
+                        {selectedElement !== 'background' && selectedElement !== 'dePricePorGroup' && (
+                            <div className="relative shrink-0 flex items-center">
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowSizeDropdown(!showSizeDropdown);
+                                    }}
+                                    className="px-2 py-1 text-xs font-black text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 bg-transparent border-0 cursor-pointer flex items-center gap-1.5 transition-colors"
                                 >
-                                    <option value="tens">Dezena (ex: R$ 99)</option>
-                                    <option value="hundreds">Centena (ex: R$ 999)</option>
-                                    <option value="thousands">Milhar (ex: R$ 1.499)</option>
-                                </select>
-                            </div>
-                        )}
+                                    <span>Tamanho</span>
+                                    <i className={`bi bi-chevron-down text-[10px] transition-transform ${showSizeDropdown ? 'rotate-180' : ''}`} />
+                                </button>
 
-                        {/* TAMANHO DA FONTE PARA ELEMENTOS TEXTUAIS */}
-                        {['title', 'deText', 'normalPrice', 'porText', 'installments'].includes(selectedElement) && (
-                            <div className="flex flex-col gap-0.5 items-start shrink-0">
-                                <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Tamanho Fonte:</span>
-                                <div className="flex items-center gap-1 h-8">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="1000"
-                                        value={
-                                            selectedElement === 'title' ? titleFontSize :
-                                            selectedElement === 'deText' ? deFontSize :
-                                            selectedElement === 'normalPrice' ? normalPriceFontSize :
-                                            selectedElement === 'porText' ? porFontSize :
-                                            installmentsFontSize
-                                        }
-                                        onChange={e => {
-                                            const v = Number(e.target.value);
-                                            if (selectedElement === 'title') setTitleFontSize(v);
-                                            else if (selectedElement === 'deText') setDeFontSize(v);
-                                            else if (selectedElement === 'normalPrice') setNormalPriceFontSize(v);
-                                            else if (selectedElement === 'porText') setPorFontSize(v);
-                                            else if (selectedElement === 'installments') setInstallmentsFontSize(v);
-                                        }}
-                                        className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                                    />
-                                    <span className="text-[10px] font-bold text-slate-400">px</span>
-                                </div>
-                            </div>
-                        )}
+                                {showSizeDropdown && (
+                                    <>
+                                        <div 
+                                            className="fixed inset-0 z-[100]" 
+                                            onClick={() => setShowSizeDropdown(false)} 
+                                        />
+                                        <div 
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-[200] animate-fade-in flex flex-col gap-3"
+                                        >
+                                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                <span className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                                                    Tamanho da Fonte (px)
+                                                </span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setShowSizeDropdown(false)}
+                                                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                                >
+                                                    <i className="bi bi-x-lg text-xs" />
+                                                </button>
+                                            </div>
 
-                        {/* TAMANHO DA FONTE PARA SÍMBOLO R$ E CENTAVOS (POR ORDEM DE GRANDEZA) */}
-                        {['currencySymbol', 'cents'].includes(selectedElement) && (
-                            <div className="flex flex-col gap-0.5 items-start shrink-0">
-                                <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Tamanho Fonte ({selectedMagnitude.toUpperCase()}):</span>
-                                <div className="flex items-center gap-1 h-8">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="1000"
-                                        value={selectedElement === 'currencySymbol' ? activeCurrencyFontSize : activeCentsFontSize}
-                                        onChange={e => {
-                                            const v = Number(e.target.value);
-                                            if (selectedElement === 'currencySymbol') {
-                                                if (selectedMagnitude === 'tens') setCurrencyFontSizeTens(v);
-                                                else if (selectedMagnitude === 'hundreds') setCurrencyFontSizeHundreds(v);
-                                                else setCurrencyFontSizeThousands(v);
-                                            } else {
-                                                if (selectedMagnitude === 'tens') setCentsFontSizeTens(v);
-                                                else if (selectedMagnitude === 'hundreds') setCentsFontSizeHundreds(v);
-                                                else setCentsFontSizeThousands(v);
-                                            }
-                                        }}
-                                        className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                                    />
-                                    <span className="text-[10px] font-bold text-slate-400">px</span>
-                                </div>
-                            </div>
-                        )}
+                                            {selectedElement === 'promoPrice' ? (
+                                                <>
+                                                    {/* 1. DEZENA */}
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Dezena:</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-1">
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max="1000"
+                                                                    value={scaleTens}
+                                                                    onChange={e => setScaleTens(Number(e.target.value))}
+                                                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
+                                                                />
+                                                                <span className="text-[10px] font-bold text-slate-400">px</span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPromoPriceTens(!showPromoPriceTens)}
+                                                                title={showPromoPriceTens ? "Ocultar Dezena" : "Exibir Dezena"}
+                                                                className={`w-8 h-8 rounded-xl text-xs font-black flex items-center justify-center transition-colors cursor-pointer border ${
+                                                                    showPromoPriceTens
+                                                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
+                                                                        : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
+                                                                }`}
+                                                            >
+                                                                <i className={`bi ${showPromoPriceTens ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
 
-                        {/* ESCALA DO PREÇO PRINCIPAL (POR ORDEM DE GRANDEZA) */}
-                        {selectedElement === 'promoPrice' && (
-                            <div className="flex flex-col gap-0.5 items-start shrink-0">
-                                <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Escala Preço ({selectedMagnitude.toUpperCase()}):</span>
-                                <div className="flex items-center gap-1 h-8">
-                                    <input
-                                        type="number"
-                                        min="10"
-                                        max="2000"
-                                        value={activeScale}
-                                        onChange={e => {
-                                            const v = Number(e.target.value);
-                                            if (selectedMagnitude === 'tens') setScaleTens(v);
-                                            else if (selectedMagnitude === 'hundreds') setScaleHundreds(v);
-                                            else if (selectedMagnitude === 'thousands') setScaleThousands(v);
-                                            else setScaleTenThousands(v);
-                                        }}
-                                        className="bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                                    />
-                                    <span className="text-[10px] font-bold text-slate-400">%</span>
-                                </div>
+                                                    {/* 2. CENTENA */}
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Centena:</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-1">
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max="1000"
+                                                                    value={scaleHundreds}
+                                                                    onChange={e => setScaleHundreds(Number(e.target.value))}
+                                                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
+                                                                />
+                                                                <span className="text-[10px] font-bold text-slate-400">px</span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPromoPriceHundreds(!showPromoPriceHundreds)}
+                                                                title={showPromoPriceHundreds ? "Ocultar Centena" : "Exibir Centena"}
+                                                                className={`w-8 h-8 rounded-xl text-xs font-black flex items-center justify-center transition-colors cursor-pointer border ${
+                                                                    showPromoPriceHundreds
+                                                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
+                                                                        : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
+                                                                }`}
+                                                            >
+                                                                <i className={`bi ${showPromoPriceHundreds ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 3. MILHAR */}
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Milhar:</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-1">
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max="1000"
+                                                                    value={scaleThousands}
+                                                                    onChange={e => setScaleThousands(Number(e.target.value))}
+                                                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
+                                                                />
+                                                                <span className="text-[10px] font-bold text-slate-400">px</span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPromoPriceThousands(!showPromoPriceThousands)}
+                                                                title={showPromoPriceThousands ? "Ocultar Milhar" : "Exibir Milhar"}
+                                                                className={`w-8 h-8 rounded-xl text-xs font-black flex items-center justify-center transition-colors cursor-pointer border ${
+                                                                    showPromoPriceThousands
+                                                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
+                                                                        : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
+                                                                }`}
+                                                            >
+                                                                <i className={`bi ${showPromoPriceThousands ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                /* TAMANHO ÚNICO PARA TODOS OS OUTROS ELEMENTOS */
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Tamanho da Fonte:</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="1000"
+                                                            value={
+                                                                selectedElement === 'title' ? titleFontSizeTens :
+                                                                selectedElement === 'deText' ? deFontSizeTens :
+                                                                selectedElement === 'normalPrice' ? normalPriceFontSizeTens :
+                                                                selectedElement === 'porText' ? porFontSizeTens :
+                                                                selectedElement === 'currencySymbol' ? currencyFontSizeTens :
+                                                                selectedElement === 'cents' ? centsFontSizeTens :
+                                                                installmentsFontSizeTens
+                                                            }
+                                                            onChange={e => {
+                                                                const v = Number(e.target.value);
+                                                                if (selectedElement === 'title') { setTitleFontSizeTens(v); setTitleFontSizeHundreds(v); setTitleFontSizeThousands(v); }
+                                                                else if (selectedElement === 'deText') { setDeFontSizeTens(v); setDeFontSizeHundreds(v); setDeFontSizeThousands(v); }
+                                                                else if (selectedElement === 'normalPrice') { setNormalPriceFontSizeTens(v); setNormalPriceFontSizeHundreds(v); setNormalPriceFontSizeThousands(v); }
+                                                                else if (selectedElement === 'porText') { setPorFontSizeTens(v); setPorFontSizeHundreds(v); setPorFontSizeThousands(v); }
+                                                                else if (selectedElement === 'currencySymbol') { setCurrencyFontSizeTens(v); setCurrencyFontSizeHundreds(v); setCurrencyFontSizeThousands(v); }
+                                                                else if (selectedElement === 'cents') { setCentsFontSizeTens(v); setCentsFontSizeHundreds(v); setCentsFontSizeThousands(v); }
+                                                                else if (selectedElement === 'installments') { setInstallmentsFontSizeTens(v); setInstallmentsFontSizeHundreds(v); setInstallmentsFontSizeThousands(v); }
+                                                            }}
+                                                            className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-20 text-center h-8"
+                                                        />
+                                                        <span className="text-[10px] font-bold text-slate-400">px</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
 
                         {/* SELETOR DE COR COMPACTO COM POPUP FLUTUANTE */}
-                        <div className="relative shrink-0 flex items-center">
+                        {selectedElement !== 'dePricePorGroup' && (
+                            <div className="relative shrink-0 flex items-center">
                             <button
                                 type="button"
                                 onClick={(e) => {
@@ -1795,73 +2188,147 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         }} 
                                     />
                                     
-                                    {/* Modal flutuante de cor centralizado e premium */}
+                                    {/* Modal flutuante de cor por Tipo de Etiqueta */}
                                     <div 
                                         onClick={(e) => e.stopPropagation()}
-                                        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 z-[10000] animate-fade-in flex flex-col gap-4"
+                                        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 z-[10000] animate-fade-in flex flex-col max-h-[85vh]"
                                     >
-                                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                                            <div className="flex items-center gap-2">
-                                                <i className="bi bi-palette-fill text-blue-600 dark:text-blue-400" />
-                                                <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
-                                                    Escolha de Cor
-                                                </span>
+                                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-3 shrink-0">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
+                                                    <i className="bi bi-palette-fill text-base" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                                                        Cores por Tipo de Etiqueta
+                                                    </h3>
+                                                    <p className="text-[10px] text-slate-400 font-bold">
+                                                        Configure a cor e veja as cores recentes para cada modalidade
+                                                    </p>
+                                                </div>
                                             </div>
                                             <button 
                                                 type="button" 
                                                 onClick={() => setShowColorPickerDropdown(false)} 
-                                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                                className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                                             >
                                                 <i className="bi bi-x-lg text-xs" />
                                             </button>
                                         </div>
 
-                                        {/* Seletor Gradiente e Cor Ativa */}
-                                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-2xl p-3">
-                                            <label className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-slate-300 dark:border-slate-700 shadow-md cursor-pointer overflow-hidden bg-gradient-to-r from-red-500 via-green-500 to-blue-500 p-0.5 shrink-0 hover:scale-105 active:scale-95 transition-all">
-                                                <input
-                                                    type="color"
-                                                    value={activeColor}
-                                                    onChange={e => handleColorSelect(e.target.value)}
-                                                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                                />
-                                                <div className="w-full h-full rounded-lg border border-white/60" style={{ backgroundColor: activeColor }} />
-                                            </label>
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Cor Selecionada</span>
-                                                <span className="text-xs font-mono font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">{activeColor}</span>
-                                            </div>
-                                        </div>
+                                        {/* Lista de Tópicos por Tipo de Etiqueta */}
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+                                            {allOppOptions.map(opp => {
+                                                const isCurrentActiveOpp = selectedOppId === opp.id;
+                                                const oppColor = (() => {
+                                                    if (selectedElement && oppColorsMap[opp.id]?.[selectedElement]) {
+                                                        return oppColorsMap[opp.id][selectedElement];
+                                                    }
+                                                    if (selectedElement === 'background') return defaultBgColor;
+                                                    if (selectedElement === 'promoPrice') return '#1e3a8a';
+                                                    if (selectedElement === 'title' || selectedElement === 'deText' || selectedElement === 'normalPrice' || selectedElement === 'porText' || selectedElement === 'currencySymbol' || selectedElement === 'cents' || selectedElement === 'installments') {
+                                                        return '#000000';
+                                                    }
+                                                    return '#000000';
+                                                })();
 
-                                        {/* Cores Recentes */}
-                                        {colorHistory.length > 0 && (
-                                            <div className="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3.5">
-                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Cores Usadas Recentemente:</span>
-                                                <div className="grid grid-cols-5 gap-2 select-none">
-                                                    {colorHistory.map((color, cIdx) => (
-                                                        <button
-                                                            key={`${color}-${cIdx}`}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleColorSelect(color);
-                                                                setShowColorPickerDropdown(false);
-                                                            }}
-                                                            className={`w-9 h-9 rounded-xl border shadow-2xs hover:scale-110 active:scale-95 transition-all cursor-pointer ${
-                                                                color.toLowerCase() === activeColor.toLowerCase() 
-                                                                    ? 'border-blue-500 dark:border-blue-400 scale-105 ring-2 ring-blue-500/20' 
-                                                                    : 'border-slate-300/40 dark:border-slate-700/60'
-                                                            }`}
-                                                            style={{ backgroundColor: color }}
-                                                            title={color}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                                const handleOppColorChange = (color: string) => {
+                                                    if (!selectedElement) return;
+                                                    setOppColorsMap(prev => ({
+                                                        ...prev,
+                                                        [opp.id]: {
+                                                            ...(prev[opp.id] || {}),
+                                                            [selectedElement]: color
+                                                        }
+                                                    }));
+                                                    if (isCurrentActiveOpp) {
+                                                        handleColorSelect(color);
+                                                    }
+                                                };
+
+                                                const commitRecentColor = (color: string) => {
+                                                    if (!color) return;
+                                                    setColorHistory(prev => {
+                                                        const filtered = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
+                                                        return [color, ...filtered].slice(0, 10);
+                                                    });
+                                                };
+
+                                                return (
+                                                    <div 
+                                                        key={opp.id}
+                                                        className={`p-4 rounded-2xl border transition-all ${
+                                                            isCurrentActiveOpp 
+                                                                ? 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' 
+                                                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+                                                        }`}
+                                                    >
+                                                        {/* Nome do Tipo de Etiqueta */}
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`w-2.5 h-2.5 rounded-full ${isCurrentActiveOpp ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                                                <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wide">
+                                                                    {opp.name}
+                                                                </span>
+                                                            </div>
+                                                            {isCurrentActiveOpp && (
+                                                                <span className="text-[9px] font-black uppercase bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 px-2 py-0.5 rounded-md">
+                                                                    VISÃO ATUAL
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Seletor de Cor + Hex */}
+                                                        <div className="flex items-center gap-3 mb-3">
+                                                            <label className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-slate-300 dark:border-slate-700 shadow-md cursor-pointer overflow-hidden bg-gradient-to-r from-red-500 via-green-500 to-blue-500 p-0.5 shrink-0 hover:scale-105 active:scale-95 transition-all">
+                                                                <input
+                                                                    type="color"
+                                                                    value={oppColor}
+                                                                    onChange={e => handleOppColorChange(e.target.value)}
+                                                                    onBlur={e => commitRecentColor(e.target.value)}
+                                                                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                                                                />
+                                                                <div className="w-full h-full rounded-lg border border-white/60" style={{ backgroundColor: oppColor }} />
+                                                            </label>
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Cor da Fonte</span>
+                                                                <span className="text-xs font-mono font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">{oppColor}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Cores Recentes Usadas */}
+                                                        {colorHistory.length > 0 && (
+                                                            <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">
+                                                                    Cores Recentes:
+                                                                </span>
+                                                                <div className="flex items-center gap-1.5 flex-wrap select-none">
+                                                                    {colorHistory.map((color, cIdx) => (
+                                                                        <button
+                                                                            key={`${opp.id}-${color}-${cIdx}`}
+                                                                            type="button"
+                                                                            onClick={() => handleOppColorChange(color)}
+                                                                            className={`w-7 h-7 rounded-lg border shadow-2xs hover:scale-110 active:scale-95 transition-all cursor-pointer ${
+                                                                                color.toLowerCase() === oppColor.toLowerCase() 
+                                                                                    ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/20' 
+                                                                                    : 'border-slate-300/40 dark:border-slate-700/60'
+                                                                            }`}
+                                                                            style={{ backgroundColor: color }}
+                                                                            title={color}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </>
                             )}
                         </div>
+                        )}
 
                         {/* VISIBILIDADE TOGGLE (SÓ ÍCONE DE OLHO) */}
                         {(() => {
@@ -1893,442 +2360,122 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             </div>
 
             {/* MODAL BODY: PREVIEW EM 100% DA LARGURA DISPONÍVEL */}
-            <div 
-                onClick={() => {
-                    setSelectedElement(null);
-                    setSelectedElements(new Set());
-                }}
-                className="flex-1 w-full h-full flex flex-col items-center justify-center p-3 sm:p-6 lg:p-10 bg-slate-200/50 dark:bg-slate-950/80 overflow-y-auto custom-scrollbar relative"
-            >
-                <div className="w-full max-w-full lg:max-w-5xl xl:max-w-6xl flex flex-col items-center justify-center my-auto px-2 sm:px-4">
-                    {/* Etiqueta de Preço: TODAS AS CAMADAS ABSOLUTAS COM BOUNDING BOXES EXATAS (PERMITE EXTRAPOLAR FRONTEIRAS) */}
+            {(() => {
+                const activeTitleFontSize = selectedMagnitude === 'tens' ? titleFontSizeTens : selectedMagnitude === 'hundreds' ? titleFontSizeHundreds : titleFontSizeThousands;
+                const activeDeFontSize = selectedMagnitude === 'tens' ? deFontSizeTens : selectedMagnitude === 'hundreds' ? deFontSizeHundreds : deFontSizeThousands;
+                const activeNormalPriceFontSize = selectedMagnitude === 'tens' ? normalPriceFontSizeTens : selectedMagnitude === 'hundreds' ? normalPriceFontSizeHundreds : normalPriceFontSizeThousands;
+                const activePorFontSize = selectedMagnitude === 'tens' ? porFontSizeTens : selectedMagnitude === 'hundreds' ? porFontSizeHundreds : porFontSizeThousands;
+                const activeCurrencyFontSize = selectedMagnitude === 'tens' ? currencyFontSizeTens : selectedMagnitude === 'hundreds' ? currencyFontSizeHundreds : currencyFontSizeThousands;
+                const activeCentsFontSize = selectedMagnitude === 'tens' ? centsFontSizeTens : selectedMagnitude === 'hundreds' ? centsFontSizeHundreds : centsFontSizeThousands;
+                const activeInstallmentsFontSize = selectedMagnitude === 'tens' ? installmentsFontSizeTens : selectedMagnitude === 'hundreds' ? installmentsFontSizeHundreds : installmentsFontSizeThousands;
+                const activePromoPriceScale = selectedMagnitude === 'tens' ? scaleTens : selectedMagnitude === 'hundreds' ? scaleHundreds : scaleThousands;
+
+                return (
                     <div 
-                        ref={previewRef}
-                        style={{ backgroundColor: bgColor }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedElement('background');
-                            setSelectedElements(new Set(['background']));
-                            prevSelectedRef.current = 'background';
+                        onClick={() => {
+                            setSelectedElement(null);
+                            setSelectedElements(new Set());
                         }}
-                        className={`w-full aspect-[1.75/1] rounded-3xl shadow-2xl relative select-none transition-all duration-200 cursor-pointer overflow-visible ${
-                            selectedElement === 'background' ? 'ring-2 ring-blue-500 shadow-blue-500/20' : ''
-                        }`}
+                        className="flex-1 w-full h-full flex flex-col items-center justify-center p-6 sm:p-10 lg:p-14 bg-slate-200/50 dark:bg-slate-950/80 overflow-y-auto custom-scrollbar relative z-10"
                     >
-                        {/* GUIA DE MARGEM DE SEGURANÇA DA IMPRESSÃO (APENAS LINHA TRACEJADA SEM RÓTULO) */}
-                        {showSafetyMargin && (
-                            <div 
-                                data-hide-export="true"
-                                className="absolute inset-3 sm:inset-4 border border-dashed border-red-500/60 pointer-events-none rounded-2xl z-20"
+                        <div className="w-full max-w-full lg:max-w-4xl xl:max-w-5xl flex flex-col items-center justify-center my-auto p-4 sm:p-6 overflow-visible">
+                            {/* Etiqueta de Preço: Renderizador Unificado 1:1 */}
+                            <PriceLabelArtRenderer
+                                containerRefOut={previewRef}
+                                mode="edit"
+                                data={{
+                                    title,
+                                    showTitle,
+                                    titleFontSize: activeTitleFontSize,
+                                    titleColor,
+                                    titleFontFamily,
+                                    titlePos,
+                                    titleRotation,
+
+                                    deText,
+                                    showDe,
+                                    deFontSize: activeDeFontSize,
+                                    deColor,
+                                    deFontFamily,
+                                    deRotation,
+
+                                    normalPrice: isTestValuesModalOpen ? `${testNormalD1}${testNormalD2}${testNormalD3},00` : formatDisplayPrice(normalPrice),
+                                    showNormalPrice,
+                                    normalPriceFontSize: activeNormalPriceFontSize,
+                                    normalPriceColor,
+                                    normalPriceFontFamily,
+                                    normalPriceRotation,
+
+                                    porText,
+                                    showPor,
+                                    porFontSize: activePorFontSize,
+                                    porColor,
+                                    porFontFamily,
+                                    porRotation,
+
+                                    dePricePorGroupPos,
+                                    dePricePorGroupRotation,
+                                    dePricePorGroupGap,
+
+                                    currencySymbol,
+                                    showCurrency,
+                                    currencyFontSize: activeCurrencyFontSize,
+                                    currencyColor,
+                                    currencyFontFamily,
+                                    currencyPos,
+                                    currencyRotation,
+
+                                    promoPrice: promoPrice,
+                                    showPromoPrice,
+                                    priceScale: activePromoPriceScale,
+                                    priceColor,
+                                    promoPriceFontFamily,
+                                    promoPricePos,
+                                    promoPriceRotation,
+
+                                    centsText,
+                                    showCents,
+                                    centsFontSize: activeCentsFontSize,
+                                    centsColor,
+                                    centsFontFamily,
+                                    centsPos,
+                                    centsRotation,
+
+                                    installments,
+                                    showInstallments,
+                                    installmentsFontSize: activeInstallmentsFontSize,
+                                    installmentsColor,
+                                    installmentsFontFamily,
+                                    installmentsPos,
+                                    installmentsRotation,
+
+                                    bgColor,
+
+                                    showPromoPriceThousands,
+                                    showPromoPriceHundreds,
+                                    showPromoPriceTens,
+                                    scaleThousands,
+                                    scaleHundreds,
+                                    scaleTens,
+                                    testMilharStr: isTestValuesModalOpen ? `${testMilharD1}.${testMilharD2}${testMilharD3}${testMilharD4}` : undefined,
+                                    testCentenaStr: isTestValuesModalOpen ? `${testCentenaD1}${testCentenaD2}${testCentenaD3}` : undefined,
+                                    testDezenaStr: isTestValuesModalOpen ? `${testDezenaD1}${testDezenaD2}` : undefined,
+                                    selectedMagnitude
+                                }}
+                                selectedElement={selectedElement}
+                                selectedElements={selectedElements}
+                                onSelectElement={handleElementClick}
+                                startDragging={startDragging}
+                                startResizing={startResizing}
+                                startRotating={startRotating}
+                                showSafetyMargin={showSafetyMargin}
+                                activeGuideX={activeGuideX}
+                                activeGuideY={activeGuideY}
                             />
-                        )}
-
-                        {/* LINHAS GUIA MAGNÉTICAS DE ALINHAMENTO (ÍMÃ ALINHAMENTO HORIZONTAL E VERTICAL) */}
-                        {activeGuideX !== null && (
-                            <div
-                                data-hide-export="true"
-                                style={{ left: `calc(50% + ${activeGuideX}px)` }}
-                                className="absolute top-0 bottom-0 border-l-2 border-dashed border-blue-500 z-40 pointer-events-none shadow-md animate-fade-in"
-                            />
-                        )}
-                        {activeGuideY !== null && (
-                            <div
-                                data-hide-export="true"
-                                style={{ top: `calc(50% + ${activeGuideY}px)` }}
-                                className="absolute left-0 right-0 border-t-2 border-dashed border-blue-500 z-40 pointer-events-none shadow-md animate-fade-in"
-                            />
-                        )}
-
-                        {/* 1. CABEÇALHO DA ETIQUETA: NOME DO PRODUTO */}
-                        {showTitle && (
-                            <div
-                                onMouseDown={(e) => startDragging('title', e)}
-                                onTouchStart={(e) => startDragging('title', e)}
-                                onClick={(e) => handleElementClick('title', e)}
-                                style={{ 
-                                    color: titleColor, 
-                                    fontSize: `${titleFontSize}px`,
-                                    fontFamily: titleFontFamily,
-                                    transform: `translate(calc(-50% + ${titlePos.x}px), ${titlePos.y}px) rotate(${titleRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('title') ? 30 : 10
-                                }}
-                                className={`absolute top-3 sm:top-5 left-1/2 w-max max-w-[90%] inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElements.has('title') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'title' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        NOME DO PRODUTO
-                                    </div>
-                                )}
-
-                                <span>{title || 'TÍTULO DO PRODUTO'}</span>
-                                
-                                {selectedElement === 'title' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('title', e)}
-                                            onTouchStart={(e) => startResizing('title', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('title', e)}
-                                            onTouchStart={(e) => startRotating('title', e)}
-                                            title="Arraste para rotacionar elemento"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 2. TEXTO "DE" */}
-                        {showDe && (
-                            <div
-                                onMouseDown={(e) => startDragging('deText', e)}
-                                onTouchStart={(e) => startDragging('deText', e)}
-                                onClick={(e) => handleElementClick('deText', e)}
-                                style={{ 
-                                    color: deColor, 
-                                    fontSize: `${deFontSize}px`,
-                                    fontFamily: deFontFamily,
-                                    transform: `translate(${dePos.x}px, ${dePos.y}px) rotate(${deRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('deText') ? 30 : 10
-                                }}
-                                className={`absolute top-12 sm:top-16 left-6 sm:left-12 w-max inline-flex items-center justify-center font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElements.has('deText') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'deText' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        TEXTO "DE"
-                                    </div>
-                                )}
-
-                                <span>{deText}</span>
-                                {selectedElement === 'deText' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('deText', e)}
-                                            onTouchStart={(e) => startResizing('deText', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('deText', e)}
-                                            onTouchStart={(e) => startRotating('deText', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 3. PREÇO NORMAL (DE:) RISCADO */}
-                        {showNormalPrice && (
-                            <div
-                                onMouseDown={(e) => startDragging('normalPrice', e)}
-                                onTouchStart={(e) => startDragging('normalPrice', e)}
-                                onClick={(e) => handleElementClick('normalPrice', e)}
-                                style={{
-                                    color: normalPriceColor,
-                                    fontSize: `${normalPriceFontSize}px`,
-                                    fontFamily: normalPriceFontFamily,
-                                    transform: `translate(${normalPricePos.x}px, ${normalPricePos.y}px) rotate(${normalPriceRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('normalPrice') ? 30 : 10
-                                }}
-                                className={`absolute top-12 sm:top-16 left-20 sm:left-28 w-max inline-flex items-center justify-center font-black leading-none px-0.5 py-0.5 whitespace-nowrap select-none transition-shadow ${
-                                    selectedElements.has('normalPrice') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'normalPrice' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        PREÇO ORIGINAL
-                                    </div>
-                                )}
-
-                                <span>R$ {formatDisplayPrice(normalPrice)}</span>
-                                <span className="absolute left-0.5 right-0.5 top-1/2 -translate-y-1/2 h-[3px] bg-red-600 rounded-none shadow-xs pointer-events-none" />
-                                
-                                {selectedElement === 'normalPrice' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('normalPrice', e)}
-                                            onTouchStart={(e) => startResizing('normalPrice', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('normalPrice', e)}
-                                            onTouchStart={(e) => startRotating('normalPrice', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 4. TEXTO "POR:" */}
-                        {showPor && (
-                            <div
-                                onMouseDown={(e) => startDragging('porText', e)}
-                                onTouchStart={(e) => startDragging('porText', e)}
-                                onClick={(e) => handleElementClick('porText', e)}
-                                style={{ 
-                                    color: porColor, 
-                                    fontSize: `${porFontSize}px`,
-                                    fontFamily: porFontFamily,
-                                    transform: `translate(${porPos.x}px, ${porPos.y}px) rotate(${porRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('porText') ? 30 : 10
-                                }}
-                                className={`absolute top-12 sm:top-16 left-56 sm:left-72 w-max inline-flex items-center justify-center font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElements.has('porText') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'porText' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        TEXTO "POR"
-                                    </div>
-                                )}
-
-                                <span>{porText}</span>
-                                {selectedElement === 'porText' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('porText', e)}
-                                            onTouchStart={(e) => startResizing('porText', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('porText', e)}
-                                            onTouchStart={(e) => startRotating('porText', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 5. SÍMBOLO DA MOEDA "R$" (POR ORDEM DE GRANDEZA) */}
-                        {showCurrency && (
-                            <div
-                                onMouseDown={(e) => startDragging('currencySymbol', e)}
-                                onTouchStart={(e) => startDragging('currencySymbol', e)}
-                                onClick={(e) => handleElementClick('currencySymbol', e)}
-                                style={{ 
-                                    color: currencyColor,
-                                    fontSize: `${activeCurrencyFontSize}px`,
-                                    fontFamily: currencyFontFamily,
-                                    transform: `translate(${currencyPos.x}px, calc(-50% + ${currencyPos.y}px)) rotate(${currencyRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('currencySymbol') ? 30 : 10
-                                }}
-                                className={`absolute top-1/2 left-4 sm:left-8 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElements.has('currencySymbol') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'currencySymbol' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        SÍMBOLO MOEDA ({selectedMagnitude.toUpperCase()})
-                                    </div>
-                                )}
-
-                                <span>{currencySymbol}</span>
-                                {selectedElement === 'currencySymbol' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('currencySymbol', e)}
-                                            onTouchStart={(e) => startResizing('currencySymbol', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('currencySymbol', e)}
-                                            onTouchStart={(e) => startRotating('currencySymbol', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 6. PREÇO PRINCIPAL (POR ORDEM DE GRANDEZA) */}
-                        {showPromoPrice && (
-                            <div
-                                onMouseDown={(e) => startDragging('promoPrice', e)}
-                                onTouchStart={(e) => startDragging('promoPrice', e)}
-                                onClick={(e) => handleElementClick('promoPrice', e)}
-                                style={{ 
-                                    color: priceColor,
-                                    fontFamily: promoPriceFontFamily,
-                                    transform: `translate(calc(-50% + ${promoPricePos.x}px), calc(-50% + ${promoPricePos.y}px)) rotate(${promoPriceRotation}deg) scale(${activeScale / 100})`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('promoPrice') ? 30 : 10
-                                }}
-                                className={`absolute top-1/2 left-1/2 w-max inline-flex items-center justify-center px-0.5 py-0.5 select-none transition-transform duration-75 whitespace-nowrap ${
-                                    selectedElements.has('promoPrice') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'promoPrice' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        PREÇO PRINCIPAL ({selectedMagnitude.toUpperCase()})
-                                    </div>
-                                )}
-
-                                <span className="text-8xl sm:text-9xl md:text-[10rem] font-black tracking-tighter drop-shadow-md leading-none my-1">
-                                    {displayPriceNumber}
-                                </span>
-                                {selectedElement === 'promoPrice' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('promoPrice', e)}
-                                            onTouchStart={(e) => startResizing('promoPrice', e)}
-                                            title="Arraste para redimensionar escala do preço"
-                                            className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('promoPrice', e)}
-                                            onTouchStart={(e) => startRotating('promoPrice', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 7. CENTAVOS ",00" (POR ORDEM DE GRANDEZA) */}
-                        {showCents && (
-                            <div
-                                onMouseDown={(e) => startDragging('cents', e)}
-                                onTouchStart={(e) => startDragging('cents', e)}
-                                onClick={(e) => handleElementClick('cents', e)}
-                                style={{ 
-                                    color: centsColor,
-                                    fontSize: `${activeCentsFontSize}px`,
-                                    fontFamily: centsFontFamily,
-                                    transform: `translate(${centsPos.x}px, calc(-50% + ${centsPos.y}px)) rotate(${centsRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('cents') ? 30 : 10
-                                }}
-                                className={`absolute top-1/2 right-4 sm:right-8 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElements.has('cents') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'cents' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        CENTAVOS ({selectedMagnitude.toUpperCase()})
-                                    </div>
-                                )}
-
-                                <span>{centsText}</span>
-                                {selectedElement === 'cents' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('cents', e)}
-                                            onTouchStart={(e) => startResizing('cents', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('cents', e)}
-                                            onTouchStart={(e) => startRotating('cents', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 8. PARCELAMENTO */}
-                        {showInstallments && installments && (
-                            <div
-                                onMouseDown={(e) => startDragging('installments', e)}
-                                onTouchStart={(e) => startDragging('installments', e)}
-                                onClick={(e) => handleElementClick('installments', e)}
-                                style={{
-                                    color: installmentsColor,
-                                    fontSize: `${installmentsFontSize}px`,
-                                    fontFamily: installmentsFontFamily,
-                                    transform: `translate(calc(-50% + ${installmentsPos.x}px), ${installmentsPos.y}px) rotate(${installmentsRotation}deg)`,
-                                    cursor: 'move',
-                                    zIndex: selectedElements.has('installments') ? 30 : 10
-                                }}
-                                className={`absolute bottom-3 sm:bottom-5 left-1/2 w-max max-w-[90%] inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-tight px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElements.has('installments') 
-                                        ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
-                                        : 'border border-transparent'
-                                }`}
-                            >
-                                {selectedElement === 'installments' && (
-                                    <div className="absolute -top-5 left-0 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider rounded-sm shadow-xs pointer-events-none z-40 whitespace-nowrap">
-                                        PARCELAMENTO
-                                    </div>
-                                )}
-
-                                <span>{installments}</span>
-                                {selectedElement === 'installments' && (
-                                    <>
-                                        <div
-                                            onMouseDown={(e) => startResizing('installments', e)}
-                                            onTouchStart={(e) => startResizing('installments', e)}
-                                            title="Arraste para redimensionar"
-                                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                                        />
-                                        <div
-                                            onMouseDown={(e) => startRotating('installments', e)}
-                                            onTouchStart={(e) => startRotating('installments', e)}
-                                            title="Arraste para rotacionar"
-                                            className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                                        >
-                                            <i className="bi bi-arrow-clockwise text-[11px]" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
+                        </div>
                     </div>
-                </div>
-            </div>
+                );
+            })()}
 
             {/* Modal de Camadas Flutuante (zIndex: 9999) */}
             {isLayersModalOpen && (
@@ -2441,7 +2588,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Tipo de Etiqueta</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Selecione o modelo e a ordem de grandeza</p>
+                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Selecione o modelo da etiqueta</p>
                                 </div>
                             </div>
                             <button 
@@ -2454,56 +2601,38 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         </div>
 
                         {/* Conteúdo do Modal */}
-                        <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-4">
+                        <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-3">
                             {allOppOptions.map(opp => {
                                 const isSelectedOpp = selectedOppId === opp.id;
                                 return (
-                                    <div 
-                                        key={opp.id} 
-                                        className={`p-4 rounded-2xl border transition-all ${
+                                    <button
+                                        key={opp.id}
+                                        type="button"
+                                        onClick={() => {
+                                            handleSelectCartesianPreset(opp.id, 'thousands');
+                                            setIsOppSelectModalOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
                                             isSelectedOpp 
-                                                ? 'border-blue-300 dark:border-blue-800 bg-blue-50/20 dark:bg-blue-950/10' 
-                                                : 'border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30'
+                                                ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95' 
+                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-blue-50/50 dark:hover:bg-slate-800/60'
                                         }`}
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${isSelectedOpp ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                                            <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
-                                                {opp.name}
-                                            </span>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`w-2.5 h-2.5 rounded-full ${isSelectedOpp ? 'bg-white ring-2 ring-white/40' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                            <span className="text-xs font-black uppercase tracking-wider">{opp.name}</span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-                                            {[
-                                                { mag: 'tens' as const, label: 'Dezena', desc: 'até R$ 99', icon: '10' },
-                                                { mag: 'hundreds' as const, label: 'Centena', desc: 'R$ 100 a R$ 999', icon: '100' },
-                                                { mag: 'thousands' as const, label: 'Milhar', desc: 'R$ 1.000 ou mais', icon: '1k' }
-                                            ].map(item => {
-                                                const isSel = isSelectedOpp && selectedMagnitude === item.mag;
-                                                return (
-                                                    <button
-                                                        key={item.mag}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            handleSelectCartesianPreset(opp.id, item.mag);
-                                                            setIsOppSelectModalOpen(false);
-                                                        }}
-                                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                                                            isSel 
-                                                                ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95' 
-                                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                                        }`}
-                                                    >
-                                                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black mb-1.5 ${isSel ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                                                            {item.icon}
-                                                        </span>
-                                                        <span className="text-xs font-black">{item.label}</span>
-                                                        <span className={`text-[9px] font-bold mt-0.5 ${isSel ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{item.desc}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                        {isSelectedOpp ? (
+                                            <span className="text-[10px] font-black uppercase bg-white/20 px-3 py-1 rounded-xl tracking-wider">
+                                                SELECIONADO
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 uppercase">
+                                                Usar Modelo
+                                            </span>
+                                        )}
+                                    </button>
                                 );
                             })}
                         </div>
@@ -2526,7 +2655,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                                        Dados da Etiqueta de Preço
+                                        Produto Modelo & Dados
                                     </h3>
                                     <p className="text-xs text-slate-500 font-bold">
                                         Preencha manualmente os campos ou selecione um produto do catálogo
@@ -2770,6 +2899,170 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                     <span>SAIR</span>
                 </button>
             </div>
+
+            {/* Modal de Teste de Valores (Simulador com Sliders 0-9 por dígito) */}
+            {isTestValuesModalOpen && (
+                <div 
+                    style={{ zIndex: 10000 }}
+                    className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+                >
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
+                        {/* Topo do Modal */}
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg font-black">
+                                    <i className="bi bi-sliders" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                                        Simulador / Teste de Numeração
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-bold">
+                                        Arraste as bolinhas para testar como os números se comportam na arte
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={closeTestValuesModal} 
+                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
+                            >
+                                <i className="bi bi-x-lg text-sm" />
+                            </button>
+                        </div>
+
+                        {/* Conteúdo com Sliders */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-1">
+                            
+                            {/* SEÇÃO 1: PREÇO PRINCIPAL */}
+                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                                    <i className="bi bi-hash text-sm" />
+                                    Preço Principal (Dezena, Centena, Milhar)
+                                </h4>
+
+                                {/* DEZENA */}
+                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Dezena:</span>
+                                        <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
+                                            {testDezenaD1}{testDezenaD2}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testDezenaD1}</span>
+                                            <input type="range" min="0" max="9" value={testDezenaD1} onChange={e => setTestDezenaD1(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testDezenaD2}</span>
+                                            <input type="range" min="0" max="9" value={testDezenaD2} onChange={e => setTestDezenaD2(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* CENTENA */}
+                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Centena:</span>
+                                        <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
+                                            {testCentenaD1}{testCentenaD2}{testCentenaD3}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testCentenaD1}</span>
+                                            <input type="range" min="0" max="9" value={testCentenaD1} onChange={e => setTestCentenaD1(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testCentenaD2}</span>
+                                            <input type="range" min="0" max="9" value={testCentenaD2} onChange={e => setTestCentenaD2(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">3º Dígito: {testCentenaD3}</span>
+                                            <input type="range" min="0" max="9" value={testCentenaD3} onChange={e => setTestCentenaD3(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* MILHAR */}
+                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Milhar:</span>
+                                        <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
+                                            {testMilharD1}.{testMilharD2}{testMilharD3}{testMilharD4}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        <div>
+                                            <span className="text-[9px] font-bold text-slate-400">1º D: {testMilharD1}</span>
+                                            <input type="range" min="0" max="9" value={testMilharD1} onChange={e => setTestMilharD1(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-bold text-slate-400">2º D: {testMilharD2}</span>
+                                            <input type="range" min="0" max="9" value={testMilharD2} onChange={e => setTestMilharD2(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-bold text-slate-400">3º D: {testMilharD3}</span>
+                                            <input type="range" min="0" max="9" value={testMilharD3} onChange={e => setTestMilharD3(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-bold text-slate-400">4º D: {testMilharD4}</span>
+                                            <input type="range" min="0" max="9" value={testMilharD4} onChange={e => setTestMilharD4(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* SEÇÃO 2: PREÇO ANTIGO (normalPrice) */}
+                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                                    <i className="bi bi-tag text-sm" />
+                                    Preço Anterior / Antigo ("DE")
+                                </h4>
+
+                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Valor Antigo R$:</span>
+                                        <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-lg">
+                                            R$ {testNormalD1}{testNormalD2}{testNormalD3},00
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testNormalD1}</span>
+                                            <input type="range" min="0" max="9" value={testNormalD1} onChange={e => setTestNormalD1(Number(e.target.value))} className="w-full accent-emerald-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testNormalD2}</span>
+                                            <input type="range" min="0" max="9" value={testNormalD2} onChange={e => setTestNormalD2(Number(e.target.value))} className="w-full accent-emerald-600 cursor-pointer" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400">3º Dígito: {testNormalD3}</span>
+                                            <input type="range" min="0" max="9" value={testNormalD3} onChange={e => setTestNormalD3(Number(e.target.value))} className="w-full accent-emerald-600 cursor-pointer" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Rodapé do Modal */}
+                        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-4 shrink-0 flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-bold">
+                                * Ao fechar, os valores originais serão restaurados automaticamente
+                            </span>
+                            <button
+                                type="button"
+                                onClick={closeTestValuesModal}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer shadow-md active:scale-95 transition-all"
+                            >
+                                Concluir Teste
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

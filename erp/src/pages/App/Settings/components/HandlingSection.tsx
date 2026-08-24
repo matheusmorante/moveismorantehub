@@ -73,53 +73,70 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                                     </div>
 
                                                     <div className="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800/50">
-                                                        <div className="flex items-center gap-4">
-                                                            {/* Assembly Toggle (Depósito) */}
-                                                            <div className="flex flex-col items-center gap-0.5 group/toggle">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const next = [...options];
-                                                                        const newValue = !opt.includeInAssemblySchedule;
-                                                                        next[idx] = { 
-                                                                            ...next[idx], 
-                                                                            includeInAssemblySchedule: newValue,
-                                                                            // Se ligar montagem no depósito, desliga montagem fora
-                                                                            isAssemblyOutside: newValue ? false : opt.isAssemblyOutside
-                                                                        };
-                                                                        onChange(path, next);
-                                                                    }}
-                                                                    className={`w-7 h-3.5 rounded-full transition-all relative border-2 ${opt.includeInAssemblySchedule ? 'bg-blue-600 border-blue-600' : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-700'}`}
-                                                                >
-                                                                    <div className={`absolute top-0 w-2 h-2 bg-white rounded-full transition-all shadow-sm ${opt.includeInAssemblySchedule ? 'left-3.5' : 'left-0.5'}`} />
-                                                                </button>
-                                                                <span className={`text-[7px] font-black uppercase tracking-tighter leading-tight ${opt.includeInAssemblySchedule ? 'text-blue-600' : 'text-slate-400'} text-center w-12`}>
-                                                                    {opt.includeInAssemblySchedule ? 'Montagem no Depósito' : 'SEM AGEND.'}
-                                                                </span>
-                                                            </div>
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Radio Group de Montagem (Exclusivo: Nenhuma | Depósito | Fora) */}
+                                                            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/40 px-2.5 py-1 rounded-xl border border-slate-100 dark:border-slate-800/60 flex-wrap">
+                                                                <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 mr-0.5">Montagem:</span>
+                                                                
+                                                                {/* Nenhuma */}
+                                                                <label className="flex items-center gap-1 cursor-pointer text-[8px] font-bold uppercase tracking-tight text-slate-500 dark:text-slate-400">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`assembly-type-${path}-${idx}`}
+                                                                        checked={!opt.includeInAssemblySchedule && !opt.isAssemblyOutside}
+                                                                        onChange={() => {
+                                                                            const next = [...options];
+                                                                            next[idx] = { 
+                                                                                ...next[idx], 
+                                                                                includeInAssemblySchedule: false,
+                                                                                isAssemblyOutside: false
+                                                                            };
+                                                                            onChange(path, next);
+                                                                        }}
+                                                                        className="w-3 h-3 accent-slate-500 cursor-pointer"
+                                                                    />
+                                                                    <span>Nenhuma</span>
+                                                                </label>
 
-                                                            {/* Is Outside Assembly Toggle */}
-                                                            <div className="flex flex-col items-center gap-0.5 group/toggle">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const next = [...options];
-                                                                        const newValue = !opt.isAssemblyOutside;
-                                                                        next[idx] = { 
-                                                                            ...next[idx], 
-                                                                            isAssemblyOutside: newValue,
-                                                                            // Se ligar montagem fora, desliga montagem no depósito
-                                                                            includeInAssemblySchedule: newValue ? false : opt.includeInAssemblySchedule
-                                                                        };
-                                                                        onChange(path, next);
-                                                                    }}
-                                                                    className={`w-7 h-3.5 rounded-full transition-all relative border-2 ${opt.isAssemblyOutside ? 'bg-rose-600 border-rose-600' : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-700'}`}
-                                                                >
-                                                                    <div className={`absolute top-0 w-2 h-2 bg-white rounded-full transition-all shadow-sm ${opt.isAssemblyOutside ? 'left-3.5' : 'left-0.5'}`} />
-                                                                </button>
-                                                                <span className={`text-[7px] font-black uppercase tracking-tighter leading-tight ${opt.isAssemblyOutside ? 'text-rose-600' : 'text-slate-400'} text-center w-12`}>
-                                                                    {opt.isAssemblyOutside ? 'Montagem FORA' : 'SEM MONT. FORA'}
-                                                                </span>
+                                                                {/* No Depósito */}
+                                                                <label className="flex items-center gap-1 cursor-pointer text-[8px] font-black uppercase tracking-tight text-blue-600 dark:text-blue-400">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`assembly-type-${path}-${idx}`}
+                                                                        checked={!!opt.includeInAssemblySchedule && !opt.isAssemblyOutside}
+                                                                        onChange={() => {
+                                                                            const next = [...options];
+                                                                            next[idx] = { 
+                                                                                ...next[idx], 
+                                                                                includeInAssemblySchedule: true,
+                                                                                isAssemblyOutside: false
+                                                                            };
+                                                                            onChange(path, next);
+                                                                        }}
+                                                                        className="w-3 h-3 accent-blue-600 cursor-pointer"
+                                                                    />
+                                                                    <span>No Depósito</span>
+                                                                </label>
+
+                                                                {/* Montagem Fora */}
+                                                                <label className="flex items-center gap-1 cursor-pointer text-[8px] font-black uppercase tracking-tight text-rose-600 dark:text-rose-400">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`assembly-type-${path}-${idx}`}
+                                                                        checked={!opt.includeInAssemblySchedule && !!opt.isAssemblyOutside}
+                                                                        onChange={() => {
+                                                                            const next = [...options];
+                                                                            next[idx] = { 
+                                                                                ...next[idx], 
+                                                                                includeInAssemblySchedule: false,
+                                                                                isAssemblyOutside: true
+                                                                            };
+                                                                            onChange(path, next);
+                                                                        }}
+                                                                        className="w-3 h-3 accent-rose-600 cursor-pointer"
+                                                                    />
+                                                                    <span>Montagem Fora</span>
+                                                                </label>
                                                             </div>
 
                                                             {/* Color Picker */}

@@ -47,7 +47,7 @@ export const SendWhatsAppModal: React.FC<SendWhatsAppModalProps> = ({
         setIsSending(true);
         try {
             await whatsappGraphService.sendTextMessage(cleanPhone, message);
-            toast.success('Mensagem enviada com sucesso via WhatsApp Cloud API!');
+            toast.success('Mensagem enviada com sucesso');
             if (onSuccess) onSuccess();
             onClose();
         } catch (error: any) {

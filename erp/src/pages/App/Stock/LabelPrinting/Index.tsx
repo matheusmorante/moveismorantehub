@@ -93,7 +93,7 @@ const LabelPrinting: React.FC = () => {
     }, [searchParams, selectedCategory]);
 
     const [products, setProducts] = useState<Product[]>([]);
-    const [printingMode, setPrintingMode] = useState<'simple' | 'advanced'>('simple');
+    const [printingMode, setPrintingMode] = useState<'simple' | 'advanced'>('advanced');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -758,11 +758,12 @@ const LabelPrinting: React.FC = () => {
         toast.success(`${fullName} (${quantity} un) adicionado à lista.`);
     };
 
-    const handleAddBlankLabel = () => {
+    const handleAddBlankLabel = (qty: number = 1) => {
+        const quantity = Math.max(1, qty);
         if (selectedCategory === 'logos') {
             const newItem: LogoItemConfig = {
                 image: '',
-                quantity: 1,
+                quantity: quantity,
                 imageFit: config.imageFit || 'contain',
                 scale: config.imageScale || 1,
                 rotation: 0,
@@ -779,13 +780,13 @@ const LabelPrinting: React.FC = () => {
                 price: '',
                 promoPrice: '',
                 sku: '',
-                quantity: 1,
+                quantity: quantity,
                 isBlank: true,
                 extraFields: []
             };
             setLabelItems(prev => [...prev, newItem]);
         }
-        toast.success('Etiqueta em branco adicionada à fila.');
+        toast.success(`Etiqueta em branco (${quantity} un) adicionada à fila.`);
     };
 
     const handleReorderItems = (draggedIdx: number, targetIdx: number) => {
@@ -1087,8 +1088,37 @@ const LabelPrinting: React.FC = () => {
                                 </p>
                             </div>
 
-                            {/* BOTÃO ALTERAR ARTE DA ETIQUETA / POST PROMOCIONAL NA LINHA DO TÍTULO */}
-                            {selectedCategory && (
+                            {/* MODO DE IMPRESSÃO NA LINHA PRINCIPAL DO TÍTULO */}
+                            {selectedCategory === 'precos' && (
+                                <div className="flex items-center gap-2.5 ml-3">
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Modo de Impressão:</span>
+                                    <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setPrintingMode('simple')}
+                                            className={`py-1.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                                printingMode === 'simple' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                                            }`}
+                                        >
+                                            Por Imagens
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setPrintingMode('advanced')}
+                                            className={`py-1.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                                                printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                                            }`}
+                                        >
+                                            Design Avançado
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* BOTÃO ARTE DA ETIQUETA - MOSTRADO APENAS EM DESIGN AVANÇADO (OU DEMAIS CATEGORIAS) */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                            {selectedCategory && (selectedCategory !== 'precos' || printingMode === 'advanced') && (
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1100,67 +1130,40 @@ const LabelPrinting: React.FC = () => {
                                             setGridModalOpen(true);
                                         }
                                     }}
-                                    className="px-4 py-2 bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 hover:from-pink-700 hover:to-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-pink-500/20 active:scale-95 flex items-center gap-2 cursor-pointer ml-2"
+                                    className="px-4 py-2 bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 hover:from-pink-700 hover:to-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-pink-500/20 active:scale-95 flex items-center gap-2 cursor-pointer animate-fade-in"
                                 >
                                     <i className="bi bi-palette-fill text-xs" />
                                     <span>
                                         {selectedCategory === 'posts' ? 'CRIAR / EDITAR POST PROMOCIONAL' :
-                                         selectedCategory === 'precos' ? 'ALTERAR ARTE DA ETIQUETA DE PREÇO' :
+                                         selectedCategory === 'precos' ? 'ARTE DE ETIQUETA DE PREÇO' :
                                          'ALTERAR ARTE DO MODELO'}
                                     </span>
                                 </button>
                             )}
-                        </div>
 
-                        {/* MODELO DE ETIQUETA EM USO NA MESMA LINHA DO TÍTULO */}
-                        {selectedCategory && (() => {
-                            const activeModel = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find(m => m.id === config.layoutId) || 
-                                                DEFAULT_LAYOUT_MODELS.find(m => m.category === selectedCategory) || 
-                                                DEFAULT_LAYOUT_MODELS[0];
-                            const dims = activeModel ? calculateLabelDimensions(activeModel) : { width: 0, height: 0 };
-                            
-                            return (
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50/80 to-slate-50 dark:from-slate-800/80 dark:to-slate-900/80 border border-blue-100 dark:border-slate-700/80 rounded-2xl shadow-sm">
-                                    <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-                                        <i className={`bi ${activeModel?.icon || 'bi-grid-1x2-fill'} text-[10px]`} />
+                            {/* MODELO DE ETIQUETA EM USO */}
+                            {selectedCategory && (() => {
+                                const activeModel = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find(m => m.id === config.layoutId) || 
+                                                    DEFAULT_LAYOUT_MODELS.find(m => m.category === selectedCategory) || 
+                                                    DEFAULT_LAYOUT_MODELS[0];
+                                const dims = activeModel ? calculateLabelDimensions(activeModel) : { width: 0, height: 0 };
+                                
+                                return (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50/80 to-slate-50 dark:from-slate-800/80 dark:to-slate-900/80 border border-blue-100 dark:border-slate-700/80 rounded-2xl shadow-sm">
+                                        <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+                                            <i className={`bi ${activeModel?.icon || 'bi-grid-1x2-fill'} text-[10px]`} />
+                                        </div>
+                                        <strong className="text-[11px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                                            {activeModel?.name || '10 ETIQUETAS (2X5)'}
+                                        </strong>
+                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
+                                            Folha {activeModel?.paperSize || 'A4'}
+                                        </span>
                                     </div>
-                                    <strong className="text-[11px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                                        {activeModel?.name || '10 ETIQUETAS (2X5)'}
-                                    </strong>
-                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
-                                        Folha {activeModel?.paperSize || 'A4'}
-                                    </span>
-                                </div>
-                            );
-                        })()}
-                    </div>
-
-                    {/* Modo de Impressão (Abaixo do Título para maior intuitividade) */}
-                    {selectedCategory === 'precos' && (
-                        <div className="mt-4 flex items-center justify-start gap-3 animate-fade-in border-t border-slate-100 dark:border-slate-800/60 pt-4 flex-wrap">
-                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Modo de Impressão:</span>
-                            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
-                                <button 
-                                    type="button"
-                                    onClick={() => setPrintingMode('simple')}
-                                    className={`py-2 px-5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                                        printingMode === 'simple' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                    }`}
-                                >
-                                    Por Imagens
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => setPrintingMode('advanced')}
-                                    className={`py-2 px-5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                                        printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                    }`}
-                                >
-                                    Design Avançado
-                                </button>
-                            </div>
+                                );
+                            })()}
                         </div>
-                    )}
+                    </div>
                 </header>
 
                 {!selectedCategory ? (
@@ -1230,7 +1233,8 @@ const LabelPrinting: React.FC = () => {
                                                          type="button"
                                                          onClick={() => {
                                                              if (!selectedProductToAdd) {
-                                                                 toast.warn("Busque e selecione um produto da lista.");
+                                                                 handleAddBlankLabel(productAddQty);
+                                                                 setProductAddQty(1);
                                                                  return;
                                                              }
                                                              handleProductSelect(selectedProductToAdd, productAddQty);
@@ -1242,16 +1246,6 @@ const LabelPrinting: React.FC = () => {
                                                          <i className="bi bi-plus-lg text-sm" />
                                                          <span>Adicionar</span>
                                                      </button>
-
-                                                     <button 
-                                                         type="button"
-                                                         onClick={handleAddBlankLabel}
-                                                         className="px-3 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                                                         title="Adicionar etiqueta vazia para espaçamento"
-                                                     >
-                                                         <i className="bi bi-file-earmark-plus text-sm text-slate-400" />
-                                                         <span>Branco</span>
-                                                     </button>
                                                  </div>
                                              )}
 
@@ -1260,7 +1254,7 @@ const LabelPrinting: React.FC = () => {
                                                  {(selectedCategory === 'logos' || (selectedCategory === 'precos' && printingMode === 'simple')) && (
                                                      <>
                                                          <button 
-                                                             onClick={handleAddBlankLabel}
+                                                             onClick={() => handleAddBlankLabel(1)}
                                                              className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-50 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
                                                          >
                                                              <i className="bi bi-file-earmark-plus text-slate-400" /> Branco
@@ -1307,7 +1301,7 @@ const LabelPrinting: React.FC = () => {
                                                          </div>
                                                      </div>
                                                      <button 
-                                                         onClick={handleAddBlankLabel}
+                                                         onClick={() => handleAddBlankLabel(1)}
                                                          className="px-6 py-4 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800 cursor-pointer shrink-0"
                                                      >
                                                          <i className="bi bi-file-earmark-plus text-sm" />

@@ -136,25 +136,61 @@ export const customerOrderWhatsappUrl = (order: Order) => {
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 }
 
-export const sendDirectShippingMessage = async (order: Order) => {
+const safeSendWhatsAppOrFallback = async ({
+    phone,
+    message,
+    fallbackUrl,
+    successMessage
+}: {
+    phone: string;
+    message: string;
+    fallbackUrl: string;
+    successMessage: string;
+}) => {
     const settings = getSettings();
-    const deliveryPhone = settings.orderAutomation?.deliveryPhone;
-    
-    if (!deliveryPhone) {
-        toast.info("Telefone da equipe de entrega não configurado. Abrindo link manual...");
-        window.open(shippingOrderWhatsappUrl(order), "_blank");
+    const config = settings.whatsappConfig;
+    const hasCloudApi = !!(config?.accessToken && config?.phoneNumberId);
+
+    if (!hasCloudApi) {
+        window.open(fallbackUrl, "_blank");
         return;
     }
 
+    const win = window.open('about:blank', '_blank');
     try {
-        const message = buildDeliveryMessage(order);
-        await whatsappGraphService.sendTextMessage(deliveryPhone, message);
-        toast.success("Entrega enviada com sucesso!");
+        await whatsappGraphService.sendTextMessage(phone, message);
+        if (win && !win.closed) {
+            win.close();
+        }
+        toast.success(successMessage);
     } catch (error) {
-        console.error("Erro ao enviar mensagem direta:", error);
-        toast.error("Erro na API do WhatsApp. Abrindo link manual...");
-        window.open(shippingOrderWhatsappUrl(order), "_blank");
+        console.error("Erro no envio pela API WhatsApp:", error);
+        toast.info("Redirecionando para envio manual via WhatsApp...");
+        if (win && !win.closed) {
+            win.location.href = fallbackUrl;
+        } else {
+            window.open(fallbackUrl, "_blank");
+        }
     }
+};
+
+export const sendDirectShippingMessage = async (order: Order) => {
+    const settings = getSettings();
+    const deliveryPhone = settings.orderAutomation?.deliveryPhone;
+    const url = shippingOrderWhatsappUrl(order);
+    
+    if (!deliveryPhone) {
+        toast.info("Telefone da equipe de entrega não configurado. Abrindo link manual...");
+        window.open(url, "_blank");
+        return;
+    }
+
+    await safeSendWhatsAppOrFallback({
+        phone: deliveryPhone,
+        message: buildDeliveryMessage(order),
+        fallbackUrl: url,
+        successMessage: "Mensagem enviada com sucesso!"
+    });
 };
 
 export const sendDirectCustomerMessage = async (order: Order) => {
@@ -164,15 +200,15 @@ export const sendDirectCustomerMessage = async (order: Order) => {
         return;
     }
 
-    try {
-        const message = buildCustomerOrderMessage(order);
-        await whatsappGraphService.sendTextMessage(customer.phone, message);
-        toast.success("Mensagem enviada para o cliente com sucesso!");
-    } catch (error) {
-        console.error("Erro ao enviar mensagem direta:", error);
-        toast.error("Erro na API. Abrindo link manual...");
-        window.open(customerOrderWhatsappUrl(order), "_blank");
-    }
+    const url = customerOrderWhatsappUrl(order);
+    const message = buildCustomerOrderMessage(order);
+
+    await safeSendWhatsAppOrFallback({
+        phone: customer.phone,
+        message,
+        fallbackUrl: url,
+        successMessage: "Mensagem enviada para o cliente com sucesso!"
+    });
 };
 
 const buildAssistanceMessage = (order: Order) => {
@@ -216,15 +252,15 @@ export const sendDirectAssistanceMessage = async (order: Order) => {
         return;
     }
 
-    try {
-        const message = buildAssistanceMessage(order);
-        await whatsappGraphService.sendTextMessage(customer.phone, message);
-        toast.success("Mensagem enviada para o cliente com sucesso!");
-    } catch (error) {
-        console.error("Erro ao enviar mensagem direta de assistência:", error);
-        toast.error("Erro na API. Abrindo link manual...");
-        window.open(assistanceCustomerWhatsappUrl(order), "_blank");
-    }
+    const url = assistanceCustomerWhatsappUrl(order);
+    const message = buildAssistanceMessage(order);
+
+    await safeSendWhatsAppOrFallback({
+        phone: customer.phone,
+        message,
+        fallbackUrl: url,
+        successMessage: "Mensagem enviada para o cliente com sucesso!"
+    });
 };
 
 const buildAssistanceOrderDetailsMessage = (order: Order) => {
@@ -297,15 +333,15 @@ export const sendDirectAssistanceOrderDetailsMessage = async (order: Order) => {
         return;
     }
 
-    try {
-        const message = buildAssistanceOrderDetailsMessage(order);
-        await whatsappGraphService.sendTextMessage(customer.phone, message);
-        toast.success("Pedido de Assistência enviado para o cliente com sucesso!");
-    } catch (error) {
-        console.error("Erro ao enviar pedido de assistência:", error);
-        toast.error("Erro na API. Abrindo link manual...");
-        window.open(assistanceOrderDetailsWhatsappUrl(order), "_blank");
-    }
+    const url = assistanceOrderDetailsWhatsappUrl(order);
+    const message = buildAssistanceOrderDetailsMessage(order);
+
+    await safeSendWhatsAppOrFallback({
+        phone: customer.phone,
+        message,
+        fallbackUrl: url,
+        successMessage: "Mensagem enviada com sucesso!"
+    });
 };
 
 export const customerReviewsWhatsappUrl = (order: Order) => {
@@ -383,15 +419,15 @@ export const sendDirectGroupInviteMessage = async (order: Order) => {
         return;
     }
 
-    try {
-        const message = buildGroupInviteMessage(order);
-        await whatsappGraphService.sendTextMessage(customer.phone, message);
-        toast.success("Convite VIP enviado para o cliente com sucesso!");
-    } catch (error) {
-        console.error("Erro ao enviar convite VIP:", error);
-        toast.error("Erro na API. Abrindo link manual...");
-        window.open(groupInviteWhatsappUrl(order), "_blank");
-    }
+    const url = groupInviteWhatsappUrl(order);
+    const message = buildGroupInviteMessage(order);
+
+    await safeSendWhatsAppOrFallback({
+        phone: customer.phone,
+        message,
+        fallbackUrl: url,
+        successMessage: "Convite VIP enviado para o cliente com sucesso!"
+    });
 };
 
 export const personGroupInviteWhatsappUrl = (person: any) => {
@@ -410,15 +446,15 @@ export const sendDirectPersonGroupInviteMessage = async (person: any) => {
         return;
     }
 
-    try {
-        const message = buildPersonGroupInviteMessage(person);
-        await whatsappGraphService.sendTextMessage(person.phone, message);
-        toast.success("Convite VIP enviado com sucesso!");
-    } catch (error) {
-        console.error("Erro ao enviar convite VIP:", error);
-        toast.error("Erro na API. Abrindo link manual...");
-        window.open(personGroupInviteWhatsappUrl(person), "_blank");
-    }
+    const url = personGroupInviteWhatsappUrl(person);
+    const message = buildPersonGroupInviteMessage(person);
+
+    await safeSendWhatsAppOrFallback({
+        phone: person.phone,
+        message,
+        fallbackUrl: url,
+        successMessage: "Convite VIP enviado com sucesso!"
+    });
 };
 
 const buildAssistanceServiceOrderMessage = (order: Order) => {
@@ -557,13 +593,13 @@ export const sendDirectBudgetMessage = async (order: Order) => {
         return;
     }
 
-    try {
-        const message = buildBudgetWhatsappMessage(order);
-        await whatsappGraphService.sendTextMessage(customer.phone, message);
-        toast.success("Orçamento enviado com sucesso!");
-    } catch (error) {
-        console.error("Erro ao enviar orçamento direto:", error);
-        toast.error("Erro na API. Abrindo link manual...");
-        window.open(budgetWhatsappUrl(order), "_blank");
-    }
+    const url = budgetWhatsappUrl(order);
+    const message = buildBudgetWhatsappMessage(order);
+
+    await safeSendWhatsAppOrFallback({
+        phone: customer.phone,
+        message,
+        fallbackUrl: url,
+        successMessage: "Orçamento enviado com sucesso!"
+    });
 };

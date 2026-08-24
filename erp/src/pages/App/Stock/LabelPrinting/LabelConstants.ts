@@ -132,6 +132,12 @@ export interface LabelConfig {
     promoPriceDecimalsColor?: string;
     printingMode?: 'simple' | 'advanced';
     imageFit?: 'contain' | 'cover' | 'fill';
+    _artVersion?: number;
+    barcode?: string;
+    code?: string;
+    opportunityId?: string | null;
+    opportunity_id?: string | null;
+    isBlank?: boolean;
 }
 
 export const DEFAULT_LAYOUT_MODELS: GridModel[] = [
@@ -141,10 +147,10 @@ export const DEFAULT_LAYOUT_MODELS: GridModel[] = [
     { id: '2x3_std', name: '6 Etiquetas (2x3)', columns: 2, rows: 3, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 5, icon: 'bi-grid-1x2', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     { id: '3x3_std', name: '9 Etiquetas (3x3)', columns: 3, rows: 3, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 5, icon: 'bi-grid-3x3', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     
-    // Preços (Gôndola) - Arte Oferta Laranja Padrão
+    // Preços (Gôndola) - Modelo Padrão 2x5
     { 
         id: 'preco_2x5_restored', 
-        name: '10 Etiquetas (2x5) - Oferta Laranja', 
+        name: '10 Etiquetas (2x5)', 
         columns: 2, rows: 5, 
         marginT: 8.5, marginB: 8.5, marginL: 4, marginR: 4, gapH: 2.5, gapV: 0, 
         icon: 'bi-grid-1x2-fill', paperSize: 'A4', category: 'precos', type: 'rect', 

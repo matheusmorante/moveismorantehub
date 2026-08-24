@@ -1415,7 +1415,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <button 
-                                        onClick={() => setImageScale(prev => Math.max(0.1, Number(prev - 0.01).toFixed(2)))}
+                                        onClick={() => setImageScale(prev => Math.max(0.1, parseFloat((prev - 0.01).toFixed(2))))}
                                         className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
                                     >
                                         <i className="bi bi-dash-lg" />
@@ -1430,7 +1430,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                         className="flex-1 accent-blue-600 cursor-pointer h-2 bg-slate-100 rounded-lg appearance-none"
                                     />
                                     <button 
-                                        onClick={() => setImageScale(prev => Math.min(10, Number(prev + 0.01).toFixed(2)))}
+                                        onClick={() => setImageScale(prev => Math.min(10, parseFloat((prev + 0.01).toFixed(2))))}
                                         className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
                                     >
                                         <i className="bi bi-plus-lg" />

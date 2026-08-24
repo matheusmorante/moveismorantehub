@@ -106,6 +106,16 @@ export interface AppSettings {
             shippingLabel?: string;
         };
     };
+    deliveryReminderAutomation?: {
+        enabled: boolean;
+        hoursBeforeDelivery: number;
+        reminderTemplate?: string;
+        sameDaySpaceReminderTemplate?: string;
+        buttonTitle?: string;
+        notifySellerOnConfirmation?: boolean;
+        includeRouteLink?: boolean;
+        autoUpdateStatusOnConfirm?: boolean;
+    };
     whatsappConfig?: {
         accessToken: string;
         phoneNumberId: string;
@@ -500,6 +510,16 @@ RESPOSTA NO FORMATO JSON:
         autoSendWhatsAppDelivery: true,
         autoSendCustomerOrder: true,
         deliveryPhone: ''
+    },
+    deliveryReminderAutomation: {
+        enabled: false,
+        hoursBeforeDelivery: 12,
+        buttonTitle: 'Confirmar Entrega',
+        notifySellerOnConfirmation: true,
+        includeRouteLink: true,
+        autoUpdateStatusOnConfirm: true,
+        reminderTemplate: '📦 *LEMBRETE DE ENTREGA - MÓVEIS MORANTE*\n\nOlá {{customerName}}, lembramos que sua entrega está agendada para:\n🗓️ *Data:* {{deliveryDate}}\n⏰ *Horário/Período:* {{deliveryTime}}\n🏠 *Endereço:* {{address}}{{assemblyNotice}}\n\nPor favor, confirme se o local estará acessível no horário agendado.',
+        sameDaySpaceReminderTemplate: '📦 *LEMBRETE DE MONTAGEM - MÓVEIS MORANTE*\n\nOlá {{customerName}}, para a entrega de hoje do(s) seu(s) móvel(is) *{{furnitureItems}}*, pedimos a gentileza de deixar o espaço limpo e livre no local para a realização da montagem!'
     },
     stockNotificationConditions: ['novo'],
     rolePermissions: {

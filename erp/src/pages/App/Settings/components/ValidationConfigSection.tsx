@@ -13,20 +13,6 @@ const ValidationConfigSection = ({ settings, onChange }: ValidationConfigSection
 
     return (
         <div className="flex flex-col gap-8 p-4 md:p-8">
-            <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-3xl border border-blue-100/50 dark:border-blue-800/20">
-                <div className="flex items-start gap-4">
-                    <div className="p-3 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-2xl">
-                        <i className="bi bi-shield-check text-xl"></i>
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Campos Obrigatórios</h4>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                            Defina quais informações são estritamente necessárias antes de salvar cadastros ou finalizar pedidos. 
-                            Isso evita dados incompletos no sistema.
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
                 {/* CLientes & Fornecedores */}
