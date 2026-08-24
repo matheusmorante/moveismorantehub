@@ -63,6 +63,63 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                 </button>
             </div>
 
+            {/* Modo de Envio de Mensagens de Pedidos (ERP) */}
+            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-b border-slate-100 dark:border-slate-800/50">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    <div className="flex-1 max-w-lg">
+                        <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Modo de Envio de Mensagens</h4>
+                            <span className="px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-[9px] font-black rounded text-green-600 dark:text-green-400">WHATSAPP</span>
+                        </div>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                            Escolha se as notificações de pedidos e entregas serão enviadas diretamente em segundo plano via Meta Graph API ou se abrirão o WhatsApp Web (wa.me) no navegador.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full md:w-80">
+                        <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${config.sendMode !== 'wame' ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800 shadow-sm' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}>
+                            <input
+                                type="radio"
+                                name="whatsappSendMode"
+                                value="graph_api"
+                                checked={config.sendMode !== 'wame'}
+                                onChange={() => handleFieldChange('sendMode', 'graph_api')}
+                                className="mt-0.5 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <div className="flex flex-col">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight flex items-center gap-1.5">
+                                    <i className="bi bi-cloud-check-fill text-blue-500" />
+                                    Meta Graph API (Direto)
+                                </span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 font-medium">
+                                    Envia a mensagem diretamente ao celular do cliente via servidor da Meta.
+                                </span>
+                            </div>
+                        </label>
+
+                        <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${config.sendMode === 'wame' ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800 shadow-sm' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}>
+                            <input
+                                type="radio"
+                                name="whatsappSendMode"
+                                value="wame"
+                                checked={config.sendMode === 'wame'}
+                                onChange={() => handleFieldChange('sendMode', 'wame')}
+                                className="mt-0.5 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <div className="flex flex-col">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight flex items-center gap-1.5">
+                                    <i className="bi bi-whatsapp text-green-500" />
+                                    WhatsApp Web / App (wa.me)
+                                </span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 font-medium">
+                                    Abre uma nova aba no WhatsApp Web com o texto pré-preenchido para envio.
+                                </span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div className="flex-1 max-w-lg">

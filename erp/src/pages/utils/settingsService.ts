@@ -121,6 +121,8 @@ export interface AppSettings {
         phoneNumberId: string;
         wabaId: string;
         catalogId: string;
+        sendMode?: 'graph_api' | 'wame';
+        templateNameOrderConfirmation?: string;
     };
     channelBaseDescriptions: {
         whatsapp: string;
@@ -492,6 +494,7 @@ RESPOSTA NO FORMATO JSON:
         phoneNumberId: '',
         wabaId: '',
         catalogId: '',
+        sendMode: 'graph_api'
     },
     channelBaseDescriptions: {
         whatsapp: `🏠 *Móveis Morante*

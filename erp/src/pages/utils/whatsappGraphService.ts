@@ -499,5 +499,49 @@ ____________________________________
         } catch (err) {
             return await whatsappGraphService.sendTextMessage(to, `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`);
         }
+    },
+
+    /**
+     * Sends an approved message template via Meta Cloud API
+     */
+    sendTemplateMessage: async (to: string, templateName: string, parameters: string[], languageCode: string = 'pt_BR') => {
+        const { whatsappConfig } = getSettings();
+        if (!whatsappConfig?.phoneNumberId) throw new Error("Phone Number ID não configurado.");
+
+        const cleanPhone = to.replace(/\D/g, '');
+        const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+
+        const bodyParams = parameters.map(p => ({ type: 'text', text: p || ' ' }));
+
+        const response = await fetch(
+            `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
+            {
+                method: 'POST',
+                headers: whatsappGraphService.getHeaders(),
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    recipient_type: 'individual',
+                    to: formattedPhone,
+                    type: 'template',
+                    template: {
+                        name: templateName,
+                        language: { code: languageCode },
+                        components: [
+                            {
+                                type: 'body',
+                                parameters: bodyParams
+                            }
+                        ]
+                    }
+                })
+            }
+        );
+
+        const data = await response.json();
+        if (data.error) {
+            console.error("Erro API Meta Template WhatsApp:", data.error);
+            throw new Error(data.error.message);
+        }
+        return data;
     }
 };

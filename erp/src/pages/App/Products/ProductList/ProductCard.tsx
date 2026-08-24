@@ -5,22 +5,24 @@ import { formatCurrency } from "../../../utils/formatters";
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import ProductSalesModal from "../components/ProductSalesModal";
+import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 let oppCache: Record<string, string> | null = null;
 let oppPromise: Promise<Record<string, string>> | null = null;
 
-const fetchOppMap = async () => {
+const fetchOppMap = async (): Promise<Record<string, string>> => {
     if (oppCache) return oppCache;
     if (!oppPromise) {
-        oppPromise = supabase.from('opportunities').select('id, name').then(({ data }) => {
+        oppPromise = (async () => {
+            const { data } = await supabase.from('opportunities').select('id, name');
             const map: Record<string, string> = {};
             if (data) {
                 data.forEach((item: any) => { map[item.id] = item.name; });
             }
             oppCache = map;
             return map;
-        });
+        })();
     }
     return oppPromise;
 };
@@ -80,8 +82,8 @@ const ProductCard = ({
         let isMounted = true;
         if (product.opportunityId) {
             fetchOppMap().then(map => {
-                if (isMounted && map[product.opportunityId!]) {
-                    setOppName(map[product.opportunityId!]);
+                if (isMounted && map && product.opportunityId && map[product.opportunityId]) {
+                    setOppName(map[product.opportunityId]);
                 }
             });
         } else {
@@ -93,10 +95,11 @@ const ProductCard = ({
     // Process attributes text if variation
     let variationName = '';
     if (isVariation) {
-        if (product.attributes && Array.isArray(product.attributes)) {
-            variationName = product.attributes.map((attr: any) => attr.value).filter(Boolean).join(' ');
-        } else if (product.attributes && typeof product.attributes === 'object') {
-            variationName = Object.values(product.attributes).filter(Boolean).join(' ');
+        const attrs = (product as any).attributes;
+        if (attrs && Array.isArray(attrs)) {
+            variationName = attrs.map((attr: any) => attr.value).filter(Boolean).join(' ');
+        } else if (attrs && typeof attrs === 'object') {
+            variationName = Object.values(attrs).filter(Boolean).join(' ');
         }
         if (!variationName) {
             variationName = (product as any).displayName || product.name || '';

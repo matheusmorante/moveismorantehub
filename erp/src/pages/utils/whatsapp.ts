@@ -140,14 +140,53 @@ const safeSendWhatsAppOrFallback = async ({
     phone,
     message,
     fallbackUrl,
-    successMessage
+    successMessage,
+    templateData
 }: {
     phone: string;
     message: string;
     fallbackUrl: string;
     successMessage: string;
+    templateData?: {
+        templateName?: string;
+        parameters: string[];
+    };
 }) => {
-    window.open(fallbackUrl, "_blank");
+    const settings = getSettings();
+    const config = settings.whatsappConfig;
+    const sendMode = config?.sendMode || 'graph_api';
+
+    // Se o modo for 'wame' (WhatsApp Web / App), abre a aba wa.me diretamente
+    if (sendMode === 'wame') {
+        window.open(fallbackUrl, "_blank");
+        return;
+    }
+
+    // Modo Meta Graph API (Envio direto via servidor Meta)
+    const hasCloudApi = !!(config?.accessToken && config?.phoneNumberId);
+    if (!hasCloudApi) {
+        toast.warning("Token de Acesso ou Phone Number ID não configurados em Configurações > WhatsApp API.");
+        return;
+    }
+
+    try {
+        const templateName = templateData?.templateName || config?.templateNameOrderConfirmation || 'confirmacao_pedido';
+        if (templateData && templateData.parameters && templateData.parameters.length > 0) {
+            try {
+                await whatsappGraphService.sendTemplateMessage(phone, templateName, templateData.parameters);
+                toast.success(successMessage);
+                return;
+            } catch (err: any) {
+                console.warn("[WhatsApp] Envio por Modelo de Mensagem falhou, tentando envio de texto direto:", err);
+            }
+        }
+
+        await whatsappGraphService.sendTextMessage(phone, message);
+        toast.success(successMessage);
+    } catch (error: any) {
+        console.error("Erro no envio via Meta Graph API:", error);
+        toast.error(`Falha no envio pela API da Meta: ${error.message || "Erro desconhecido"}`);
+    }
 };
 
 export const sendDirectShippingMessage = async (order: Order) => {
@@ -179,11 +218,47 @@ export const sendDirectCustomerMessage = async (order: Order) => {
     const url = customerOrderWhatsappUrl(order);
     const message = buildCustomerOrderMessage(order);
 
+    const sched = order.shipping?.scheduling;
+    const date = (sched?.dateType === 'range' && sched?.endDate)
+        ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
+        : formatDate(order.shipping?.scheduling?.date);
+
+    let time = "Não informado";
+    if (sched) {
+        if (sched.notInformed) time = "Não informado";
+        else if (sched.type === 'range' && sched.startTime && sched.endTime) time = `${sched.startTime} às ${sched.endTime}`;
+        else if (sched.startTime) time = sched.startTime;
+        else if (sched.time) time = sched.time;
+    }
+
+    let itemsBlock = stringifyItemsWithValues(order.items || []);
+    if (order.shipping?.value && order.shipping.value > 0) {
+        itemsBlock += `\nFrete: ${formatCurrency(order.shipping.value)}`;
+    }
+
+    const addressStr = order.shipping?.noAddress 
+        ? (order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado")
+        : stringifyFullAddressWithObservation(customer.fullAddress);
+
+    const totalValStr = formatCurrency(order.paymentsSummary?.totalOrderValue || 0);
+    const paymentsStr = stringifyPayments(order.payments || []);
+
     await safeSendWhatsAppOrFallback({
         phone: customer.phone,
         message,
         fallbackUrl: url,
-        successMessage: "Mensagem enviada para o cliente com sucesso!"
+        successMessage: "Mensagem enviada para o cliente com sucesso!",
+        templateData: {
+            parameters: [
+                customer.fullName || "Cliente",
+                date || "A confirmar",
+                time || "Não informado",
+                addressStr || "Não informado",
+                itemsBlock || "Produtos",
+                totalValStr || "R$ 0,00",
+                paymentsStr || "Não informado"
+            ]
+        }
     });
 };
 
