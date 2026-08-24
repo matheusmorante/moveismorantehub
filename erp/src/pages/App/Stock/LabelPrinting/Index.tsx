@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import html2canvas from 'html2canvas';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -133,6 +134,7 @@ const LabelPrinting: React.FC = () => {
     const [hiddenDefaultIds, setHiddenDefaultIds] = useState<string[]>(() => {
         try { return JSON.parse(localStorage.getItem('hidden_default_layout_ids') || '[]'); } catch { return []; }
     });
+    const [artVersion, setArtVersion] = useState(0);
 
     const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
     const [modelToCopy, setModelToCopy] = useState<GridModel | null>(null);
@@ -744,10 +746,12 @@ const LabelPrinting: React.FC = () => {
             name: fullName,
             price: product.unitPrice ? formatCurrency(product.unitPrice) : 
                    (product as any).price ? formatCurrency((product as any).price) : 'R$ 0,00',
-            promoPrice: '',
+            promoPrice: (product as any).promoPrice ? formatCurrency((product as any).promoPrice) : 
+                        (product as any).promo_price ? formatCurrency((product as any).promo_price) : '',
             sku: product.sku || '', 
             quantity: Math.max(1, quantity),
-            extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : []
+            extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
+            opportunityId: (product as any).opportunityId || (product as any).opportunity_id || null
         };
 
         setLabelItems(prev => [...prev, newItem]);
@@ -915,19 +919,41 @@ const LabelPrinting: React.FC = () => {
     };
 
     const handleAddLogoToQueue = (logo: { image: string, name: string }) => {
-        const newItem: LogoItemConfig = {
-            image: logo.image,
-            quantity: 1,
-            imageFit: config.imageFit || 'contain',
-            scale: config.imageScale || 1,
-            rotation: 0,
-            name: logo.name,
-            price: '',
-            promoPrice: '',
-            sku: '',
-            extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : []
-        };
-        setLogoItems(prev => [...prev, newItem]);
+        if (selectedCategory === 'logos') {
+            const newItem: LogoItemConfig = {
+                image: logo.image,
+                quantity: 1,
+                imageFit: config.imageFit || 'contain',
+                scale: config.imageScale || 1,
+                rotation: 0,
+                name: logo.name,
+                price: '',
+                promoPrice: '',
+                sku: '',
+                extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : []
+            };
+            setLogoItems(prev => [...prev, newItem]);
+        } else {
+            const newItem: LabelItemConfig = {
+                image: logo.image,
+                quantity: 1,
+                imageFit: config.imageFit || 'cover',
+                scale: config.imageScale || 1,
+                rotation: 0,
+                name: logo.name,
+                price: '',
+                promoPrice: '',
+                sku: '',
+                extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
+                showName: false,
+                isLogoOnly: true
+            };
+            if (printingMode === 'simple') {
+                setSimpleLabelItems(prev => [...prev, newItem]);
+            } else {
+                setAdvancedLabelItems(prev => [...prev, newItem]);
+            }
+        }
         setIsAssetManagerModalOpen(false);
         toast.success(`${logo.name} adicionado à fila.`);
     };
@@ -1094,30 +1120,47 @@ const LabelPrinting: React.FC = () => {
                             const dims = activeModel ? calculateLabelDimensions(activeModel) : { width: 0, height: 0 };
                             
                             return (
-                                <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-blue-50/80 to-slate-50 dark:from-slate-800/80 dark:to-slate-900/80 border border-blue-100 dark:border-slate-700/80 rounded-2xl shadow-sm">
-                                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shrink-0 shadow-md shadow-blue-500/20">
-                                        <i className={`bi ${activeModel?.icon || 'bi-grid-1x2-fill'} text-sm`} />
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50/80 to-slate-50 dark:from-slate-800/80 dark:to-slate-900/80 border border-blue-100 dark:border-slate-700/80 rounded-2xl shadow-sm">
+                                    <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+                                        <i className={`bi ${activeModel?.icon || 'bi-grid-1x2-fill'} text-[10px]`} />
                                     </div>
-                                    <div className="text-left">
-                                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                                                Modelo em Uso:
-                                            </span>
-                                            <strong className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                                                {activeModel?.name || '10 ETIQUETAS (2X5)'}
-                                            </strong>
-                                            <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
-                                                Folha {activeModel?.paperSize || 'A4'}
-                                            </span>
-                                        </div>
-                                        <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
-                                            Dimensões: {dims.width} x {dims.height} mm &nbsp;&bull;&nbsp; Grade: {activeModel?.columns} colunas x {activeModel?.rows} linhas &nbsp;&bull;&nbsp; <strong className="text-slate-700 dark:text-slate-200">{(activeModel?.columns || 1) * (activeModel?.rows || 1)} etiquetas por folha</strong>
-                                        </p>
-                                    </div>
+                                    <strong className="text-[11px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                                        {activeModel?.name || '10 ETIQUETAS (2X5)'}
+                                    </strong>
+                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
+                                        Folha {activeModel?.paperSize || 'A4'}
+                                    </span>
                                 </div>
                             );
                         })()}
                     </div>
+
+                    {/* Modo de Impressão (Abaixo do Título para maior intuitividade) */}
+                    {selectedCategory === 'precos' && (
+                        <div className="mt-4 flex items-center justify-start gap-3 animate-fade-in border-t border-slate-100 dark:border-slate-800/60 pt-4 flex-wrap">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Modo de Impressão:</span>
+                            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
+                                <button 
+                                    type="button"
+                                    onClick={() => setPrintingMode('simple')}
+                                    className={`py-2 px-5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                        printingMode === 'simple' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                                    }`}
+                                >
+                                    Por Imagens
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setPrintingMode('advanced')}
+                                    className={`py-2 px-5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                                        printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                                    }`}
+                                >
+                                    Design Avançado
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </header>
 
                 {!selectedCategory ? (
@@ -1160,7 +1203,7 @@ const LabelPrinting: React.FC = () => {
                                              </div>
 
                                              {/* CENTRO / MEIO: FORMULÁRIO DE BUSCA E ADIÇÃO DE PRODUTOS */}
-                                             {(selectedCategory === 'precos' || selectedCategory === 'identificacao') && (
+                                             {((selectedCategory === 'precos' && printingMode === 'advanced') || selectedCategory === 'identificacao') && (
                                                  <div className="flex flex-1 max-w-2xl items-center gap-2 mx-0 xl:mx-4">
                                                      <ProductSearchInput 
                                                          products={products}
@@ -1214,31 +1257,7 @@ const LabelPrinting: React.FC = () => {
 
                                              {/* DIREITA: BOTÕES DE MODO E BOTÃO DE LIMPAR FILA */}
                                              <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                                                 {/* BOTÕES DE MODO DE IMPRESSÃO (POR IMAGENS / DESIGN AVANÇADO) */}
-                                                 {selectedCategory === 'precos' && (
-                                                     <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
-                                                         <button 
-                                                             type="button"
-                                                             onClick={() => setPrintingMode('simple')}
-                                                             className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                                                                 printingMode === 'simple' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                                             }`}
-                                                         >
-                                                             Por Imagens
-                                                         </button>
-                                                         <button 
-                                                             type="button"
-                                                             onClick={() => setPrintingMode('advanced')}
-                                                             className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                                                                 printingMode === 'advanced' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                                             }`}
-                                                         >
-                                                             Design Avançado
-                                                         </button>
-                                                     </div>
-                                                 )}
-
-                                                 {selectedCategory === 'logos' && (
+                                                 {(selectedCategory === 'logos' || (selectedCategory === 'precos' && printingMode === 'simple')) && (
                                                      <>
                                                          <button 
                                                              onClick={handleAddBlankLabel}
@@ -1255,7 +1274,7 @@ const LabelPrinting: React.FC = () => {
                                                      </>
                                                  )}
                                                  
-                                                 {(selectedCategory === 'logos' ? logoItems.length > 0 : labelItems.length > 0) && (
+                                                 {selectedCategory !== 'precos' && (selectedCategory === 'logos' ? logoItems.length > 0 : labelItems.length > 0) && (
                                                      <button 
                                                          onClick={() => {
                                                              if (window.confirm('Deseja limpar todos os itens da fila?')) {
@@ -1311,12 +1330,14 @@ const LabelPrinting: React.FC = () => {
                                                             labelItems={logoItems} 
                                                             setLabelItems={setLogoItems} 
                                                             printingMode="simple" 
+                                                            selectedCategory={selectedCategory}
                                                         />
                                                     ) : (
                                                         <LabelQueue 
                                                             labelItems={labelItems} 
                                                             setLabelItems={setLabelItems} 
                                                             printingMode={printingMode} 
+                                                            selectedCategory={selectedCategory}
                                                         />
                                                     )}
                                                 </div>
@@ -1415,7 +1436,7 @@ const LabelPrinting: React.FC = () => {
                                          }} className="relative mb-20 origin-top">
                                              <div ref={gridRef} className="shadow-2xl bg-white">
                                                  <LabelGrid 
-                                                     config={{ ...config, printingMode }} 
+                                                     config={{ ...config, printingMode, _artVersion: artVersion }} 
                                                      image={selectedImage} 
                                                      cellImages={cellImages}
                                                      onCellClick={handleCellClick}
@@ -1432,28 +1453,31 @@ const LabelPrinting: React.FC = () => {
                   )}
               </div>
 
-            <div className="print-only fixed inset-0 bg-white z-[9999]">
-                 {(() => {
-                    const totalCells = config.columns * config.rows;
-                    const count = ((selectedCategory as string) === 'logos') 
-                        ? logoItems.reduce((acc, curr) => acc + curr.quantity, 0)
-                        : labelItems.reduce((acc, curr) => acc + curr.quantity, 0);
-                    const totalPagesCount = Math.ceil(Math.max(count, 1) / totalCells);
+            {createPortal(
+                 <div className="print-only">
+                      {(() => {
+                         const totalCells = config.columns * config.rows;
+                         const count = ((selectedCategory as string) === 'logos') 
+                             ? logoItems.reduce((acc, curr) => acc + curr.quantity, 0)
+                             : labelItems.reduce((acc, curr) => acc + curr.quantity, 0);
+                         const totalPagesCount = Math.ceil(Math.max(count, 1) / totalCells);
 
-                    return Array.from({ length: totalPagesCount }).map((_, pageIdx) => (
-                        <div key={pageIdx} style={{ pageBreakAfter: 'always' }}>
-                            <LabelGrid 
-                                config={{ ...config, printingMode }} 
-                                image={selectedImage} 
-                                cellImages={cellImages}
-                                labelItems={labelItems}
-                                logoItems={logoItems}
-                                currentPage={pageIdx}
-                            />
-                        </div>
-                    ));
-                 })()}
-            </div>
+                         return Array.from({ length: totalPagesCount }).map((_, pageIdx) => (
+                             <div key={pageIdx} style={{ pageBreakAfter: 'always' }}>
+                                 <LabelGrid 
+                                     config={{ ...config, printingMode, _artVersion: artVersion }} 
+                                     image={selectedImage} 
+                                     cellImages={cellImages}
+                                     labelItems={labelItems}
+                                     logoItems={logoItems}
+                                     currentPage={pageIdx}
+                                 />
+                             </div>
+                         ));
+                      })()}
+                 </div>,
+                 document.body
+            )}
 
             <LabelGridModelModal 
                 isOpen={gridModalOpen} 
@@ -2080,9 +2104,15 @@ const LabelPrinting: React.FC = () => {
 
              <PriceLabelArtEditorModal 
                 isOpen={isPriceLabelArtEditorOpen}
-                onClose={() => setIsPriceLabelArtEditorOpen(false)}
+                onClose={() => {
+                    setIsPriceLabelArtEditorOpen(false);
+                    setArtVersion(prev => prev + 1);
+                }}
                 config={config}
-                onSaveConfig={(updated) => setConfig(prev => ({ ...prev, ...updated }))}
+                onSaveConfig={(updated) => {
+                    setConfig(prev => ({ ...prev, ...updated }));
+                    setArtVersion(prev => prev + 1);
+                }}
                 initialProduct={selectedProductToAdd ? {
                     name: selectedProductToAdd.description,
                     price: String(selectedProductToAdd.unitPrice || (selectedProductToAdd as any).price || ''),

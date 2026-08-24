@@ -158,7 +158,7 @@ export const generateDeliveryAISummary = async (
         }
       };
 
-      // Helper para converter números cardinais por extenso (até 30, outros ficam em dígitos)
+      // Helper para converter números cardinais por extenso (feminino para entregas)
       const numWord = (n: number): string => {
         const words: Record<number, string> = {
           0: 'zero', 1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco',
@@ -166,6 +166,20 @@ export const generateDeliveryAISummary = async (
           11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
           16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
           21: 'vinte e uma', 22: 'vinte e duas', 23: 'vinte e três', 24: 'vinte e quatro',
+          25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito',
+          29: 'vinte e nove', 30: 'trinta'
+        };
+        return words[n] ?? String(n);
+      };
+
+      // Helper para converter números cardinais masculinos por extenso (ex: "um item", "dois itens")
+      const numWordMasculine = (n: number): string => {
+        const words: Record<number, string> = {
+          0: 'zero', 1: 'um', 2: 'dois', 3: 'três', 4: 'quatro', 5: 'cinco',
+          6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
+          11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
+          16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
+          21: 'vinte e um', 22: 'vinte e dois', 23: 'vinte e três', 24: 'vinte e quatro',
           25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito',
           29: 'vinte e nove', 30: 'trinta'
         };
@@ -316,11 +330,17 @@ export const generateDeliveryAISummary = async (
           }
         }
 
-        const obsText = (
-          (oData.observation || '') + ' ' +
-          (o.observation || '') + ' ' +
-          (oData.notes || '') + ' ' +
-          (oData.notice || '')
+        const fullAddressText = (
+          (deliveryAddr.address || '') + ' ' +
+          (deliveryAddr.street || '') + ' ' +
+          (deliveryAddr.complement || '') + ' ' +
+          (deliveryAddr.type || '') + ' ' +
+          (deliveryAddr.locationType || '') + ' ' +
+          (shipping.complement || '') + ' ' +
+          (shipping.address || '') + ' ' +
+          (custAddr.complement || '') + ' ' +
+          (custAddr.address || '') + ' ' +
+          obsText
         ).toLowerCase();
 
         const itemHasShowroom = items.some((item: any) => {
@@ -353,6 +373,15 @@ export const generateDeliveryAISummary = async (
         }
         if (obsText.includes('nota fiscal') || obsText.includes('levar nota') || /\bnf\b/.test(obsText)) {
           notices.push('levar nota fiscal');
+        }
+
+        // Detecção de tipo de local de entrega (apartamento, kitnet ou fundos)
+        if (fullAddressText.includes('apartamento') || fullAddressText.includes('apto') || fullAddressText.includes('apt ')) {
+          notices.push('ligar quando chegar porque é apartamento');
+        } else if (fullAddressText.includes('kitnet') || fullAddressText.includes('quitinete') || fullAddressText.includes('kit ')) {
+          notices.push('ligar quando chegar porque é kitnet');
+        } else if (fullAddressText.includes('fundos') || fullAddressText.includes('fundo')) {
+          notices.push('ligar quando chegar porque é nos fundos');
         }
 
         const hasWallMountService = items.some((item: any) => {
@@ -423,18 +452,23 @@ export const generateDeliveryAISummary = async (
         const deliveriesText = totalDeliveries === 1 ? 'uma entrega programada' : `${deliveriesWord} entregas programadas`;
         const overviewSentence = `Para ${periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${deliveriesText}${shiftIntro}.`;
 
-        // Helper para formatar uma lista de entregas em texto
+        // Helper para formatar uma lista de entregas em texto respeitando as regras estritas:
+        // - Nomes de produtos NÃO são citados, A NÃO SER QUE SEJA UM PRODUTO COM MONTAGEM NO ENDEREÇO!
+        // - Informa a quantidade total de itens da entrega (usa "dois itens" no masculino).
+        // - NUNCA menciona "sem montagem".
         const formatDeliveryParts = (deliveries: any[]) =>
           deliveries.map(d => {
             const citySuffix = d.isColombo ? '' : ` para ${d.city}`;
             const distSuffix = d.distText ? `, ${d.distText}` : '';
+            const totalItemCount = d.assemblyItems.length + d.noAssemblyItems.length;
+            const itemsWord = numWordMasculine(totalItemCount);
+            const itemsText = totalItemCount === 1 ? 'um item' : `${itemsWord} itens`;
+
             let basePart = '';
             if (d.assemblyItems.length > 0) {
-              basePart = `uma entrega${citySuffix} de ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
-            } else if (d.noAssemblyItems.length > 0) {
-              basePart = `uma entrega${citySuffix} de ${d.noAssemblyItems.join(' e ')}${distSuffix}, sem montagem no endereço`;
+              basePart = `uma entrega${citySuffix} de ${itemsText}, sendo ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
             } else {
-              basePart = `uma entrega${citySuffix}${distSuffix}`;
+              basePart = `uma entrega${citySuffix} de ${itemsText}${distSuffix}`;
             }
 
             if (d.scheduledTimeStr) {
@@ -497,25 +531,27 @@ export const generateDeliveryAISummary = async (
       try {
         const geminiPrompt = `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas. Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS). O texto já está estruturado; só refine a fluência sem alterar os dados.
 
-REGRAS ABSOLUTAS DE CONCORDÂNCIA E PRONÚNCIA:
-1. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
-   - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa", "um armário".
-   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "sapateira", "cristaleira", "bancada", "prateleira", "estante", "penteadeira" → artigo FEMININO: "uma escrivaninha", "uma mesa", "uma pia".
-   - ATENÇÃO: "balcão para pia" começa com "balcão" (masculino) → sempre "um balcão para pia". NUNCA "uma balcão".
-2. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). Para distâncias com decimal, USE a vírgula real no formato "5,2 quilômetros", "27,1 quilômetros", NUNCA escreva a palavra "vírgula" por extenso. NUNCA escreva dígitos isolados sem unidade (ex: NUNCA "4 entregas", sempre "quatro entregas").
-3. SEM EXPRESSÕES REPETIDAS OU ESTRANHAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
-4. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde." — NUNCA: "sendo uma para Curitiba" na visão geral.
-5. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
-6. AVISO DE ENTREGA DISTANTE COM MONTAGEM: Se o texto base contiver uma "Obs:" sobre entrega distante com montagem, transforme em aviso conversacional no final, como: "Pessoal, essa entrega é bem longe e ainda tem montagem no endereço, se programem para sair com tempo."
-7. HORÁRIOS E AVISOS OPERACIONAIS: 
-   - REGRA DE OURO PARA HORÁRIOS: As janelas padrão de entrega são das 9 às 12 horas (manhã) e das 13 às 18 horas (tarde). Se a entrega for nas janelas padrão (entre 9 e 12h ou entre 13 e 18h), NUNCA diga o horário específico na entrega individual (já está subentendido no turno da manhã ou da tarde). SOMENTE se a entrega for em um horário/período DIFERENTE de 9-12h ou 13-18h (ex: 08:00, 08:00 às 10:00, 18:30), mencione explicitamente que essa entrega foi agendada para um horário ou período em específico.
-   - AVISOS OPERACIONAIS: Mantenha sempre avisos operacionais (como levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede).
-8. OMISSÃO DE CORES E ACABAMENTOS: PROIBIDO pronunciar nomes de cores ou combinações (ex: NUNCA diga "freijó", "off white", "preto/branco", "preto", "branco", "cinamomo", "grafite", "nobre", "carvalho", etc.). Diga apenas o nome do produto (ex: "uma cômoda grécia" em vez de "uma cômoda grécia freijó", "uma escrivaninha 2 gavetas" em vez de "uma escrivaninha 2 gavetas preto/branco").
-9. AVISO DE MOSTRUÁRIO PARA ENTREGAS DE AMANHÃ: Se o texto base de entregas para amanhã incluir instrução sobre móvel de mostruário ("Lembrem de desmontar hoje..."), inclua obrigatoriamente essa lembrança ao final para que a equipe desmonte o móvel no mostruário hoje mesmo para amanhã estar pronto para ser levado.
-10. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
-11. RETORNE APENAS O TEXTO A SER PRONUNCIADO: Não inclua cabeçalhos, títulos, explicações nem instruções de locução.
+REGRAS ABSOLUTAS E ESSENCIAIS DO RESUMO:
+1. OMISSÃO DE NOMES DE PRODUTOS NORMAIS: NUNCA mencione o nome dos produtos das entregas, A NÃO SER QUE SEJA UM PRODUTO QUE POSSUI MONTAGEM NO ENDEREÇO! Se a entrega não tiver montagem no endereço, mencione APENAS a quantidade de itens (exemplo: "uma entrega de três itens", "uma entrega para Curitiba de cinco itens").
+2. QUANDO HOUVER MONTAGEM NO ENDEREÇO: Fale a quantidade total de itens E cite especificamente o produto com montagem no endereço (exemplo: "uma entrega de quatro itens, sendo um guarda-roupa sydney, com montagem no endereço").
+3. NUNCA DIGA 'SEM MONTAGEM': É ESTRITAMENTE PROIBIDO dizer as palavras "sem montagem", "não precisa de montagem" ou "sem montagem no endereço". Se a entrega não tiver montagem no local, apenas ignore essa informação. SOMENTE mencione a palavra montagem quando REALMENTE HOUVER montagem no endereço.
+4. CONCORDÂNCIA MASCULINA PARA ITENS: A contagem de itens DEVE ser sempre no MASCULINO: "um item", "dois itens", "três itens" (NUNCA "duas itens").
+5. AVISOS DE CHEGADA NO ENDEREÇO: Se o texto contiver avisos como "ligar quando chegar porque é apartamento", "ligar quando chegar porque é kitnet" ou "ligar quando chegar porque é nos fundos", pronuncie essa instrução exatamente dessa forma natural ao final da respectiva entrega.
+6. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
+   - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa".
+   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "sapateira", "cristaleira", "bancada", "prateleira", "estante" → artigo FEMININO: "uma escrivaninha", "uma mesa".
+5. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). Para distâncias com decimal, USE a vírgula real no formato "5,2 quilômetros", "27,1 quilômetros", NUNCA escreva a palavra "vírgula" por extenso. NUNCA escreva dígitos isolados sem unidade.
+6. SEM EXPRESSÕES REPETIDAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
+7. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde."
+8. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
+9. HORÁRIOS E AVISOS OPERACIONAIS: 
+   - As janelas padrão são 9-12h e 13-18h. Se a entrega for na janela padrão, NUNCA diga o horário específico. SOMENTE se for diferente (ex: 08:00), mencione o horário em específico.
+   - Mantenha avisos operacionais (levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede).
+10. OMISSÃO DE CORES E ACABAMENTOS: PROIBIDO pronunciar nomes de cores ou combinações ("freijó", "off white", "preto", "branco", "cinamomo", etc.).
+11. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
+12. RETORNE APENAS O TEXTO A SER PRONUNCIADO.
 
-Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega pertinho de um balcão para pia e uma pia de marmorite, sem montagem no endereço, agendada para um horário em específico às 08:00. À tarde, temos uma entrega de uma escrivaninha e uma cômoda, não tão perto, a 5,2 quilômetros, sem montagem no endereço, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de um guarda-roupa sonata, um balcão e uma cozinha lorena, bem longe, a 26,8 quilômetros, com montagem no endereço, com atenção para fazer instalação na parede. Pessoal, lembrem de desmontar hoje o móvel de mostruário para amanhã estar pronto para ser levado, já que é um móvel de mostruário."
+Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega de dois itens, agendada para um horário em específico às 08:00. À tarde, temos uma entrega de três itens, não tão perto, a 5,2 quilômetros, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de quatro itens, sendo um guarda-roupa sonata, bem longe, a 26,8 quilômetros, com montagem no endereço, com atenção para fazer instalação na parede."
 
 Texto base para refinamento: "${smartText}"`;
 

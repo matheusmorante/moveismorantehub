@@ -269,7 +269,7 @@ const ProductCard = ({
                     {!isVariation && (
                         <div className="flex items-center flex-wrap gap-2 mt-1 leading-relaxed">
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">
-                                {getCategoryBreadcrumb(product.categoryIds || [], categoryTree)}
+                                {getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || product.category || "-"}
                             </span>
                         </div>
                     )}

@@ -205,8 +205,8 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
             className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"}
             onClick={(e) => e.stopPropagation()}
         >
-            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col xl:flex-row justify-between items-center gap-3 shrink-0 ${isScrolled ? 'px-3 py-1.5 sm:px-6 sm:py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'px-3 py-2 sm:px-6 sm:py-3 bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'px-3 py-2 sm:px-6 sm:py-3 bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'px-3 py-2 sm:px-6 sm:py-3 bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'px-3 py-2 sm:px-6 sm:py-3 bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
-                <div className="flex w-full xl:w-auto justify-between items-center">
+            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col lg:flex-row justify-between items-center gap-3 p-4 shrink-0 ${isScrolled ? 'px-3 py-1.5 sm:px-6 sm:py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
+                <div className="flex w-full lg:w-auto justify-between items-center shrink-0">
                     <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer" onClick={() => setIsScrolled(false)}>
                         <div className={`flex items-center justify-center rounded-xl sm:rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-8 h-8 sm:w-9 sm:h-9' : 'w-8 h-8 sm:w-10 sm:h-10 lg:w-11 lg:h-11'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
                             <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-xs sm:text-base' : 'text-sm sm:text-lg lg:text-xl'}`} />
@@ -221,7 +221,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                         </div>
                     </div>
 
-                    <div className="flex xl:hidden items-center gap-2">
+                    <div className="flex lg:hidden items-center gap-2">
                         <button
                             type="button"
                             onClick={onClose}
@@ -232,7 +232,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                     </div>
                 </div>
 
-                <div className={`transition-all duration-500 w-full xl:w-auto xl:flex-1 ${isScrolled ? 'max-w-xl mx-2 sm:mx-4' : 'max-w-xl mx-2 sm:mx-4 lg:mx-8'}`}>
+                <div className={`transition-all duration-500 w-full lg:w-auto lg:flex-1 max-w-2xl px-2`}>
                     <OrderStepper 
                         currentStep={form.state.currentStep} 
                         jumpToStep={form.actions.jumpToStep} 
@@ -241,11 +241,11 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                     />
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full xl:w-auto justify-center xl:justify-end">
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full lg:w-auto justify-center lg:justify-end shrink-0">
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`hidden xl:flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9`}
+                        className={`hidden lg:flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9`}
                     >
                         <i className="bi bi-x-lg text-xs sm:text-base" />
                     </button>

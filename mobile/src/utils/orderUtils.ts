@@ -149,8 +149,6 @@ export const formatGroupDateLabel = (dateStr: string): string => {
 
   if (clean === todayStr) {
     return `Hoje (${dayName}, ${formattedDate})`;
-  } else if (clean === tomorrowStr) {
-    return `Amanhã (${dayName}, ${formattedDate})`;
   }
 
   return `${dayName}, ${formattedDate}`;

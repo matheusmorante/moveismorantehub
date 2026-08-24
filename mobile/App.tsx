@@ -56,6 +56,7 @@ export default function App() {
   const [assemblySubTab, setAssemblySubTab] = useState<'internal' | 'outside'>('internal');
 
   const [aiSummaryTab, setAiSummaryTab] = useState<'today' | 'tomorrow'>('today');
+  const [hasTodayDeliveries, setHasTodayDeliveries] = useState<boolean>(true);
   const [aiSummaryToday, setAiSummaryToday] = useState<string>('');
   const [aiSummaryTomorrow, setAiSummaryTomorrow] = useState<string>('');
   const [isGeneratingAISummary, setIsGeneratingAISummary] = useState(false);
@@ -275,6 +276,45 @@ export default function App() {
         }
       });
 
+      // Calcular se há alguma entrega para hoje especificamente
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+
+      const todayOrders = activeOrders.filter((o: any) => {
+        const oData = o.order_data || {};
+        const orderStatus = (o.status || oData.status || '').toLowerCase();
+        if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'cancelado') return false;
+
+        const shipping = oData.shipping || {};
+        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
+        
+        const isExplicitlyPending = !!(
+          sched.pendingScheduling ||
+          oData.pendingScheduling ||
+          o.pending_scheduling ||
+          orderStatus === 'pending_scheduling' ||
+          orderStatus === 'agendar_depois'
+        );
+        if (isExplicitlyPending) return false;
+
+        const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
+        if (!rawSchedDate || rawSchedDate === 'sem_data') return false;
+
+        const cleanDate = parseOrderDateStr(rawSchedDate);
+        return cleanDate === todayStr;
+      });
+
+      console.log(`[Dashboard] Pedidos encontrados para hoje (${todayStr}):`, todayOrders.map(o => ({ id: o.id, code: o.code, sched: o.order_data?.shipping?.scheduling?.date || o.scheduled_date })));
+
+      const hasToday = todayOrders.length > 0;
+      setHasTodayDeliveries(hasToday);
+      if (!hasToday) {
+        setAiSummaryTab('tomorrow');
+      }
+
       setDeliveriesCount(dCount);
       setAssembliesInternalCount(aIntCount);
       setAssembliesOutsideCount(aOutCount);
@@ -423,6 +463,7 @@ export default function App() {
                 isDarkMode={isDarkMode}
                 aiSummaryTab={aiSummaryTab}
                 setAiSummaryTab={setAiSummaryTab}
+                hasTodayDeliveries={hasTodayDeliveries}
                 aiSummaryToday={aiSummaryToday}
                 aiSummaryTomorrow={aiSummaryTomorrow}
                 isGeneratingAISummary={isGeneratingAISummary}

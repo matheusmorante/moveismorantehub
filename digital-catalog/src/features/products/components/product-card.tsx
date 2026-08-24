@@ -164,7 +164,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
       <CardContent className="p-2 pb-1 flex-1 flex flex-col justify-between">
         <Link href={`/produto/${product.slug}`}>
           <h3 
-            className="font-bold text-[14px] sm:text-[15px] line-clamp-2 transition-colors h-10 leading-tight"
+            className="font-bold text-[14px] sm:text-[15px] line-clamp-2 overflow-hidden transition-colors min-h-[2.5rem] leading-tight"
             style={{
               color: product.opportunity 
                 ? (product.opportunity.title_color ? product.opportunity.title_color : (

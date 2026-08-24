@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { LabelConfig } from './LabelConstants';
 import LabelItem from './LabelItem';
 
@@ -14,6 +14,8 @@ export interface LabelItemConfig {
     imageFit?: 'contain' | 'cover' | 'fill';
     extraFields?: any[];
     isBlank?: boolean;
+    opportunityId?: string | null;
+    opportunity_id?: string | null;
 }
 
 export interface LogoItemConfig {
@@ -40,6 +42,17 @@ interface Props {
     currentPage?: number;
     previewMode?: boolean;
 }
+
+const getMagnitudeForPrice = (priceStr: any): 'tens' | 'hundreds' | 'thousands' => {
+    if (!priceStr || typeof priceStr !== 'string') return 'hundreds';
+    const parts = priceStr.split(',');
+    if (!parts || parts.length === 0) return 'hundreds';
+    const integerPart = parts[0].replace(/[^\d]/g, '');
+    const length = integerPart.length;
+    if (length <= 2) return 'tens';
+    if (length === 3) return 'hundreds';
+    return 'thousands';
+};
 
 const LabelGrid: React.FC<Props> = ({ 
     config, 
@@ -93,6 +106,58 @@ const LabelGrid: React.FC<Props> = ({
     };
 
     const dimensions = getPaperSize();
+
+    // Injeta os estilos de impressao dinamicamente no document.head para evitar conflito com display: none no #root
+    useEffect(() => {
+        const styleId = 'label-printing-global-styles';
+        let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+        if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = styleId;
+            document.head.appendChild(styleEl);
+        }
+        
+        styleEl.innerHTML = `
+            @media print {
+                @page {
+                    size: ${dimensions.w} ${dimensions.h};
+                    margin: 0;
+                }
+                body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                }
+                /* Oculta tudo que esta no body exceto o portal de impressao */
+                body > *:not(.print-only) {
+                    display: none !important;
+                }
+                .print-only {
+                    display: block !important;
+                    position: static !important;
+                    width: ${dimensions.w} !important;
+                    height: auto !important;
+                    background: white !important;
+                }
+                .label-sheet {
+                    box-shadow: none !important;
+                    border: none !important;
+                    overflow: hidden !important;
+                }
+                .label-item-container {
+                     border: none !important;
+                }
+            }
+            .print-only {
+                display: none !important;
+            }
+        `;
+        
+        return () => {
+            const el = document.getElementById(styleId);
+            if (el) el.remove();
+        };
+    }, [dimensions.w, dimensions.h]);
 
     // Style for the sheet
     const sheetStyle: React.CSSProperties = {
@@ -154,8 +219,8 @@ const LabelGrid: React.FC<Props> = ({
                             }}
                         >
                             {item ? (
-                                <LabelItem 
-                                    config={{
+                                (() => {
+                                    let itemConfig = {
                                         ...config,
                                         isBlank: item.isBlank,
                                         showName: item.showName !== false,
@@ -166,13 +231,134 @@ const LabelGrid: React.FC<Props> = ({
                                         sku: item.isBlank ? '' : (item.sku || (item.type === 'logo' ? '' : (config.sku || ''))),
                                         extraFields: item.isBlank ? [] : (item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || []))),
                                         imageFit: item.imageFit || config.imageFit,
-                                    }} 
-                                    image={item.isBlank ? null : (item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image)))} 
-                                    index={i} 
-                                    scale={item.scale ?? config.imageScale}
-                                    rotation={item.rotation || 0}
-                                    hideBleedBorder={true} // Oculta a borda aqui para ela não ser cortada pela folha
-                                />
+                                    };
+
+                                    if (config.category === 'precos' && !item.isBlank) {
+                                        const oppId = item.opportunityId || item.opportunity_id;
+                                        let savedTemplate: string | null = null;
+
+                                        if (oppId) {
+                                            savedTemplate = localStorage.getItem(`morante_price_label_art_template_${oppId}`);
+                                        }
+
+                                        // Se não encontrou template de oportunidade específica, tenta carregar o padrão 'none' ou o global
+                                        if (!savedTemplate) {
+                                            savedTemplate = localStorage.getItem('morante_price_label_art_template_none') || 
+                                                            localStorage.getItem('price_label_art_global');
+                                        }
+
+                                        if (savedTemplate) {
+                                            try {
+                                                const parsedTemplate = JSON.parse(savedTemplate);
+                                                
+                                                // Identifica a grandeza do produto atual
+                                                const finalDisplayPrice = itemConfig.showPromoPrice ? itemConfig.promoPrice : itemConfig.price;
+                                                const currentMag = getMagnitudeForPrice(finalDisplayPrice);
+                                                
+                                                // Localiza as configurações visuais específicas para essa grandeza
+                                                let magnitudeDesign = {};
+                                                if (parsedTemplate.magnitudeTemplates && parsedTemplate.magnitudeTemplates[currentMag]) {
+                                                    magnitudeDesign = parsedTemplate.magnitudeTemplates[currentMag];
+                                                }
+                                                
+                                                const mergedDesign: any = {
+                                                    ...parsedTemplate,
+                                                    ...magnitudeDesign,
+                                                };
+
+                                                // Tradução explícita das propriedades salvas no editor visual para as propriedades consumidas pelo LabelItem
+                                                const translatedDesign: any = {};
+
+                                                if (mergedDesign.titlePos) {
+                                                    translatedDesign.namePosX = mergedDesign.titlePos.x;
+                                                    translatedDesign.namePosY = mergedDesign.titlePos.y;
+                                                    translatedDesign.promoNamePosX = mergedDesign.titlePos.x;
+                                                    translatedDesign.promoNamePosY = mergedDesign.titlePos.y;
+                                                }
+
+                                                if (mergedDesign.titleFontSize !== undefined) {
+                                                    translatedDesign.nameFontSize = mergedDesign.titleFontSize;
+                                                    translatedDesign.promoNameFontSize = mergedDesign.titleFontSize;
+                                                }
+
+                                                if (mergedDesign.titleColor) {
+                                                    translatedDesign.nameColor = mergedDesign.titleColor;
+                                                    translatedDesign.promoNameColor = mergedDesign.titleColor;
+                                                }
+
+                                                const pricePos = mergedDesign.promoPricePos || mergedDesign.normalPricePos;
+                                                if (pricePos) {
+                                                    translatedDesign.pricePosX = pricePos.x;
+                                                    translatedDesign.pricePosY = pricePos.y;
+                                                    translatedDesign.promoPosX = pricePos.x;
+                                                    translatedDesign.promoPosY = pricePos.y;
+                                                }
+
+                                                if (mergedDesign.priceColor) {
+                                                    translatedDesign.priceColor = mergedDesign.priceColor;
+                                                    translatedDesign.promoPriceColor = mergedDesign.priceColor;
+                                                }
+
+                                                if (mergedDesign.bgColor) {
+                                                    translatedDesign.bg_color = mergedDesign.bgColor;
+                                                }
+
+                                                if (mergedDesign.titleFontFamily) {
+                                                    translatedDesign.nameFontFamily = mergedDesign.titleFontFamily;
+                                                    translatedDesign.promoNameFontFamily = mergedDesign.titleFontFamily;
+                                                    translatedDesign.fontFamily = mergedDesign.titleFontFamily;
+                                                }
+
+                                                if (mergedDesign.promoPriceFontFamily) {
+                                                    translatedDesign.priceFontFamily = mergedDesign.promoPriceFontFamily;
+                                                }
+
+                                                if (mergedDesign.showTitle !== undefined) {
+                                                    translatedDesign.showName = mergedDesign.showTitle;
+                                                }
+
+                                                // Mescla propriedades de design do template geral, grandeza específica e tradução de chaves
+                                                itemConfig = {
+                                                    ...itemConfig,
+                                                    ...mergedDesign,
+                                                    ...translatedDesign,
+                                                    // Preserva os dados do produto atual e configurações físicas da folha
+                                                    columns: config.columns,
+                                                    rows: config.rows,
+                                                    marginT: config.marginT,
+                                                    marginR: config.marginR,
+                                                    marginB: config.marginB,
+                                                    marginL: config.marginL,
+                                                    gapH: config.gapH,
+                                                    gapV: config.gapV,
+                                                    paperSize: config.paperSize,
+                                                    paperWidth: config.paperWidth,
+                                                    paperHeight: config.paperHeight,
+                                                    isBlank: item.isBlank,
+                                                    text: itemConfig.text,
+                                                    price: itemConfig.price,
+                                                    promoPrice: itemConfig.promoPrice,
+                                                    showPromoPrice: itemConfig.showPromoPrice,
+                                                    sku: itemConfig.sku,
+                                                    extraFields: itemConfig.extraFields,
+                                                };
+                                            } catch (e) {
+                                                console.error('Erro ao mesclar template de arte:', e);
+                                            }
+                                        }
+                                    }
+
+                                    return (
+                                        <LabelItem 
+                                            config={itemConfig} 
+                                            image={item.isBlank ? null : (item.image || (item.type === 'logo' ? item.image : (cellImages[i] || (config.category === 'precos' ? null : image))))} 
+                                            index={i} 
+                                            scale={item.scale ?? config.imageScale}
+                                            rotation={item.rotation || 0}
+                                            hideBleedBorder={true} // Oculta a borda aqui para ela não ser cortada pela folha
+                                        />
+                                    );
+                                })()
                             ) : (
                                 config.preset === 'custom' && !cellImages[i] && !image && (!item || item.type === 'default') && (
                                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -186,49 +372,6 @@ const LabelGrid: React.FC<Props> = ({
 
 
             </div>
-            
-            <style dangerouslySetInnerHTML={{ __html: `
-                @media print {
-                    @page {
-                        size: ${dimensions.w} ${dimensions.h};
-                        margin: 0;
-                    }
-                    body {
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        background: white !important;
-                        visibility: hidden !important;
-                    }
-                    .print-only {
-                        visibility: visible !important;
-                        display: block !important;
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: ${dimensions.w} !important;
-                        height: ${dimensions.h} !important;
-                        background: white !important;
-                        z-index: 99999 !important;
-                    }
-                    .print-only *, .label-sheet, .label-item-container {
-                        visibility: visible !important;
-                    }
-                    .label-sheet {
-                        box-shadow: none !important;
-                        border: none !important;
-                        overflow: hidden !important;
-                    }
-                    .label-item-container {
-                         border: none !important;
-                    }
-                    .no-print {
-                        display: none !important;
-                    }
-                }
-                .print-only {
-                    display: none;
-                }
-            `}} />
         </div>
     );
 };

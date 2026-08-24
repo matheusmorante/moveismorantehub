@@ -106,7 +106,10 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
 
     const isPending = sched.pendingScheduling || sched.notInformed || oData.pendingScheduling || o.pending_scheduling || !rawSchedDate || rawSchedDate === 'sem_data';
 
-    if (!isPending && selectedPeriod !== 'all') {
+    // Em montagens, exibe apenas itens com datas definidas (não exibe pendentes sem data)
+    if (isPending) return false;
+
+    if (selectedPeriod !== 'all') {
       const isInPeriod = isDateInPeriod(rawSchedDate || o.created_at, selectedPeriod);
       if (!isInPeriod) return false;
     }
@@ -124,13 +127,12 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
     return !hasItemAssemblyOutside && items.length > 0;
   });
 
-  const rawGrouped = groupOrdersByDate(filteredAssemblies);
+  const rawGrouped = groupOrdersByDate(filteredAssemblies).filter(g => g.dateKey !== 'sem_data');
   const sections = rawGrouped.map(g => {
-    const isPending = g.dateKey === 'sem_data';
     return {
-      title: isPending ? 'Montagens a Agendar' : g.dateLabel,
+      title: g.dateLabel,
       key: g.dateKey,
-      isPending,
+      isPending: false,
       count: g.orders.length,
       fullData: g.orders,
       data: collapsedSections[g.dateKey] ? [] : g.orders,
@@ -257,26 +259,20 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
 
   const renderHeader = () => (
     <View style={styles.headerPadding}>
-      <View style={styles.topRow}>
-        <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>Cronograma de Montagens</Text>
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {/* Botão Select de Período estilo Dashboard */}
-          <TouchableOpacity
-            style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
-            onPress={() => setShowPeriodModal(true)}
-          >
-            <Calendar size={13} color={subTab === 'outside' ? '#ef4444' : '#7c3aed'} style={{ marginRight: 6 }} />
-            <Text style={[styles.selectBtnText, isDarkMode && styles.textDark]}>
-              {currentPeriodLabel}
-            </Text>
-            <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
+      <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>Cronograma de Montagens</Text>
 
-          <TouchableOpacity onPress={onRefresh} style={{ padding: 6 }}>
-            <RefreshCw size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-          </TouchableOpacity>
-        </View>
+      {/* Linha para o Botão Select de Período posicionado à direita abaixo do título */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 }}>
+        <TouchableOpacity
+          style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
+          onPress={() => setShowPeriodModal(true)}
+        >
+          <Calendar size={13} color={subTab === 'outside' ? '#ef4444' : '#7c3aed'} style={{ marginRight: 6 }} />
+          <Text style={[styles.selectBtnText, isDarkMode && styles.textDark]}>
+            {currentPeriodLabel}
+          </Text>
+          <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
       </View>
 
       {/* Sub-tabs: Montagem Na Loja vs Montagem Fora */}
@@ -332,7 +328,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
                   <Text style={[styles.modalOptionText, isSel && styles.modalOptionTextActive, isDarkMode && styles.textDark]}>
                     {opt.label}
                   </Text>
-                  {isSel && <Check size={16} color={subTab === 'outside' ? '#ef4444' : '#7c3aed'} />}
+                  {isSel && <Check size={16} color={subTab === 'outside' ? '#ef4444' : '#d97706'} />}
                 </TouchableOpacity>
               );
             })}
@@ -343,7 +339,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
       {/* Lista com Tópicos Sticky Dobráveis */}
       {loading && !refreshing ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={subTab === 'outside' ? '#ef4444' : '#7c3aed'} />
+          <ActivityIndicator size="large" color={subTab === 'outside' ? '#ef4444' : '#d97706'} />
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 }}>Carregando montagens...</Text>
         </View>
       ) : (
@@ -372,7 +368,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
                 onPress={() => toggleSection(section.key)}
                 style={[
                   styles.stickySectionHeader,
-                  isPending ? styles.stickySectionHeaderPending : (subTab === 'outside' ? styles.stickySectionHeaderOutside : styles.stickySectionHeaderInternal),
+                  isPending ? styles.stickySectionHeaderPending : styles.stickySectionHeaderDefault,
                   isDarkMode && styles.stickySectionHeaderDark
                 ]}
               >
@@ -380,11 +376,11 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
                   {isPending ? (
                     <AlertCircle size={16} color="#d97706" />
                   ) : (
-                    <Calendar size={16} color={subTab === 'outside' ? '#ef4444' : '#7c3aed'} />
+                    <Calendar size={16} color="#2563eb" />
                   )}
                   <Text style={[
                     styles.stickySectionTitle,
-                    isPending && { color: '#92400e' },
+                    isPending ? { color: '#92400e' } : { color: '#1e3a8a' },
                     isDarkMode && styles.textDark
                   ]}>
                     {section.title}
@@ -394,16 +390,16 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={[
                     styles.stickySectionBadge,
-                    { backgroundColor: isPending ? '#d97706' : (subTab === 'outside' ? '#ef4444' : '#7c3aed') }
+                    { backgroundColor: isPending ? '#d97706' : '#2563eb' }
                   ]}>
                     <Text style={styles.stickySectionBadgeText}>
                       {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
                     </Text>
                   </View>
                   {isCollapsed ? (
-                    <ChevronRight size={18} color={isPending ? '#d97706' : (subTab === 'outside' ? '#ef4444' : '#7c3aed')} />
+                    <ChevronDown size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
                   ) : (
-                    <ChevronDown size={18} color={isPending ? '#d97706' : (subTab === 'outside' ? '#ef4444' : '#7c3aed')} />
+                    <ChevronUp size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -502,7 +498,7 @@ const styles = StyleSheet.create({
   tabsRow: { flexDirection: 'row', backgroundColor: '#ffffff', borderRadius: 14, padding: 3, borderWidth: 1, borderColor: '#e2e8f0' },
   tabsRowDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
   tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 11 },
-  tabBtnActive: { backgroundColor: '#7c3aed' },
+  tabBtnActive: { backgroundColor: '#f59e0b' },
   tabBtnOutsideActive: { backgroundColor: '#ef4444' },
   tabBtnText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
   tabBtnTextActive: { color: '#ffffff' },
@@ -523,13 +519,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4
   },
-  stickySectionHeaderInternal: {
-    backgroundColor: '#f5f3ff',
-    borderColor: '#ddd6fe'
-  },
-  stickySectionHeaderOutside: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fecdd3'
+  stickySectionHeaderDefault: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe'
   },
   stickySectionHeaderPending: {
     backgroundColor: '#fef3c7',

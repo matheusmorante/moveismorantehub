@@ -6,6 +6,7 @@ interface Props {
   isDarkMode: boolean;
   aiSummaryTab: 'today' | 'tomorrow';
   setAiSummaryTab: (val: 'today' | 'tomorrow') => void;
+  hasTodayDeliveries?: boolean;
   aiSummaryToday: string;
   aiSummaryTomorrow: string;
   isGeneratingAISummary: boolean;
@@ -24,6 +25,7 @@ export const AISummaryCard: React.FC<Props> = ({
   isDarkMode,
   aiSummaryTab,
   setAiSummaryTab,
+  hasTodayDeliveries = true,
   aiSummaryToday,
   aiSummaryTomorrow,
   isGeneratingAISummary,
@@ -88,17 +90,26 @@ export const AISummaryCard: React.FC<Props> = ({
       {/* Sub-abas de Período (Hoje vs Amanhã) */}
       <View style={{ flexDirection: 'row', backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9', borderRadius: 14, padding: 3, marginBottom: 12 }}>
         <TouchableOpacity
+          disabled={!hasTodayDeliveries}
           style={{
             flex: 1,
             paddingVertical: 6,
             alignItems: 'center',
             borderRadius: 11,
-            backgroundColor: aiSummaryTab === 'today' ? '#2563eb' : 'transparent'
+            backgroundColor: !hasTodayDeliveries
+              ? (isDarkMode ? '#334155' : '#e2e8f0')
+              : (aiSummaryTab === 'today' ? '#2563eb' : 'transparent')
           }}
           onPress={() => setAiSummaryTab('today')}
         >
-          <Text style={{ fontSize: 11, fontWeight: '800', color: aiSummaryTab === 'today' ? '#ffffff' : (isDarkMode ? '#94a3b8' : '#64748b') }}>
-            Resumo de Hoje
+          <Text style={{
+            fontSize: 11,
+            fontWeight: '800',
+            color: !hasTodayDeliveries
+              ? '#ef4444'
+              : (aiSummaryTab === 'today' ? '#ffffff' : (isDarkMode ? '#94a3b8' : '#64748b'))
+          }}>
+            {hasTodayDeliveries ? 'Resumo de Hoje' : 'Hoje não tem entregas'}
           </Text>
         </TouchableOpacity>
 

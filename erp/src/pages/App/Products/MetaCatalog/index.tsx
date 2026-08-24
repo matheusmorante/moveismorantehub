@@ -1,7 +1,45 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/context/AuthContext';
+
+const globalPrefix = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
+
+💳 Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito
+
+🚨⚠️ Aceitamos Senff com juros.
+
+✅ À vista tem desconto no pix, débito ou dinheiro!
+
+
+✅ Sem taxa de frete para endereços próximos.
+
+
+✅ Montagem Incluída para a retirada ou entrega.
+
+
+✅ Atendimento Via WhatsApp
+
+https://wa.me/5541997493547
+
+
+🛒 VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:
+
+https://moveismorante.com.br
+
+___________________________________
+
+Móveis Morante
+
+▶ CNPJ: 44.512 248/0001-07
+
+🕒 Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )
+
+🗺📍Rua Cascavel, 306, Guaraituba, Colombo - PR
+
+____________________________________`;
 
 export default function MetaCatalog() {
+    const { isAdmin } = useAuth();
     const csvUrl = 'https://moveismorante.com.br/api/facebook-catalog.csv';
     const [copied, setCopied] = useState(false);
 
@@ -20,7 +58,92 @@ export default function MetaCatalog() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncProgress, setSyncProgress] = useState({ processed: 0, total: 0 });
 
+    const [stats, setStats] = useState({
+        publishedSimple: 0,
+        publishedVariations: 0,
+        notPublished: 0
+    });
+    const [loadingStats, setLoadingStats] = useState(true);
+
+    React.useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const { supabase } = await import('@/pages/utils/supabaseConfig');
+                
+                // Buscar todos os produtos e variações
+                const { data: products } = await supabase.from('products').select('id, status, active, deleted, deleted_at');
+                const { data: variations } = await supabase.from('product_variations').select('id, product_id, status, active');
+
+                const safeProds = products || [];
+                const safeVars = variations || [];
+
+                let simplePublished = 0;
+                let varsPublished = 0;
+                let notPub = 0;
+
+                // Mapear variações por produto pai
+                const varsByParent: Record<string, any[]> = {};
+                safeVars.forEach(v => {
+                    if (!varsByParent[v.product_id]) varsByParent[v.product_id] = [];
+                    varsByParent[v.product_id].push(v);
+                });
+
+                safeProds.forEach(parent => {
+                    const isParentDeleted = parent.deleted || parent.deleted_at !== null;
+                    const isParentActive = parent.active !== false;
+                    const isParentVisible = parent.status !== 'hidden';
+
+                    const parentVars = varsByParent[parent.id] || [];
+
+                    if (isParentDeleted) {
+                        return;
+                    }
+
+                    if (!isParentActive || !isParentVisible) {
+                        if (parentVars.length > 0) {
+                            notPub += parentVars.length;
+                        } else {
+                            notPub += 1;
+                        }
+                        return;
+                    }
+
+                    if (parentVars.length > 0) {
+                        parentVars.forEach(v => {
+                            const isVarActive = v.active !== false;
+                            const isVarVisible = v.status !== 'hidden';
+
+                            if (isVarActive && isVarVisible) {
+                                varsPublished += 1;
+                            } else {
+                                notPub += 1;
+                            }
+                        });
+                    } else {
+                        simplePublished += 1;
+                    }
+                });
+
+                setStats({
+                    publishedSimple: simplePublished,
+                    publishedVariations: varsPublished,
+                    notPublished: notPub
+                });
+            } catch (err) {
+                console.error("Erro ao calcular estatísticas do catálogo Meta:", err);
+            } finally {
+                setLoadingStats(false);
+            }
+        };
+
+        fetchStats();
+    }, [isSyncing]);
+
     const handleGraphApiSync = async () => {
+        if (!isAdmin) {
+            toast.error("Apenas administradores podem iniciar a sincronização via Graph API.");
+            return;
+        }
         try {
             setIsSyncing(true);
             setSyncProgress({ processed: 0, total: 0 });
@@ -185,9 +308,6 @@ export default function MetaCatalog() {
                             <h1 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                                 Catálogo Meta
                             </h1>
-                            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-100 dark:border-blue-800">
-                                Facebook & Instagram
-                            </span>
                         </div>
                         <p className="text-slate-400 dark:text-slate-500 text-xs font-medium mt-1">
                             Feed de dados CSV em tempo real e sincronização direta via Meta Graph API
@@ -198,11 +318,16 @@ export default function MetaCatalog() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleGraphApiSync}
-                        disabled={isSyncing}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                        disabled={isSyncing || !isAdmin}
+                        title={!isAdmin ? "Apenas administradores podem iniciar a sincronização manual via Graph API" : "Iniciar sincronização imediata"}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 ${
+                            !isAdmin 
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-700 shadow-none' 
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20 disabled:opacity-50'
+                        }`}
                     >
                         <i className={`bi bi-arrow-repeat text-sm ${isSyncing ? 'animate-spin' : ''}`} />
-                        <span>Sincronizar via Graph API</span>
+                        <span>Sincronizar via Graph API (BETA)</span>
                     </button>
 
                     <button
@@ -212,6 +337,69 @@ export default function MetaCatalog() {
                         <i className="bi bi-download text-sm" />
                         <span>Baixar CSV</span>
                     </button>
+                </div>
+            </div>
+
+            {/* Grid de Estatísticas do Catálogo */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Card 1: Produtos Simples Publicados */}
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg shrink-0">
+                        <i className="bi bi-box-seam" />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                            Produtos Simples
+                        </span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                            <span className="text-xl font-black text-slate-800 dark:text-slate-100">
+                                {loadingStats ? "..." : stats.publishedSimple}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                publicados
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card 2: Variações Publicadas */}
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg shrink-0">
+                        <i className="bi bi-tags" />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                            Variações (Filhos)
+                        </span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                            <span className="text-xl font-black text-slate-800 dark:text-slate-100">
+                                {loadingStats ? "..." : stats.publishedVariations}
+                            </span>
+                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                                publicados
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card 3: Produtos Não Publicados */}
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-lg shrink-0">
+                        <i className="bi bi-eye-slash" />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                            Não Publicados
+                        </span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                            <span className="text-xl font-black text-slate-800 dark:text-slate-100">
+                                {loadingStats ? "..." : stats.notPublished}
+                            </span>
+                            <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
+                                inativos/ocultos
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -225,10 +413,6 @@ export default function MetaCatalog() {
                                 <i className="bi bi-link-45deg text-blue-500 text-lg" />
                                 <span>Link Público do Feed CSV</span>
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                Sincronização Dinâmica
-                            </span>
                         </div>
 
                         <p className="text-slate-400 dark:text-slate-500 text-xs leading-relaxed">

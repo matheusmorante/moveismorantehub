@@ -74,10 +74,10 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
                             </div>
 
                             {/* Text Label */}
-                            <div className={`flex flex-col transition-all duration-500 overflow-hidden ${
+                            <div className={`flex flex-col transition-all duration-300 overflow-hidden ${
                                 status === 'active' 
                                 ? 'opacity-100 w-auto translate-x-0' 
-                                : 'opacity-0 w-0 -translate-x-4 lg:opacity-100 lg:w-auto lg:overflow-visible lg:translate-x-0'
+                                : 'opacity-0 w-0 -translate-x-4 md:opacity-100 md:w-auto md:overflow-visible md:translate-x-0'
                             }`}>
                                 <span className={`text-[7px] md:text-[8px] font-black uppercase tracking-widest leading-none ${status === 'error' ? 'text-rose-500' : status === 'active' ? 'text-blue-500' : 'text-slate-400'}`}>
                                     {status === 'error' ? 'Atenção' : `Passo ${s.step}`}
@@ -90,7 +90,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
 
                         {/* Connector Line */}
                         {idx < visibleSteps.length - 1 && (
-                            <div className={`hidden md:block h-[2px] w-4 md:w-6 transition-all duration-1000 shrink-0 ${
+                            <div className={`hidden lg:block h-[2px] w-4 md:w-6 transition-all duration-1000 shrink-0 ${
                                 status === 'done' ? 'bg-emerald-500/30' : status === 'error' ? 'bg-rose-500/20' : 'bg-slate-100 dark:bg-slate-800'
                             }`} />
                         )}

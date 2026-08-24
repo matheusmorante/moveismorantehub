@@ -160,7 +160,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     // 8. TIPO DE ETIQUETA
     const [dbOpportunities, setDbOpportunities] = useState<Opportunity[]>([]);
-    const [selectedOppId, setSelectedOppId] = useState<string>('salvado');
+    const [selectedOppId, setSelectedOppId] = useState<string>('none');
 
     // 9. PARCELAMENTO
     const [showInstallments, setShowInstallments] = useState(false);
@@ -176,8 +176,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     // Estado de Seleção e Menus
     const [selectedElement, setSelectedElement] = useState<PriceLabelLayerKey>(null);
+    const [selectedElements, setSelectedElements] = useState<Set<PriceLabelLayerKey>>(new Set());
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+    const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
     const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
+    const [showColorPickerDropdown, setShowColorPickerDropdown] = useState(false);
 
     // ESTADO DO MODAL DE PREENCHIMENTO DE DADOS / BUSCA DE PRODUTO DA LISTA
     const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
@@ -311,6 +314,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     const isInitializedRef = useRef(false);
     const previewRef = useRef<HTMLDivElement>(null);
+    const prevSelectedRef = useRef<PriceLabelLayerKey>(null);
     
     // Drag de Posição
     const dragRef = useRef<{
@@ -586,7 +590,17 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         const oppSaved = localStorage.getItem(getOppTemplateKey(selectedOppId));
         const salvadoSaved = localStorage.getItem(getOppTemplateKey('salvado'));
-        let savedGlobal = oppSaved || salvadoSaved || ultimasSaved || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+        
+        let savedGlobal = oppSaved;
+        if (!savedGlobal) {
+            if (selectedOppId === 'none') {
+                savedGlobal = localStorage.getItem(getOppTemplateKey('none')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+            } else if (selectedOppId === 'salvado') {
+                savedGlobal = salvadoSaved || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+            } else {
+                savedGlobal = salvadoSaved || ultimasSaved || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+            }
+        }
         
         if (!savedGlobal) {
             for (let i = 0; i < localStorage.length; i++) {
@@ -639,13 +653,16 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     // LISTA DE OPÇÕES DO SELETOR DE ETIQUETA
     const allOppOptions = useMemo(() => {
+        const baseOptions = [{ id: 'none', name: 'SEM OPORTUNIDADE' }];
+
         if (dbOpportunities && dbOpportunities.length > 0) {
-            return dbOpportunities.map(opp => ({
+            const oppsMapped = dbOpportunities.map(opp => ({
                 id: opp.id || opp.slug || opp.name,
                 name: opp.name.toUpperCase()
             }));
+            return [...baseOptions, ...oppsMapped];
         }
-        return [{ id: 'salvado', name: 'QUEIMA DOS SALVADOS' }];
+        return [...baseOptions, { id: 'salvado', name: 'QUEIMA DOS SALVADOS' }];
     }, [dbOpportunities]);
 
     // SALVAMENTO AUTOMÁTICO DE MODELO POR TIPO DE ETIQUETA (SOMENTE APÓS INICIALIZAÇÃO CONCLUÍDA E ESTRITAMENTE ISOLADO POR oppId)
@@ -743,7 +760,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, selectedElement, historyIndex, historyStack]);
 
-    // SELEÇÃO INTELIGENTE DE ELEMENTOS (ALTERNÂNCIA DE CAMADAS SOBREPOSTAS AO RE-CLICAR)
+    // SELEÇÃO INTELIGENTE DE ELEMENTOS (ALTERNÂNCIA DE CAMADAS SOBREPOSTAS AO RE-CLICAR E SHIFT MULTISELEÇÃO)
     const handleElementClick = useCallback((layerKey: PriceLabelLayerKey, e: React.MouseEvent) => {
         e.stopPropagation();
 
@@ -758,53 +775,94 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             { key: 'installments', label: 'Parcelamento' }
         ];
 
-        if (selectedElement === layerKey) {
-            const activeList = visibleLayers.filter(l => {
-                if (l.key === 'title') return showTitle;
-                if (l.key === 'deText') return showDe;
-                if (l.key === 'normalPrice') return showNormalPrice;
-                if (l.key === 'porText') return showPor;
-                if (l.key === 'currencySymbol') return showCurrency;
-                if (l.key === 'promoPrice') return showPromoPrice;
-                if (l.key === 'cents') return showCents;
-                if (l.key === 'installments') return showInstallments;
-                return false;
+        if (e.shiftKey) {
+            setSelectedElements(prev => {
+                const next = new Set(prev);
+                if (next.has(layerKey)) {
+                    next.delete(layerKey);
+                } else {
+                    next.add(layerKey);
+                }
+                
+                // Atualiza o selectedElement principal
+                if (next.size > 0) {
+                    const arr = Array.from(next);
+                    setSelectedElement(arr[arr.length - 1]);
+                } else {
+                    setSelectedElement(null);
+                }
+                return next;
             });
+        } else {
+            setSelectedElements(new Set<PriceLabelLayerKey>([layerKey]));
 
-            const curIdx = activeList.findIndex(l => l.key === layerKey);
-            if (curIdx !== -1 && activeList.length > 1) {
-                const nextLayer = activeList[(curIdx + 1) % activeList.length];
-                setSelectedElement(nextLayer.key);
-                return;
+            if (prevSelectedRef.current === layerKey) {
+                const activeList = visibleLayers.filter(l => {
+                    if (l.key === 'title') return showTitle;
+                    if (l.key === 'deText') return showDe;
+                    if (l.key === 'normalPrice') return showNormalPrice;
+                    if (l.key === 'porText') return showPor;
+                    if (l.key === 'currencySymbol') return showCurrency;
+                    if (l.key === 'promoPrice') return showPromoPrice;
+                    if (l.key === 'cents') return showCents;
+                    if (l.key === 'installments') return showInstallments;
+                    return false;
+                });
+
+                const curIdx = activeList.findIndex(l => l.key === layerKey);
+                if (curIdx !== -1 && activeList.length > 1) {
+                    const nextLayer = activeList[(curIdx + 1) % activeList.length];
+                    setSelectedElement(nextLayer.key);
+                    setSelectedElements(new Set([nextLayer.key]));
+                    return;
+                }
             }
+
+            setSelectedElement(layerKey);
         }
+    }, [selectedElement, selectedElements, showTitle, showDe, showNormalPrice, showPor, showCurrency, showPromoPrice, showCents, showInstallments]);
 
-        setSelectedElement(layerKey);
-    }, [selectedElement, showTitle, showDe, showNormalPrice, showPor, showCurrency, showPromoPrice, showCents, showInstallments]);
-
-    // ARRASTATOR DE ELEMENTOS NO CANVAS COM ÍMÃ E LINHAS GUIA MAGNÉTICAS
+    // ARRASTATOR DE ELEMENTOS NO CANVAS COM ÍMÃ E LINHAS GUIA MAGNÉTICAS (SUPORTE A MULTISELEÇÃO E MOVIMENTAÇÃO CONJUNTA)
     const startDragging = useCallback((layer: PriceLabelLayerKey, e: React.MouseEvent | React.TouchEvent) => {
         e.stopPropagation();
-
-        let initial = { x: 0, y: 0 };
-        if (layer === 'title') initial = { ...titlePos };
-        else if (layer === 'deText') initial = { ...dePos };
-        else if (layer === 'normalPrice') initial = { ...normalPricePos };
-        else if (layer === 'porText') initial = { ...porPos };
-        else if (layer === 'currencySymbol') initial = { ...currencyPos };
-        else if (layer === 'promoPrice') initial = { ...promoPricePos };
-        else if (layer === 'cents') initial = { ...centsPos };
-        else if (layer === 'installments') initial = { ...installmentsPos };
+        
+        prevSelectedRef.current = selectedElement;
 
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        // Determina o grupo ativo de elementos para movimentação
+        let activeElements = new Set(selectedElements);
+        if (!activeElements.has(layer)) {
+            activeElements = new Set([layer]);
+            setSelectedElements(activeElements);
+            setSelectedElement(layer);
+        }
+
+        // Armazena a posição inicial de todas as camadas selecionadas
+        const initialPositions = {} as Record<string, { x: number; y: number }>;
+        activeElements.forEach((key) => {
+            if (key) {
+                let pos = { x: 0, y: 0 };
+                if (key === 'title') pos = { ...titlePos };
+                else if (key === 'deText') pos = { ...dePos };
+                else if (key === 'normalPrice') pos = { ...normalPricePos };
+                else if (key === 'porText') pos = { ...porPos };
+                else if (key === 'currencySymbol') pos = { ...currencyPos };
+                else if (key === 'promoPrice') pos = { ...promoPricePos };
+                else if (key === 'cents') pos = { ...centsPos };
+                else if (key === 'installments') pos = { ...installmentsPos };
+                initialPositions[key] = pos;
+            }
+        });
 
         dragRef.current = {
             isDragging: true,
             layer,
             startX: clientX,
             startY: clientY,
-            initialPos: initial
+            initialPos: initialPositions[layer] || { x: 0, y: 0 },
+            initialPositions
         };
 
         const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
@@ -814,35 +872,40 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             
             const dx = Math.round((curX - dragRef.current.startX));
             const dy = Math.round((curY - dragRef.current.startY));
-            let newX = dragRef.current.initialPos.x + dx;
-            let newY = dragRef.current.initialPos.y + dy;
 
-            const l = dragRef.current.layer;
+            // Elemento principal arrastado (que ditará as correções e o ímã)
+            const primaryKey = dragRef.current.layer;
+            const primaryStartPos = dragRef.current.initialPositions?.[primaryKey];
+            if (!primaryStartPos) return;
+
+            let nextPrimaryX = primaryStartPos.x + dx;
+            let nextPrimaryY = primaryStartPos.y + dy;
+
+            // Alinhamento Magnético no Elemento Principal
             const SNAP_THRESHOLD = 6;
-
             const targets: { x: number; y: number }[] = [
                 { x: 0, y: 0 } // Centro da etiqueta
             ];
 
-            if (showTitle && l !== 'title') targets.push(titlePos);
-            if (showDe && l !== 'deText') targets.push(dePos);
-            if (showNormalPrice && l !== 'normalPrice') targets.push(normalPricePos);
-            if (showPor && l !== 'porText') targets.push(porPos);
-            if (showCurrency && l !== 'currencySymbol') targets.push(currencyPos);
-            if (showPromoPrice && l !== 'promoPrice') targets.push(promoPricePos);
-            if (showCents && l !== 'cents') targets.push(centsPos);
-            if (showInstallments && l !== 'installments') targets.push(installmentsPos);
+            if (showTitle && primaryKey !== 'title') targets.push(titlePos);
+            if (showDe && primaryKey !== 'deText') targets.push(dePos);
+            if (showNormalPrice && primaryKey !== 'normalPrice') targets.push(normalPricePos);
+            if (showPor && primaryKey !== 'porText') targets.push(porPos);
+            if (showCurrency && primaryKey !== 'currencySymbol') targets.push(currencyPos);
+            if (showPromoPrice && primaryKey !== 'promoPrice') targets.push(promoPricePos);
+            if (showCents && primaryKey !== 'cents') targets.push(centsPos);
+            if (showInstallments && primaryKey !== 'installments') targets.push(installmentsPos);
 
             let guideX: number | null = null;
             let guideY: number | null = null;
 
             for (const t of targets) {
-                if (Math.abs(newX - t.x) <= SNAP_THRESHOLD) {
-                    newX = t.x;
+                if (Math.abs(nextPrimaryX - t.x) <= SNAP_THRESHOLD) {
+                    nextPrimaryX = t.x;
                     guideX = t.x;
                 }
-                if (Math.abs(newY - t.y) <= SNAP_THRESHOLD) {
-                    newY = t.y;
+                if (Math.abs(nextPrimaryY - t.y) <= SNAP_THRESHOLD) {
+                    nextPrimaryY = t.y;
                     guideY = t.y;
                 }
             }
@@ -850,16 +913,30 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             setActiveGuideX(guideX);
             setActiveGuideY(guideY);
 
-            const newPos = { x: newX, y: newY };
+            // Deslocamento efetivo final pós alinhamento magnético
+            const finalDx = nextPrimaryX - primaryStartPos.x;
+            const finalDy = nextPrimaryY - primaryStartPos.y;
 
-            if (l === 'title') setTitlePos(newPos);
-            else if (l === 'deText') setDePos(newPos);
-            else if (l === 'normalPrice') setNormalPricePos(newPos);
-            else if (l === 'porText') setPorPos(newPos);
-            else if (l === 'currencySymbol') setCurrencyPos(newPos);
-            else if (l === 'promoPrice') setPromoPricePos(newPos);
-            else if (l === 'cents') setCentsPos(newPos);
-            else if (l === 'installments') setInstallmentsPos(newPos);
+            // Move todas as camadas selecionadas juntas com a mesma variação
+            activeElements.forEach((key) => {
+                if (!key) return;
+                const startPos = dragRef.current.initialPositions?.[key];
+                if (!startPos) return;
+
+                const finalPos = {
+                    x: startPos.x + finalDx,
+                    y: startPos.y + finalDy
+                };
+
+                if (key === 'title') setTitlePos(finalPos);
+                else if (key === 'deText') setDePos(finalPos);
+                else if (key === 'normalPrice') setNormalPricePos(finalPos);
+                else if (key === 'porText') setPorPos(finalPos);
+                else if (key === 'currencySymbol') setCurrencyPos(finalPos);
+                else if (key === 'promoPrice') setPromoPricePos(finalPos);
+                else if (key === 'cents') setCentsPos(finalPos);
+                else if (key === 'installments') setInstallmentsPos(finalPos);
+            });
         };
 
         const handleMouseUp = () => {
@@ -877,7 +954,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         window.addEventListener('touchmove', handleMouseMove, { passive: false });
         window.addEventListener('touchend', handleMouseUp);
     }, [
-        titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos,
+        selectedElements, titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos,
         showTitle, showDe, showNormalPrice, showPor, showCurrency, showPromoPrice, showCents, showInstallments
     ]);
 
@@ -919,6 +996,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const startResizing = useCallback((layer: PriceLabelLayerKey, e: React.MouseEvent | React.TouchEvent) => {
         e.stopPropagation();
         setSelectedElement(layer);
+        setSelectedElements(new Set(layer ? [layer] : []));
 
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -993,6 +1071,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const startRotating = useCallback((layer: PriceLabelLayerKey, e: React.MouseEvent | React.TouchEvent) => {
         e.stopPropagation();
         setSelectedElement(layer);
+        setSelectedElements(new Set(layer ? [layer] : []));
 
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
 
@@ -1059,10 +1138,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             }
         }
 
-        const salvadoSaved = localStorage.getItem(getOppTemplateKey('salvado')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-        if (salvadoSaved) {
+        let fallbackSaved = null;
+        if (newOppId === 'none') {
+            fallbackSaved = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+        } else {
+            fallbackSaved = localStorage.getItem(getOppTemplateKey('salvado')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
+        }
+        if (fallbackSaved) {
             try {
-                applySnapshot(JSON.parse(salvadoSaved));
+                applySnapshot(JSON.parse(fallbackSaved));
             } catch (e) {}
         }
     };
@@ -1127,6 +1211,43 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         else if (selectedElement === 'promoPrice') setPromoPriceFontFamily(fontVal);
         else if (selectedElement === 'cents') setCentsFontFamily(fontVal);
         else if (selectedElement === 'installments') setInstallmentsFontFamily(fontVal);
+    };
+
+    // EDICAO DE FONTE E TAMANHO EM LOTE PARA MULTISELECAO
+    const handleBatchFontSize = (v: number) => {
+        selectedElements.forEach(key => {
+            if (key === 'title') setTitleFontSize(v);
+            else if (key === 'deText') setDeFontSize(v);
+            else if (key === 'normalPrice') setNormalPriceFontSize(v);
+            else if (key === 'porText') setPorFontSize(v);
+            else if (key === 'installments') setInstallmentsFontSize(v);
+            else if (key === 'currencySymbol') {
+                if (selectedMagnitude === 'tens') setCurrencyFontSizeTens(v);
+                else if (selectedMagnitude === 'hundreds') setCurrencyFontSizeHundreds(v);
+                else setCurrencyFontSizeThousands(v);
+            } else if (key === 'cents') {
+                if (selectedMagnitude === 'tens') setCentsFontSizeTens(v);
+                else if (selectedMagnitude === 'hundreds') setCentsFontSizeHundreds(v);
+                else setCentsFontSizeThousands(v);
+            } else if (key === 'promoPrice') {
+                if (selectedMagnitude === 'tens') setScaleTens(Math.round(v * 4.5));
+                else if (selectedMagnitude === 'hundreds') setScaleHundreds(Math.round(v * 4));
+                else setScaleThousands(Math.round(v * 3.5));
+            }
+        });
+    };
+
+    const handleBatchFontFamily = (fontVal: string) => {
+        selectedElements.forEach(key => {
+            if (key === 'title') setTitleFontFamily(fontVal);
+            else if (key === 'deText') setDeFontFamily(fontVal);
+            else if (key === 'normalPrice') setNormalPriceFontFamily(fontVal);
+            else if (key === 'porText') setPorFontFamily(fontVal);
+            else if (key === 'currencySymbol') setCurrencyFontFamily(fontVal);
+            else if (key === 'cents') setCentsFontFamily(fontVal);
+            else if (key === 'promoPrice') setPromoPriceFontFamily(fontVal);
+            else if (key === 'installments') setInstallmentsFontFamily(fontVal);
+        });
     };
 
     const activeFontFamily = 
@@ -1378,6 +1499,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     onClick={() => {
                                         setIsFileMenuOpen(false);
                                         setSelectedElement('title');
+                                        setSelectedElements(new Set(['title']));
                                         const newTitle = window.prompt("Nome / Título da Arte:", title);
                                         if (newTitle !== null && newTitle.trim()) {
                                             setTitle(newTitle.trim().toUpperCase());
@@ -1421,28 +1543,16 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
                     {/* SELETOR UNIFICADO: PLANO CARTESIANO (TIPO DE ETIQUETA × GRANDEZA) */}
                     <div className="flex items-center shrink-0">
-                        <select
-                            value={`${selectedOppId}___${selectedMagnitude}`}
-                            onChange={(e) => {
-                                const [oppId, mag] = e.target.value.split('___');
-                                handleSelectCartesianPreset(oppId, mag as 'tens' | 'hundreds' | 'thousands');
-                            }}
-                            className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 text-slate-900 dark:text-white border border-blue-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs max-w-[340px] sm:max-w-[420px] truncate"
+                        <button
+                            type="button"
+                            onClick={() => setIsOppSelectModalOpen(true)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-blue-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider"
+                            title="Escolher Tipo de Etiqueta e Grandeza"
                         >
-                            {allOppOptions.map(opp => (
-                                <optgroup key={opp.id} label={`🏷️ ETIQUETA: ${opp.name}`}>
-                                    <option value={`${opp.id}___tens`}>
-                                        {opp.name} — Dezena (Preços até R$ 99)
-                                    </option>
-                                    <option value={`${opp.id}___hundreds`}>
-                                        {opp.name} — Centena (Preços de R$ 100 a R$ 999)
-                                    </option>
-                                    <option value={`${opp.id}___thousands`}>
-                                        {opp.name} — Milhar (Preços de R$ 1.000 ou mais)
-                                    </option>
-                                </optgroup>
-                            ))}
-                        </select>
+                            <i className="bi bi-tag-fill text-blue-600 dark:text-blue-400 text-sm" />
+                            <span>Tipo de Etiqueta</span>
+                            <i className="bi bi-chevron-down text-[9px] text-slate-400" />
+                        </button>
                     </div>
 
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
@@ -1452,9 +1562,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         type="button"
                         onClick={() => setIsDataFillModalOpen(true)}
                         title="Preencher dados da etiqueta ou puxar produto da lista"
-                        className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 active:scale-95 flex items-center gap-2 cursor-pointer shrink-0"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-slate-800 dark:to-slate-900 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-emerald-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider shrink-0"
                     >
-                        <i className="bi bi-pencil-square text-sm" />
+                        <i className="bi bi-pencil-square text-emerald-600 dark:text-emerald-400 text-sm" />
                         <span>Preencher Dados</span>
                     </button>
 
@@ -1468,11 +1578,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 {/* BOTÃO DESMARCAR (SÓ ÍCONE) */}
                 <button
                     type="button"
-                    onClick={() => setSelectedElement(null)}
-                    disabled={!selectedElement}
+                    onClick={() => {
+                        setSelectedElement(null);
+                        setSelectedElements(new Set());
+                    }}
+                    disabled={!selectedElement && selectedElements.size === 0}
                     title="Desmarcar Seleção"
                     className={`w-8 h-8 rounded-xl transition cursor-pointer shrink-0 flex items-center justify-center ${
-                        selectedElement
+                        selectedElement || selectedElements.size > 0
                             ? 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800'
                             : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
                     }`}
@@ -1483,7 +1596,51 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 <div className="h-6 w-px bg-slate-300 dark:bg-slate-800 shrink-0 mx-0.5" />
 
                 {/* SELEÇÃO ATIVA: FERRAMENTAS DA CAMADA ATIVA */}
-                {selectedElement ? (
+                {selectedElements.size > 1 ? (
+                    <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
+                        {/* Identificador de Seleção em Lote */}
+                        <div className="flex flex-col gap-0.5 items-start shrink-0">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Seleção:</span>
+                            <div className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs h-8">
+                                <i className="bi bi-layers-half text-xs" />
+                                <span>{selectedElements.size} Elementos</span>
+                            </div>
+                        </div>
+
+                        {/* SELETOR DE FONTE EM LOTE */}
+                        <div className="flex flex-col gap-0.5 items-start shrink-0">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Fonte (Lote):</span>
+                            <select
+                                value=""
+                                onChange={e => handleBatchFontFamily(e.target.value)}
+                                className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-bold outline-none h-8 cursor-pointer shadow-xs"
+                            >
+                                <option value="" disabled>Alterar tipografia...</option>
+                                {FONT_OPTIONS.map(font => (
+                                    <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                                        {font.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* TAMANHO DA FONTE EM LOTE */}
+                        <div className="flex flex-col gap-0.5 items-start shrink-0">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Tamanho (Lote):</span>
+                            <div className="flex items-center gap-1 h-8">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="1000"
+                                    placeholder="Ex: 24"
+                                    onChange={e => handleBatchFontSize(Number(e.target.value))}
+                                    className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
+                                />
+                                <span className="text-[10px] font-bold text-slate-400">px</span>
+                            </div>
+                        </div>
+                    </div>
+                ) : selectedElement ? (
                     <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
                         
                         {/* Identificador do Elemento Ativo */}
@@ -1613,20 +1770,97 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                             </div>
                         )}
 
-                        {/* SELETOR DE COR GRADIENTE (SEM RÓTULO E SEM HISTÓRICO) */}
-                        <div className="flex items-center shrink-0">
-                            <label 
-                                className="relative flex items-center justify-center w-8 h-8 rounded-xl border border-slate-300 dark:border-slate-700 shadow-xs cursor-pointer overflow-hidden bg-gradient-to-r from-red-500 via-green-500 to-blue-500 p-0.5" 
-                                title={selectedElement === 'background' ? "Cor do Fundo" : "Cor do Elemento"}
+                        {/* SELETOR DE COR COMPACTO COM POPUP FLUTUANTE */}
+                        <div className="relative shrink-0 flex items-center">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowColorPickerDropdown(!showColorPickerDropdown);
+                                }}
+                                className="relative flex items-center justify-center w-8 h-8 rounded-xl border border-slate-300 dark:border-slate-700 shadow-xs cursor-pointer overflow-hidden p-0.5 bg-white dark:bg-slate-900 active:scale-95 transition-all"
+                                title="Alterar Cor"
                             >
-                                <input
-                                    type="color"
-                                    value={activeColor}
-                                    onChange={e => handleColorSelect(e.target.value)}
-                                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                />
                                 <div className="w-full h-full rounded-lg border border-white/60" style={{ backgroundColor: activeColor }} />
-                            </label>
+                            </button>
+
+                            {showColorPickerDropdown && (
+                                <>
+                                    {/* Overlay desfocado cobrindo a tela */}
+                                    <div 
+                                        className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[9999]" 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowColorPickerDropdown(false);
+                                        }} 
+                                    />
+                                    
+                                    {/* Modal flutuante de cor centralizado e premium */}
+                                    <div 
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 z-[10000] animate-fade-in flex flex-col gap-4"
+                                    >
+                                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                                            <div className="flex items-center gap-2">
+                                                <i className="bi bi-palette-fill text-blue-600 dark:text-blue-400" />
+                                                <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                                                    Escolha de Cor
+                                                </span>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowColorPickerDropdown(false)} 
+                                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                            >
+                                                <i className="bi bi-x-lg text-xs" />
+                                            </button>
+                                        </div>
+
+                                        {/* Seletor Gradiente e Cor Ativa */}
+                                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-2xl p-3">
+                                            <label className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-slate-300 dark:border-slate-700 shadow-md cursor-pointer overflow-hidden bg-gradient-to-r from-red-500 via-green-500 to-blue-500 p-0.5 shrink-0 hover:scale-105 active:scale-95 transition-all">
+                                                <input
+                                                    type="color"
+                                                    value={activeColor}
+                                                    onChange={e => handleColorSelect(e.target.value)}
+                                                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                                                />
+                                                <div className="w-full h-full rounded-lg border border-white/60" style={{ backgroundColor: activeColor }} />
+                                            </label>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Cor Selecionada</span>
+                                                <span className="text-xs font-mono font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">{activeColor}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Cores Recentes */}
+                                        {colorHistory.length > 0 && (
+                                            <div className="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3.5">
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Cores Usadas Recentemente:</span>
+                                                <div className="grid grid-cols-5 gap-2 select-none">
+                                                    {colorHistory.map((color, cIdx) => (
+                                                        <button
+                                                            key={`${color}-${cIdx}`}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleColorSelect(color);
+                                                                setShowColorPickerDropdown(false);
+                                                            }}
+                                                            className={`w-9 h-9 rounded-xl border shadow-2xs hover:scale-110 active:scale-95 transition-all cursor-pointer ${
+                                                                color.toLowerCase() === activeColor.toLowerCase() 
+                                                                    ? 'border-blue-500 dark:border-blue-400 scale-105 ring-2 ring-blue-500/20' 
+                                                                    : 'border-slate-300/40 dark:border-slate-700/60'
+                                                            }`}
+                                                            style={{ backgroundColor: color }}
+                                                            title={color}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* VISIBILIDADE TOGGLE (SÓ ÍCONE DE OLHO) */}
@@ -1660,7 +1894,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
             {/* MODAL BODY: PREVIEW EM 100% DA LARGURA DISPONÍVEL */}
             <div 
-                onClick={() => setSelectedElement(null)}
+                onClick={() => {
+                    setSelectedElement(null);
+                    setSelectedElements(new Set());
+                }}
                 className="flex-1 w-full h-full flex flex-col items-center justify-center p-3 sm:p-6 lg:p-10 bg-slate-200/50 dark:bg-slate-950/80 overflow-y-auto custom-scrollbar relative"
             >
                 <div className="w-full max-w-full lg:max-w-5xl xl:max-w-6xl flex flex-col items-center justify-center my-auto px-2 sm:px-4">
@@ -1671,6 +1908,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         onClick={(e) => {
                             e.stopPropagation();
                             setSelectedElement('background');
+                            setSelectedElements(new Set(['background']));
+                            prevSelectedRef.current = 'background';
                         }}
                         className={`w-full aspect-[1.75/1] rounded-3xl shadow-2xl relative select-none transition-all duration-200 cursor-pointer overflow-visible ${
                             selectedElement === 'background' ? 'ring-2 ring-blue-500 shadow-blue-500/20' : ''
@@ -1712,10 +1951,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: titleFontFamily,
                                     transform: `translate(calc(-50% + ${titlePos.x}px), ${titlePos.y}px) rotate(${titleRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'title' ? 30 : 10
+                                    zIndex: selectedElements.has('title') ? 30 : 10
                                 }}
                                 className={`absolute top-3 sm:top-5 left-1/2 w-max max-w-[90%] inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElement === 'title' 
+                                    selectedElements.has('title') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -1761,10 +2000,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: deFontFamily,
                                     transform: `translate(${dePos.x}px, ${dePos.y}px) rotate(${deRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'deText' ? 30 : 10
+                                    zIndex: selectedElements.has('deText') ? 30 : 10
                                 }}
                                 className={`absolute top-12 sm:top-16 left-6 sm:left-12 w-max inline-flex items-center justify-center font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElement === 'deText' 
+                                    selectedElements.has('deText') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -1809,10 +2048,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: normalPriceFontFamily,
                                     transform: `translate(${normalPricePos.x}px, ${normalPricePos.y}px) rotate(${normalPriceRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'normalPrice' ? 30 : 10
+                                    zIndex: selectedElements.has('normalPrice') ? 30 : 10
                                 }}
                                 className={`absolute top-12 sm:top-16 left-20 sm:left-28 w-max inline-flex items-center justify-center font-black leading-none px-0.5 py-0.5 whitespace-nowrap select-none transition-shadow ${
-                                    selectedElement === 'normalPrice' 
+                                    selectedElements.has('normalPrice') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -1859,10 +2098,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: porFontFamily,
                                     transform: `translate(${porPos.x}px, ${porPos.y}px) rotate(${porRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'porText' ? 30 : 10
+                                    zIndex: selectedElements.has('porText') ? 30 : 10
                                 }}
                                 className={`absolute top-12 sm:top-16 left-56 sm:left-72 w-max inline-flex items-center justify-center font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElement === 'porText' 
+                                    selectedElements.has('porText') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -1907,10 +2146,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: currencyFontFamily,
                                     transform: `translate(${currencyPos.x}px, calc(-50% + ${currencyPos.y}px)) rotate(${currencyRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'currencySymbol' ? 30 : 10
+                                    zIndex: selectedElements.has('currencySymbol') ? 30 : 10
                                 }}
                                 className={`absolute top-1/2 left-4 sm:left-8 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElement === 'currencySymbol' 
+                                    selectedElements.has('currencySymbol') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -1954,10 +2193,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: promoPriceFontFamily,
                                     transform: `translate(calc(-50% + ${promoPricePos.x}px), calc(-50% + ${promoPricePos.y}px)) rotate(${promoPriceRotation}deg) scale(${activeScale / 100})`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'promoPrice' ? 30 : 10
+                                    zIndex: selectedElements.has('promoPrice') ? 30 : 10
                                 }}
                                 className={`absolute top-1/2 left-1/2 w-max inline-flex items-center justify-center px-0.5 py-0.5 select-none transition-transform duration-75 whitespace-nowrap ${
-                                    selectedElement === 'promoPrice' 
+                                    selectedElements.has('promoPrice') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -2004,10 +2243,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: centsFontFamily,
                                     transform: `translate(${centsPos.x}px, calc(-50% + ${centsPos.y}px)) rotate(${centsRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'cents' ? 30 : 10
+                                    zIndex: selectedElements.has('cents') ? 30 : 10
                                 }}
                                 className={`absolute top-1/2 right-4 sm:right-8 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElement === 'cents' 
+                                    selectedElements.has('cents') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -2052,10 +2291,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     fontFamily: installmentsFontFamily,
                                     transform: `translate(calc(-50% + ${installmentsPos.x}px), ${installmentsPos.y}px) rotate(${installmentsRotation}deg)`,
                                     cursor: 'move',
-                                    zIndex: selectedElement === 'installments' ? 30 : 10
+                                    zIndex: selectedElements.has('installments') ? 30 : 10
                                 }}
                                 className={`absolute bottom-3 sm:bottom-5 left-1/2 w-max max-w-[90%] inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-tight px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
-                                    selectedElement === 'installments' 
+                                    selectedElements.has('installments') 
                                         ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                                         : 'border border-transparent'
                                 }`}
@@ -2115,16 +2354,36 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                 <div
                                     key={layer.key}
                                     className={`w-full p-3 rounded-2xl flex items-center justify-between border transition-all ${
-                                        selectedElement === layer.key
+                                        selectedElements.has(layer.key)
                                             ? 'bg-blue-50 dark:bg-blue-950 border-blue-500 text-blue-600 dark:text-blue-400 shadow-sm'
                                             : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
                                     }`}
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setSelectedElement(layer.key);
-                                            setIsLayersModalOpen(false);
+                                        onClick={(e) => {
+                                            if (e.shiftKey) {
+                                                setSelectedElements(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(layer.key)) next.delete(layer.key);
+                                                    else next.add(layer.key);
+                                                    if (next.size > 0) {
+                                                        const arr = Array.from(next);
+                                                        const last = arr[arr.length - 1];
+                                                        setSelectedElement(last);
+                                                        prevSelectedRef.current = last;
+                                                    } else {
+                                                        setSelectedElement(null);
+                                                        prevSelectedRef.current = null;
+                                                    }
+                                                    return next;
+                                                });
+                                            } else {
+                                                setSelectedElement(layer.key);
+                                                setSelectedElements(new Set([layer.key]));
+                                                prevSelectedRef.current = layer.key;
+                                                setIsLayersModalOpen(false);
+                                            }
                                         }}
                                         className="flex items-center gap-3 text-left flex-1 cursor-pointer"
                                     >
@@ -2162,6 +2421,91 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Seleção de Oportunidades & Grandeza (zIndex: 9999) */}
+            {isOppSelectModalOpen && (
+                <div 
+                    style={{ zIndex: 9999 }}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+                >
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
+                        {/* Topo do Modal */}
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                    <i className="bi bi-tag-fill text-lg" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Tipo de Etiqueta</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Selecione o modelo e a ordem de grandeza</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => setIsOppSelectModalOpen(false)}
+                                className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                                <i className="bi bi-x-lg text-xs" />
+                            </button>
+                        </div>
+
+                        {/* Conteúdo do Modal */}
+                        <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-4">
+                            {allOppOptions.map(opp => {
+                                const isSelectedOpp = selectedOppId === opp.id;
+                                return (
+                                    <div 
+                                        key={opp.id} 
+                                        className={`p-4 rounded-2xl border transition-all ${
+                                            isSelectedOpp 
+                                                ? 'border-blue-300 dark:border-blue-800 bg-blue-50/20 dark:bg-blue-950/10' 
+                                                : 'border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full ${isSelectedOpp ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                            <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                                                {opp.name}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                                            {[
+                                                { mag: 'tens' as const, label: 'Dezena', desc: 'até R$ 99', icon: '10' },
+                                                { mag: 'hundreds' as const, label: 'Centena', desc: 'R$ 100 a R$ 999', icon: '100' },
+                                                { mag: 'thousands' as const, label: 'Milhar', desc: 'R$ 1.000 ou mais', icon: '1k' }
+                                            ].map(item => {
+                                                const isSel = isSelectedOpp && selectedMagnitude === item.mag;
+                                                return (
+                                                    <button
+                                                        key={item.mag}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            handleSelectCartesianPreset(opp.id, item.mag);
+                                                            setIsOppSelectModalOpen(false);
+                                                        }}
+                                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                                                            isSel 
+                                                                ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95' 
+                                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black mb-1.5 ${isSel ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                                            {item.icon}
+                                                        </span>
+                                                        <span className="text-xs font-black">{item.label}</span>
+                                                        <span className={`text-[9px] font-bold mt-0.5 ${isSel ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{item.desc}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -2420,10 +2764,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 <button
                     type="button"
                     onClick={onClose}
-                    className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center gap-2 cursor-pointer"
+                    className="px-8 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                 >
-                    <i className="bi bi-check-lg text-sm" />
-                    <span>CONCLUÍDO</span>
+                    <i className="bi bi-box-arrow-right text-sm" />
+                    <span>SAIR</span>
                 </button>
             </div>
 

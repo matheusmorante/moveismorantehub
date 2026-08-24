@@ -151,7 +151,7 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
             lineHeight: '1.1',
             whiteSpace: (el.id === 'name') ? 'normal' : 'nowrap',
             width: '100%',
-            fontFamily: config.fontFamily || 'Inter'
+            fontFamily: el.fontFamily || config.fontFamily || 'Inter'
         };
 
         return (
@@ -184,6 +184,9 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
             </div>
         );
     };
+
+    const rawExtraFields = hasPromo ? config.extraFieldsPromo : config.extraFields;
+    const safeExtraFields = Array.isArray(rawExtraFields) ? rawExtraFields : [];
 
     // Lista de elementos baseada na configuração
     const elements = [
@@ -238,10 +241,11 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
         // Barcode
         { id: 'barcode', pos: { x: (hasPromo ? config.promoBarcodePosX : config.barcodePosX) ?? 50, y: (hasPromo ? config.promoBarcodePosY : config.barcodePosY) ?? 85 }, isBarcode: true, hidden: config.category === 'precos' },
         // Extra Fields
-        ...(hasPromo ? (config.extraFieldsPromo || []) : (config.extraFields || [])).map(f => ({ ...f, pos: { x: f.x, y: f.y }, font: f.size, align: f.align || 'center', valign: 'middle', hidden: false }))
+        ...safeExtraFields.map(f => ({ ...f, pos: { x: f.x, y: f.y }, font: f.size, align: f.align || 'center', valign: 'middle', hidden: false }))
     ].filter(el => !el.hidden);
 
-    const isLogoOnly = config.category === 'logos' || (config as any).printingMode === 'simple' || !!image;
+    // Etiquetas de preço sempre renderizam elementos de texto, mesmo em modo 'simple'
+    const isLogoOnly = config.category !== 'precos' && (config.category === 'logos' || (config as any).printingMode === 'simple' || !!image);
     const isBlank = (config as any).isBlank;
 
     return (

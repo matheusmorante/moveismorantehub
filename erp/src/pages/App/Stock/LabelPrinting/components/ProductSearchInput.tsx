@@ -215,12 +215,23 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                                         }`}
                                     >
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                                                {p.images && p.images[0] ? (
-                                                    <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-xl" />
-                                                ) : (
-                                                    <i className="bi bi-box-seam-fill text-xs" />
-                                                )}
+                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                                {(() => {
+                                                    // Tenta múltiplos campos de imagem - Supabase pode retornar images como array ou string JSON
+                                                    let imgArr = p.images;
+                                                    if (typeof imgArr === 'string') {
+                                                        try { imgArr = JSON.parse(imgArr); } catch { imgArr = undefined; }
+                                                    }
+                                                    const imgSrc = (Array.isArray(imgArr) && imgArr[0])
+                                                        || (p as any).image_url
+                                                        || (p as any).photo
+                                                        || (p as any).thumbnail;
+                                                    return imgSrc ? (
+                                                        <img src={imgSrc} alt="" className="w-full h-full object-cover rounded-xl" />
+                                                    ) : (
+                                                        <i className="bi bi-box-seam-fill text-xs" />
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="flex flex-col min-w-0">
                                                 <span className="text-xs font-black uppercase truncate">{title}</span>

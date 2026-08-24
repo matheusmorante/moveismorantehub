@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, Truck, RefreshCw, ChevronRight, ChevronDown, Hammer, Clock, MapPin, Navigation, Package, AlertCircle, Wrench, Check } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
-import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod } from '../../../utils/orderUtils';
+import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
 
 interface Props {
   isDarkMode: boolean;
@@ -92,29 +92,119 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
     const oData = o.order_data || {};
     if (oData.deleted || o.deleted) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
-    if (orderStatus === 'draft' || orderStatus === 'rascunho') return false;
+    if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'drafts') return false;
 
     const shipping = oData.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
     const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
 
-    const isPending = sched.pendingScheduling || sched.notInformed || oData.pendingScheduling || o.pending_scheduling || !rawSchedDate || rawSchedDate === 'sem_data';
-    if (isPending) return true;
+    // Considera PENDENTE apenas se o pedido foi marcado explicitamente como "Agendar Depois"
+    const isExplicitlyPending = !!(
+      sched.pendingScheduling ||
+      oData.pendingScheduling ||
+      o.pending_scheduling ||
+      orderStatus === 'pending_scheduling' ||
+      orderStatus === 'agendar_depois'
+    );
+
+    if (isExplicitlyPending) return true;
+
+    // Se não tem data agendada nem foi marcado para agendar depois, ignora
+    if (!rawSchedDate || rawSchedDate === 'sem_data') return false;
 
     if (selectedPeriod === 'all') return true;
     return isDateInPeriod(rawSchedDate || o.created_at, selectedPeriod);
   });
 
+  const todayStr = new Date().toLocaleDateString('en-CA'); // 'YYYY-MM-DD' em formato local estável
+
   const rawGrouped = groupOrdersByDate(deliveryOrders);
-  const sections = rawGrouped.map(g => {
-    const isPending = g.dateKey === 'sem_data';
+
+  // 1. Obter todas as datas do período selecionado
+  const getDatesInPeriod = (period: string): string[] => {
+    const dates: string[] = [];
+    const now = new Date();
+    
+    if (period === 'today') {
+      dates.push(now.toLocaleDateString('en-CA'));
+    } else if (period === 'today_and_following') {
+      for (let i = 0; i <= 7; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() + i);
+        dates.push(d.toLocaleDateString('en-CA'));
+      }
+    } else if (period === 'this_week') {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now);
+      monday.setDate(diff);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push(d.toLocaleDateString('en-CA'));
+      }
+    } else if (period === 'this_month') {
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 1; i <= daysInMonth; i++) {
+        const d = new Date(year, month, i);
+        dates.push(d.toLocaleDateString('en-CA'));
+      }
+    } else if (period === 'last_30_days') {
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        dates.push(d.toLocaleDateString('en-CA'));
+      }
+    }
+    
+    return dates;
+  };
+
+  const datesInPeriod = getDatesInPeriod(selectedPeriod);
+
+  // 2. Criar seções vazias para datas sem entrega no período
+  const mergedGroupsMap: Record<string, any[]> = {};
+  rawGrouped.forEach(g => {
+    mergedGroupsMap[g.dateKey] = g.orders;
+  });
+
+  datesInPeriod.forEach(d => {
+    if (!mergedGroupsMap[d]) {
+      mergedGroupsMap[d] = [];
+    }
+  });
+
+  // Ordenar cronologicamente
+  const sortedKeys = Object.keys(mergedGroupsMap).sort((a, b) => {
+    if (a === 'sem_data') return -1;
+    if (b === 'sem_data') return 1;
+    return a.localeCompare(b);
+  });
+
+  const sections = sortedKeys.map(key => {
+    const isPending = key === 'sem_data';
+    const ordersForDay = mergedGroupsMap[key];
+    const count = ordersForDay.length;
+    
+    const isCollapsed = collapsedSections[key] === undefined
+      ? key !== todayStr
+      : !!collapsedSections[key];
+
+    const label = isPending ? 'Agendamentos Pendentes' : formatGroupDateLabel(key);
+
     return {
-      title: isPending ? 'Agendamentos Pendentes' : g.dateLabel,
-      key: g.dateKey,
+      title: label,
+      key,
       isPending,
-      count: g.orders.length,
-      fullData: g.orders,
-      data: collapsedSections[g.dateKey] ? [] : g.orders,
+      count,
+      fullData: ordersForDay,
+      data: isCollapsed 
+        ? [] 
+        : (count === 0 ? [{ id: `empty-${key}`, isEmptyPlaceholder: true }] : ordersForDay),
     };
   });
 
@@ -375,8 +465,19 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderSectionHeader={({ section }) => {
-            const isCollapsed = !!collapsedSections[section.key];
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const isCollapsed = collapsedSections[section.key] === undefined
+              ? section.key !== todayStr
+              : !!collapsedSections[section.key];
             const isPending = section.isPending;
+            const isEmpty = section.count === 0;
+
+            let headerStyle = styles.stickySectionHeaderDefault;
+            if (isPending) {
+              headerStyle = styles.stickySectionHeaderPending;
+            } else if (isEmpty) {
+              headerStyle = styles.stickySectionHeaderEmpty;
+            }
 
             return (
               <TouchableOpacity
@@ -384,7 +485,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
                 onPress={() => toggleSection(section.key)}
                 style={[
                   styles.stickySectionHeader,
-                  isPending ? styles.stickySectionHeaderPending : styles.stickySectionHeaderDefault,
+                  headerStyle,
                   isDarkMode && styles.stickySectionHeaderDark
                 ]}
               >
@@ -392,11 +493,12 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
                   {isPending ? (
                     <AlertCircle size={16} color="#d97706" />
                   ) : (
-                    <Calendar size={16} color="#2563eb" />
+                    <Calendar size={16} color={isEmpty ? (isDarkMode ? '#475569' : '#94a3b8') : '#2563eb'} />
                   )}
                   <Text style={[
                     styles.stickySectionTitle,
                     isPending && { color: '#92400e' },
+                    isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
                     isDarkMode && styles.textDark
                   ]}>
                     {section.title}
@@ -404,21 +506,37 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[styles.stickySectionBadge, isPending && { backgroundColor: '#d97706' }]}>
-                    <Text style={styles.stickySectionBadgeText}>
+                  <View style={[
+                    styles.stickySectionBadge,
+                    isPending && { backgroundColor: '#d97706' },
+                    isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }
+                  ]}>
+                    <Text style={[
+                      styles.stickySectionBadgeText,
+                      isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' }
+                    ]}>
                       {section.count} {section.count === 1 ? 'item' : 'itens'}
                     </Text>
                   </View>
                   {isCollapsed ? (
-                    <ChevronRight size={18} color={isPending ? '#d97706' : '#2563eb'} />
+                    <ChevronRight size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
                   ) : (
-                    <ChevronDown size={18} color={isPending ? '#d97706' : '#2563eb'} />
+                    <ChevronDown size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
                   )}
                 </View>
               </TouchableOpacity>
             );
           }}
-          renderItem={({ item }) => renderCard(item)}
+          renderItem={({ item }) => {
+            if (item.isEmptyPlaceholder) {
+              return (
+                <View style={[styles.emptyDayBox, isDarkMode && styles.emptyDayBoxDark]}>
+                  <Text style={styles.emptyDayText}>Nenhuma entrega agendada</Text>
+                </View>
+              );
+            }
+            return renderCard(item);
+          }}
         />
       )}
     </View>
@@ -539,9 +657,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef3c7',
     borderColor: '#fde68a'
   },
+  stickySectionHeaderEmpty: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0'
+  },
   stickySectionHeaderDark: {
     backgroundColor: '#1e293b',
     borderColor: '#334155'
+  },
+  emptyDayBox: {
+    backgroundColor: '#f8fafc',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 4
+  },
+  emptyDayBoxDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155'
+  },
+  emptyDayText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94a3b8'
   },
   stickySectionTitle: { fontSize: 13, fontWeight: '900', color: '#1e3a8a' },
   stickySectionBadge: { backgroundColor: '#2563eb', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },

@@ -149,12 +149,12 @@ export const updateCategoryChildren = async (parentId: string, childIds: string[
 
 
 export const getCategoryBreadcrumb = (categoryIds: string[], tree: { categories: any[], relations: any[] }) => {
-    if (!tree || !categoryIds || categoryIds.length === 0) return "-";
+    if (!tree || !tree.categories || !categoryIds || categoryIds.length === 0) return "";
 
     const names = categoryIds.map(cid => {
-        const cat = tree.categories.find(c => c.id === cid);
+        const cat = tree.categories.find(c => String(c.id) === String(cid));
         return cat ? cat.name : null;
     }).filter(Boolean);
 
-    return names.join(' | ') || "-";
+    return names.join(' | ') || "";
 };

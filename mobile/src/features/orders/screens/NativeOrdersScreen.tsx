@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingBag, Search, RefreshCw, Truck, Package, Calendar, Clock, Edit2, MoreVertical } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { formatOrderDate, formatOrderTotal } from '../../../utils/orderUtils';
+import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 
 interface Props {
   isDarkMode: boolean;
@@ -20,6 +21,21 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSel
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase.from('settings').select('*').limit(1);
+      if (data && data.length > 0) {
+        const sData = data[0]?.data || data[0];
+        const opts = [
+          ...(sData.deliveryHandlingOptions || []),
+          ...(sData.pickupHandlingOptions || [])
+        ];
+        setHandlingOptions(opts);
+      }
+    } catch (err) {}
+  };
 
   const fetchOrders = async () => {
     try {
@@ -42,11 +58,13 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSel
   };
 
   useEffect(() => {
+    fetchSettings();
     fetchOrders();
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
+    fetchSettings();
     fetchOrders();
   };
 
@@ -168,6 +186,20 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSel
               const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
               const displayTime = sched.startTime ? `${sched.startTime} ${sched.endTime ? `ÀS ${sched.endTime}` : ''}`.toUpperCase() : null;
 
+              const items = oData.items || o.items || [];
+              const orderHandling = (
+                oData.handlingType ||
+                oData.handling ||
+                oData.deliveryType ||
+                shipping.handlingType ||
+                shipping.handling ||
+                o.handling ||
+                ''
+              ).toString();
+
+              const hasOutsideAssembly = isAssemblyOutsideType(orderHandling, handlingOptions) || items.some((i: any) => isAssemblyOutsideType((i.handlingType || i.handling || '').toString(), handlingOptions));
+              const hasInternalAssembly = isAssemblyInternalType(orderHandling, handlingOptions) || items.some((i: any) => isAssemblyInternalType((i.handlingType || i.handling || '').toString(), handlingOptions));
+
               // Cor de cabeçalho baseada no tipo de entrega/retirada
               const headerBg = isPickup ? '#f3e8ff' : '#d1fae5';
               const headerBorder = isPickup ? '#e9d5ff' : '#a7f3d0';
@@ -178,7 +210,7 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSel
                   onPress={() => onSelectOrder && onSelectOrder(o)}
                   style={[styles.orderCard, isDarkMode && styles.orderCardDark]}
                 >
-                  {/* Card Header (Simplificado conforme áudio do usuário) */}
+                  {/* Card Header */}
                   <View style={[styles.cardHeader, { backgroundColor: headerBg, borderColor: headerBorder }]}>
                     <View style={styles.cardHeaderLeft}>
                       {isPickup ? (
@@ -188,8 +220,20 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSel
                       )}
                     </View>
 
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusBadgeText}>● {status}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {hasOutsideAssembly && (
+                        <View style={[styles.assemblyBadge, { backgroundColor: '#ef4444' }]}>
+                          <Text style={styles.assemblyBadgeText}>MONTAGEM FORA</Text>
+                        </View>
+                      )}
+                      {hasInternalAssembly && (
+                        <View style={[styles.assemblyBadge, { backgroundColor: '#f59e0b' }]}>
+                          <Text style={styles.assemblyBadgeText}>MONTAGEM DEPÓSITO</Text>
+                        </View>
+                      )}
+                      <View style={styles.statusBadge}>
+                        <Text style={styles.statusBadgeText}>● {status}</Text>
+                      </View>
                     </View>
                   </View>
 
@@ -214,7 +258,7 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSel
                       <View style={{ flex: 1 }}>
                         <Text style={styles.dateLabel}>{isPickup ? 'RETIRADA' : 'ENTREGA'}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                          {isPickup ? <Package size={13} color="#a855f7" /> : <Truck size={13} color="#10b981" />}
+                          {isPickup && <Package size={13} color="#a855f7" />}
                           <Text style={[styles.dateText, isDarkMode && styles.textDark]}>
                             {rawSchedDate ? formatOrderDate(rawSchedDate) : 'Não informada'}
                           </Text>
@@ -278,6 +322,8 @@ const styles = StyleSheet.create({
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkboxPlaceholder: { width: 14, height: 14, borderWidth: 1, borderColor: '#64748b', borderRadius: 3, backgroundColor: '#ffffff' },
   orderIdText: { fontSize: 11, fontWeight: '900', color: '#475569' },
+  assemblyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  assemblyBadgeText: { fontSize: 9, fontWeight: '900', color: '#ffffff' },
   statusBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: '#fde68a' },
   statusBadgeText: { fontSize: 9, fontWeight: '900', color: '#d97706' },
   cardBody: { padding: 16, gap: 12 },
