@@ -35,9 +35,28 @@ export function useSearch() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  // Normalização de texto sem acentos
+  const normalizeText = (str: string) =>
+    str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : ""
+
+  // Caching local de categorias para busca instantânea sem acento
+  const [allDbCategories, setAllDbCategories] = useState<any[]>([])
+
+  useEffect(() => {
+    async function loadAllCategories() {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name, slug, type")
+        .order("name")
+      if (data) setAllDbCategories(data)
+    }
+    loadAllCategories()
+  }, [])
+
   // Busca sugestões em tempo real ao digitar (Debounce)
   useEffect(() => {
-    if (query.trim().length < 2) {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) {
       setSuggestions({ environments: [], categories: [], products: [] })
       setShowSuggestions(false)
       return
@@ -48,39 +67,41 @@ export function useSearch() {
 
     const timer = setTimeout(async () => {
       try {
-        const searchTerm = query.trim()
+        const normalizedQuery = normalizeText(trimmed)
         
-        // 1. Buscar Ambientes e Categorias
-        const { data: catData } = await supabase
-          .from("categories")
-          .select("id, name, slug, type")
-          .ilike("name", `%${searchTerm}%`)
-          .limit(10)
+        // 1. Filtrar Ambientes e Categorias localmente (insensível a acentos)
+        const matched = allDbCategories.filter(c => 
+          normalizeText(c.name).includes(normalizedQuery)
+        )
+        const environments = matched.filter(c => c.type === "environment").slice(0, 5)
+        const categories = matched.filter(c => c.type === "category").slice(0, 5)
 
-        // 2. Buscar Produtos
-        const { data: prodData } = await supabase
+        // 2. Buscar Produtos no Supabase
+        let prodQuery = supabase
           .from("products")
           .select("id, name, price, promo_price, slug, product_images(image_url, is_main)")
-          .is("deleted_at", null)
-          .ilike("name", `%${searchTerm}%`)
+          .eq("status", "published")
+          .ilike("name", `%${trimmed}%`)
           .limit(5)
 
-        const environments = (catData || []).filter(c => c.type === "environment")
-        const categories = (catData || []).filter(c => c.type === "category")
+        const { data: prodData, error: prodErr } = await prodQuery
 
-        const products = (prodData || []).map(p => {
-          const mainImg = p.product_images?.find((img: any) => img.is_main)?.image_url || 
-                          p.product_images?.[0]?.image_url || 
-                          ""
-          return {
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            promo_price: p.promo_price,
-            slug: p.slug,
-            image: mainImg
-          }
-        })
+        let products: any[] = []
+        if (!prodErr && prodData) {
+          products = prodData.map(p => {
+            const mainImg = p.product_images?.find((img: any) => img.is_main)?.image_url || 
+                            p.product_images?.[0]?.image_url || 
+                            ""
+            return {
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              promo_price: p.promo_price,
+              slug: p.slug,
+              image: mainImg
+            }
+          })
+        }
 
         setSuggestions({
           environments,
@@ -89,19 +110,18 @@ export function useSearch() {
         })
       } catch (err) {
         console.error("Erro ao buscar sugestões:", err)
-        setSuggestions({ environments: [], categories: [], products: [] })
       } finally {
         setLoadingSuggestions(false)
       }
-    }, 250) // 250ms debounce
+    }, 200) // 200ms debounce
 
     return () => clearTimeout(timer)
-  }, [query])
+  }, [query, allDbCategories])
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!query.trim()) return
-    router.push(`/?search=${encodeURIComponent(query.trim())}`)
+    router.push(`/?search=${encodeURIComponent(query.trim())}#produtos`)
     setIsOpen(false)
     setShowSuggestions(false)
   }

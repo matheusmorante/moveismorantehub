@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product, { Variation } from '../pages/types/product.type';
 import { supabase } from '../pages/utils/supabaseConfig';
-import { searchHistoricalItems } from '../pages/utils/productService';
 import DropdownPortal from './shared/DropdownPortal';
 
 interface ProductAutocompleteProps {
@@ -17,11 +16,12 @@ interface ProductAutocompleteProps {
 }
 
 type SuggestionItem = {
-    type: 'product' | 'historical';
-    product?: Product;
+    product: Product;
     variation?: Variation;
-    description?: string;
 };
+
+const normalizeStr = (str: string) => 
+    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const renderHighlightedText = (text: string, query: string) => {
     if (!query.trim()) return <span>{text}</span>;
@@ -74,81 +74,92 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
     useEffect(() => {
         const fetchSuggestions = async () => {
-            if (query.trim().length < 2) {
+            const trimmed = query.trim();
+            if (trimmed.length < 2) {
                 setSuggestions([]);
                 return;
             }
 
             setIsLoading(true);
             try {
-                // 1. Buscar no Catálogo de Produtos
-                const words = query.trim().split(/\s+/).filter(w => w.length > 0);
+                const words = trimmed.split(/\s+/).filter(w => w.length > 0);
                 
                 let dbQuery = supabase
                     .from('products')
-                    .select('*, product_images(*)')
+                    .select('*, product_variations(*), product_images(*)')
                     .is('deleted_at', null);
 
-                // Se houver apenas uma palavra, busca por código OU descrição
                 if (words.length === 1) {
                     dbQuery = dbQuery.or(`description.ilike.%${words[0]}%,code.ilike.%${words[0]}%`);
                 } else {
-                    // Se houver múltiplas palavras, todas devem estar na descrição (AND)
                     words.forEach(word => {
                         dbQuery = dbQuery.ilike('description', `%${word}%`);
                     });
                 }
 
-                const { data: productsData, error: productsError } = await dbQuery.limit(10);
+                const { data: productsData, error: productsError } = await dbQuery.limit(15);
 
                 if (productsError) throw productsError;
                 
                 const items: SuggestionItem[] = [];
+                const searchNormWords = words.map(w => normalizeStr(w));
+
                 (productsData || []).forEach((raw: any) => {
+                    const rawVars = raw.product_variations?.length ? raw.product_variations : raw.variations;
+                    const parsedVars: Variation[] = (Array.isArray(rawVars) ? rawVars : []).map((v: any) => ({
+                        id: String(v.id || v.sku || Math.random()),
+                        sku: v.sku || '',
+                        name: v.name || '',
+                        title: v.title || '',
+                        unitPrice: Number(v.unit_price ?? v.unitPrice ?? raw.unit_price ?? 0),
+                        promoPrice: v.promo_price ?? v.promoPrice ? Number(v.promo_price ?? v.promoPrice) : undefined,
+                        costPrice: Number(v.cost_price ?? v.costPrice ?? raw.cost_price ?? 0),
+                        stock: Number(v.stock ?? 0),
+                        active: v.active !== false,
+                        condition: v.condition || raw.condition || 'novo',
+                        attributes: v.attributes || []
+                    }));
+
                     const p: Product = {
                         id: String(raw.id),
                         code: raw.code,
                         description: raw.description,
-                        unitPrice: Number(raw.unit_price),
-                        costPrice: Number(raw.cost_price),
-                        stock: Number(raw.stock),
-                        minStock: Number(raw.min_stock),
+                        unitPrice: Number(raw.unit_price || 0),
+                        promoPrice: raw.promo_price ? Number(raw.promo_price) : undefined,
+                        costPrice: Number(raw.cost_price || 0),
+                        stock: Number(raw.stock || 0),
+                        minStock: Number(raw.min_stock || 0),
                         unit: raw.unit || 'un',
                         active: raw.active,
-                        hasVariations: raw.has_variations,
-                        variations: raw.variations,
+                        hasVariations: raw.has_variations || parsedVars.length > 0,
+                        variations: parsedVars,
                         itemType: raw.item_type || 'product'
                     };
 
                     if (p.hasVariations && p.variations && p.variations.length > 0) {
                         p.variations.forEach(v => {
                             if (v.active !== false) {
-                                items.push({ type: 'product', product: p, variation: v });
+                                const fullName = v.name && normalizeStr(v.name).includes(normalizeStr(p.description)) 
+                                    ? v.name 
+                                    : `${p.description} - ${v.name}`;
+                                const normFullName = normalizeStr(fullName);
+                                const normSku = normalizeStr(v.sku || '');
+
+                                const matchesAll = searchNormWords.every(nw => 
+                                    normFullName.includes(nw) || normSku.includes(nw)
+                                );
+
+                                if (matchesAll || words.length === 1) {
+                                    items.push({ product: p, variation: v });
+                                }
                             }
                         });
                     } else {
-                        items.push({ type: 'product', product: p });
+                        items.push({ product: p });
                     }
                 });
 
-                // 2. Buscar no Histórico (Pedidos/Compras)
-                if (items.length < 10) {
-                    const historicalDescriptions = await searchHistoricalItems(query);
-                    historicalDescriptions.forEach(desc => {
-                        // Evitar duplicados se já existir no catálogo ou se for idêntico ao que o usuário já digitou
-                        const isQueryIdentical = desc.toLowerCase() === query.toLowerCase();
-                        const alreadyExists = items.some(it => 
-                            it.product?.description.toLowerCase() === desc.toLowerCase() ||
-                            (it.variation && `${it.product?.description} (${it.variation.name})`.toLowerCase() === desc.toLowerCase())
-                        );
-                        
-                        if (!alreadyExists && !isQueryIdentical) {
-                            items.push({ type: 'historical', description: desc });
-                        }
-                    });
-                }
-
-                setSuggestions(items);
+                setSuggestions(items.slice(0, 10));
             } catch (error) {
                 console.error('Erro ao buscar sugestões:', error);
             } finally {
@@ -156,7 +167,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             }
         };
 
-        const timeoutId = setTimeout(fetchSuggestions, 300);
+        const timeoutId = setTimeout(fetchSuggestions, 250);
         return () => clearTimeout(timeoutId);
     }, [query]);
 
@@ -209,61 +220,49 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             </div>
 
             <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && suggestions.length > 0}>
-                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-slate-100 dark:divide-slate-800/50">
                     {suggestions.map((item, index) => {
-                        const { type, product: p, variation: v, description: histDesc } = item;
+                        const { product: p, variation: v } = item;
                         
-                        if (type === 'historical') {
-                            return (
-                                <button
-                                    key={`hist-${index}`}
-                                    type="button"
-                                    onClick={() => {
-                                        if (onSelectDescription) onSelectDescription(histDesc!);
-                                        else onChange?.(histDesc!);
-                                        setQuery(histDesc!);
-                                        setShowSuggestions(false);
-                                    }}
-                                    className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex flex-col gap-0.5"
-                                >
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                        {renderHighlightedText(histDesc!, query)}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 rounded">HISTÓRICO</span>
-                                        <span className="text-[10px] text-slate-400">Item de pedido anterior</span>
-                                    </div>
-                                </button>
-                            );
-                        }
+                        const fullName = v 
+                            ? (v.name && normalizeStr(v.name).includes(normalizeStr(p.description)) ? v.name : `${p.description} - ${v.name}`) 
+                            : p.description;
 
-                        // Catalogo Item
-                        const displayName = v ? v.name : p!.description;
-                        const displayCode = v?.sku || p!.code || 'S/REF';
-                        const displayPrice = v ? v.unitPrice : p!.unitPrice;
-                        const displayStock = v ? v.stock : p!.stock;
+                        const displayCode = v?.sku || p.code || '';
+                        const displayPrice = v 
+                            ? (v.promoPrice || v.unitPrice || p.promoPrice || p.unitPrice || 0) 
+                            : (p.promoPrice || p.unitPrice || 0);
+                        const displayStock = v ? (v.stock ?? 0) : (p.stock ?? 0);
 
                         return (
                             <button
-                                key={`${p!.id}-${v?.id || 'base'}-${index}`}
+                                key={`${p.id}-${v?.id || 'base'}-${index}`}
                                 type="button"
                                 onClick={() => {
-                                    onSelect(p!, v);
-                                    setQuery(displayName);
+                                    onSelect(p, v);
+                                    if (onSelectDescription) onSelectDescription(fullName);
+                                    setQuery(fullName);
                                     setShowSuggestions(false);
                                 }}
-                                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex flex-col gap-0.5"
+                                className="w-full px-4 py-3 text-left hover:bg-blue-50/50 dark:hover:bg-slate-800/60 transition-all flex items-center justify-between gap-3 group"
                             >
-                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                    {renderHighlightedText(displayName, query)}
-                                </span>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{displayCode}</span>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                        {renderHighlightedText(fullName, query)}
+                                    </span>
+                                    {displayCode && (
+                                        <span className="text-[10px] font-mono text-slate-400">
+                                            Cód: {displayCode}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-sans">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(displayPrice)}
                                     </span>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${displayStock && displayStock > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                        Estoque: {displayStock || 0}
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${displayStock > 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-red-50 dark:bg-red-900/30 text-red-500'}`}>
+                                        {displayStock > 0 ? `${displayStock} un` : 'Sem estoque'}
                                     </span>
                                 </div>
                             </button>

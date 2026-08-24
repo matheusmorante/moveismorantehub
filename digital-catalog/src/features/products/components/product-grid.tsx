@@ -97,16 +97,18 @@ export function ProductGrid({ filters }: ProductGridProps) {
           if (filters?.maxPrice !== undefined) {
             q = q.lte("price", filters.maxPrice)
           }
-          if (filters?.type && filters.type !== "all" && filters.type !== "promotion" && filters.type !== "salvados") {
-            q = q.eq("opportunity_id", filters.type)
-          } else if (filters?.type === "promotion") {
-            q = q.not("promo_price", "is", null)
-          } else if (filters?.type === "salvados") {
+          const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
+
+          if (filters?.type === "salvados" || filters?.type === SALVADOS_OPP_ID) {
             if (hasOpportunities) {
-              q = q.eq("opportunity_id", "9d8bedae-b366-4f8c-ac49-74b85b882bde")
+              q = q.or(`is_salvado.eq.true,opportunity_id.eq.${SALVADOS_OPP_ID}`)
             } else {
               q = q.eq("is_salvado", true)
             }
+          } else if (filters?.type === "promotion") {
+            q = q.not("promo_price", "is", null)
+          } else if (filters?.type && filters.type !== "all") {
+            q = q.eq("opportunity_id", filters.type)
           }
 
           const sort = filters?.sortBy || "newest"

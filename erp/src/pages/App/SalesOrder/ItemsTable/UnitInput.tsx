@@ -11,8 +11,7 @@ interface Props {
 const UnitInput = ({ value, onChange, disabled, className }: Props) => {
     return (
         <NumericFormat
-            className={className || `text-right bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-xl outline-none transition-all text-sm font-bold ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            style={{ width: '68px' }}
+            className={className || `w-full text-center bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-1 py-1.5 rounded-xl outline-none transition-all text-xs font-bold ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             value={value}
             allowNegative={false}
             disabled={disabled}

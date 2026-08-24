@@ -78,7 +78,7 @@ export function Header() {
                 {search.suggestions.environments.map(env => (
                   <Link
                     key={env.id}
-                    href={`/?envs=${env.id}`}
+                    href={`/?envs=${env.id}#produtos`}
                     onClick={() => search.setShowSuggestions(false)}
                     className="w-full text-left px-4 py-2 flex items-center justify-between text-xs font-bold text-gray-700 capitalize hover:bg-primary/5"
                   >
@@ -90,7 +90,7 @@ export function Header() {
                 {search.suggestions.categories.map(cat => (
                   <Link
                     key={cat.id}
-                    href={`/?cats=${cat.id}`}
+                    href={`/?cats=${cat.id}#produtos`}
                     onClick={() => search.setShowSuggestions(false)}
                     className="w-full text-left px-4 py-2 flex items-center justify-between text-xs font-bold text-gray-700 capitalize hover:bg-accent/5"
                   >

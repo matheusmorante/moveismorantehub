@@ -25,7 +25,8 @@ export function SubHeader() {
         <nav className="flex items-center overflow-x-auto scrollbar-none min-w-0">
           {/* Oportunidade de Salvados */}
           {(() => {
-            const isSalvadosActive = activeType === "salvados"
+            const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
+            const isSalvadosActive = activeType === "salvados" || activeType === SALVADOS_OPP_ID
             const salvadosClass = [
               "flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5",
               "text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all border-b-2",
@@ -35,7 +36,7 @@ export function SubHeader() {
             ].join(" ")
 
             return (
-              <Link href="/?type=salvados" className={salvadosClass}>
+              <Link href="/?type=salvados#produtos" className={salvadosClass}>
                 <Flame className="h-3.5 w-3.5 fill-current" />
                 QUEIMA DOS SALVADOS
               </Link>
@@ -43,7 +44,10 @@ export function SubHeader() {
           })()}
 
           {environments.map((env) => {
-            const isActive = activeEnvId === env.id && activeType !== "salvados"
+            const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
+            const isSalvadosActive = activeType === "salvados" || activeType === SALVADOS_OPP_ID
+            const activeEnvsList = activeEnvId ? activeEnvId.split(",") : []
+            const isActive = activeEnvsList.includes(env.id) && !isSalvadosActive
             const buttonClass = [
               "flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5",
               "text-xs sm:text-sm font-bold uppercase tracking-wide whitespace-nowrap",
@@ -54,7 +58,7 @@ export function SubHeader() {
             ].join(" ")
 
             return (
-              <Link key={env.id} href={`/?envs=${env.id}`} className={buttonClass}>
+              <Link key={env.id} href={`/?envs=${env.id}#produtos`} className={buttonClass}>
                 {env.name}
               </Link>
             )

@@ -154,12 +154,15 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                                     showBadge={true}
                                     badgeText="R$"
                                 />
-                                {summary.amountRemaining > 0 && (
+                                {Math.abs(summary.amountRemaining) > 0.01 && (
                                     <button
                                         type="button"
-                                        onClick={() => onChange(idx, 'amount', payment.amount + summary.amountRemaining)}
+                                        onClick={() => onChange(idx, 'amount', Math.max(0, Math.round((payment.amount + summary.amountRemaining) * 100) / 100))}
                                         className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all shrink-0"
-                                        title="Puxar saldo"
+                                        title={summary.amountRemaining > 0 
+                                            ? `Puxar saldo restante (${formatCurrency(summary.amountRemaining)})` 
+                                            : `Ajustar valor para o total do pedido (excesso de ${formatCurrency(Math.abs(summary.amountRemaining))})`
+                                        }
                                     >
                                         <i className="bi bi-magic" />
                                     </button>
@@ -313,12 +316,15 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                         showBadge={true}
                         badgeText="R$"
                     />
-                    {summary.amountRemaining > 0 && (
+                    {Math.abs(summary.amountRemaining) > 0.01 && (
                         <button
                             type="button"
-                            onClick={() => onChange(idx, 'amount', payment.amount + summary.amountRemaining)}
+                            onClick={() => onChange(idx, 'amount', Math.max(0, Math.round((payment.amount + summary.amountRemaining) * 100) / 100))}
                             className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all shrink-0"
-                            title={`Puxar saldo restante (${formatCurrency(summary.amountRemaining)})`}
+                            title={summary.amountRemaining > 0 
+                                ? `Puxar saldo restante (${formatCurrency(summary.amountRemaining)})` 
+                                : `Ajustar valor para o total do pedido (excesso de ${formatCurrency(Math.abs(summary.amountRemaining))})`
+                            }
                         >
                             <i className="bi bi-magic" />
                         </button>

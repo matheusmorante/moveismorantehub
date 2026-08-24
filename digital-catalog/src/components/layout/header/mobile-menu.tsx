@@ -92,7 +92,7 @@ export function MobileMenu() {
                 <div className="space-y-1.5">
                   {/* Atalho especial de Salvados */}
                   <Link
-                    href="/?type=salvados"
+                    href="/?type=salvados#produtos"
                     onClick={() => setOpen(false)}
                     className="flex items-center justify-between p-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group"
                   >
@@ -107,7 +107,7 @@ export function MobileMenu() {
                   {environments.map((env) => (
                     <Link
                       key={env.id}
-                      href={`/?envs=${env.id}`}
+                      href={`/?envs=${env.id}#produtos`}
                       onClick={() => setOpen(false)}
                       className="flex items-center justify-between p-2 px-3 rounded-xl hover:bg-primary/5 text-gray-700 hover:text-primary transition-all text-sm font-bold group"
                     >

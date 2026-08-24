@@ -32,6 +32,7 @@ function HomeContent() {
 
   const [categories, setCategories] = useState<any[]>([])
   const [relationships, setRelationships] = useState<any[]>([])
+  const [opportunities, setOpportunities] = useState<any[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [filters, setFilters] = useState(INITIAL_FILTERS)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -46,7 +47,7 @@ function HomeContent() {
     return () => { document.body.style.overflow = "" }
   }, [isSidebarOpen])
 
-    // Sincroniza a URL com o estado de filtros
+  // Sincroniza a URL com o estado de filtros
   useEffect(() => {
     const envsParam = searchParams.get("envs")
     const catsParam = searchParams.get("cats")
@@ -69,7 +70,14 @@ function HomeContent() {
       maxPrice: maxPriceParam ? parseInt(maxPriceParam) : 10000,
     })
 
-    // Apenas atualiza o filtro e mantém o scroll na mesma posição
+    // Se houver filtro ativo ou âncora #produtos na URL, rola suavemente até a seção limpa de produtos
+    const hasFilterParam = !!(envsParam || catsParam || searchParam || (typeParam && typeParam !== "all"))
+    if (hasFilterParam || (typeof window !== "undefined" && window.location.hash === "#produtos")) {
+      setTimeout(() => {
+        const elem = document.getElementById("produtos")
+        if (elem) elem.scrollIntoView({ behavior: "smooth" })
+      }, 150)
+    }
   }, [searchParams])
 
   const handleFilterChange = useCallback((newFilters: any) => {
@@ -115,12 +123,14 @@ function HomeContent() {
 
   useEffect(() => {
     async function loadData() {
-      const [catRes, relRes] = await Promise.all([
+      const [catRes, relRes, oppRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
         supabase.from("category_relationships").select("*"),
+        supabase.from("opportunities").select("*").eq("active", true),
       ])
       if (catRes.data) setCategories(catRes.data)
       if (relRes.data) setRelationships(relRes.data)
+      if (oppRes.data) setOpportunities(oppRes.data)
     }
     loadData()
   }, [])
@@ -184,15 +194,25 @@ function HomeContent() {
     }
 
     if (filters.type !== "all") {
+      let typeLabel = filters.type
+      if (filters.type === "salvados") {
+        typeLabel = "Queima dos Salvados"
+      } else if (filters.type === "promotion") {
+        typeLabel = "Promoções"
+      } else {
+        const opp = opportunities.find(o => o.id === filters.type)
+        if (opp) typeLabel = opp.name
+      }
+
       badges.push({
         id: "type",
-        label: `Tipo: ${filters.type === "salvados" ? "Salvados" : filters.type === "promotion" ? "Promoções" : filters.type}`,
+        label: `Tipo: ${typeLabel}`,
         onRemove: () => handleFilterChange({ type: "all" })
       })
     }
 
     return badges
-  }, [filters, categories, relationships, handleFilterChange])
+  }, [filters, categories, relationships, opportunities, handleFilterChange])nge])
 
   const activeFilterCount = filterBadges.length
   const showHeroAndAdvantages = !filters.search

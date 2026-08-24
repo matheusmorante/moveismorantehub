@@ -334,6 +334,21 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     }, [setShipping]);
 
     const handleSelectProduct = useCallback((idx: number, product: Product, variation?: Variation) => {
+        const normProductDesc = product.description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const normVarName = variation?.name ? variation.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+
+        const fullName = variation 
+            ? (normVarName && normVarName.includes(normProductDesc) ? variation.name : `${product.description} - ${variation.name}`)
+            : product.description;
+
+        const selectedPrice = variation 
+            ? (variation.promoPrice || variation.unitPrice || product.promoPrice || product.unitPrice || 0)
+            : (product.promoPrice || product.unitPrice || 0);
+
+        const selectedCost = variation 
+            ? (variation.costPrice ?? product.costPrice ?? 0)
+            : (product.costPrice ?? 0);
+
         setItems(prev => {
             const newItems = [...prev];
             newItems[idx] = {
@@ -341,11 +356,11 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 productId: product.id,
                 variationId: variation?.id,
                 code: variation?.sku || product.code,
-                description: variation ? variation.name : product.description,
-                unitPrice: (variation?.unitPrice || product.unitPrice) || 0,
-                costPrice: (variation?.costPrice || product.costPrice) || 0,
-                handlingType: product.itemType === 'service' ? 'Execução no local' : '',
-                condition: product.condition || 'novo'
+                description: fullName,
+                unitPrice: Number(selectedPrice) || 0,
+                costPrice: Number(selectedCost) || 0,
+                handlingType: product.itemType === 'service' ? 'Execução no local' : (newItems[idx].handlingType || ''),
+                condition: variation?.condition || product.condition || 'novo'
             };
             return newItems;
         });

@@ -313,61 +313,64 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     </div>
                 )}
             </td>
-            <td className="px-4 py-2">
-                {!item.isComboItem && !isBudget && (
-                    <div className="relative group/hsel">
-                        <select
-                            className={`w-full min-w-[120px] bg-white dark:bg-slate-950 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
-                            value={item.handlingType || ''}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (!val) return;
-                                if (item.handlingType && item.handlingType === val) return;
+            {!isBudget && (
+                <td className="px-3 py-2 w-[140px]">
+                    {!item.isComboItem && (
+                        <div className="relative group/hsel">
+                            <select
+                                className={`w-full bg-white dark:bg-slate-950 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
+                                value={item.handlingType || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!val) return;
+                                    if (item.handlingType && item.handlingType === val) return;
 
-                                if (window.confirm(`Deseja alterar o manuseio para "${val}"?`)) {
-                                    onChange(idx, 'handlingType', val);
-                                }
-                            }}
-                        >
-                            <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
-                            {(() => {
-                                const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
-                                const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
-                                
-                                return (
-                                    <>
-                                         {options.map(opt => (
-                                            <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                                        ))}
-                                        {item.handlingType && !isSelectedInOptions && (
-                                            <option value={item.handlingType} className="italic text-slate-400">
-                                                {item.handlingType} (Atual)
-                                            </option>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </select>
-                        {handlingError && (
-                            <div className="absolute left-0 -top-8 hidden group-hover/hsel:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap font-sans">
-                                {handlingError}
-                                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                            </div>
-                        )}
-                    </div>
-                )}
-            </td>
-            <td className="px-2 py-2">
-                <div style={{ width: '55px' }} className="mx-auto">
+                                    if (window.confirm(`Deseja alterar o manuseio para "${val}"?`)) {
+                                        onChange(idx, 'handlingType', val);
+                                    }
+                                }}
+                            >
+                                <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
+                                {(() => {
+                                    const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
+                                    const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
+                                    
+                                    return (
+                                        <>
+                                             {options.map(opt => (
+                                                <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                                            ))}
+                                            {item.handlingType && !isSelectedInOptions && (
+                                                <option value={item.handlingType} className="italic text-slate-400">
+                                                    {item.handlingType} (Atual)
+                                                </option>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </select>
+                            {handlingError && (
+                                <div className="absolute left-0 -top-8 hidden group-hover/hsel:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap font-sans">
+                                    {handlingError}
+                                    <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </td>
+            )}
+            <td className="px-2 py-2 w-[80px]">
+                <div className="w-full mx-auto">
                     <UnitInput
                         value={item.quantity}
                         onChange={(value: number) => onChange(idx, 'quantity', value)}
                         disabled={item.isComboItem}
                     />
                 </div>
-            <td className="px-2 py-2">
+            </td>
+            <td className="px-2 py-2 w-[110px]">
                 {!item.isComboItem ? (
-                    <div style={{ width: '115px' }} className="ml-auto">
+                    <div className="w-full ml-auto">
                         <CurrencyInput
                             value={tempUnitPrice}
                             onChange={(val: number) => setTempUnitPrice(val)}
@@ -380,9 +383,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     <div className="text-center text-[10px] text-slate-400 font-bold">---</div>
                 )}
             </td>
-            <td className="px-2 py-2 text-right">
+            <td className="px-2 py-2 w-[100px] text-right">
                 {!item.isComboItem && (
-                    <div style={{ width: '115px' }} className="ml-auto">
+                    <div className="w-full ml-auto">
                         <CurrencyInput
                             value={tempDiscountValue}
                             max={item.unitPrice || undefined}
@@ -394,9 +397,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     </div>
                 )}
             </td>
-            <td className="px-2 py-2 text-right">
+            <td className="px-2 py-2 w-[85px] text-right">
                 {!item.isComboItem && (
-                    <div style={{ width: '90px' }} className="ml-auto">
+                    <div className="w-full ml-auto">
                         <CurrencyOrPercentInput
                             value={tempDiscountPercent}
                             max={100}
@@ -408,8 +411,8 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     </div>
                 )}
             </td>
-            <td className="px-2 py-2">
-                <div style={{ width: '115px' }} className="ml-auto">
+            <td className="px-2 py-2 w-[110px]">
+                <div className="w-full ml-auto">
                     <CurrencyInput
                         value={tempSubtotal}
                         max={item.unitPrice || undefined}
@@ -420,18 +423,17 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     />
                 </div>
             </td>
-            </td>
-            <td className="px-2 py-2 text-right">
+            <td className="px-2 py-2 w-[105px] text-right">
                 <div className="font-bold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap">
                     <CurrencyDisplay value={calcItemTotalValue(item)} />
                 </div>
             </td>
-            <td className="px-4 py-2 text-center">
+            <td className="px-2 py-2 w-[50px] text-center">
                 {!item.isComboItem && (
                     <button
                         type="button"
                         onClick={onDelete}
-                        className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="w-8 h-8 mx-auto flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         title="Excluir item"
                     >
                         <i className="bi bi-trash" />

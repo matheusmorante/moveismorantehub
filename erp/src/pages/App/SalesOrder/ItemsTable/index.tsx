@@ -34,7 +34,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
     }
 
     const { width } = useWindowSize();
-    const isMobile = width <= 1500;
+    const isMobile = width < 768;
 
     if (isMobile) {
         return (
@@ -62,22 +62,22 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
     }
 
     return (
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse table-fixed">
             <thead className="bg-slate-50/50 dark:bg-slate-800/30">
                 <tr>
-                    <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 min-w-[200px]">Descrição <span className="text-red-500">*</span></th>
-                    {!isBudget && <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[130px]">Manuseio</th>}
-                    <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[55px]">Qtd. <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[105px]">Preço Un. <span className="text-red-500">*</span></th>
-                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[95px]">Desc. R$</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Desc. %</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[105px]" title="Preço Unitário Líquido">Preço Un. Líq.</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Total</th>
-                    <th className="px-4 py-3 text-center border-none bg-transparent w-[60px]">
+                    <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Descrição <span className="text-red-500">*</span></th>
+                    {!isBudget && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio</th>}
+                    <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd. <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Preço Un. <span className="text-red-500">*</span></th>
+                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Desc. R$</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[85px]">Desc. %</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]" title="Preço Unitário Líquido">Preço Un. Líq.</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[105px]">Total</th>
+                    <th className="px-2 py-3 text-center border-none bg-transparent w-[50px]">
                         <button
                             type="button"
                             onClick={addItem}
-                            className="w-8 h-8 flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-500 transition-all shadow-sm border border-blue-100 dark:border-blue-800"
+                            className="w-8 h-8 mx-auto flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-500 transition-all shadow-sm border border-blue-100 dark:border-blue-800"
                             title="Adicionar Item"
                         >
                             <i className="bi bi-plus-lg" />

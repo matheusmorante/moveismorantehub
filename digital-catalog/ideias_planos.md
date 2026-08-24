@@ -14,3 +14,16 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 
 ## Credenciais e APIs
 - **Gemini API Key**: `AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ` (Salvo para futura integração com IA no Catálogo/ERP)
+
+## Filtro e Menu de Navegação (Em andamento)
+- **Correção da Queima dos Salvados**: Ajustar consulta no Supabase para buscar produtos por `is_salvado = true` ou por `opportunity_id` combinados via `.or()`.
+- **Destaque do Menu Superior**: Sincronizar UUID da oportunidade com o estado ativo do botão no SubHeader.
+## Formulário de Pedidos ERP (Em andamento)
+- **Alinhamento de Colunas**: Ajustar a tabela de itens do Pedido de Vendas para alinhar perfeitamente cabeçalhos (th) e campos de entrada (td), corrigindo a exibição do Manuseio e breakpoint móbile.
+- **Varinha Mágica do Pagamento**: Ajustar o botão da varinha mágica para funcionar bidirecionalmente (aumentando ou reduzindo o valor pago para casar com o total do pedido).
+- **Autocomplete Limpo de Produtos**: Remover sugestões de histórico ('HISTÓRICO') e exibir apenas produtos/variações do catálogo com nome limpo e preenchimento de preços.
+
+
+
+
+
