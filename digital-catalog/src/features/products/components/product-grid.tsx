@@ -100,11 +100,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
 
           if (filters?.type === "salvados" || filters?.type === SALVADOS_OPP_ID) {
-            if (hasOpportunities) {
-              q = q.or(`is_salvado.eq.true,opportunity_id.eq.${SALVADOS_OPP_ID}`)
-            } else {
-              q = q.eq("is_salvado", true)
-            }
+            q = q.eq("opportunity_id", SALVADOS_OPP_ID)
           } else if (filters?.type === "promotion") {
             q = q.not("promo_price", "is", null)
           } else if (filters?.type && filters.type !== "all") {

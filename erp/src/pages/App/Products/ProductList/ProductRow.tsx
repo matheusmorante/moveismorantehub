@@ -46,6 +46,8 @@ interface ProductRowProps {
     onDuplicate?: (product: Product) => void;
 }
 
+import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
+
 const ProductRow = ({
     product,
     onEdit,
@@ -66,6 +68,7 @@ const ProductRow = ({
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({ open: false, type: 'identification' });
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
+    const [whatsAppModal, setWhatsAppModal] = React.useState<{ open: boolean; message: string }>({ open: false, message: '' });
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
     const [oppName, setOppName] = React.useState<string | null>(
@@ -383,6 +386,20 @@ const ProductRow = ({
                                                     </button>
                                                 )}
 
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMenuOpen(false);
+                                                        const pPrice = Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice) ? product.promoPrice : product.unitPrice;
+                                                        const msg = `*${product.name || product.title || product.description}*\n*Código/SKU:* ${product.sku || product.code || 'S/REF'}\n*Preço:* ${formatCurrency(pPrice || 0)}\n\nConfira mais detalhes em nosso catálogo oficial!`;
+                                                        setWhatsAppModal({ open: true, message: msg });
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
+                                                >
+                                                    <i className="bi bi-whatsapp text-emerald-600 dark:text-emerald-400" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Enviar por WhatsApp</span>
+                                                </button>
+
                                                 <Link
                                                     to={`/marketing/posts?product=${product.id}`}
                                                     onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); }}
@@ -487,6 +504,13 @@ const ProductRow = ({
                     onClose={() => setIsSalesModalOpen(false)}
                 />
             )}
+
+            <SendWhatsAppModal
+                isOpen={whatsAppModal.open}
+                onClose={() => setWhatsAppModal(prev => ({ ...prev, open: false }))}
+                initialMessage={whatsAppModal.message}
+                title={`Enviar "${product.name || product.title || product.description}" via WhatsApp`}
+            />
         </tr>
     );
 };

@@ -16,12 +16,15 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 - **Gemini API Key**: `AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ` (Salvo para futura integração com IA no Catálogo/ERP)
 
 ## Filtro e Menu de Navegação (Em andamento)
-- **Correção da Queima dos Salvados**: Ajustar consulta no Supabase para buscar produtos por `is_salvado = true` ou por `opportunity_id` combinados via `.or()`.
+- **Correção da Queima dos Salvados**: Consulta ajustada no Supabase para filtrar exclusivamente pelo ID da oportunidade `opportunity_id = 9d8bedae-b366-4f8c-ac49-74b85b882bde`.
 - **Destaque do Menu Superior**: Sincronizar UUID da oportunidade com o estado ativo do botão no SubHeader.
 ## Formulário de Pedidos ERP (Em andamento)
 - **Alinhamento de Colunas**: Ajustar a tabela de itens do Pedido de Vendas para alinhar perfeitamente cabeçalhos (th) e campos de entrada (td), corrigindo a exibição do Manuseio e breakpoint móbile.
 - **Varinha Mágica do Pagamento**: Ajustar o botão da varinha mágica para funcionar bidirecionalmente (aumentando ou reduzindo o valor pago para casar com o total do pedido).
 - **Autocomplete Limpo de Produtos**: Remover sugestões de histórico ('HISTÓRICO') e exibir apenas produtos/variações do catálogo com nome limpo e preenchimento de preços.
+- **Envio Direto via WhatsApp Cloud API**: Permitir o disparo direto de mensagens para clientes na Lista de Pedidos e na Lista de Produtos sem abrir o aplicativo/WhatsApp Web.
+- **Ações de Assistência**: Removidos os botões de "Etiquetado" e "Enviar pedido de avaliação" para pedidos do tipo Assistência Técnica.
+
 
 
 

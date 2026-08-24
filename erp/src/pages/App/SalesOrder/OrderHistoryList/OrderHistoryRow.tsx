@@ -464,7 +464,7 @@ const OrderHistoryRow = ({
                                 )}
 
                                 {/* Stock Check Badge — Toggle Checkbox com ícone de etiqueta */}
-                                {!showTrash && (
+                                {!showTrash && order.orderType !== 'assistance' && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                         <label
                                             className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${order.isStockChecked

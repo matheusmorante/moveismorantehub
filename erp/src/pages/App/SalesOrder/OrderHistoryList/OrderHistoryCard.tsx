@@ -244,7 +244,7 @@ const OrderHistoryCard = ({
                         </span>
                     )}
 
-                    {!showTrash && (
+                    {!showTrash && order.orderType !== 'assistance' && (
                         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                             <label
                                 className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm text-[8px] font-black uppercase ${
