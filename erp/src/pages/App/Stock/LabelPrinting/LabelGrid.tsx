@@ -140,6 +140,9 @@ const LabelGrid: React.FC<Props> = ({
                 .print-only {
                     display: block !important;
                     position: static !important;
+                    visibility: visible !important;
+                    left: auto !important;
+                    top: auto !important;
                     width: ${dimensions.w} !important;
                     height: auto !important;
                     background: white !important;
@@ -154,7 +157,12 @@ const LabelGrid: React.FC<Props> = ({
                 }
             }
             .print-only {
-                display: none !important;
+                position: absolute !important;
+                left: -9999px !important;
+                top: -9999px !important;
+                width: ${dimensions.w} !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
             }
         `;
         

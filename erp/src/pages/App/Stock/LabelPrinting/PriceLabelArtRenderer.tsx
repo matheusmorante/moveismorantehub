@@ -147,23 +147,33 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         if (!el) return;
 
         const updateScale = () => {
-            // clientWidth/clientHeight são dimensões de layout. Ao usar
-            // getBoundingClientRect aqui, o zoom do preview da folha entra no
-            // cálculo e é aplicado outra vez ao conteúdo do artboard.
-            const width = el.clientWidth;
-            const height = el.clientHeight;
+            const width = el.clientWidth || (el.parentElement ? el.parentElement.clientWidth : 0);
+            const height = el.clientHeight || (el.parentElement ? el.parentElement.clientHeight : 0);
             if (width > 0 && height > 0) {
                 const s = Math.min(width / BASE_ART_WIDTH, height / BASE_ART_HEIGHT);
                 setScale(s > 0 ? s : 1);
+            } else {
+                setScale(0.35);
             }
         };
         updateScale();
 
+        const handleBeforePrint = () => {
+            setTimeout(updateScale, 10);
+        };
+        window.addEventListener('beforeprint', handleBeforePrint);
+
         if (typeof ResizeObserver !== 'undefined') {
             const observer = new ResizeObserver(updateScale);
             observer.observe(el);
-            return () => observer.disconnect();
+            return () => {
+                observer.disconnect();
+                window.removeEventListener('beforeprint', handleBeforePrint);
+            };
         }
+        return () => {
+            window.removeEventListener('beforeprint', handleBeforePrint);
+        };
     }, [containerRef]);
 
     const {
