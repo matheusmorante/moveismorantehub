@@ -94,52 +94,30 @@ const getCentsStr = (priceStr: string, tplCentsText: string): string => {
 import { PriceLabelArtRenderer, PriceLabelArtData } from './PriceLabelArtRenderer';
 
 export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
+    // 1. OPORTUNIDADE DO PRODUTO ATUAL
     const oppId = config.opportunityId || config.opportunity_id || (config.opportunity?.id || config.opportunity?.slug || config.opportunity) || 'none';
+    const effectiveOppId = oppId || 'none';
 
-    let template: any = {};
-    let oppColors: Record<string, string> = {};
-    try {
-        const effectiveOppId = oppId || 'none';
-        const dbOppColors = config.artConfig?.oppColorsMap?.[effectiveOppId]
-            || config.artConfig?.oppColorsMap?.['none']
-            || config.artConfig?.oppColorsMap?.['default'];
-        const rawMap = localStorage.getItem('morante_hub_opp_colors_map');
-        const map = rawMap ? JSON.parse(rawMap) : {};
-        oppColors = dbOppColors || (oppId && map[oppId]) || {};
+    // 2. BUSCA DO TEMPLATE NO SUPABASE (artConfig)
+    const dbOppColors = config.artConfig?.oppColorsMap?.[effectiveOppId]
+        || config.artConfig?.oppColorsMap?.['none']
+        || config.artConfig?.oppColorsMap?.['default']
+        || {};
 
-        // Prioriza a arte persistida no layout do banco (Supabase)
-        const dbTemplate = (oppId && config.artConfig?.opportunities?.[oppId])
-            || config.artConfig?.opportunities?.['none']
-            || config.artConfig?.opportunities?.['default']
-            || config.artConfig?.opportunities?.['salvado']
-            || config.artConfig?.globalSnapshot;
+    const dbTemplate = (effectiveOppId && config.artConfig?.opportunities?.[effectiveOppId])
+        || config.artConfig?.opportunities?.['none']
+        || config.artConfig?.opportunities?.['default']
+        || config.artConfig?.opportunities?.['salvado']
+        || config.artConfig?.globalSnapshot
+        || config;
 
-        if (dbTemplate) {
-            template = dbTemplate;
-        } else {
-            const rawUuid = oppId ? localStorage.getItem(getOppTemplateKey(oppId)) : null;
-            const parsedUuid = rawUuid ? JSON.parse(rawUuid) : null;
-            const useUuidTemplate = parsedUuid && parsedUuid.selectedOppId === oppId;
+    const template: any = dbTemplate || {};
 
-            const rawBase = oppId === 'none'
-                ? localStorage.getItem(getOppTemplateKey('none')) || localStorage.getItem(PRICE_ART_GLOBAL_KEY)
-                : localStorage.getItem(getOppTemplateKey('none')) ||
-                  localStorage.getItem(getOppTemplateKey('salvado')) ||
-                  localStorage.getItem(PRICE_ART_GLOBAL_KEY);
-
-            if (useUuidTemplate) {
-                template = parsedUuid;
-            } else if (rawBase) {
-                template = JSON.parse(rawBase);
-            }
-        }
-    } catch (e) {}
-
+    // 3. ORDEM DE GRANDEZA BASEADA NO PREÇO PRINCIPAL DO PRODUTO ESCOLHIDO (Dezena, Centena, Milhar)
     const displayPrice = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || '0');
     const mag = getPriceMagnitude(displayPrice);
 
-    // Tenta obter o design da magnitude exata do produto
-    // Se não tiver, usa a magnitude que foi salva (selectedMagnitude) ou qualquer outra disponível
+    // 4. DESIGN DA MAGNITUDE ESPECÍFICA (com fallback para a magnitude salva no template)
     const allMags = template.magnitudeTemplates || {};
     const magDesign = allMags[mag]
         || (template.selectedMagnitude && allMags[template.selectedMagnitude])
@@ -148,27 +126,32 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         || allMags['tens']
         || {};
 
-    // t = base do template (raiz) + dados específicos da magnitude
+    // Combinar template raiz + design de magnitude
     const t = { ...template, ...magDesign };
-    const defaultFallbackBg = (oppId === 'salvado') ? '#ff7900' : '#ffffff';
-    const bgColor = oppColors['background'] || t.bgColor || (oppId === 'salvado' ? config.bg_color : '#ffffff') || defaultFallbackBg;
+    const oppColors = dbOppColors || {};
+
+    // 5. CORES
+    const defaultFallbackBg = (effectiveOppId === 'salvado') ? '#ff7900' : '#ffffff';
+    const bgColor = oppColors['background'] || t.bgColor || config.bg_color || defaultFallbackBg;
     const titleColor = oppColors['title'] || t.titleColor || '#000000';
     const deColor = oppColors['deText'] || t.deColor || '#000000';
     const normalPriceColor = oppColors['normalPrice'] || t.normalPriceColor || '#000000';
     const porColor = oppColors['porText'] || t.porColor || '#000000';
     const currencyColor = oppColors['currencySymbol'] || t.currencyColor || '#000000';
-    const priceColor = oppColors['promoPrice'] || t.priceColor || '#000000';
+    const priceColor = oppColors['promoPrice'] || t.priceColor || '#1e3a8a';
     const centsColor = oppColors['cents'] || t.centsColor || '#000000';
     const installmentsColor = oppColors['installments'] || t.installmentsColor || '#000000';
 
+    // 6. TAMANHOS DE FONTE POR MAGNITUDE DA ETIQUETA DO PRODUTO
     const pick = (a: any, b: any, c: any, globalVal: any, fb: number) => {
         let val: any = undefined;
-        if (mag === 'tens') val = a ?? b ?? c ?? globalVal;
-        else if (mag === 'hundreds') val = b ?? a ?? c ?? globalVal;
-        else if (mag === 'thousands') val = c ?? b ?? a ?? globalVal;
+        if (mag === 'tens') val = a ?? globalVal ?? b ?? c;
+        else if (mag === 'hundreds') val = b ?? globalVal ?? a ?? c;
+        else if (mag === 'thousands') val = c ?? globalVal ?? b ?? a;
         if (val !== undefined && val !== null && !isNaN(Number(val)) && Number(val) > 0) return Number(val);
         return fb;
     };
+
     const titleFontSize = pick(t.titleFontSizeTens, t.titleFontSizeHundreds, t.titleFontSizeThousands, t.titleFontSize, 26);
     const porFontSize = pick(t.porFontSizeTens, t.porFontSizeHundreds, t.porFontSizeThousands, t.porFontSize, 34);
     const rawDeFontSize = pick(t.deFontSizeTens, t.deFontSizeHundreds, t.deFontSizeThousands, t.deFontSize, porFontSize);
@@ -179,33 +162,37 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const installmentsFontSize = pick(t.installmentsFontSizeTens, t.installmentsFontSizeHundreds, t.installmentsFontSizeThousands, t.installmentsFontSize, 18);
     const priceScale = mag === 'tens' ? (t.scaleTens ?? 240) : mag === 'hundreds' ? (t.scaleHundreds ?? 210) : (t.scaleThousands ?? 170);
 
-    const titlePos = (t.titlePos && typeof t.titlePos.x === 'number' && typeof t.titlePos.y === 'number') ? t.titlePos : { x: 0, y: 0 };
-    const titleRot = t.titleRotation ?? 0;
-    const groupPos = (template.dePricePorGroupPos && typeof template.dePricePorGroupPos.x === 'number' && typeof template.dePricePorGroupPos.y === 'number')
-        ? template.dePricePorGroupPos
-        : ((t.dePricePorGroupPos && typeof t.dePricePorGroupPos.x === 'number' && typeof t.dePricePorGroupPos.y === 'number')
-            ? t.dePricePorGroupPos
-            : { x: 0, y: 0 });
-    const groupRot = template.dePricePorGroupRotation ?? t.dePricePorGroupRotation ?? 0;
-    const groupGap = template.dePricePorGroupGap ?? t.dePricePorGroupGap ?? 10;
-    const currPos = (t.currencyPos && typeof t.currencyPos.x === 'number' && typeof t.currencyPos.y === 'number') ? t.currencyPos : { x: -280, y: 35 };
-    const currRot = t.currencyRotation ?? 0;
-    const pricePos = (t.promoPricePos && typeof t.promoPricePos.x === 'number' && typeof t.promoPricePos.y === 'number') ? t.promoPricePos : { x: 0, y: 45 };
-    const priceRot = t.promoPriceRotation ?? 0;
-    const centsPos = (t.centsPos && typeof t.centsPos.x === 'number' && typeof t.centsPos.y === 'number') ? t.centsPos : { x: 260, y: -10 };
-    const centsRot = t.centsRotation ?? 0;
-    const instPos = (t.installmentsPos && typeof t.installmentsPos.x === 'number' && typeof t.installmentsPos.y === 'number') ? t.installmentsPos : { x: 0, y: 0 };
-    const instRot = t.installmentsRotation ?? 0;
+    // 7. POSIÇÕES E ROTAÇÕES 100% FIÉIS AO TEMPLATE
+    const titlePos = t.titlePos || config.titlePos || { x: 0, y: 0 };
+    const titleRot = t.titleRotation ?? config.titleRotation ?? 0;
 
-    const showTitle = t.showTitle ?? true;
-    const showDe = t.showDe ?? true;
-    const showNormalPrice = t.showNormalPrice ?? true;
-    const showPor = t.showPor ?? true;
-    const showCurrency = t.showCurrency ?? true;
-    const showPromoPrice = t.showPromoPrice ?? true;
-    const showCents = t.showCents ?? true;
-    const showInstallments = t.showInstallments ?? false;
+    const groupPos = template.dePricePorGroupPos || t.dePricePorGroupPos || config.dePricePorGroupPos || { x: 0, y: 0 };
+    const groupRot = template.dePricePorGroupRotation ?? t.dePricePorGroupRotation ?? config.dePricePorGroupRotation ?? 0;
+    const groupGap = template.dePricePorGroupGap ?? t.dePricePorGroupGap ?? config.dePricePorGroupGap ?? 10;
 
+    const currPos = t.currencyPos || config.currencyPos || { x: 0, y: 0 };
+    const currRot = t.currencyRotation ?? config.currencyRotation ?? 0;
+
+    const pricePos = t.promoPricePos || config.promoPricePos || { x: 0, y: 0 };
+    const priceRot = t.promoPriceRotation ?? config.promoPriceRotation ?? 0;
+
+    const centsPos = t.centsPos || config.centsPos || { x: 0, y: 0 };
+    const centsRot = t.centsRotation ?? config.centsRotation ?? 0;
+
+    const instPos = t.installmentsPos || config.installmentsPos || { x: 0, y: 0 };
+    const instRot = t.installmentsRotation ?? config.installmentsRotation ?? 0;
+
+    // 8. VISIBILIDADE DOS COMPONENTES
+    const showTitle = t.showTitle ?? config.showTitle ?? true;
+    const showDe = t.showDe ?? config.showDe ?? true;
+    const showNormalPrice = t.showNormalPrice ?? config.showNormalPrice ?? true;
+    const showPor = t.showPor ?? config.showPor ?? true;
+    const showCurrency = t.showCurrency ?? config.showCurrency ?? true;
+    const showPromoPrice = t.showPromoPrice ?? config.showPromoPrice ?? true;
+    const showCents = t.showCents ?? config.showCents ?? true;
+    const showInstallments = t.showInstallments ?? config.showInstallments ?? false;
+
+    // 9. VALORES DOS TEXTOS DO PRODUTO SELECIONADO
     const titleText = config.text || config.name || t.title || 'NOME DO PRODUTO';
     const rawNormal = config.price || t.normalPrice || '0';
     const rawPromo = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || t.promoPrice || '0');
@@ -219,40 +206,40 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         showTitle,
         titleFontSize,
         titleColor,
-        titleFontFamily: t.titleFontFamily || 'Inter, system-ui, sans-serif',
+        titleFontFamily: t.titleFontFamily || config.titleFontFamily || 'Inter, system-ui, sans-serif',
         titlePos,
         titleRotation: titleRot,
 
-        deText: t.deText || 'De',
+        deText: t.deText || config.deText || 'De',
         showDe,
         deFontSize,
         deColor,
-        deFontFamily: t.deFontFamily || 'Inter, system-ui, sans-serif',
-        deRotation: t.deRotation ?? 0,
+        deFontFamily: t.deFontFamily || config.deFontFamily || 'Inter, system-ui, sans-serif',
+        deRotation: t.deRotation ?? config.deRotation ?? 0,
 
         normalPrice: fmtBRL(rawNormal),
         showNormalPrice,
         normalPriceFontSize,
         normalPriceColor,
-        normalPriceFontFamily: t.normalPriceFontFamily || 'Inter, system-ui, sans-serif',
-        normalPriceRotation: t.normalPriceRotation ?? 0,
+        normalPriceFontFamily: t.normalPriceFontFamily || config.normalPriceFontFamily || 'Inter, system-ui, sans-serif',
+        normalPriceRotation: t.normalPriceRotation ?? config.normalPriceRotation ?? 0,
 
-        porText: t.porText || 'Por:',
+        porText: t.porText || config.porText || 'Por:',
         showPor,
         porFontSize,
         porColor,
-        porFontFamily: t.porFontFamily || 'Inter, system-ui, sans-serif',
-        porRotation: t.porRotation ?? 0,
+        porFontFamily: t.porFontFamily || config.porFontFamily || 'Inter, system-ui, sans-serif',
+        porRotation: t.porRotation ?? config.porRotation ?? 0,
 
         dePricePorGroupPos: groupPos,
         dePricePorGroupRotation: groupRot,
         dePricePorGroupGap: groupGap,
 
-        currencySymbol: t.currencySymbol || 'R$',
+        currencySymbol: t.currencySymbol || config.currencySymbol || 'R$',
         showCurrency,
         currencyFontSize,
         currencyColor,
-        currencyFontFamily: t.currencyFontFamily || 'Inter, system-ui, sans-serif',
+        currencyFontFamily: t.currencyFontFamily || config.currencyFontFamily || 'Inter, system-ui, sans-serif',
         currencyPos: currPos,
         currencyRotation: currRot,
 
@@ -260,7 +247,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         showPromoPrice,
         priceScale,
         priceColor,
-        promoPriceFontFamily: t.promoPriceFontFamily || 'Inter, system-ui, sans-serif',
+        promoPriceFontFamily: t.promoPriceFontFamily || config.promoPriceFontFamily || 'Inter, system-ui, sans-serif',
         promoPricePos: pricePos,
         promoPriceRotation: priceRot,
 
@@ -268,15 +255,15 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         showCents,
         centsFontSize,
         centsColor,
-        centsFontFamily: t.centsFontFamily || 'Inter, system-ui, sans-serif',
+        centsFontFamily: t.centsFontFamily || config.centsFontFamily || 'Inter, system-ui, sans-serif',
         centsPos,
         centsRotation: centsRot,
 
-        installments: t.installments || 'Em até 10x sem juros',
+        installments: t.installments || config.installments || 'Em até 10x sem juros',
         showInstallments,
         installmentsFontSize,
         installmentsColor,
-        installmentsFontFamily: t.installmentsFontFamily || 'Inter, system-ui, sans-serif',
+        installmentsFontFamily: t.installmentsFontFamily || config.installmentsFontFamily || 'Inter, system-ui, sans-serif',
         installmentsPos: instPos,
         installmentsRotation: instRot,
 
