@@ -866,56 +866,58 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, handleUndo, handleRedo]);
 
-    // Carrega modelo salvo por Oportunidade ou modelo global
+    // Carrega modelo salvo no Supabase (Fonte Única da Verdade) por Oportunidade ou Global
     useEffect(() => {
         if (!isOpen) {
             isInitializedRef.current = false;
             return;
         }
 
-        const dbOppColorsMap = config.artConfig?.oppColorsMap;
-        if (dbOppColorsMap && typeof dbOppColorsMap === 'object') {
-            setOppColorsMap(dbOppColorsMap);
-        } else {
-            const savedOppColorsMap = localStorage.getItem('morante_hub_opp_colors_map');
-            if (savedOppColorsMap) {
-                try {
-                    const parsedColors = JSON.parse(savedOppColorsMap);
-                    if (parsedColors && typeof parsedColors === 'object') {
-                        setOppColorsMap(parsedColors);
-                    }
-                } catch (e) {
-                    console.error("Erro ao carregar mapa de cores de oportunidades:", e);
+        const loadArtConfigFromSupabase = async () => {
+            const layoutId = String(config?.layoutId || 'preco_2x5_restored');
+            let dbArtConfig = config?.artConfig;
+
+            if (!dbArtConfig) {
+                const { data } = await supabase
+                    .from('label_art_configs')
+                    .select('art_config')
+                    .eq('layout_id', layoutId)
+                    .maybeSingle();
+                if (data?.art_config) {
+                    dbArtConfig = data.art_config;
                 }
             }
-        }
 
-        const dbArtSnapshot = config.artConfig?.opportunities?.[selectedOppId];
-        let savedGlobal = dbArtSnapshot
-            ? JSON.stringify(dbArtSnapshot)
-            : (config.artConfig?.opportunities?.['salvado'] ? JSON.stringify(config.artConfig.opportunities['salvado']) : localStorage.getItem(getOppTemplateKey(selectedOppId)));
-        if (!savedGlobal && selectedOppId === 'salvado') {
-            savedGlobal = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-        }
+            if (dbArtConfig) {
+                if (dbArtConfig.oppColorsMap && typeof dbArtConfig.oppColorsMap === 'object') {
+                    setOppColorsMap(dbArtConfig.oppColorsMap);
+                }
 
-        if (savedGlobal) {
-            try {
-                const parsed = JSON.parse(savedGlobal);
-                applySnapshot(parsed, isInitializedRef.current);
-            } catch (e) {
-                console.error("Erro ao restaurar template da etiqueta:", e);
+                const effectiveOppId = selectedOppId || 'none';
+                const snapshotToApply = dbArtConfig.opportunities?.[effectiveOppId]
+                    || dbArtConfig.opportunities?.['none']
+                    || dbArtConfig.opportunities?.['default']
+                    || dbArtConfig.opportunities?.['salvado']
+                    || dbArtConfig.globalSnapshot;
+
+                if (snapshotToApply) {
+                    applySnapshot(snapshotToApply, isInitializedRef.current);
+                } else {
+                    const initialBg = selectedOppId === 'none' ? '#ffffff' : (selectedOppId === 'salvado' ? '#ff7900' : '#ffffff');
+                    setBgColor(initialBg);
+                }
+            } else {
+                const initialBg = selectedOppId === 'none' ? '#ffffff' : (selectedOppId === 'salvado' ? '#ff7900' : '#ffffff');
+                setBgColor(initialBg);
             }
-        } else {
-            // Se a oportunidade selecionada ainda não tem um template próprio salvo
-            const initialBg = selectedOppId === 'none' ? '#ffffff' : (selectedOppId === 'salvado' ? '#ff7900' : '#ffffff');
-            setBgColor(initialBg);
-        }
 
-        // Marca como inicializado após aplicar a restauração
-        setTimeout(() => {
-            isInitializedRef.current = true;
-        }, 100);
-    }, [isOpen, selectedOppId]);
+            setTimeout(() => {
+                isInitializedRef.current = true;
+            }, 100);
+        };
+
+        loadArtConfigFromSupabase();
+    }, [isOpen, selectedOppId, config?.layoutId, config?.artConfig]);
 
     // Carrega oportunidades cadastradas no Supabase
     useEffect(() => {

@@ -1545,16 +1545,21 @@ const LabelPrinting: React.FC = () => {
                                              transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                                          }} className="relative mb-20 origin-top">
                                              <div ref={gridRef} className="shadow-2xl bg-white">
-                                                 <LabelGrid 
-                                                     config={{ ...config, printingMode, _artVersion: artVersion }} 
-                                                     image={selectedImage} 
-                                                     cellImages={cellImages}
-                                                     onCellClick={handleCellClick}
-                                                     labelItems={labelItems}
-                                                     logoItems={logoItems}
-                                                     currentPage={currentPage}
-                                                     
-                                                 />
+                                                 {(() => {
+                                                     const activeLayoutId = String(config.layoutId || 'preco_2x5_restored');
+                                                     const activeArtConfig = savedArtConfigs[activeLayoutId] || savedArtConfigs['preco_2x5_restored'] || config.artConfig;
+                                                     return (
+                                                         <LabelGrid 
+                                                             config={{ ...config, printingMode, _artVersion: artVersion, artConfig: activeArtConfig }} 
+                                                             image={selectedImage} 
+                                                             cellImages={cellImages}
+                                                             onCellClick={handleCellClick}
+                                                             labelItems={labelItems}
+                                                             logoItems={logoItems}
+                                                             currentPage={currentPage}
+                                                         />
+                                                     );
+                                                 })()}
                                              </div>
                                          </div>
                                      </div>
@@ -1571,11 +1576,13 @@ const LabelPrinting: React.FC = () => {
                              ? logoItems.reduce((acc, curr) => acc + curr.quantity, 0)
                              : labelItems.reduce((acc, curr) => acc + curr.quantity, 0);
                          const totalPagesCount = Math.ceil(Math.max(count, 1) / totalCells);
+                         const activeLayoutId = String(config.layoutId || 'preco_2x5_restored');
+                         const activeArtConfig = savedArtConfigs[activeLayoutId] || savedArtConfigs['preco_2x5_restored'] || config.artConfig;
 
                          return Array.from({ length: totalPagesCount }).map((_, pageIdx) => (
                              <div key={pageIdx} style={{ pageBreakAfter: 'always' }}>
                                  <LabelGrid 
-                                     config={{ ...config, printingMode, _artVersion: artVersion }} 
+                                     config={{ ...config, printingMode, _artVersion: artVersion, artConfig: activeArtConfig }} 
                                      image={selectedImage} 
                                      cellImages={cellImages}
                                      labelItems={labelItems}
@@ -2219,7 +2226,10 @@ const LabelPrinting: React.FC = () => {
                     setArtVersion(prev => prev + 1);
                     if (location.pathname === '/templates/price-label' && window.opener) window.close();
                 }}
-                config={config}
+                config={{
+                    ...config,
+                    artConfig: savedArtConfigs[String(config.layoutId || 'preco_2x5_restored')] || savedArtConfigs['preco_2x5_restored'] || config.artConfig
+                }}
                 onSaveConfig={async (updated) => {
                     setConfig(prev => ({ ...prev, ...updated }));
                     setArtVersion(prev => prev + 1);
