@@ -156,9 +156,9 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const titlePos = t.titlePos || config.titlePos || { x: 0, y: 0 };
     const titleRot = t.titleRotation ?? config.titleRotation ?? 0;
 
-    const groupPos = template.dePricePorGroupPos || t.dePricePorGroupPos || config.dePricePorGroupPos || { x: 0, y: 0 };
-    const groupRot = template.dePricePorGroupRotation ?? t.dePricePorGroupRotation ?? config.dePricePorGroupRotation ?? 0;
-    const groupGap = template.dePricePorGroupGap ?? t.dePricePorGroupGap ?? config.dePricePorGroupGap ?? 10;
+    const groupPos = t.dePricePorGroupPos || template.dePricePorGroupPos || config.dePricePorGroupPos || { x: 0, y: 0 };
+    const groupRot = t.dePricePorGroupRotation ?? template.dePricePorGroupRotation ?? config.dePricePorGroupRotation ?? 0;
+    const groupGap = t.dePricePorGroupGap ?? template.dePricePorGroupGap ?? config.dePricePorGroupGap ?? 10;
 
     const currPos = t.currencyPos || config.currencyPos || { x: 0, y: 0 };
     const currRot = t.currencyRotation ?? config.currencyRotation ?? 0;
