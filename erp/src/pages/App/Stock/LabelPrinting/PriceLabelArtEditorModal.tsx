@@ -2451,8 +2451,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 const activeDeFontSize = selectedMagnitude === 'tens' ? deFontSizeTens : selectedMagnitude === 'hundreds' ? deFontSizeHundreds : deFontSizeThousands;
                 const activeNormalPriceFontSize = selectedMagnitude === 'tens' ? normalPriceFontSizeTens : selectedMagnitude === 'hundreds' ? normalPriceFontSizeHundreds : normalPriceFontSizeThousands;
                 const activePorFontSize = selectedMagnitude === 'tens' ? porFontSizeTens : selectedMagnitude === 'hundreds' ? porFontSizeHundreds : porFontSizeThousands;
-                const activeCurrencyFontSize = selectedMagnitude === 'tens' ? currencyFontSizeTens : selectedMagnitude === 'hundreds' ? currencyFontSizeHundreds : currencyFontSizeThousands;
-                const activeCentsFontSize = selectedMagnitude === 'tens' ? centsFontSizeTens : selectedMagnitude === 'hundreds' ? centsFontSizeHundreds : centsFontSizeThousands;
+                const activeCurrencyFontSize = currencyFontSizeHundreds || currencyFontSizeTens || currencyFontSizeThousands || 70;
+                const activeCentsFontSize = centsFontSizeHundreds || centsFontSizeTens || centsFontSizeThousands || 70;
                 const activeInstallmentsFontSize = selectedMagnitude === 'tens' ? installmentsFontSizeTens : selectedMagnitude === 'hundreds' ? installmentsFontSizeHundreds : installmentsFontSizeThousands;
                 const activePromoPriceScale = selectedMagnitude === 'tens' ? scaleTens : selectedMagnitude === 'hundreds' ? scaleHundreds : scaleThousands;
 

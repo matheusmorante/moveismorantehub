@@ -147,8 +147,8 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const deFontSize = mag === 'tens' ? (t.deFontSizeTens ?? t.deFontSize ?? 34) : mag === 'hundreds' ? (t.deFontSizeHundreds ?? t.deFontSize ?? 34) : (t.deFontSizeThousands ?? t.deFontSize ?? 34);
     const normalPriceFontSize = mag === 'tens' ? (t.normalPriceFontSizeTens ?? t.normalPriceFontSize ?? 34) : mag === 'hundreds' ? (t.normalPriceFontSizeHundreds ?? t.normalPriceFontSize ?? 34) : (t.normalPriceFontSizeThousands ?? t.normalPriceFontSize ?? 34);
     const porFontSize = mag === 'tens' ? (t.porFontSizeTens ?? t.porFontSize ?? 34) : mag === 'hundreds' ? (t.porFontSizeHundreds ?? t.porFontSize ?? 34) : (t.porFontSizeThousands ?? t.porFontSize ?? 34);
-    const currencyFontSize = mag === 'tens' ? (t.currencyFontSizeTens ?? t.currencyFontSize ?? 70) : mag === 'hundreds' ? (t.currencyFontSizeHundreds ?? t.currencyFontSize ?? 70) : (t.currencyFontSizeThousands ?? t.currencyFontSize ?? 60);
-    const centsFontSize = mag === 'tens' ? (t.centsFontSizeTens ?? t.centsFontSize ?? 70) : mag === 'hundreds' ? (t.centsFontSizeHundreds ?? t.centsFontSize ?? 70) : (t.centsFontSizeThousands ?? t.centsFontSize ?? 60);
+    const currencyFontSize = t.currencyFontSize ?? t.currencyFontSizeHundreds ?? t.currencyFontSizeTens ?? t.currencyFontSizeThousands ?? 70;
+    const centsFontSize = t.centsFontSize ?? t.centsFontSizeHundreds ?? t.centsFontSizeTens ?? t.centsFontSizeThousands ?? 70;
     const installmentsFontSize = mag === 'tens' ? (t.installmentsFontSizeTens ?? t.installmentsFontSize ?? 14) : mag === 'hundreds' ? (t.installmentsFontSizeHundreds ?? t.installmentsFontSize ?? 14) : (t.installmentsFontSizeThousands ?? t.installmentsFontSize ?? 14);
     const priceScale = mag === 'tens' ? (t.scaleTens ?? 240) : mag === 'hundreds' ? (t.scaleHundreds ?? 210) : (t.scaleThousands ?? 170);
 
