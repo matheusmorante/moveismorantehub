@@ -1,8 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { renderFabricTemplateToDataUrl } from './FabricLabelEngine';
 
 export interface PriceLabelArtData {
     artWidthMm?: number;
     artHeightMm?: number;
+    fabricTemplateJson?: any;
+    fabricDataUrl?: string;
     title: string;
     showTitle?: boolean;
     titleFontSize: number;
@@ -167,6 +170,55 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         : BASE_ART_HEIGHT;
 
     const [scale, setScale] = useState<number>(1);
+    const [fabricDataUrlState, setFabricDataUrlState] = useState<string | null>(data.fabricDataUrl || null);
+
+    useEffect(() => {
+        if (!isEdit && data.fabricTemplateJson) {
+            let isMounted = true;
+            renderFabricTemplateToDataUrl(
+                data.fabricTemplateJson,
+                {
+                    title,
+                    normalPrice,
+                    promoPrice,
+                    deText,
+                    porText,
+                    currencySymbol,
+                    centsText,
+                    installments,
+                    bgColor,
+                    priceColor,
+                    titleColor,
+                },
+                artWidthMm || 100,
+                artHeightMm || 56
+            ).then((url) => {
+                if (isMounted) setFabricDataUrlState(url);
+            });
+            return () => {
+                isMounted = false;
+            };
+        } else if (data.fabricDataUrl) {
+            setFabricDataUrlState(data.fabricDataUrl);
+        }
+    }, [
+        isEdit,
+        data.fabricTemplateJson,
+        data.fabricDataUrl,
+        title,
+        normalPrice,
+        promoPrice,
+        deText,
+        porText,
+        currencySymbol,
+        centsText,
+        installments,
+        bgColor,
+        priceColor,
+        titleColor,
+        artWidthMm,
+        artHeightMm,
+    ]);
 
     useEffect(() => {
         const el = containerRef.current;
@@ -815,7 +867,15 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
             }}
             className={className}
         >
-            {content}
+            {fabricDataUrlState ? (
+                <img 
+                    src={fabricDataUrlState} 
+                    alt={title || 'Etiqueta de Preço'} 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} 
+                />
+            ) : (
+                content
+            )}
         </div>
     );
 };

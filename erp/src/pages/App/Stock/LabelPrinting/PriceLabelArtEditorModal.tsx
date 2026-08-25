@@ -1028,7 +1028,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             dePricePorGroupPos,
             dePricePorGroupRotation,
             dePricePorGroupGap,
-            artConfig: fullArtConfig,
         });
         Promise.resolve(saveResult).finally(onClose);
     };
@@ -1818,6 +1817,18 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                     >
                         <i className="bi bi-arrow-clockwise text-sm"></i>
                         <span className="hidden sm:inline">Refazer</span>
+                    </button>
+
+                    <button 
+                        type="button" 
+                        onClick={() => {
+                            handleSaveAndExit();
+                            toast.success('Template salvo com sucesso!');
+                        }} 
+                        className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer ml-1"
+                    >
+                        <i className="bi bi-floppy-fill text-xs" />
+                        <span>Salvar Template</span>
                     </button>
 
                     <button type="button" onClick={onClose} className="h-8 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 hover:text-red-500 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ml-1 text-xs font-black">

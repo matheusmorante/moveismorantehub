@@ -192,6 +192,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const artData: PriceLabelArtData = {
         artWidthMm: Number(config.labelWidth) || undefined,
         artHeightMm: Number(config.labelHeight) || undefined,
+        fabricTemplateJson: t.fabricTemplateJson || (config.artConfig as any)?.fabricTemplateJson || undefined,
         title: titleText,
         showTitle,
         titleFontSize,
