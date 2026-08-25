@@ -979,11 +979,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     const handleSaveAndExit = () => {
         const currentSnapshot = getSnapshot();
-        localStorage.setItem(getOppTemplateKey(selectedOppId), JSON.stringify(currentSnapshot));
-        localStorage.setItem('morante_hub_opp_colors_map', JSON.stringify(oppColorsMap));
-        if (selectedOppId === 'salvado') {
-            localStorage.setItem(GLOBAL_PRICE_LABEL_ART_KEY, JSON.stringify(currentSnapshot));
-        }
 
         const fullArtConfig = {
             ...(config.artConfig || {}),
