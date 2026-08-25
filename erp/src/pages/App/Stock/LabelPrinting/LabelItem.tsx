@@ -179,22 +179,22 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const installmentsFontSize = pick(t.installmentsFontSizeTens, t.installmentsFontSizeHundreds, t.installmentsFontSizeThousands, t.installmentsFontSize, 18);
     const priceScale = mag === 'tens' ? (t.scaleTens ?? 240) : mag === 'hundreds' ? (t.scaleHundreds ?? 210) : (t.scaleThousands ?? 170);
 
-    const titlePos = (t.titlePos && (t.titlePos.x !== 0 || t.titlePos.y !== 0)) ? t.titlePos : { x: 0, y: -160 };
+    const titlePos = (t.titlePos && typeof t.titlePos.x === 'number' && typeof t.titlePos.y === 'number') ? t.titlePos : { x: 0, y: 0 };
     const titleRot = t.titleRotation ?? 0;
-    const groupPos = (template.dePricePorGroupPos && (template.dePricePorGroupPos.x !== 0 || template.dePricePorGroupPos.y !== 0))
+    const groupPos = (template.dePricePorGroupPos && typeof template.dePricePorGroupPos.x === 'number' && typeof template.dePricePorGroupPos.y === 'number')
         ? template.dePricePorGroupPos
-        : ((t.dePricePorGroupPos && (t.dePricePorGroupPos.x !== 0 || t.dePricePorGroupPos.y !== 0))
+        : ((t.dePricePorGroupPos && typeof t.dePricePorGroupPos.x === 'number' && typeof t.dePricePorGroupPos.y === 'number')
             ? t.dePricePorGroupPos
-            : { x: -40, y: -80 });
+            : { x: 0, y: 0 });
     const groupRot = template.dePricePorGroupRotation ?? t.dePricePorGroupRotation ?? 0;
     const groupGap = template.dePricePorGroupGap ?? t.dePricePorGroupGap ?? 10;
-    const currPos = (t.currencyPos && (t.currencyPos.x !== 0 || t.currencyPos.y !== 0)) ? t.currencyPos : { x: -280, y: 35 };
+    const currPos = (t.currencyPos && typeof t.currencyPos.x === 'number' && typeof t.currencyPos.y === 'number') ? t.currencyPos : { x: -280, y: 35 };
     const currRot = t.currencyRotation ?? 0;
-    const pricePos = (t.promoPricePos && (t.promoPricePos.x !== 0 || t.promoPricePos.y !== 0)) ? t.promoPricePos : { x: 0, y: 45 };
+    const pricePos = (t.promoPricePos && typeof t.promoPricePos.x === 'number' && typeof t.promoPricePos.y === 'number') ? t.promoPricePos : { x: 0, y: 45 };
     const priceRot = t.promoPriceRotation ?? 0;
-    const centsPos = (t.centsPos && (t.centsPos.x !== 0 || t.centsPos.y !== 0)) ? t.centsPos : { x: 260, y: -10 };
+    const centsPos = (t.centsPos && typeof t.centsPos.x === 'number' && typeof t.centsPos.y === 'number') ? t.centsPos : { x: 260, y: -10 };
     const centsRot = t.centsRotation ?? 0;
-    const instPos = t.installmentsPos || { x: 0, y: 0 };
+    const instPos = (t.installmentsPos && typeof t.installmentsPos.x === 'number' && typeof t.installmentsPos.y === 'number') ? t.installmentsPos : { x: 0, y: 0 };
     const instRot = t.installmentsRotation ?? 0;
 
     const showTitle = t.showTitle ?? true;
