@@ -151,10 +151,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [promoPriceRotation, setPromoPriceRotation] = useState<number>(0);
     
     // Escalas por Ordem de Grandeza (Dezena, Centena, Milhar, Dezena de Milhar)
-    const [scaleTens, setScaleTens] = useState<number>(120);
-    const [scaleHundreds, setScaleHundreds] = useState<number>(100);
-    const [scaleThousands, setScaleThousands] = useState<number>(80);
-    const [scaleTenThousands, setScaleTenThousands] = useState<number>(75);
+    const [scaleTens, setScaleTens] = useState<number>(240);
+    const [scaleHundreds, setScaleHundreds] = useState<number>(210);
+    const [scaleThousands, setScaleThousands] = useState<number>(170);
+    const [scaleTenThousands, setScaleTenThousands] = useState<number>(140);
 
     // 7. CENTAVOS ",00" - POR ORDEM DE GRANDEZA
     const [centsText, setCentsText] = useState(',00');
