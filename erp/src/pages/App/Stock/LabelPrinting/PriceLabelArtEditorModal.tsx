@@ -1939,52 +1939,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         </select>
                     </div>
 
-                    {/* BOTÃO COMPONENTE R$ (SÍMBOLO DA MOEDA) */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (selectedElement === 'currencySymbol') {
-                                setShowCurrency(!showCurrency);
-                            } else {
-                                setSelectedElement('currencySymbol');
-                                setSelectedElements(new Set(['currencySymbol']));
-                                setShowCurrency(true);
-                            }
-                        }}
-                        title={showCurrency ? "Símbolo R$ Ativo (Clique para Selecionar/Ocultar)" : "Símbolo R$ Oculto (Clique para Ativar)"}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer border shrink-0 ${
-                            showCurrency 
-                                ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-700' 
-                                : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
-                        }`}
-                    >
-                        <i className={`bi ${showCurrency ? 'bi-currency-dollar' : 'bi-eye-slash-fill'}`} />
-                        <span>R$</span>
-                    </button>
-
-                    {/* BOTÃO COMPONENTE ,00 (CENTAVOS) */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (selectedElement === 'cents') {
-                                setShowCents(!showCents);
-                            } else {
-                                setSelectedElement('cents');
-                                setSelectedElements(new Set(['cents']));
-                                setShowCents(true);
-                            }
-                        }}
-                        title={showCents ? "Centavos ,00 Ativo (Clique para Selecionar/Ocultar)" : "Centavos ,00 Oculto (Clique para Ativar)"}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer border shrink-0 ${
-                            showCents 
-                                ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-700' 
-                                : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
-                        }`}
-                    >
-                        <i className={`bi ${showCents ? 'bi-hash' : 'bi-eye-slash-fill'}`} />
-                        <span>,00</span>
-                    </button>
-
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
                     {/* BOTÃO PRODUTO MODELO */}
@@ -2507,7 +2461,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                             setSelectedElement(null);
                             setSelectedElements(new Set());
                         }}
-                        className="flex-1 w-full h-full flex flex-col items-center justify-center p-6 sm:p-10 lg:p-14 bg-slate-200/50 dark:bg-slate-950/80 overflow-y-auto custom-scrollbar relative z-10"
+                        className="flex-1 w-full h-full flex flex-col items-center justify-center p-6 sm:p-10 lg:p-14 bg-slate-200/50 dark:bg-slate-950/80 overflow-y-auto custom-scrollbar relative z-20"
                     >
                         <div className="w-full max-w-full lg:max-w-4xl xl:max-w-5xl flex flex-col items-center justify-center my-auto p-4 sm:p-6 overflow-visible">
                             {/* Etiqueta de Preço: Renderizador Unificado 1:1 */}
