@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product, { Variation } from "../types/product.type";
 import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
+import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
 
 const TABLE_NAME = "products";
 const LOCAL_STORAGE_KEY = 'local_products';
@@ -61,14 +62,7 @@ const mapToDB = (product: Partial<Product>) => {
     const nameCandidate = product.name || product.title || product.marketplaceTitle || product.description;
     if (nameCandidate !== undefined && nameCandidate !== '') {
         data.name = nameCandidate;
-        data.slug = nameCandidate
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^\w\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/--+/g, '-')
-            .trim();
+        data.slug = normalizeSlug(nameCandidate);
     }
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
@@ -158,7 +152,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.titleComplement !== undefined) data.title_complement = product.titleComplement;
     if (product.includeComplement !== undefined) data.include_complement = product.includeComplement;
     if (product.titleOrder !== undefined) data.title_order = product.titleOrder;
-    if (product.slug !== undefined) data.slug = product.slug;
+    if (product.slug !== undefined && product.slug.trim()) data.slug = normalizeSlug(product.slug);
     if (product.meta_title !== undefined) data.meta_title = product.meta_title;
     if (product.meta_description !== undefined) data.meta_description = product.meta_description;
     if (product.seo_description !== undefined) data.seo_description = product.seo_description;
@@ -715,6 +709,13 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         delete dbData.meta_title;
         delete dbData.meta_description;
         delete dbData.seo_description;
+
+        dbData.slug = await resolveUniqueSlug(
+            supabase,
+            TABLE_NAME,
+            dbData.slug || dbData.name || product.description || 'produto',
+            dbData.id
+        );
         
         // Preencher category_id primário na tabela products se houver categorias selecionadas
         if (Array.isArray(product.categoryIds) && product.categoryIds.length > 0) {
@@ -723,19 +724,15 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
             dbData.category_id = null;
         }
 
-        // Salvar no Supabase (Update se o ID existir, senão Upsert)
-        if (dbData.id) {
-            const { error: updateErr } = await supabase.from(TABLE_NAME).update(dbData).eq('id', dbData.id);
-            if (updateErr) {
-                dbData.name = dbData.name || product.description || 'Produto Sem Nome';
-                const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
-                if (prodErr) throw prodErr;
-            }
-        } else {
-            dbData.name = dbData.name || product.description || 'Produto Sem Nome';
-            const { error: prodErr } = await supabase.from(TABLE_NAME).upsert(dbData);
-            if (prodErr) throw prodErr;
+        // O upsert atende tanto produtos novos quanto edições pelo UUID.
+        dbData.name = dbData.name || product.description || 'Produto Sem Nome';
+        let { error: productError } = await supabase.from(TABLE_NAME).upsert(dbData);
+        if (productError && (productError.code === '23505' || productError.message?.toLowerCase().includes('slug'))) {
+            dbData.slug = await resolveUniqueSlug(supabase, TABLE_NAME, dbData.slug, dbData.id);
+            const retry = await supabase.from(TABLE_NAME).upsert(dbData);
+            productError = retry.error;
         }
+        if (productError) throw productError;
 
         // Atualizar category_id primário e sincronizar tabela product_categories
         if (product.id && Array.isArray(product.categoryIds)) {

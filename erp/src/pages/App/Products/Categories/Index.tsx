@@ -59,14 +59,8 @@ const Categories = () => {
                         let childId = "";
 
                         const insertCategorySafe = async (catName: string) => {
-                            const payload: any = { name: catName, active: true, slug: generateSlug(catName) };
-                            let res = await supabase.from('categories').insert([payload]).select();
-                            if (res.error && res.error.message.includes('slug')) {
-                                delete payload.slug;
-                                res = await supabase.from('categories').insert([payload]).select();
-                            }
-                            if (res.error) throw res.error;
-                            return res.data[0].id;
+                            const category = await createCategory(catName, [], { slug: generateSlug(catName) });
+                            return category.id;
                         };
 
                         if (parentName) {

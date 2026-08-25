@@ -5,6 +5,11 @@ import { saveInventoryMove, getAvailableLots, cancelInventoryMovesByRelatedEntit
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
+import {
+    getOrderAssemblyKinds,
+    notifyNewAssemblies,
+    notifyNewSaleAndAssemblies,
+} from '@/pages/utils/orderEventNotificationService';
 
 export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
     const sched = shipping?.scheduling || {};
@@ -313,29 +318,11 @@ export const saveOrder = async (order: Order): Promise<string> => {
 
         // Disparar notificação em tempo real / push se for pedido agendado, montagem ou não rascunho
         if (orderToSave.status && orderToSave.status !== 'draft') {
-            const customerName = orderToSave.customerData?.fullName || 'Cliente';
             const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
-            const isShowroom = orderToSave.orderType === 'showroom';
-            const isDepositAssembly = orderToSave.handlingType === 'montagem_deposito' || (orderToSave.items || []).some((i: any) => (i.handlingType || '').includes('deposito'));
-            
-            let notifTitle = `🛒 Novo Pedido - ${customerName}`;
-            let notifType: 'order_created' | 'order_edited' | 'order_schedule_changed' | 'system' | 'assembly' = 'order_created';
-
-            if (isShowroom) {
-                notifTitle = `🛠️ Nova Montagem no Mostruário - ${customerName}`;
-                notifType = 'assembly';
-            } else if (isDepositAssembly) {
-                notifTitle = `🛠️ Nova Montagem no Depósito - ${customerName}`;
-                notifType = 'assembly';
-            }
-
-            dispatchAppNotification({
+            notifyNewSaleAndAssemblies({
                 orderId: String(rowId),
-                title: notifTitle,
-                message: isShowroom ? 'Nova montagem de mostruário cadastrada' : (isDepositAssembly ? 'Nova montagem de depósito cadastrada' : `Pedido finalizado • Total: R$ ${Number(orderToSave.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`),
-                type: notifType as any,
+                order: orderToSave,
                 scheduleText: schedText,
-                orderData: orderToSave
             }).catch(err => console.error("[OrderCreate] Erro ao notificar app:", err));
         }
 
@@ -558,14 +545,24 @@ export const updateOrder = async (
         // 1. Mudança de status de rascunho -> agendado / não rascunho (ou criação com id preexistente do rascunho)
         const isFromDraftOrNew = (!oldStatus || oldStatus === 'draft') && newStatus && newStatus !== 'draft';
         if (isFromDraftOrNew) {
-            dispatchAppNotification({
+            notifyNewSaleAndAssemblies({
                 orderId: String(id),
-                title: `🛒 Novo Pedido - ${customerName}`,
-                message: `O pedido de ${customerName} foi finalizado e agendado.`,
-                type: 'order_created',
+                order: merged,
                 scheduleText: schedText,
-                orderData: merged
             }).catch(err => console.error("[OrderUpdate] Erro ao notificar pedido agendado:", err));
+        }
+
+        if (!isFromDraftOrNew && previousOrderData) {
+            const previousKinds = new Set(getOrderAssemblyKinds(previousOrderData));
+            const newKinds = getOrderAssemblyKinds(merged).filter(kind => !previousKinds.has(kind));
+            if (newKinds.length > 0) {
+                notifyNewAssemblies({
+                    orderId: String(id),
+                    order: merged,
+                    scheduleText: schedText,
+                    kinds: newKinds,
+                }).catch(err => console.error("[OrderUpdate] Erro ao notificar nova montagem:", err));
+            }
         }
 
         // 2. Alteração de agendamento (data, período, dia)

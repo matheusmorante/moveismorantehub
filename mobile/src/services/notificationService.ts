@@ -32,6 +32,14 @@ export const playNotificationSound = async () => {
 export const registerPushToken = async () => {
   try {
     if (Platform.OS === 'web') return;
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Vendas e montagens',
+        importance: 4,
+        vibrationPattern: [0, 250, 250, 250],
+        sound: 'default',
+      });
+    }
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {

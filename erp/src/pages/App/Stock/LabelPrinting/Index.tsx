@@ -22,6 +22,10 @@ import {
 import { 
     calculateLabelDimensions, processProductData, mapModelToDb, mapDbToModel 
 } from './LabelUtils';
+import {
+    publishPriceLabelTemplateUpdate,
+    subscribeToPriceLabelTemplateUpdates,
+} from './priceLabelTemplateSync';
 
 const LabelPrinting: React.FC = () => {
     const navigate = useNavigate();
@@ -229,6 +233,16 @@ const LabelPrinting: React.FC = () => {
         promoFontSize: 18,
         imageFit: 'contain',
     });
+
+    useEffect(() => subscribeToPriceLabelTemplateUpdates(({ layoutId, artConfig }) => {
+        setSavedArtConfigs(prev => ({
+            ...prev,
+            [layoutId]: artConfig,
+            'preco_2x5_restored': artConfig,
+        }));
+        setConfig(prev => ({ ...prev, artConfig }));
+        setArtVersion(prev => prev + 1);
+    }), []);
 
     const selectLayout = (model: GridModel) => {
         const autoPreset: LabelPreset = model.category === 'precos' ? 'price_only' : 
@@ -2201,22 +2215,18 @@ const LabelPrinting: React.FC = () => {
                     ...config,
                     artConfig: savedArtConfigs[String(config.layoutId || 'preco_2x5_restored')] || savedArtConfigs['preco_2x5_restored'] || config.artConfig
                 }}
+                onArtConfigLoaded={(loadedArtConfig) => {
+                    const layoutId = String(config.layoutId || 'preco_2x5_restored');
+                    setSavedArtConfigs(prev => ({
+                        ...prev,
+                        [layoutId]: loadedArtConfig,
+                        'preco_2x5_restored': loadedArtConfig,
+                    }));
+                    setConfig(prev => ({ ...prev, artConfig: loadedArtConfig }));
+                    setArtVersion(prev => prev + 1);
+                }}
                 onSaveConfig={async (updated) => {
                     const layoutId = String(config.layoutId || 'preco_2x5_restored');
-                    if (updated.artConfig) {
-                        setSavedArtConfigs(prev => ({
-                            ...prev,
-                            [layoutId]: updated.artConfig,
-                            'preco_2x5_restored': updated.artConfig
-                        }));
-                    }
-                    setConfig(prev => ({ 
-                        ...prev, 
-                        ...updated, 
-                        artConfig: updated.artConfig || prev.artConfig 
-                    }));
-                    setArtVersion(prev => prev + 1);
-
                     const groupPos = updated.dePricePorGroupPos;
                     if (layoutId && updated.artConfig) {
                         const { error } = await supabase.from('label_art_configs').upsert({
@@ -2225,7 +2235,7 @@ const LabelPrinting: React.FC = () => {
                             art_config: updated.artConfig,
                             updated_at: new Date().toISOString(),
                         }, { onConflict: 'layout_id' });
-                        if (error) console.error('Erro ao salvar arte no banco:', error);
+                        if (error) throw error;
                     }
                     if (layoutId && (groupPos || updated.artConfig) && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(layoutId))) {
                         const { error } = await supabase
@@ -2240,8 +2250,26 @@ const LabelPrinting: React.FC = () => {
                                 ...(updated.artConfig ? { art_config: updated.artConfig } : {}),
                             })
                             .eq('id', layoutId);
-                        if (error) console.error('Erro ao salvar posição do grupo no banco:', error);
+                        if (error) throw error;
                     }
+
+                    if (updated.artConfig) {
+                        setSavedArtConfigs(prev => ({
+                            ...prev,
+                            [layoutId]: updated.artConfig,
+                            'preco_2x5_restored': updated.artConfig,
+                        }));
+                        publishPriceLabelTemplateUpdate({
+                            layoutId,
+                            artConfig: updated.artConfig,
+                        });
+                    }
+                    setConfig(prev => ({
+                        ...prev,
+                        ...updated,
+                        artConfig: updated.artConfig || prev.artConfig,
+                    }));
+                    setArtVersion(prev => prev + 1);
                 }}
                 initialProduct={selectedProductToAdd ? {
                     name: selectedProductToAdd.description,

@@ -5,9 +5,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { LabelConfig } from './LabelConstants';
 import { PriceLabelArtRenderer } from './PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from './LabelPhysicalGeometry';
-
-const GLOBAL_PRICE_LABEL_ART_KEY = 'morante_global_price_label_art_template';
-const getOppTemplateKey = (oppId: string) => `morante_price_label_art_template_${oppId}`;
+import { getFixedLabelTextSize } from './fixedLabelTextSize';
 
 interface Opportunity {
     id: string;
@@ -21,7 +19,8 @@ interface PriceLabelArtEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     config: LabelConfig;
-    onSaveConfig: (updatedConfig: Partial<LabelConfig>) => void;
+    onSaveConfig: (updatedConfig: Partial<LabelConfig>) => void | Promise<void>;
+    onArtConfigLoaded?: (artConfig: Record<string, any>) => void;
     initialProduct?: {
         name?: string;
         price?: string;
@@ -62,6 +61,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     onClose,
     config,
     onSaveConfig,
+    onArtConfigLoaded,
     initialProduct
 }) => {
     const isStandaloneTemplate = window.location.pathname === '/templates/price-label';
@@ -70,7 +70,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         ? rawArtworkSize
         : { widthMm: 100, heightMm: 56 };
     // COR DE FUNDO PADRÃO
-    const getDefaultBg = (oppId: string) => oppId === 'salvado' ? (config.bg_color || '#ff7900') : '#ffffff';
+    const getDefaultBg = (_oppId?: string) => '#ffffff';
 
     // MARGEM DE SEGURANÇA DA IMPRESSÃO
     const [showSafetyMargin, setShowSafetyMargin] = useState(true);
@@ -127,12 +127,12 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [porPos, setPorPos] = useState({ x: 0, y: 0 });
     const [porRotation, setPorRotation] = useState<number>(0);
 
-    // 5. SÍMBOLO DA MOEDA "R$" (PREÇO PRINCIPAL) - POR ORDEM DE GRANDEZA
+    // 5. SÍMBOLO DA MOEDA "R$" (TAMANHO FIXO EM TODAS AS GRANDEZAS)
     const [currencySymbol, setCurrencySymbol] = useState('R$');
     const [showCurrency, setShowCurrency] = useState(true);
     const [currencyFontSizeTens, setCurrencyFontSizeTens] = useState<number>(70);
     const [currencyFontSizeHundreds, setCurrencyFontSizeHundreds] = useState<number>(70);
-    const [currencyFontSizeThousands, setCurrencyFontSizeThousands] = useState<number>(60);
+    const [currencyFontSizeThousands, setCurrencyFontSizeThousands] = useState<number>(70);
     const [currencyColor, setCurrencyColor] = useState('#000000');
     const [currencyFontFamily, setCurrencyFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [currencyPos, setCurrencyPos] = useState({ x: 0, y: 0 });
@@ -156,12 +156,12 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [scaleThousands, setScaleThousands] = useState<number>(170);
     const [scaleTenThousands, setScaleTenThousands] = useState<number>(140);
 
-    // 7. CENTAVOS ",00" - POR ORDEM DE GRANDEZA
+    // 7. CENTAVOS ",00" (TAMANHO FIXO EM TODAS AS GRANDEZAS)
     const [centsText, setCentsText] = useState(',00');
     const [showCents, setShowCents] = useState(true);
     const [centsFontSizeTens, setCentsFontSizeTens] = useState<number>(70);
     const [centsFontSizeHundreds, setCentsFontSizeHundreds] = useState<number>(70);
-    const [centsFontSizeThousands, setCentsFontSizeThousands] = useState<number>(60);
+    const [centsFontSizeThousands, setCentsFontSizeThousands] = useState<number>(70);
     const [centsColor, setCentsColor] = useState('#000000');
     const [centsFontFamily, setCentsFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [centsPos, setCentsPos] = useState({ x: 0, y: 0 });
@@ -208,6 +208,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // Estado de Seleção e Menus
     const [selectedElement, setSelectedElement] = useState<PriceLabelLayerKey>(null);
     const [selectedElements, setSelectedElements] = useState<Set<PriceLabelLayerKey>>(new Set());
+    const [isArtConfigLoading, setIsArtConfigLoading] = useState(true);
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+    const lastQueuedSnapshotRef = useRef('');
+    const latestRequestedSnapshotRef = useRef('');
+    const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
     const [isCenterMenuOpen, setIsCenterMenuOpen] = useState(false);
     const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
@@ -535,6 +540,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         const sharedLayout = {
             titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos,
             centsPos, installmentsPos, dePricePorGroupPos,
+            titleFontFamily, deFontFamily, normalPriceFontFamily, porFontFamily,
+            currencyFontFamily, centsFontFamily, installmentsFontFamily,
             titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
             deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
             normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
@@ -545,10 +552,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands,
         };
         const fullTemplates = {
-            ...Object.fromEntries(Object.entries(magnitudeTemplates).map(([magnitude, template]) => [
-                magnitude,
-                { ...template, ...sharedLayout }
-            ])),
+            ...Object.fromEntries(Object.entries(magnitudeTemplates).map(([magnitude, template]) => {
+                const {
+                    fabricTemplateJson: _legacyFabricTemplate,
+                    fabricDataUrl: _legacyFabricImage,
+                    ...templateData
+                } = template || {};
+                return [magnitude, { ...templateData, ...sharedLayout }];
+            })),
             [selectedMagnitude]: curMagState
         };
         return {
@@ -560,6 +571,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         };
     }, [selectedOppId, selectedMagnitude, magnitudeTemplates, getMagnitudeSnapshot, oppColorsMap,
         titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos, dePricePorGroupPos,
+        titleFontFamily, deFontFamily, normalPriceFontFamily, porFontFamily,
+        currencyFontFamily, centsFontFamily, installmentsFontFamily,
         titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
         deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
         normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
@@ -570,63 +583,65 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands]);
 
     // APLICA O SNAPSHOT DE UMA ORDEM DE GRANDEZA ESPECÍFICA
-    const applyMagnitudeSnapshot = (s: any) => {
+    const applyMagnitudeSnapshot = (s: any, preserveFixedTextStyles = false) => {
         if (!s) return;
         if (s.title !== undefined) setTitle(s.title);
         if (s.showTitle !== undefined) setShowTitle(s.showTitle);
-        if (s.titleFontSizeTens !== undefined) setTitleFontSizeTens(s.titleFontSizeTens); else if (s.titleFontSize !== undefined) setTitleFontSizeTens(s.titleFontSize);
-        if (s.titleFontSizeHundreds !== undefined) setTitleFontSizeHundreds(s.titleFontSizeHundreds); else if (s.titleFontSize !== undefined) setTitleFontSizeHundreds(s.titleFontSize);
-        if (s.titleFontSizeThousands !== undefined) setTitleFontSizeThousands(s.titleFontSizeThousands); else if (s.titleFontSize !== undefined) setTitleFontSizeThousands(s.titleFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedTitleSize = getFixedLabelTextSize(s, 'title', 14);
+            setTitleFontSizeTens(fixedTitleSize); setTitleFontSizeHundreds(fixedTitleSize); setTitleFontSizeThousands(fixedTitleSize);
+        }
 
         if (s.titleColor) setTitleColor(s.titleColor);
-        if (s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
+        if (!preserveFixedTextStyles && s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
         if (s.titlePos && (s.titlePos.x !== 0 || s.titlePos.y !== 0)) setTitlePos(s.titlePos); else setTitlePos({ x: 0, y: -160 });
         if (s.titleRotation !== undefined) setTitleRotation(s.titleRotation);
 
         if (s.deText !== undefined) setDeText(s.deText);
         if (s.showDe !== undefined) setShowDe(s.showDe);
-        if (s.deFontSizeTens !== undefined) setDeFontSizeTens(s.deFontSizeTens); else if (s.deFontSize !== undefined) setDeFontSizeTens(s.deFontSize);
-        if (s.deFontSizeHundreds !== undefined) setDeFontSizeHundreds(s.deFontSizeHundreds); else if (s.deFontSize !== undefined) setDeFontSizeHundreds(s.deFontSize);
-        if (s.deFontSizeThousands !== undefined) setDeFontSizeThousands(s.deFontSizeThousands); else if (s.deFontSize !== undefined) setDeFontSizeThousands(s.deFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedDeSize = getFixedLabelTextSize(s, 'de', 34);
+            setDeFontSizeTens(fixedDeSize); setDeFontSizeHundreds(fixedDeSize); setDeFontSizeThousands(fixedDeSize);
+        }
 
         if (s.deColor) setDeColor(s.deColor);
-        if (s.deFontFamily) setDeFontFamily(s.deFontFamily);
+        if (!preserveFixedTextStyles && s.deFontFamily) setDeFontFamily(s.deFontFamily);
         if (s.dePos) setDePos(s.dePos);
         if (s.deRotation !== undefined) setDeRotation(s.deRotation);
 
         if (s.normalPrice !== undefined) setNormalPrice(s.normalPrice);
         if (s.showNormalPrice !== undefined) setShowNormalPrice(s.showNormalPrice);
-        if (s.normalPriceFontSizeTens !== undefined) setNormalPriceFontSizeTens(s.normalPriceFontSizeTens); else if (s.normalPriceFontSize !== undefined) setNormalPriceFontSizeTens(s.normalPriceFontSize);
-        if (s.normalPriceFontSizeHundreds !== undefined) setNormalPriceFontSizeHundreds(s.normalPriceFontSizeHundreds); else if (s.normalPriceFontSize !== undefined) setNormalPriceFontSizeHundreds(s.normalPriceFontSize);
-        if (s.normalPriceFontSizeThousands !== undefined) setNormalPriceFontSizeThousands(s.normalPriceFontSizeThousands); else if (s.normalPriceFontSize !== undefined) setNormalPriceFontSizeThousands(s.normalPriceFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedNormalPriceSize = getFixedLabelTextSize(s, 'normalPrice', 16);
+            setNormalPriceFontSizeTens(fixedNormalPriceSize); setNormalPriceFontSizeHundreds(fixedNormalPriceSize); setNormalPriceFontSizeThousands(fixedNormalPriceSize);
+        }
 
         if (s.normalPriceColor) setNormalPriceColor(s.normalPriceColor);
-        if (s.normalPriceFontFamily) setNormalPriceFontFamily(s.normalPriceFontFamily);
+        if (!preserveFixedTextStyles && s.normalPriceFontFamily) setNormalPriceFontFamily(s.normalPriceFontFamily);
         if (s.normalPricePos) setNormalPricePos(s.normalPricePos);
         if (s.normalPriceRotation !== undefined) setNormalPriceRotation(s.normalPriceRotation);
 
         if (s.porText !== undefined) setPorText(s.porText);
         if (s.showPor !== undefined) setShowPor(s.showPor);
-        if (s.porFontSizeTens !== undefined) setPorFontSizeTens(s.porFontSizeTens); else if (s.porFontSize !== undefined) setPorFontSizeTens(s.porFontSize);
-        if (s.porFontSizeHundreds !== undefined) setPorFontSizeHundreds(s.porFontSizeHundreds); else if (s.porFontSize !== undefined) setPorFontSizeHundreds(s.porFontSize);
-        if (s.porFontSizeThousands !== undefined) setPorFontSizeThousands(s.porFontSizeThousands); else if (s.porFontSize !== undefined) setPorFontSizeThousands(s.porFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedPorSize = getFixedLabelTextSize(s, 'por', 15);
+            setPorFontSizeTens(fixedPorSize); setPorFontSizeHundreds(fixedPorSize); setPorFontSizeThousands(fixedPorSize);
+        }
 
         if (s.porColor) setPorColor(s.porColor);
-        if (s.porFontFamily) setPorFontFamily(s.porFontFamily);
+        if (!preserveFixedTextStyles && s.porFontFamily) setPorFontFamily(s.porFontFamily);
         if (s.porPos) setPorPos(s.porPos);
         if (s.porRotation !== undefined) setPorRotation(s.porRotation);
 
         if (s.currencySymbol !== undefined) setCurrencySymbol(s.currencySymbol);
         if (s.showCurrency !== undefined) setShowCurrency(s.showCurrency);
-        if (s.currencyFontSizeTens !== undefined) setCurrencyFontSizeTens(s.currencyFontSizeTens);
-        else if (s.currencyFontSize !== undefined) setCurrencyFontSizeTens(s.currencyFontSize);
-        if (s.currencyFontSizeHundreds !== undefined) setCurrencyFontSizeHundreds(s.currencyFontSizeHundreds);
-        else if (s.currencyFontSize !== undefined) setCurrencyFontSizeHundreds(s.currencyFontSize);
-        if (s.currencyFontSizeThousands !== undefined) setCurrencyFontSizeThousands(s.currencyFontSizeThousands);
-        else if (s.currencyFontSize !== undefined) setCurrencyFontSizeThousands(s.currencyFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedCurrencySize = getFixedLabelTextSize(s, 'currency', 70);
+            setCurrencyFontSizeTens(fixedCurrencySize); setCurrencyFontSizeHundreds(fixedCurrencySize); setCurrencyFontSizeThousands(fixedCurrencySize);
+        }
 
         if (s.currencyColor) setCurrencyColor(s.currencyColor);
-        if (s.currencyFontFamily) setCurrencyFontFamily(s.currencyFontFamily);
+        if (!preserveFixedTextStyles && s.currencyFontFamily) setCurrencyFontFamily(s.currencyFontFamily);
         if (s.currencyPos && (s.currencyPos.x !== 0 || s.currencyPos.y !== 0)) setCurrencyPos(s.currencyPos); else setCurrencyPos({ x: -280, y: 35 });
         if (s.currencyRotation !== undefined) setCurrencyRotation(s.currencyRotation);
 
@@ -650,26 +665,25 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.centsText !== undefined) setCentsText(s.centsText);
         if (s.showCents !== undefined) setShowCents(s.showCents);
-        if (s.centsFontSizeTens !== undefined) setCentsFontSizeTens(s.centsFontSizeTens);
-        else if (s.centsFontSize !== undefined) setCentsFontSizeTens(s.centsFontSize);
-        if (s.centsFontSizeHundreds !== undefined) setCentsFontSizeHundreds(s.centsFontSizeHundreds);
-        else if (s.centsFontSize !== undefined) setCentsFontSizeHundreds(s.centsFontSize);
-        if (s.centsFontSizeThousands !== undefined) setCentsFontSizeThousands(s.centsFontSizeThousands);
-        else if (s.centsFontSize !== undefined) setCentsFontSizeThousands(s.centsFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedCentsSize = getFixedLabelTextSize(s, 'cents', 70);
+            setCentsFontSizeTens(fixedCentsSize); setCentsFontSizeHundreds(fixedCentsSize); setCentsFontSizeThousands(fixedCentsSize);
+        }
 
         if (s.centsColor) setCentsColor(s.centsColor);
-        if (s.centsFontFamily) setCentsFontFamily(s.centsFontFamily);
+        if (!preserveFixedTextStyles && s.centsFontFamily) setCentsFontFamily(s.centsFontFamily);
         if (s.centsPos && (s.centsPos.x !== 0 || s.centsPos.y !== 0)) setCentsPos(s.centsPos); else setCentsPos({ x: 260, y: -10 });
         if (s.centsRotation !== undefined) setCentsRotation(s.centsRotation);
 
         if (s.showInstallments !== undefined) setShowInstallments(s.showInstallments);
         if (s.installments) setInstallments(s.installments);
-        if (s.installmentsFontSizeTens !== undefined) setInstallmentsFontSizeTens(s.installmentsFontSizeTens); else if (s.installmentsFontSize !== undefined) setInstallmentsFontSizeTens(s.installmentsFontSize);
-        if (s.installmentsFontSizeHundreds !== undefined) setInstallmentsFontSizeHundreds(s.installmentsFontSizeHundreds); else if (s.installmentsFontSize !== undefined) setInstallmentsFontSizeHundreds(s.installmentsFontSize);
-        if (s.installmentsFontSizeThousands !== undefined) setInstallmentsFontSizeThousands(s.installmentsFontSizeThousands); else if (s.installmentsFontSize !== undefined) setInstallmentsFontSizeThousands(s.installmentsFontSize);
+        if (!preserveFixedTextStyles) {
+            const fixedInstallmentsSize = getFixedLabelTextSize(s, 'installments', 14);
+            setInstallmentsFontSizeTens(fixedInstallmentsSize); setInstallmentsFontSizeHundreds(fixedInstallmentsSize); setInstallmentsFontSizeThousands(fixedInstallmentsSize);
+        }
 
         if (s.installmentsColor) setInstallmentsColor(s.installmentsColor);
-        if (s.installmentsFontFamily) setInstallmentsFontFamily(s.installmentsFontFamily);
+        if (!preserveFixedTextStyles && s.installmentsFontFamily) setInstallmentsFontFamily(s.installmentsFontFamily);
         if (s.installmentsPos) setInstallmentsPos(s.installmentsPos);
         if (s.installmentsRotation !== undefined) setInstallmentsRotation(s.installmentsRotation);
 
@@ -713,17 +727,24 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         }
 
         if (currentLayout) {
+            const fixedTitleSize = currentLayout.titleFontSizeHundreds;
+            const fixedDeSize = currentLayout.deFontSizeHundreds;
+            const fixedNormalPriceSize = currentLayout.normalPriceFontSizeHundreds;
+            const fixedPorSize = currentLayout.porFontSizeHundreds;
+            const fixedCurrencySize = currentLayout.currencyFontSizeHundreds;
+            const fixedCentsSize = currentLayout.centsFontSizeHundreds;
+            const fixedInstallmentsSize = currentLayout.installmentsFontSizeHundreds;
             setTitlePos(currentLayout.titlePos); setDePos(currentLayout.dePos); setNormalPricePos(currentLayout.normalPricePos);
             setPorPos(currentLayout.porPos); setCurrencyPos(currentLayout.currencyPos); setPromoPricePos(currentLayout.promoPricePos);
             setCentsPos(currentLayout.centsPos); setInstallmentsPos(currentLayout.installmentsPos); setDePricePorGroupPos(currentLayout.dePricePorGroupPos);
-            setTitleFontSizeTens(currentLayout.titleFontSizeTens); setTitleFontSizeHundreds(currentLayout.titleFontSizeHundreds); setTitleFontSizeThousands(currentLayout.titleFontSizeThousands);
-            setDeFontSizeTens(currentLayout.deFontSizeTens); setDeFontSizeHundreds(currentLayout.deFontSizeHundreds); setDeFontSizeThousands(currentLayout.deFontSizeThousands);
-            setNormalPriceFontSizeTens(currentLayout.normalPriceFontSizeTens); setNormalPriceFontSizeHundreds(currentLayout.normalPriceFontSizeHundreds); setNormalPriceFontSizeThousands(currentLayout.normalPriceFontSizeThousands);
-            setPorFontSizeTens(currentLayout.porFontSizeTens); setPorFontSizeHundreds(currentLayout.porFontSizeHundreds); setPorFontSizeThousands(currentLayout.porFontSizeThousands);
-            setCurrencyFontSizeTens(currentLayout.currencyFontSizeTens); setCurrencyFontSizeHundreds(currentLayout.currencyFontSizeHundreds); setCurrencyFontSizeThousands(currentLayout.currencyFontSizeThousands);
+            setTitleFontSizeTens(fixedTitleSize); setTitleFontSizeHundreds(fixedTitleSize); setTitleFontSizeThousands(fixedTitleSize);
+            setDeFontSizeTens(fixedDeSize); setDeFontSizeHundreds(fixedDeSize); setDeFontSizeThousands(fixedDeSize);
+            setNormalPriceFontSizeTens(fixedNormalPriceSize); setNormalPriceFontSizeHundreds(fixedNormalPriceSize); setNormalPriceFontSizeThousands(fixedNormalPriceSize);
+            setPorFontSizeTens(fixedPorSize); setPorFontSizeHundreds(fixedPorSize); setPorFontSizeThousands(fixedPorSize);
+            setCurrencyFontSizeTens(fixedCurrencySize); setCurrencyFontSizeHundreds(fixedCurrencySize); setCurrencyFontSizeThousands(fixedCurrencySize);
             setScaleTens(currentLayout.scaleTens); setScaleHundreds(currentLayout.scaleHundreds); setScaleThousands(currentLayout.scaleThousands); setScaleTenThousands(currentLayout.scaleTenThousands);
-            setCentsFontSizeTens(currentLayout.centsFontSizeTens); setCentsFontSizeHundreds(currentLayout.centsFontSizeHundreds); setCentsFontSizeThousands(currentLayout.centsFontSizeThousands);
-            setInstallmentsFontSizeTens(currentLayout.installmentsFontSizeTens); setInstallmentsFontSizeHundreds(currentLayout.installmentsFontSizeHundreds); setInstallmentsFontSizeThousands(currentLayout.installmentsFontSizeThousands);
+            setCentsFontSizeTens(fixedCentsSize); setCentsFontSizeHundreds(fixedCentsSize); setCentsFontSizeThousands(fixedCentsSize);
+            setInstallmentsFontSizeTens(fixedInstallmentsSize); setInstallmentsFontSizeHundreds(fixedInstallmentsSize); setInstallmentsFontSizeThousands(fixedInstallmentsSize);
         }
 
         setTimeout(() => { isApplyingHistoryRef.current = false; }, 50);
@@ -746,7 +767,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         // Se a nova magnitude já tem um layout salvo no mapa, restaura!
         const targetState = updatedMap[newMag];
         if (targetState) {
-            applyMagnitudeSnapshot(targetState);
+            applyMagnitudeSnapshot(targetState, true);
         }
     };
 
@@ -866,12 +887,16 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, handleUndo, handleRedo]);
 
-    // Carrega modelo salvo no Supabase (Fonte Única da Verdade) por Oportunidade ou Global
+    // Carrega um único layout global. A oportunidade altera somente as cores.
     useEffect(() => {
         if (!isOpen) {
             isInitializedRef.current = false;
+            setIsArtConfigLoading(true);
             return;
         }
+        let cancelled = false;
+        let revealTimer: ReturnType<typeof setTimeout> | undefined;
+        setIsArtConfigLoading(true);
 
         const loadArtConfigFromSupabase = async () => {
             const layoutId = String(config?.layoutId || 'preco_2x5_restored');
@@ -888,21 +913,23 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             } else {
                 dbArtConfig = config?.artConfig;
             }
+            if (cancelled) return;
 
             if (dbArtConfig) {
+                onArtConfigLoaded?.(dbArtConfig);
                 if (dbArtConfig.oppColorsMap && typeof dbArtConfig.oppColorsMap === 'object') {
                     setOppColorsMap(dbArtConfig.oppColorsMap);
                 }
 
-                const effectiveOppId = selectedOppId || 'none';
-                const snapshotToApply = dbArtConfig.opportunities?.[effectiveOppId]
-                    || dbArtConfig.opportunities?.['none']
+                const snapshotToApply = dbArtConfig.opportunities?.['none']
                     || dbArtConfig.opportunities?.['default']
                     || dbArtConfig.opportunities?.['salvado']
-                    || dbArtConfig.globalSnapshot;
+                    || dbArtConfig.globalSnapshot
+                    || Object.values(dbArtConfig.opportunities || {})[0];
 
                 if (snapshotToApply) {
-                    applySnapshot({ ...snapshotToApply, selectedOppId: effectiveOppId }, isInitializedRef.current);
+                    const { selectedOppId: _savedContext, ...globalLayout } = snapshotToApply as Record<string, any>;
+                    applySnapshot(globalLayout, isInitializedRef.current);
                 } else {
                     const initialBg = selectedOppId === 'none' ? '#ffffff' : (selectedOppId === 'salvado' ? '#ff7900' : '#ffffff');
                     setBgColor(initialBg);
@@ -913,12 +940,19 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             }
 
             setTimeout(() => {
-                isInitializedRef.current = true;
+                if (!cancelled) isInitializedRef.current = true;
             }, 100);
+            revealTimer = setTimeout(() => {
+                if (!cancelled) setIsArtConfigLoading(false);
+            }, 0);
         };
 
         loadArtConfigFromSupabase();
-    }, [isOpen, selectedOppId, config?.layoutId, config?.artConfig]);
+        return () => {
+            cancelled = true;
+            if (revealTimer) clearTimeout(revealTimer);
+        };
+    }, [isOpen, config?.layoutId]);
 
     // Carrega oportunidades cadastradas no Supabase
     useEffect(() => {
@@ -957,14 +991,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     }, [dbOpportunities]);
 
     // SINCRONIZA AS CORES DOS ELEMENTOS COM A VISÃO DO TIPO DE ETIQUETA SELECIONADO
-    // ATENÇÃO: Só roda após inicialização concluída para não sobrescrever as cores
-    // restauradas pelo applySnapshot durante a abertura do modal.
     useEffect(() => {
         if (!selectedOppId) return;
-        // Bloqueia durante inicialização para não sobrescrever snapshot carregado
-        if (!isInitializedRef.current) return;
 
-        const currentOppColors = oppColorsMap[selectedOppId] || {};
+        const baseColors = oppColorsMap.none || oppColorsMap.default || {};
+        const currentOppColors = { ...baseColors, ...(oppColorsMap[selectedOppId] || {}) };
 
         setTitleColor(currentOppColors['title'] || '#000000');
         setDeColor(currentOppColors['deText'] || '#000000');
@@ -978,44 +1009,40 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         setBgColor(savedBackground && savedBackground !== 'transparent' ? savedBackground : defaultBgColor);
     }, [selectedOppId, oppColorsMap, defaultBgColor]);
 
-    const handleSaveAndExit = () => {
-        const currentSnapshot = getSnapshot();
+    const buildAutoSaveConfig = (currentSnapshot: Record<string, any>) => {
+        const {
+            fabricTemplateJson: _legacyFabricTemplate,
+            fabricDataUrl: _legacyFabricImage,
+            ...currentArtConfig
+        } = (config.artConfig || {}) as Record<string, any>;
 
         const fullArtConfig = {
-            ...(config.artConfig || {}),
+            ...currentArtConfig,
             globalSnapshot: currentSnapshot,
             oppColorsMap: {
-                ...(config.artConfig?.oppColorsMap || {}),
+                ...(currentArtConfig.oppColorsMap || {}),
                 ...oppColorsMap,
             },
             opportunities: {
-                ...(config.artConfig?.opportunities || {}),
+                ...Object.fromEntries(
+                    Object.keys(currentArtConfig.opportunities || {}).map(oppId => [oppId, currentSnapshot])
+                ),
                 default: currentSnapshot,
                 none: currentSnapshot,
                 [selectedOppId]: currentSnapshot,
             },
         };
 
-        const targetLayoutId = String(config.layoutId || 'preco_2x5_restored');
-        supabase.from('label_art_configs').upsert({
-            layout_id: targetLayoutId,
-            category: 'precos',
-            art_config: fullArtConfig,
-            updated_at: new Date().toISOString(),
-        }, { onConflict: 'layout_id' }).then(({ error }) => {
-            if (error) console.error('Erro ao sincronizar template com Supabase:', error);
-        });
-
-        const saveResult = onSaveConfig({
+        return {
             artConfig: fullArtConfig,
             text: title,
             price: normalPrice,
-            promoPrice: promoPrice,
-            showPromoPrice: showPromoPrice,
-            bg_color: bgColor,
-            priceColor: priceColor,
+            promoPrice,
+            showPromoPrice,
+            bg_color: oppColorsMap.none?.background || '#ffffff',
+            priceColor,
             promoPriceColor: priceColor,
-            priceFormat: 'split',
+            priceFormat: 'split' as const,
             showName: showTitle,
             priceFontSizeTens: scaleTens,
             priceFontSizeHundreds: scaleHundreds,
@@ -1028,8 +1055,68 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             dePricePorGroupPos,
             dePricePorGroupRotation,
             dePricePorGroupGap,
-        });
-        Promise.resolve(saveResult).finally(onClose);
+        };
+    };
+
+    const queueAutoSave = (snapshot: Record<string, any>, serialized: string) => {
+        const previousSnapshot = lastQueuedSnapshotRef.current;
+        lastQueuedSnapshotRef.current = serialized;
+        latestRequestedSnapshotRef.current = serialized;
+        setAutoSaveStatus('saving');
+
+        const operation = saveQueueRef.current
+            .catch(() => undefined)
+            .then(() => onSaveConfig(buildAutoSaveConfig(snapshot)))
+            .then(() => {
+                if (latestRequestedSnapshotRef.current === serialized) setAutoSaveStatus('saved');
+            })
+            .catch(error => {
+                if (lastQueuedSnapshotRef.current === serialized) lastQueuedSnapshotRef.current = previousSnapshot;
+                setAutoSaveStatus('error');
+                console.error('Erro no salvamento automático da etiqueta:', error);
+                throw error;
+            });
+
+        saveQueueRef.current = operation;
+        return operation;
+    };
+
+    useEffect(() => {
+        if (!isOpen) {
+            lastQueuedSnapshotRef.current = '';
+            latestRequestedSnapshotRef.current = '';
+            setAutoSaveStatus('saved');
+            return;
+        }
+        if (isArtConfigLoading) return;
+
+        const snapshot = getSnapshot();
+        const serialized = JSON.stringify(snapshot);
+        if (!lastQueuedSnapshotRef.current) {
+            lastQueuedSnapshotRef.current = serialized;
+            latestRequestedSnapshotRef.current = serialized;
+            return;
+        }
+        if (serialized === lastQueuedSnapshotRef.current) return;
+
+        const timer = setTimeout(() => {
+            queueAutoSave(snapshot, serialized).catch(() => undefined);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [isOpen, isArtConfigLoading, getSnapshot]);
+
+    const handleBackToErp = async () => {
+        const snapshot = getSnapshot();
+        const serialized = JSON.stringify(snapshot);
+        try {
+            if (serialized !== lastQueuedSnapshotRef.current || autoSaveStatus === 'saving') {
+                if (serialized !== lastQueuedSnapshotRef.current) queueAutoSave(snapshot, serialized);
+                await saveQueueRef.current;
+            }
+            onClose();
+        } catch {
+            toast.error('A alteração ainda não foi salva. Tente voltar novamente.');
+        }
     };
 
     // TECLAS DO TECLADO PARA MOVER ELEMENTO & ATALHOS DESFAZER/REFAZER
@@ -1313,20 +1400,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         return getIntegerPart(promoPrice || normalPrice || '1.999');
     }, [promoPrice, normalPrice]);
 
-    // Valores dinâmicos para renderização baseados na Ordem de Grandeza ativa ou selecionada
-    const activeTitleFontSize = selectedMagnitude === 'tens' ? titleFontSizeTens : selectedMagnitude === 'hundreds' ? titleFontSizeHundreds : titleFontSizeThousands;
-    const activeDeFontSize = selectedMagnitude === 'tens' ? deFontSizeTens : selectedMagnitude === 'hundreds' ? deFontSizeHundreds : deFontSizeThousands;
-    const activeNormalPriceFontSize = selectedMagnitude === 'tens' ? normalPriceFontSizeTens : selectedMagnitude === 'hundreds' ? normalPriceFontSizeHundreds : normalPriceFontSizeThousands;
-    const activePorFontSize = selectedMagnitude === 'tens' ? porFontSizeTens : selectedMagnitude === 'hundreds' ? porFontSizeHundreds : porFontSizeThousands;
-    const activeInstallmentsFontSize = selectedMagnitude === 'tens' ? installmentsFontSizeTens : selectedMagnitude === 'hundreds' ? installmentsFontSizeHundreds : installmentsFontSizeThousands;
-
-    const activeCurrencyFontSize = 
-        selectedMagnitude === 'tens' ? currencyFontSizeTens :
-        selectedMagnitude === 'hundreds' ? currencyFontSizeHundreds : currencyFontSizeThousands;
-
-    const activeCentsFontSize = 
-        selectedMagnitude === 'tens' ? centsFontSizeTens :
-        selectedMagnitude === 'hundreds' ? centsFontSizeHundreds : centsFontSizeThousands;
+    // Somente o número principal varia por ordem de grandeza. Os demais textos são fixos.
+    const activeTitleFontSize = titleFontSizeHundreds;
+    const activeDeFontSize = deFontSizeHundreds;
+    const activeNormalPriceFontSize = normalPriceFontSizeHundreds;
+    const activePorFontSize = porFontSizeHundreds;
+    const activeInstallmentsFontSize = installmentsFontSizeHundreds;
+    const activeCurrencyFontSize = currencyFontSizeHundreds;
+    const activeCentsFontSize = centsFontSizeHundreds;
 
     const activeScale = 
         selectedMagnitude === 'tens' ? scaleTens :
@@ -1487,27 +1568,13 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         window.addEventListener('touchend', handleMouseUp);
     }, [titleRotation, deRotation, normalPriceRotation, porRotation, currencyRotation, promoPriceRotation, centsRotation, installmentsRotation]);
 
-    // TROCA DE TIPO DE ETIQUETA (ISOLAMENTO DE ESTILOS POR TIPO DE ETIQUETA)
+    // A visão muda somente o contexto e as cores específicas da oportunidade.
     const handleSelectOpportunityContext = (newOppId: string) => {
         setSelectedOppId(newOppId);
-        const dbArtConfig = config?.artConfig;
-        if (dbArtConfig) {
-            const snapshotToApply = dbArtConfig.opportunities?.[newOppId]
-                || dbArtConfig.opportunities?.['none']
-                || dbArtConfig.opportunities?.['default']
-                || dbArtConfig.opportunities?.['salvado']
-                || dbArtConfig.globalSnapshot;
-            if (snapshotToApply) {
-                applySnapshot({ ...snapshotToApply, selectedOppId: newOppId }, true);
-            }
-        }
     };
 
-    // SELEÇÃO UNIFICADA PLANO CARTESIANO (TIPO DE ETIQUETA X GRANDEZA)
-    const handleSelectCartesianPreset = (newOppId: string, newMag: 'tens' | 'hundreds' | 'thousands') => {
-        if (newMag !== selectedMagnitude) {
-            handleSwitchMagnitude(newMag);
-        }
+    const handleSelectOpportunityView = (newOppId: string) => {
+        handleSelectOpportunityContext(newOppId);
     };
 
     // APLICAÇÃO DE COR
@@ -1562,13 +1629,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             else if (key === 'porText') { setPorFontSizeTens(v); setPorFontSizeHundreds(v); setPorFontSizeThousands(v); }
             else if (key === 'installments') { setInstallmentsFontSizeTens(v); setInstallmentsFontSizeHundreds(v); setInstallmentsFontSizeThousands(v); }
             else if (key === 'currencySymbol') {
-                if (selectedMagnitude === 'tens') setCurrencyFontSizeTens(v);
-                else if (selectedMagnitude === 'hundreds') setCurrencyFontSizeHundreds(v);
-                else setCurrencyFontSizeThousands(v);
+                setCurrencyFontSizeTens(v); setCurrencyFontSizeHundreds(v); setCurrencyFontSizeThousands(v);
             } else if (key === 'cents') {
-                if (selectedMagnitude === 'tens') setCentsFontSizeTens(v);
-                else if (selectedMagnitude === 'hundreds') setCentsFontSizeHundreds(v);
-                else setCentsFontSizeThousands(v);
+                setCentsFontSizeTens(v); setCentsFontSizeHundreds(v); setCentsFontSizeThousands(v);
             } else if (key === 'promoPrice') {
                 if (selectedMagnitude === 'tens') setScaleTens(v);
                 else if (selectedMagnitude === 'hundreds') setScaleHundreds(v);
@@ -1778,12 +1841,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     return (
         <div className={`fixed inset-0 z-50 flex flex-col animate-fade-in overflow-hidden w-screen h-screen ${isStandaloneTemplate ? 'bg-white dark:bg-slate-950' : 'bg-slate-900/90 backdrop-blur-md'}`}>
-            {/* CARREGAMENTO DAS FONTES GOOGLE PARA AS ETIQUETAS */}
-            <link 
-                href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Poppins:wght@400;700;900&family=Roboto:wght@400;700;900&family=Playfair+Display:wght@700;900&display=swap" 
-                rel="stylesheet" 
-            />
-            
             {/* 1. MODAL HEADER FULLWIDTH */}
             <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 relative z-30">
                 <div className="flex items-center gap-3.5">
@@ -1819,19 +1876,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         <span className="hidden sm:inline">Refazer</span>
                     </button>
 
-                    <button 
-                        type="button" 
-                        onClick={() => {
-                            handleSaveAndExit();
-                            toast.success('Template salvo com sucesso!');
-                        }} 
-                        className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer ml-1"
-                    >
-                        <i className="bi bi-floppy-fill text-xs" />
-                        <span>Salvar Template</span>
-                    </button>
-
-                    <button type="button" onClick={onClose} className="h-8 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 hover:text-red-500 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ml-1 text-xs font-black">
+                    <button type="button" onClick={handleBackToErp} className="h-8 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 hover:text-red-500 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ml-1 text-xs font-black">
                         <i className="bi bi-arrow-left text-xs" />
                         <span>Voltar ao ERP</span>
                     </button>
@@ -1939,7 +1984,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         </span>
                         <select
                             value={selectedOppId}
-                            onChange={(e) => setSelectedOppId(e.target.value)}
+                            onChange={(e) => handleSelectOpportunityContext(e.target.value)}
                             className="bg-transparent text-slate-800 dark:text-white text-xs font-black uppercase outline-none cursor-pointer pr-1"
                             title="Alternar visão de contexto do tipo de etiqueta"
                         >
@@ -2458,6 +2503,18 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
             {/* MODAL BODY: PREVIEW EM 100% DA LARGURA DISPONÍVEL */}
             {(() => {
+                if (isArtConfigLoading) {
+                    return (
+                        <div className="flex-1 w-full h-full flex items-center justify-center bg-slate-200/50 dark:bg-slate-950/80">
+                            <div className="flex items-center gap-3 rounded-2xl bg-white/90 dark:bg-slate-900 px-5 py-3 shadow-lg border border-slate-200 dark:border-slate-800">
+                                <span className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                                    Carregando template
+                                </span>
+                            </div>
+                        </div>
+                    );
+                }
                 const activeTitleFontSize = titleFontSizeHundreds || titleFontSizeTens || titleFontSizeThousands || 36;
                 const activeDeFontSize = deFontSizeHundreds || deFontSizeTens || deFontSizeThousands || 34;
                 const activeNormalPriceFontSize = normalPriceFontSizeHundreds || normalPriceFontSizeTens || normalPriceFontSizeThousands || 34;
@@ -2689,7 +2746,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 </div>
             )}
 
-            {/* Modal de Seleção de Oportunidades & Grandeza (zIndex: 9999) */}
+            {/* Modal de seleção da visão de contexto */}
             {isOppSelectModalOpen && (
                 <div 
                     style={{ zIndex: 9999 }}
@@ -2703,8 +2760,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     <i className="bi bi-tag-fill text-lg" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Tipo de Etiqueta</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Selecione o modelo da etiqueta</p>
+                                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Visão do produto</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Muda somente o contexto e as cores</p>
                                 </div>
                             </div>
                             <button 
@@ -2725,7 +2782,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         key={opp.id}
                                         type="button"
                                         onClick={() => {
-                                            handleSelectCartesianPreset(opp.id, 'thousands');
+                                            handleSelectOpportunityView(opp.id);
                                             setIsOppSelectModalOpen(false);
                                         }}
                                         className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
@@ -2745,7 +2802,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                             </span>
                                         ) : (
                                             <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 uppercase">
-                                                Usar Modelo
+                                                Visualizar
                                             </span>
                                         )}
                                     </button>
@@ -3000,20 +3057,25 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             )}
 
             {/* Modal Footer Fullwidth */}
-            <div className="flex items-center justify-between px-6 lg:px-10 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                    <i className="bi bi-info-circle-fill text-blue-500 text-sm" />
-                    <span>As alterações serão salvas ao sair</span>
+            <div className="flex items-center px-6 lg:px-10 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+                <div className={`flex items-center gap-2 text-xs font-bold ${
+                    autoSaveStatus === 'error' ? 'text-red-600' : 'text-slate-500'
+                }`}>
+                    <i className={`bi text-sm ${
+                        autoSaveStatus === 'saving'
+                            ? 'bi-arrow-repeat animate-spin text-blue-500'
+                            : autoSaveStatus === 'error'
+                                ? 'bi-exclamation-circle-fill text-red-500'
+                                : 'bi-cloud-check-fill text-emerald-500'
+                    }`} />
+                    <span>
+                        {autoSaveStatus === 'saving'
+                            ? 'Salvamento automático...'
+                            : autoSaveStatus === 'error'
+                                ? 'Erro no salvamento automático'
+                                : 'Salvamento automático'}
+                    </span>
                 </div>
-
-                <button
-                    type="button"
-                    onClick={handleSaveAndExit}
-                    className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-                >
-                    <i className="bi bi-check2-circle text-sm" />
-                    <span>SALVAR E SAIR</span>
-                </button>
             </div>
 
             {/* Modal de Teste de Valores (Simulador com Sliders 0-9 por dígito) */}

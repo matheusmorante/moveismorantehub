@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { fetchGroupsAndCategories, createGroup, updateGroup, deleteGroup } from '@/pages/utils/categoryService';
+import { fetchGroupsAndCategories, createCategory, updateCategory, deleteCategory } from '@/pages/utils/categoryService';
 
 const Environments = () => {
     const [groups, setGroups] = useState<any[]>([]);
@@ -19,7 +19,7 @@ const Environments = () => {
         setLoading(true);
         try {
             const data = await fetchGroupsAndCategories();
-            setGroups(data.groups);
+            setGroups(data.categories.filter(category => !category.parents?.length));
         } catch (error) {
             toast.error("Erro ao carregar ambientes.");
         } finally {
@@ -35,10 +35,10 @@ const Environments = () => {
         if (!name.trim()) return toast.error("O nome não pode estar vazio.");
         try {
             if (id) {
-                await updateGroup(id, name);
+                await updateCategory(id, name, []);
                 toast.success("Ambiente atualizado!");
             } else {
-                await createGroup(name);
+                await createCategory(name, []);
                 toast.success("Ambiente criado!");
             }
             setEditingGroup(null);
@@ -54,7 +54,7 @@ const Environments = () => {
     const handleDeleteGroup = async (id: string) => {
         if (!window.confirm("Isso apagará este Ambiente permanentemente. Deseja continuar?")) return;
         try {
-            await deleteGroup(id);
+            await deleteCategory(id);
             toast.success("Ambiente excluído!");
             loadData();
         } catch (error) {

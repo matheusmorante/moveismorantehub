@@ -253,16 +253,15 @@ const LabelGrid: React.FC<Props> = ({
                                     };
 
                                     if (config.category === 'precos' && !item.isBlank) {
-                                        const oppId = item.opportunityId || item.opportunity_id;
                                         let parsedTemplate: any = null;
 
-                                        if (oppId && config.artConfig?.opportunities?.[oppId]) {
-                                            parsedTemplate = config.artConfig.opportunities[oppId];
-                                        } else if (config.artConfig) {
-                                            parsedTemplate = config.artConfig.opportunities?.['none']
-                                                || config.artConfig.opportunities?.['default']
-                                                || config.artConfig.opportunities?.['salvado']
-                                                || config.artConfig.globalSnapshot;
+                                        if (config.artConfig) {
+                                            const artConfig = config.artConfig as any;
+                                            parsedTemplate = artConfig.opportunities?.['none']
+                                                || artConfig.opportunities?.['default']
+                                                || artConfig.opportunities?.['salvado']
+                                                || artConfig.globalSnapshot
+                                                || Object.values(artConfig.opportunities || {})[0];
                                         }
 
                                         if (parsedTemplate) {

@@ -1,5 +1,6 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from './textUtils';
+import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
 
 export type Category = {
     id: string;
@@ -47,21 +48,20 @@ export const fetchGroupsAndCategories = async () => {
 // Funções de Group removidas - Tudo é categoria agora
 
 export const generateSlug = (name: string) => {
-    return name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-        .replace(/[^a-z0-9]/g, '-') // Remove caracteres especiais
-        .replace(/-+/g, '-') // Remove hífens duplicados
-        .replace(/^-|-$/g, ''); // Remove hífens no início/fim
+    return normalizeSlug(name);
 };
 
 export const createCategory = async (name: string, parentIds: string[], seoFields?: Partial<Category>) => {
     const formattedName = toTitleCase(name);
+    const uniqueSlug = await resolveUniqueSlug(
+        supabase,
+        'categories',
+        seoFields?.slug || formattedName
+    );
     const insertData = { 
         name: formattedName, 
         active: true,
-        slug: seoFields?.slug || generateSlug(formattedName),
+        slug: uniqueSlug,
         meta_title: seoFields?.meta_title,
         meta_description: seoFields?.meta_description,
         seo_description: seoFields?.seo_description
@@ -72,7 +72,7 @@ export const createCategory = async (name: string, parentIds: string[], seoField
     // Fail-safe: If insert fails due to missing columns (SEO fields)
     if (error && (error.message?.includes("column") || error.code === '42703' || error.message?.includes("schema cache"))) {
         console.warn("[CategoryService] Schema issue on insert. Retrying with basic fields...");
-        const basicData = { name: formattedName, active: true };
+        const basicData = { name: formattedName, active: true, slug: uniqueSlug };
         const { data: retryData, error: retryError } = await supabase.from('categories').insert([basicData]).select();
         data = retryData;
         error = retryError;
@@ -94,7 +94,9 @@ export const updateCategory = async (id: string, name: string, parentIds: string
     const formattedName = toTitleCase(name);
     const updateData: any = { name: formattedName };
     if (seoFields) {
-        if (seoFields.slug) updateData.slug = seoFields.slug;
+        if (seoFields.slug) {
+            updateData.slug = await resolveUniqueSlug(supabase, 'categories', seoFields.slug, id);
+        }
         if (seoFields.meta_title) updateData.meta_title = seoFields.meta_title;
         if (seoFields.meta_description) updateData.meta_description = seoFields.meta_description;
         if (seoFields.seo_description) updateData.seo_description = seoFields.seo_description;

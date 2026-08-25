@@ -4,7 +4,7 @@ export interface AppNotificationPayload {
     orderId?: string;
     title: string;
     message: string;
-    type: 'order_created' | 'order_edited' | 'order_schedule_changed' | 'system';
+    type: 'order_created' | 'order_edited' | 'order_schedule_changed' | 'assembly_outside' | 'assembly_depot' | 'system';
     scheduleText?: string;
     orderData?: any;
 }

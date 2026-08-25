@@ -48,9 +48,6 @@ const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 1
     return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />;
 };
 
-const PRICE_ART_GLOBAL_KEY = 'morante_global_price_label_art_template';
-const getOppTemplateKey = (oppId: string) => `morante_price_label_art_template_${oppId}`;
-
 const getPriceMagnitude = (priceStr: string): 'tens' | 'hundreds' | 'thousands' => {
     if (!priceStr) return 'hundreds';
     const clean = String(priceStr).replace(/R\$\s*/g, '').trim().replace(/[^0-9,\.]/g, '');
@@ -99,16 +96,20 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const effectiveOppId = oppId || 'none';
 
     // 2. BUSCA DO TEMPLATE NO SUPABASE (artConfig)
-    const dbOppColors = config.artConfig?.oppColorsMap?.[effectiveOppId]
-        || config.artConfig?.oppColorsMap?.['none']
+    const baseOppColors = config.artConfig?.oppColorsMap?.['none']
         || config.artConfig?.oppColorsMap?.['default']
         || {};
+    const dbOppColors = {
+        ...baseOppColors,
+        ...(config.artConfig?.oppColorsMap?.[effectiveOppId] || {}),
+    };
 
-    const dbTemplate = (effectiveOppId && config.artConfig?.opportunities?.[effectiveOppId])
-        || config.artConfig?.opportunities?.['none']
+    // O layout é único para todas as oportunidades; apenas as cores variam.
+    const dbTemplate = config.artConfig?.opportunities?.['none']
         || config.artConfig?.opportunities?.['default']
         || config.artConfig?.opportunities?.['salvado']
         || config.artConfig?.globalSnapshot
+        || Object.values(config.artConfig?.opportunities || {})[0]
         || config;
 
     const template: any = dbTemplate || {};
@@ -131,16 +132,15 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const oppColors = dbOppColors || {};
 
     // 5. CORES
-    const defaultFallbackBg = (effectiveOppId === 'salvado') ? '#ff7900' : '#ffffff';
-    const bgColor = oppColors['background'] || t.bgColor || config.bg_color || defaultFallbackBg;
-    const titleColor = oppColors['title'] || t.titleColor || '#000000';
-    const deColor = oppColors['deText'] || t.deColor || '#000000';
-    const normalPriceColor = oppColors['normalPrice'] || t.normalPriceColor || '#000000';
-    const porColor = oppColors['porText'] || t.porColor || '#000000';
-    const currencyColor = oppColors['currencySymbol'] || t.currencyColor || '#000000';
-    const priceColor = oppColors['promoPrice'] || t.priceColor || '#1e3a8a';
-    const centsColor = oppColors['cents'] || t.centsColor || '#000000';
-    const installmentsColor = oppColors['installments'] || t.installmentsColor || '#000000';
+    const bgColor = oppColors['background'] || config.bg_color || '#ffffff';
+    const titleColor = oppColors['title'] || '#000000';
+    const deColor = oppColors['deText'] || '#000000';
+    const normalPriceColor = oppColors['normalPrice'] || '#000000';
+    const porColor = oppColors['porText'] || '#000000';
+    const currencyColor = oppColors['currencySymbol'] || '#000000';
+    const priceColor = oppColors['promoPrice'] || '#1e3a8a';
+    const centsColor = oppColors['cents'] || '#000000';
+    const installmentsColor = oppColors['installments'] || '#000000';
 
     // 6. TAMANHOS DE FONTE POR MAGNITUDE DA ETIQUETA DO PRODUTO (IDÊNTICO AO EDITOR)
     const titleFontSize = t.titleFontSize ?? t.titleFontSizeHundreds ?? t.titleFontSizeTens ?? t.titleFontSizeThousands ?? 36;

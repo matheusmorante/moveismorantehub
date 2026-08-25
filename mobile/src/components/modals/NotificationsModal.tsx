@@ -75,7 +75,9 @@ export const NotificationsModal: React.FC<Props> = ({
               {sortedNotifications.map(notif => {
                 const notifType = notif.type || '';
                 const notifTitle = notif.title || '';
-                const isAssembly = notifType === 'assembly' || notifType.includes('assembly') || notifTitle.includes('Montagem') || notifTitle.includes('🛠️');
+                const isOutsideAssembly = notifType === 'assembly_outside' || notifTitle.toLowerCase().includes('montagem fora');
+                const isDepotAssembly = notifType === 'assembly_depot' || notifTitle.toLowerCase().includes('montagem no depósito');
+                const isAssembly = isOutsideAssembly || isDepotAssembly || notifType === 'assembly' || notifType.includes('assembly') || notifTitle.includes('Montagem') || notifTitle.includes('🛠️');
                 const isOrder = notifType === 'order_created' || notifType === 'order_edited' || notifTitle.includes('Pedido') || notifTitle.includes('🛒');
 
                 let cardBg = isDarkMode ? '#1e293b' : '#f8fafc';
@@ -129,6 +131,11 @@ export const NotificationsModal: React.FC<Props> = ({
                     <Text style={{ fontSize: 10, fontWeight: '700', color: msgColor, marginTop: 3 }}>
                       {notif.message}
                     </Text>
+                    {isAssembly ? (
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: titleColor, marginTop: 5 }}>
+                        {isOutsideAssembly ? '🔴 MONTAGEM FORA' : isDepotAssembly ? '🟠 MONTAGEM NO DEPÓSITO' : '🟠 MONTAGEM'}
+                      </Text>
+                    ) : null}
                     {notif.scheduleText ? (
                       <Text style={{ fontSize: 9, fontWeight: '800', color: titleColor, marginTop: 4 }}>
                         📅 {notif.scheduleText}

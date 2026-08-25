@@ -11,6 +11,7 @@
       "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-notifications"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.matheusmorante.mobile"

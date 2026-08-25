@@ -170,11 +170,8 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                                     onChange={(e) => {
                                         const val = e.target.value;
                                         if (!val) return;
-                                        if (item.handlingType && item.handlingType === val) return;
-                                        
-                                        if (window.confirm(`Deseja alterar o manuseio para "${val}"?`)) {
-                                            onChange(idx, 'handlingType', val);
-                                        }
+                                        if (item.handlingType === val) return;
+                                        onChange(idx, 'handlingType', val);
                                     }}
                                 >
                                     <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
@@ -323,11 +320,8 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                                 onChange={(e) => {
                                     const val = e.target.value;
                                     if (!val) return;
-                                    if (item.handlingType && item.handlingType === val) return;
-
-                                    if (window.confirm(`Deseja alterar o manuseio para "${val}"?`)) {
-                                        onChange(idx, 'handlingType', val);
-                                    }
+                                    if (item.handlingType === val) return;
+                                    onChange(idx, 'handlingType', val);
                                 }}
                             >
                                 <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>

@@ -5,10 +5,10 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Speech from 'expo-speech';
 
 import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supabaseClient';
-import { registerPushToken, triggerLocalNotification } from './src/services/notificationService';
+import { registerPushToken } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
-import { getOrderTotalValue, formatOrderSchedulingText, isDateInPeriod } from './src/utils/orderUtils';
+import { isDateInPeriod } from './src/utils/orderUtils';
 
 import { DashboardHeader } from './src/features/dashboard/components/DashboardHeader';
 import { AISummaryCard } from './src/features/dashboard/components/AISummaryCard';
@@ -364,8 +364,6 @@ export default function App() {
         const newNotif = payload.new;
         if (!newNotif) return;
 
-        triggerLocalNotification(newNotif.title, newNotif.message, { orderId: newNotif.order_id });
-
         setNotifications(prev => [{
           id: newNotif.id,
           title: newNotif.title,
@@ -384,59 +382,12 @@ export default function App() {
       })
       .subscribe();
 
-    const ordersChannel = supabase
-      .channel('realtime-global-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async (payload) => {
-        const orderRow = payload.new as any;
-        if (!orderRow || !orderRow.id) return;
-
-        const orderData = orderRow.order_data || {};
-        if (orderData.deleted || orderRow.deleted) return;
-
-        const isDraft = orderRow.status === 'draft' || orderData.status === 'draft';
-        if (isDraft && !orderData.shipping?.scheduling?.date) return;
-
-        const customerName = orderData.customerData?.fullName || orderRow.customer_name || 'Cliente';
-        const isInsert = payload.eventType === 'INSERT';
-        const isShowroom = orderData.orderType === 'showroom' || orderRow.order_type === 'showroom';
-        const isAssembly = isShowroom || orderData.handlingType === 'montagem_deposito';
-
-        const notifType = isAssembly ? 'assembly' : (isInsert ? 'order_created' : 'order_edited');
-        const notifTitle = isShowroom 
-          ? `🛠️ Nova Montagem no Mostruário - ${customerName}`
-          : (isAssembly 
-            ? `🛠️ Nova Montagem no Depósito - ${customerName}`
-            : (isInsert ? `🛒 Novo Pedido - ${customerName}` : `✏️ Pedido Alterado - ${customerName}`));
-
-        const notifMsg = `Cliente: ${customerName} • Total: R$ ${Number(getOrderTotalValue(orderRow)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-
-        triggerLocalNotification(notifTitle, notifMsg, { orderId: orderRow.id });
-
-        setNotifications(prev => [{
-          id: `ord_${orderRow.id}_${Date.now()}`,
-          title: notifTitle,
-          message: notifMsg,
-          type: notifType,
-          createdAt: new Date().toISOString(),
-          timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          scheduleText: formatOrderSchedulingText(orderData.shipping || {}, orderRow),
-          order: orderRow,
-          read: false
-        }, ...prev]);
-        setUnreadCount(prev => prev + 1);
-
-        fetchDashboardStats();
-        generateDeliveryAISummary('today', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
-      })
-      .subscribe();
-
     const pollingInterval = setInterval(() => {
       fetchNotifications();
     }, 15000);
 
     return () => {
       notifChannel.unsubscribe();
-      ordersChannel.unsubscribe();
       clearInterval(pollingInterval);
     };
   }, []);

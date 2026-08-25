@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { renderFabricTemplateToDataUrl } from './FabricLabelEngine';
+import { usePriceLabelFonts } from './usePriceLabelFonts';
 
 export interface PriceLabelArtData {
     artWidthMm?: number;
@@ -140,6 +141,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
     containerRefOut
 }) => {
     const isEdit = mode === 'edit';
+    const fontsReady = usePriceLabelFonts();
     const localContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = containerRefOut || localContainerRef;
 
@@ -277,6 +279,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 padding: 0,
                 margin: 0,
                 zIndex: 1,
+                opacity: fontsReady ? 1 : 0,
                 pointerEvents: isEdit ? 'auto' : 'none'
             }}
         >
@@ -565,11 +568,13 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         color: currencyColor,
                         fontSize: `${currencyFontSize}px`,
                         fontFamily: currencyFontFamily,
-                        transform: `translate(${currencyPos.x}px, calc(-50% + ${currencyPos.y}px)) rotate(${currencyRotation}deg)`,
+                        top: `calc(50% + ${currencyPos.y}px)`,
+                        left: `calc(50% + ${currencyPos.x}px)`,
+                        transform: `translate(-50%, -50%) rotate(${currencyRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('currencySymbol') ? 50 : 25
                     }}
-                    className={`absolute top-[38%] left-[40px] w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
+                    className={`absolute w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
                         isEdit && selectedElements.has('currencySymbol') 
                             ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                             : 'border border-transparent'
@@ -707,11 +712,13 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         color: centsColor, 
                         fontSize: `${centsFontSize}px`,
                         fontFamily: centsFontFamily,
-                        transform: `translate(${centsPos.x}px, calc(-50% + ${centsPos.y}px)) rotate(${centsRotation}deg)`,
+                        top: `calc(50% + ${centsPos.y}px)`,
+                        left: `calc(50% + ${centsPos.x}px)`,
+                        transform: `translate(-50%, -50%) rotate(${centsRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('cents') ? 50 : 25
                     }}
-                    className={`absolute top-[38%] right-[40px] w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
+                    className={`absolute w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
                         isEdit && selectedElements.has('cents') 
                             ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                             : 'border border-transparent'
@@ -811,6 +818,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     ...style,
                     background: effectiveBgColor,
                     backgroundColor: effectiveBgColor,
+                    borderRadius: '24px',
                     width: '100%',
                     maxWidth: '100%',
                     aspectRatio: (artWidthMm && artHeightMm && artWidthMm >= artHeightMm) ? `${artWidthMm} / ${artHeightMm}` : '1.75 / 1',
@@ -858,6 +866,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 ...style,
                 background: effectiveBgColor,
                 backgroundColor: effectiveBgColor,
+                borderRadius: '24px',
                 position: 'absolute', 
                 inset: 0, 
                 overflow: 'hidden',
