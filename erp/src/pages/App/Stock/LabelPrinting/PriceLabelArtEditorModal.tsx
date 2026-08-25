@@ -829,22 +829,27 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             return;
         }
 
-        const savedOppColorsMap = localStorage.getItem('morante_hub_opp_colors_map');
-        if (savedOppColorsMap) {
-            try {
-                const parsedColors = JSON.parse(savedOppColorsMap);
-                if (parsedColors && typeof parsedColors === 'object') {
-                    setOppColorsMap(parsedColors);
+        const dbOppColorsMap = config.artConfig?.oppColorsMap;
+        if (dbOppColorsMap && typeof dbOppColorsMap === 'object') {
+            setOppColorsMap(dbOppColorsMap);
+        } else {
+            const savedOppColorsMap = localStorage.getItem('morante_hub_opp_colors_map');
+            if (savedOppColorsMap) {
+                try {
+                    const parsedColors = JSON.parse(savedOppColorsMap);
+                    if (parsedColors && typeof parsedColors === 'object') {
+                        setOppColorsMap(parsedColors);
+                    }
+                } catch (e) {
+                    console.error("Erro ao carregar mapa de cores de oportunidades:", e);
                 }
-            } catch (e) {
-                console.error("Erro ao carregar mapa de cores de oportunidades:", e);
             }
         }
 
         const dbArtSnapshot = config.artConfig?.opportunities?.[selectedOppId];
         let savedGlobal = dbArtSnapshot
             ? JSON.stringify(dbArtSnapshot)
-            : localStorage.getItem(getOppTemplateKey(selectedOppId));
+            : (config.artConfig?.opportunities?.['salvado'] ? JSON.stringify(config.artConfig.opportunities['salvado']) : localStorage.getItem(getOppTemplateKey(selectedOppId)));
         if (!savedGlobal && selectedOppId === 'salvado') {
             savedGlobal = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
         }
@@ -934,6 +939,28 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             localStorage.setItem(GLOBAL_PRICE_LABEL_ART_KEY, JSON.stringify(currentSnapshot));
         }
 
+        const fullArtConfig = {
+            ...(config.artConfig || {}),
+            oppColorsMap: {
+                ...(config.artConfig?.oppColorsMap || {}),
+                ...oppColorsMap,
+            },
+            opportunities: {
+                ...(config.artConfig?.opportunities || {}),
+                [selectedOppId]: currentSnapshot,
+            },
+        };
+
+        const targetLayoutId = String(config.layoutId || 'preco_2x5_restored');
+        supabase.from('label_art_configs').upsert({
+            layout_id: targetLayoutId,
+            category: 'precos',
+            art_config: fullArtConfig,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: 'layout_id' }).then(({ error }) => {
+            if (error) console.error('Erro ao sincronizar template com Supabase:', error);
+        });
+
         const saveResult = onSaveConfig({
             text: title,
             price: normalPrice,
@@ -955,13 +982,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             dePricePorGroupPos,
             dePricePorGroupRotation,
             dePricePorGroupGap,
-            artConfig: {
-                ...(config.artConfig || {}),
-                opportunities: {
-                    ...(config.artConfig?.opportunities || {}),
-                    [selectedOppId]: currentSnapshot,
-                },
-            },
+            artConfig: fullArtConfig,
         });
         Promise.resolve(saveResult).finally(onClose);
     };

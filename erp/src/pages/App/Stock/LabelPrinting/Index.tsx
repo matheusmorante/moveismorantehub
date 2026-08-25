@@ -484,9 +484,65 @@ const LabelPrinting: React.FC = () => {
                 supabase.from('label_art_configs').select('layout_id, category, art_config')
             ]);
 
-            if (artData) {
-                setSavedArtConfigs(Object.fromEntries(artData.map((item: any) => [item.layout_id, item.art_config])));
+            let artConfigsMap = artData ? Object.fromEntries(artData.map((item: any) => [item.layout_id, item.art_config])) : {};
+
+            // MIGRAÇÃO AUTOMÁTICA DE LOCALSTORAGE PARA O SUPABASE
+            try {
+                const isAlreadyMigrated = localStorage.getItem('morante_art_templates_migrated') === 'true';
+                if (!isAlreadyMigrated) {
+                    const opportunities: Record<string, any> = {};
+                    let oppColorsMap: Record<string, any> = {};
+
+                    const rawColors = localStorage.getItem('morante_hub_opp_colors_map');
+                    if (rawColors) {
+                        try { oppColorsMap = JSON.parse(rawColors); } catch (e) {}
+                    }
+
+                    const rawGlobal = localStorage.getItem('morante_global_price_label_art_template');
+                    if (rawGlobal) {
+                        try { opportunities['salvado'] = JSON.parse(rawGlobal); } catch (e) {}
+                    }
+
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('morante_price_label_art_template_')) {
+                            const oppId = key.replace('morante_price_label_art_template_', '');
+                            try {
+                                const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+                                if (parsed && typeof parsed === 'object') {
+                                    opportunities[oppId] = parsed;
+                                }
+                            } catch (e) {}
+                        }
+                    }
+
+                    if (Object.keys(opportunities).length > 0 || Object.keys(oppColorsMap).length > 0) {
+                        const defaultLayoutId = 'preco_2x5_restored';
+                        const existingDbConfig = artConfigsMap[defaultLayoutId] || {};
+                        const mergedArtConfig = {
+                            ...existingDbConfig,
+                            oppColorsMap: { ...(existingDbConfig.oppColorsMap || {}), ...oppColorsMap },
+                            opportunities: { ...(existingDbConfig.opportunities || {}), ...opportunities },
+                        };
+
+                        const { error: upsertErr } = await supabase.from('label_art_configs').upsert({
+                            layout_id: defaultLayoutId,
+                            category: 'precos',
+                            art_config: mergedArtConfig,
+                            updated_at: new Date().toISOString(),
+                        }, { onConflict: 'layout_id' });
+
+                        if (!upsertErr) {
+                            artConfigsMap[defaultLayoutId] = mergedArtConfig;
+                            localStorage.setItem('morante_art_templates_migrated', 'true');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Erro na migração de templates para o Supabase:', err);
             }
+
+            setSavedArtConfigs(artConfigsMap);
 
             if (data && !error) {
                 const mapped: GridModel[] = data.map((m: any) => mapDbToModel(m));

@@ -99,37 +99,35 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     let template: any = {};
     let oppColors: Record<string, string> = {};
     try {
+        const dbOppColors = oppId ? config.artConfig?.oppColorsMap?.[oppId] : undefined;
         const rawMap = localStorage.getItem('morante_hub_opp_colors_map');
         const map = rawMap ? JSON.parse(rawMap) : {};
+        oppColors = dbOppColors || (oppId && map[oppId]) || {};
 
-        // Prioriza a arte persistida no layout do banco; localStorage é legado.
-        const dbTemplate = config.artConfig?.opportunities?.[oppId];
+        // Prioriza a arte persistida no layout do banco (Supabase)
+        const dbTemplate = config.artConfig?.opportunities?.[oppId]
+            || (oppId === 'salvado' ? config.artConfig?.opportunities?.['salvado'] : undefined)
+            || config.artConfig?.opportunities?.['none'];
+
         if (dbTemplate) {
             template = dbTemplate;
+        } else {
+            const rawUuid = oppId ? localStorage.getItem(getOppTemplateKey(oppId)) : null;
+            const parsedUuid = rawUuid ? JSON.parse(rawUuid) : null;
+            const useUuidTemplate = parsedUuid && parsedUuid.selectedOppId === oppId;
+
+            const rawBase = oppId === 'none'
+                ? localStorage.getItem(getOppTemplateKey('none')) || localStorage.getItem(PRICE_ART_GLOBAL_KEY)
+                : localStorage.getItem(getOppTemplateKey('none')) ||
+                  localStorage.getItem(getOppTemplateKey('salvado')) ||
+                  localStorage.getItem(PRICE_ART_GLOBAL_KEY);
+
+            if (useUuidTemplate) {
+                template = parsedUuid;
+            } else if (rawBase) {
+                template = JSON.parse(rawBase);
+            }
         }
-
-        // Tenta carregar o template específico da oportunidade somente se não veio do banco
-        const rawUuid = oppId ? localStorage.getItem(getOppTemplateKey(oppId)) : null;
-        const parsedUuid = rawUuid ? JSON.parse(rawUuid) : null;
-
-        // Só usa o template UUID se ele foi intencionalmente salvo para essa oportunidade
-        // (selectedOppId no snapshot bate com o oppId do produto)
-        const useUuidTemplate = parsedUuid && parsedUuid.selectedOppId === oppId;
-
-        // Template base: none > salvado > global
-                const rawBase = oppId === 'none'
-                        ? localStorage.getItem(getOppTemplateKey('none')) || localStorage.getItem(PRICE_ART_GLOBAL_KEY)
-                        : localStorage.getItem(getOppTemplateKey('none')) ||
-                            localStorage.getItem(getOppTemplateKey('salvado')) ||
-                            localStorage.getItem(PRICE_ART_GLOBAL_KEY);
-
-        if (!dbTemplate && useUuidTemplate) {
-            template = parsedUuid;
-        } else if (!dbTemplate && rawBase) {
-            template = JSON.parse(rawBase);
-        }
-
-        oppColors = (oppId && map[oppId]) || {};
     } catch (e) {}
 
     const displayPrice = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || '0');
@@ -176,22 +174,20 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const installmentsFontSize = pick(t.installmentsFontSizeTens, t.installmentsFontSizeHundreds, t.installmentsFontSizeThousands, t.installmentsFontSize, 18);
     const priceScale = mag === 'tens' ? (t.scaleTens ?? 240) : mag === 'hundreds' ? (t.scaleHundreds ?? 210) : (t.scaleThousands ?? 170);
 
-    const titlePos = t.titlePos || { x: 0, y: 0 };
+    const titlePos = (t.titlePos && (t.titlePos.x !== 0 || t.titlePos.y !== 0)) ? t.titlePos : { x: 0, y: -160 };
     const titleRot = t.titleRotation ?? 0;
-    // O editor inicia o grupo no centro do artboard. O fallback legado
-    // deslocava somente a impressão quando a posição não existia no template
-    // específico da grandeza.
-    // A posição deste grupo é compartilhada no editor entre as grandezas.
-    // Priorizar o snapshot-base evita que a impressão use uma cópia antiga
-    // presente no template de dezenas/centenas/milhares do produto.
-    const groupPos = template.dePricePorGroupPos || t.dePricePorGroupPos || { x: 0, y: 0 };
+    const groupPos = (template.dePricePorGroupPos && (template.dePricePorGroupPos.x !== 0 || template.dePricePorGroupPos.y !== 0))
+        ? template.dePricePorGroupPos
+        : ((t.dePricePorGroupPos && (t.dePricePorGroupPos.x !== 0 || t.dePricePorGroupPos.y !== 0))
+            ? t.dePricePorGroupPos
+            : { x: -40, y: -80 });
     const groupRot = template.dePricePorGroupRotation ?? t.dePricePorGroupRotation ?? 0;
     const groupGap = template.dePricePorGroupGap ?? t.dePricePorGroupGap ?? 10;
-    const currPos = t.currencyPos || { x: 0, y: 0 };
+    const currPos = (t.currencyPos && (t.currencyPos.x !== 0 || t.currencyPos.y !== 0)) ? t.currencyPos : { x: -280, y: 35 };
     const currRot = t.currencyRotation ?? 0;
-    const pricePos = t.promoPricePos || { x: 0, y: 55 };
+    const pricePos = (t.promoPricePos && (t.promoPricePos.x !== 0 || t.promoPricePos.y !== 0)) ? t.promoPricePos : { x: 0, y: 45 };
     const priceRot = t.promoPriceRotation ?? 0;
-    const centsPos = t.centsPos || { x: 0, y: 0 };
+    const centsPos = (t.centsPos && (t.centsPos.x !== 0 || t.centsPos.y !== 0)) ? t.centsPos : { x: 260, y: -10 };
     const centsRot = t.centsRotation ?? 0;
     const instPos = t.installmentsPos || { x: 0, y: 0 };
     const instRot = t.installmentsRotation ?? 0;

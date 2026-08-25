@@ -120,6 +120,7 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - **Desativação de Recursos de E-commerce no Produto:** Simplificada a aba de e-commerce no cadastro de produtos, renomeando para **"Fotos do Produto"** e removendo SEO, checklist e sincronizações desnecessárias.
 - **Compactação de Imagens Eficiente:** Limite ajustado de 0.3 MB para 0.1 MB (100 KB) e resolução para 1200px no upload de fotos em `imageUtils.ts`.
 - **Desativação de Canais Realtime:** Canais desativados nos serviços `personService.ts`, `purchaseService.ts`, `serviceService.ts`, `productService.ts`, `variationService.ts`, `inventoryService.ts`, `settingsService.ts` e otimização do `notificationService.ts`. Apenas o `orderHistoryService.ts` mantém canal realtime ativo.
+- **Persistência de Templates no Supabase:** Eliminada a dependência do `localStorage` para o Template de Etiqueta de Preço. Todas as posições, dimensões, fontes e mapas de cores de oportunidade foram migrados e são salvos/lidos exclusivamente da tabela `label_art_configs` no Supabase, garantindo sincronização e disponibilidade para todos os usuários em Dev e Prod.
 
 ### Concluído Recentemente (Abril 2026)
 
