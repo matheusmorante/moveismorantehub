@@ -143,7 +143,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const installmentsColor = oppColors['installments'] || t.installmentsColor || '#000000';
 
     // 6. TAMANHOS DE FONTE POR MAGNITUDE DA ETIQUETA DO PRODUTO (IDÊNTICO AO EDITOR)
-    const titleFontSize = mag === 'tens' ? (t.titleFontSizeTens ?? t.titleFontSize ?? 26) : mag === 'hundreds' ? (t.titleFontSizeHundreds ?? t.titleFontSize ?? 26) : (t.titleFontSizeThousands ?? t.titleFontSize ?? 26);
+    const titleFontSize = mag === 'tens' ? (t.titleFontSizeTens ?? t.titleFontSize ?? 38) : mag === 'hundreds' ? (t.titleFontSizeHundreds ?? t.titleFontSize ?? 36) : (t.titleFontSizeThousands ?? t.titleFontSize ?? 32);
     const deFontSize = mag === 'tens' ? (t.deFontSizeTens ?? t.deFontSize ?? 34) : mag === 'hundreds' ? (t.deFontSizeHundreds ?? t.deFontSize ?? 34) : (t.deFontSizeThousands ?? t.deFontSize ?? 34);
     const normalPriceFontSize = mag === 'tens' ? (t.normalPriceFontSizeTens ?? t.normalPriceFontSize ?? 34) : mag === 'hundreds' ? (t.normalPriceFontSizeHundreds ?? t.normalPriceFontSize ?? 34) : (t.normalPriceFontSizeThousands ?? t.normalPriceFontSize ?? 34);
     const porFontSize = mag === 'tens' ? (t.porFontSizeTens ?? t.porFontSize ?? 34) : mag === 'hundreds' ? (t.porFontSizeHundreds ?? t.porFontSize ?? 34) : (t.porFontSizeThousands ?? t.porFontSize ?? 34);
