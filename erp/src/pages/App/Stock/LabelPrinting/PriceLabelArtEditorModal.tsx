@@ -209,10 +209,50 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [selectedElement, setSelectedElement] = useState<PriceLabelLayerKey>(null);
     const [selectedElements, setSelectedElements] = useState<Set<PriceLabelLayerKey>>(new Set());
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+    const [isCenterMenuOpen, setIsCenterMenuOpen] = useState(false);
     const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
     const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
     const [showColorPickerDropdown, setShowColorPickerDropdown] = useState(false);
     const pendingGradientColorRef = useRef<string | null>(null);
+
+    const handleCenterElement = (elementKey: string | null) => {
+        if (!elementKey || elementKey === 'background') return;
+        switch (elementKey) {
+            case 'title':
+                setTitlePos({ x: 0, y: 0 });
+                break;
+            case 'dePricePorGroup':
+                setDePricePorGroupPos({ x: 0, y: 0 });
+                break;
+            case 'deText':
+                setDePos({ x: 0, y: 0 });
+                break;
+            case 'normalPrice':
+                setNormalPricePos({ x: 0, y: 0 });
+                break;
+            case 'porText':
+                setPorPos({ x: 0, y: 0 });
+                break;
+            case 'currencySymbol':
+                setCurrencyPos({ x: 0, y: 0 });
+                break;
+            case 'promoPrice':
+                setPromoPricePos({ x: 0, y: 0 });
+                break;
+            case 'cents':
+                setCentsPos({ x: 0, y: 0 });
+                break;
+            case 'installments':
+                setInstallmentsPos({ x: 0, y: 0 });
+                break;
+            default:
+                break;
+        }
+        setSelectedElement(elementKey as any);
+        setSelectedElements(new Set([elementKey as any]));
+        const labelName = priceLabelLayers.find(l => l.key === elementKey)?.label || elementKey;
+        toast.success(`Componente "${labelName}" centralizado na etiqueta!`);
+    };
 
     const closeColorPicker = () => {
         const color = pendingGradientColorRef.current;
@@ -1915,6 +1955,48 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         <i className="bi bi-bounding-box-circles text-sm" />
                     </button>
 
+                    {/* BOTÃO DROPDOWN CENTRALIZAR ITEM */}
+                    <div className="relative shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setIsCenterMenuOpen(!isCenterMenuOpen)}
+                            title="Trazer qualquer componente para o centro da etiqueta caso tenha sumido fora da tela"
+                            className="px-2.5 py-1 text-xs font-black text-amber-800 dark:text-amber-300 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 shadow-xs"
+                        >
+                            <i className="bi bi-crosshair text-amber-600 dark:text-amber-400 text-xs" />
+                            <span>Centralizar Item</span>
+                            <i className="bi bi-chevron-down text-[9px] text-amber-500" />
+                        </button>
+
+                        {isCenterMenuOpen && (
+                            <div 
+                                style={{ zIndex: 99999 }}
+                                className="absolute left-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-[1100] animate-fade-in"
+                            >
+                                <div className="px-3 py-1 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                                    Trazer componente para o centro:
+                                </div>
+                                {priceLabelLayers.filter(l => l.key !== 'background').map(layer => (
+                                    <button
+                                        key={layer.key}
+                                        type="button"
+                                        onClick={() => {
+                                            setIsCenterMenuOpen(false);
+                                            handleCenterElement(layer.key);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center justify-between cursor-pointer group"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <i className={`bi ${layer.icon} text-amber-600 text-xs`} />
+                                            <span>{layer.label}</span>
+                                        </div>
+                                        <i className="bi bi-crosshair text-amber-500 opacity-0 group-hover:opacity-100 text-xs" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
 
                     {/* SELETOR DE CONTEXTO: TIPO DE ETIQUETA (VISÃO DE CONTEXTO) */}
@@ -2036,12 +2118,26 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 ) : selectedElement ? (
                     <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
                         
-                        {/* Identificador do Elemento Ativo */}
+                        {/* Identificador do Elemento Ativo + Botão Centralizar */}
                         <div className="flex flex-col gap-0.5 items-start shrink-0">
                             <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">Elemento:</span>
-                            <div className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs h-8">
-                                <i className={`bi ${priceLabelLayers.find(l => l.key === selectedElement)?.icon}`} />
-                                <span>{priceLabelLayers.find(l => l.key === selectedElement)?.label}</span>
+                            <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs h-8">
+                                    <i className={`bi ${priceLabelLayers.find(l => l.key === selectedElement)?.icon}`} />
+                                    <span>{priceLabelLayers.find(l => l.key === selectedElement)?.label}</span>
+                                </div>
+
+                                {selectedElement !== 'background' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCenterElement(selectedElement)}
+                                        title="Trazer este componente para o centro da etiqueta caso tenha sumido da tela"
+                                        className="flex items-center gap-1 px-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl text-[10px] font-black uppercase tracking-wider h-8 shadow-xs cursor-pointer transition-all shrink-0"
+                                    >
+                                        <i className="bi bi-crosshair text-xs" />
+                                        <span>Centralizar</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -2632,21 +2728,36 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
                                     <div className="flex items-center gap-2">
                                         {layer.key !== 'background' && (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    layer.toggleVisibility();
-                                                }}
-                                                className={`p-1.5 rounded-xl text-xs transition cursor-pointer ${
-                                                    layer.isVisible 
-                                                        ? 'text-blue-600 bg-blue-100 dark:bg-blue-900' 
-                                                        : 'text-slate-400 bg-slate-200 dark:bg-slate-800'
-                                                }`}
-                                                title={layer.isVisible ? "Ocultar camada" : "Exibir camada"}
-                                            >
-                                                <i className={`bi ${layer.isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
-                                            </button>
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCenterElement(layer.key);
+                                                    }}
+                                                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer text-amber-700 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs"
+                                                    title="Trazer este componente para o centro exato (0, 0) da etiqueta"
+                                                >
+                                                    <i className="bi bi-crosshair text-xs" />
+                                                    <span>Centralizar</span>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        layer.toggleVisibility();
+                                                    }}
+                                                    className={`p-1.5 rounded-xl text-xs transition cursor-pointer ${
+                                                        layer.isVisible 
+                                                            ? 'text-blue-600 bg-blue-100 dark:bg-blue-900' 
+                                                            : 'text-slate-400 bg-slate-200 dark:bg-slate-800'
+                                                    }`}
+                                                    title={layer.isVisible ? "Ocultar camada" : "Exibir camada"}
+                                                >
+                                                    <i className={`bi ${layer.isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
+                                                </button>
+                                            </>
                                         )}
 
                                         {selectedElement === layer.key && (

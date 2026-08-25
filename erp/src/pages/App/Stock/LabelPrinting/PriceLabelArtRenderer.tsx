@@ -234,7 +234,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 />
             )}
 
-            {/* 1. CABEÇALHO DA ETIQUETA: NOME DO PRODUTO */}
+            {/* 1. TÍTULO / NOME DO PRODUTO */}
             {showTitle && (
                 <div
                     onMouseDown={isEdit && startDragging ? (e) => startDragging('title', e) : undefined}
@@ -244,10 +244,10 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         color: titleColor, 
                         fontSize: `${titleFontSize}px`,
                         fontFamily: titleFontFamily,
-                        top: '20px',
+                        top: '25px',
                         left: '50%',
                         maxWidth: `${titleMaxWidth}px`,
-                        transform: `translate(calc(-50% + ${titlePos.x}px), ${titlePos.y}px) rotate(${titleRotation}deg)`,
+                        transform: `translate(calc(-50% + ${titlePos?.x || 0}px), ${Math.max(-15, Math.min(300, titlePos?.y || 0))}px) rotate(${titleRotation || 0}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('title') ? 30 : 10
                     }}
