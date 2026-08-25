@@ -257,26 +257,6 @@ const LabelGrid: React.FC<Props> = ({
                                                 || config.artConfig.globalSnapshot;
                                         }
 
-                                        if (!parsedTemplate) {
-                                            let savedTemplate: string | null = null;
-                                            if (oppId) {
-                                                savedTemplate = localStorage.getItem(`morante_price_label_art_template_${oppId}`);
-                                            }
-                                            if (!savedTemplate) {
-                                                savedTemplate = oppId === 'none'
-                                                    ? localStorage.getItem('morante_price_label_art_template_none') ||
-                                                        localStorage.getItem('morante_global_price_label_art_template') ||
-                                                        localStorage.getItem('price_label_art_global')
-                                                    : localStorage.getItem('morante_price_label_art_template_salvado') ||
-                                                        localStorage.getItem('morante_price_label_art_template_none') ||
-                                                        localStorage.getItem('morante_global_price_label_art_template') ||
-                                                        localStorage.getItem('price_label_art_global');
-                                            }
-                                            if (savedTemplate) {
-                                                try { parsedTemplate = JSON.parse(savedTemplate); } catch (e) {}
-                                            }
-                                        }
-
                                         if (parsedTemplate) {
                                             try {
                                                 // Identifica a grandeza do produto atual

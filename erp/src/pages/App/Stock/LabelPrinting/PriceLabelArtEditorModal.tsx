@@ -1011,6 +1011,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         });
 
         const saveResult = onSaveConfig({
+            artConfig: fullArtConfig,
             text: title,
             price: normalPrice,
             promoPrice: promoPrice,

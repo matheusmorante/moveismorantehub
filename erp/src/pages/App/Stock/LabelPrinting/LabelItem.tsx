@@ -142,24 +142,14 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const centsColor = oppColors['cents'] || t.centsColor || '#000000';
     const installmentsColor = oppColors['installments'] || t.installmentsColor || '#000000';
 
-    // 6. TAMANHOS DE FONTE POR MAGNITUDE DA ETIQUETA DO PRODUTO
-    const pick = (a: any, b: any, c: any, globalVal: any, fb: number) => {
-        let val: any = undefined;
-        if (mag === 'tens') val = a ?? globalVal ?? b ?? c;
-        else if (mag === 'hundreds') val = b ?? globalVal ?? a ?? c;
-        else if (mag === 'thousands') val = c ?? globalVal ?? b ?? a;
-        if (val !== undefined && val !== null && !isNaN(Number(val)) && Number(val) > 0) return Number(val);
-        return fb;
-    };
-
-    const titleFontSize = pick(t.titleFontSizeTens, t.titleFontSizeHundreds, t.titleFontSizeThousands, t.titleFontSize, 26);
-    const porFontSize = pick(t.porFontSizeTens, t.porFontSizeHundreds, t.porFontSizeThousands, t.porFontSize, 34);
-    const rawDeFontSize = pick(t.deFontSizeTens, t.deFontSizeHundreds, t.deFontSizeThousands, t.deFontSize, porFontSize);
-    const deFontSize = (rawDeFontSize && rawDeFontSize >= 24) ? rawDeFontSize : porFontSize;
-    const normalPriceFontSize = pick(t.normalPriceFontSizeTens, t.normalPriceFontSizeHundreds, t.normalPriceFontSizeThousands, t.normalPriceFontSize, 34);
-    const currencyFontSize = pick(t.currencyFontSizeTens, t.currencyFontSizeHundreds, t.currencyFontSizeThousands, t.currencyFontSize, 70);
-    const centsFontSize = pick(t.centsFontSizeTens, t.centsFontSizeHundreds, t.centsFontSizeThousands, t.centsFontSize, 70);
-    const installmentsFontSize = pick(t.installmentsFontSizeTens, t.installmentsFontSizeHundreds, t.installmentsFontSizeThousands, t.installmentsFontSize, 18);
+    // 6. TAMANHOS DE FONTE POR MAGNITUDE DA ETIQUETA DO PRODUTO (IDÊNTICO AO EDITOR)
+    const titleFontSize = mag === 'tens' ? (t.titleFontSizeTens ?? t.titleFontSize ?? 26) : mag === 'hundreds' ? (t.titleFontSizeHundreds ?? t.titleFontSize ?? 26) : (t.titleFontSizeThousands ?? t.titleFontSize ?? 26);
+    const deFontSize = mag === 'tens' ? (t.deFontSizeTens ?? t.deFontSize ?? 34) : mag === 'hundreds' ? (t.deFontSizeHundreds ?? t.deFontSize ?? 34) : (t.deFontSizeThousands ?? t.deFontSize ?? 34);
+    const normalPriceFontSize = mag === 'tens' ? (t.normalPriceFontSizeTens ?? t.normalPriceFontSize ?? 34) : mag === 'hundreds' ? (t.normalPriceFontSizeHundreds ?? t.normalPriceFontSize ?? 34) : (t.normalPriceFontSizeThousands ?? t.normalPriceFontSize ?? 34);
+    const porFontSize = mag === 'tens' ? (t.porFontSizeTens ?? t.porFontSize ?? 34) : mag === 'hundreds' ? (t.porFontSizeHundreds ?? t.porFontSize ?? 34) : (t.porFontSizeThousands ?? t.porFontSize ?? 34);
+    const currencyFontSize = mag === 'tens' ? (t.currencyFontSizeTens ?? t.currencyFontSize ?? 26) : mag === 'hundreds' ? (t.currencyFontSizeHundreds ?? t.currencyFontSize ?? 26) : (t.currencyFontSizeThousands ?? t.currencyFontSize ?? 22);
+    const centsFontSize = mag === 'tens' ? (t.centsFontSizeTens ?? t.centsFontSize ?? 26) : mag === 'hundreds' ? (t.centsFontSizeHundreds ?? t.centsFontSize ?? 26) : (t.centsFontSizeThousands ?? t.centsFontSize ?? 22);
+    const installmentsFontSize = mag === 'tens' ? (t.installmentsFontSizeTens ?? t.installmentsFontSize ?? 14) : mag === 'hundreds' ? (t.installmentsFontSizeHundreds ?? t.installmentsFontSize ?? 14) : (t.installmentsFontSizeThousands ?? t.installmentsFontSize ?? 14);
     const priceScale = mag === 'tens' ? (t.scaleTens ?? 240) : mag === 'hundreds' ? (t.scaleHundreds ?? 210) : (t.scaleThousands ?? 170);
 
     // 7. POSIÇÕES E ROTAÇÕES 100% FIÉIS AO TEMPLATE
