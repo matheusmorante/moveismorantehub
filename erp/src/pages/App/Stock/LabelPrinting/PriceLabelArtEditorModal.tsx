@@ -130,9 +130,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 5. SÍMBOLO DA MOEDA "R$" (PREÇO PRINCIPAL) - POR ORDEM DE GRANDEZA
     const [currencySymbol, setCurrencySymbol] = useState('R$');
     const [showCurrency, setShowCurrency] = useState(true);
-    const [currencyFontSizeTens, setCurrencyFontSizeTens] = useState<number>(26);
-    const [currencyFontSizeHundreds, setCurrencyFontSizeHundreds] = useState<number>(26);
-    const [currencyFontSizeThousands, setCurrencyFontSizeThousands] = useState<number>(22);
+    const [currencyFontSizeTens, setCurrencyFontSizeTens] = useState<number>(70);
+    const [currencyFontSizeHundreds, setCurrencyFontSizeHundreds] = useState<number>(70);
+    const [currencyFontSizeThousands, setCurrencyFontSizeThousands] = useState<number>(60);
     const [currencyColor, setCurrencyColor] = useState('#000000');
     const [currencyFontFamily, setCurrencyFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [currencyPos, setCurrencyPos] = useState({ x: 0, y: 0 });
@@ -159,9 +159,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 7. CENTAVOS ",00" - POR ORDEM DE GRANDEZA
     const [centsText, setCentsText] = useState(',00');
     const [showCents, setShowCents] = useState(true);
-    const [centsFontSizeTens, setCentsFontSizeTens] = useState<number>(26);
-    const [centsFontSizeHundreds, setCentsFontSizeHundreds] = useState<number>(26);
-    const [centsFontSizeThousands, setCentsFontSizeThousands] = useState<number>(22);
+    const [centsFontSizeTens, setCentsFontSizeTens] = useState<number>(70);
+    const [centsFontSizeHundreds, setCentsFontSizeHundreds] = useState<number>(70);
+    const [centsFontSizeThousands, setCentsFontSizeThousands] = useState<number>(60);
     const [centsColor, setCentsColor] = useState('#000000');
     const [centsFontFamily, setCentsFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [centsPos, setCentsPos] = useState({ x: 0, y: 0 });
