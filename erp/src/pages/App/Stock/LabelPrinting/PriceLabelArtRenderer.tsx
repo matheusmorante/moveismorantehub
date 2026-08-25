@@ -495,11 +495,11 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         color: currencyColor,
                         fontSize: `${currencyFontSize}px`,
                         fontFamily: currencyFontFamily,
-                        transform: `translate(${currencyPos.x}px, calc(-50% + ${currencyPos.y}px)) rotate(${currencyRotation}deg)`,
+                        transform: `translate(calc(-50% + ${currencyPos.x}px), calc(-50% + ${currencyPos.y}px)) rotate(${currencyRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('currencySymbol') ? 30 : 10
                     }}
-                    className={`absolute top-1/2 left-4 sm:left-8 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
+                    className={`absolute top-1/2 left-1/2 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
                         isEdit && selectedElements.has('currencySymbol') 
                             ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                             : 'border border-transparent'
@@ -637,11 +637,11 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         color: centsColor, 
                         fontSize: `${centsFontSize}px`,
                         fontFamily: centsFontFamily,
-                        transform: `translate(${centsPos.x}px, calc(-50% + ${centsPos.y}px)) rotate(${centsRotation}deg)`,
+                        transform: `translate(calc(-50% + ${centsPos.x}px), calc(-50% + ${centsPos.y}px)) rotate(${centsRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('cents') ? 30 : 10
                     }}
-                    className={`absolute top-1/2 right-4 sm:right-8 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
+                    className={`absolute top-1/2 left-1/2 w-max font-black leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
                         isEdit && selectedElements.has('cents') 
                             ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                             : 'border border-transparent'
