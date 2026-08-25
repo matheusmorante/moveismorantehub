@@ -26,8 +26,10 @@ import {
     publishPriceLabelTemplateUpdate,
     subscribeToPriceLabelTemplateUpdates,
 } from './priceLabelTemplateSync';
+import { useLabelPrintMode } from './useLabelPrintMode';
 
 const LabelPrinting: React.FC = () => {
+    const printLabels = useLabelPrintMode();
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -1456,7 +1458,7 @@ const LabelPrinting: React.FC = () => {
                                                     <i className="bi bi-download" /> Imagem
                                                 </button>
                                             <button 
-                                                    onClick={() => window.print()}
+                                                    onClick={printLabels}
                                                     className="p-2.5 px-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl text-[10px] font-black uppercase transition-all shadow-lg hover:scale-105"
                                                 >
                                                     <i className="bi bi-printer" /> Imprimir
