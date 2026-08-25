@@ -2447,13 +2447,13 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
             {/* MODAL BODY: PREVIEW EM 100% DA LARGURA DISPONÍVEL */}
             {(() => {
-                const activeTitleFontSize = selectedMagnitude === 'tens' ? titleFontSizeTens : selectedMagnitude === 'hundreds' ? titleFontSizeHundreds : titleFontSizeThousands;
-                const activeDeFontSize = selectedMagnitude === 'tens' ? deFontSizeTens : selectedMagnitude === 'hundreds' ? deFontSizeHundreds : deFontSizeThousands;
-                const activeNormalPriceFontSize = selectedMagnitude === 'tens' ? normalPriceFontSizeTens : selectedMagnitude === 'hundreds' ? normalPriceFontSizeHundreds : normalPriceFontSizeThousands;
-                const activePorFontSize = selectedMagnitude === 'tens' ? porFontSizeTens : selectedMagnitude === 'hundreds' ? porFontSizeHundreds : porFontSizeThousands;
+                const activeTitleFontSize = titleFontSizeHundreds || titleFontSizeTens || titleFontSizeThousands || 36;
+                const activeDeFontSize = deFontSizeHundreds || deFontSizeTens || deFontSizeThousands || 34;
+                const activeNormalPriceFontSize = normalPriceFontSizeHundreds || normalPriceFontSizeTens || normalPriceFontSizeThousands || 34;
+                const activePorFontSize = porFontSizeHundreds || porFontSizeTens || porFontSizeThousands || 34;
                 const activeCurrencyFontSize = currencyFontSizeHundreds || currencyFontSizeTens || currencyFontSizeThousands || 70;
                 const activeCentsFontSize = centsFontSizeHundreds || centsFontSizeTens || centsFontSizeThousands || 70;
-                const activeInstallmentsFontSize = selectedMagnitude === 'tens' ? installmentsFontSizeTens : selectedMagnitude === 'hundreds' ? installmentsFontSizeHundreds : installmentsFontSizeThousands;
+                const activeInstallmentsFontSize = installmentsFontSizeHundreds || installmentsFontSizeTens || installmentsFontSizeThousands || 14;
                 const activePromoPriceScale = selectedMagnitude === 'tens' ? scaleTens : selectedMagnitude === 'hundreds' ? scaleHundreds : scaleThousands;
 
                 return (
