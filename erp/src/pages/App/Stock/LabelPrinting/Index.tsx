@@ -1225,6 +1225,15 @@ const LabelPrinting: React.FC = () => {
                                         <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase rounded-lg">
                                             Folha {activeModel?.paperSize || 'A4'}
                                         </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsModelManagerModalOpen(true)}
+                                            className="ml-1 inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-black uppercase tracking-wider rounded-xl shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                                            title="Gerenciar Modelos de Etiqueta"
+                                        >
+                                            <i className="bi bi-grid-3x3-gap-fill text-[10px]" />
+                                            <span>Gerenciar Modelo</span>
+                                        </button>
                                     </div>
                                 );
                             })()}
