@@ -97,9 +97,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // 2. TEXTO "DE"
     const [deText, setDeText] = useState('De');
     const [showDe, setShowDe] = useState(true);
-    const [deFontSizeTens, setDeFontSizeTens] = useState<number>(15);
-    const [deFontSizeHundreds, setDeFontSizeHundreds] = useState<number>(15);
-    const [deFontSizeThousands, setDeFontSizeThousands] = useState<number>(15);
+    const [deFontSizeTens, setDeFontSizeTens] = useState<number>(34);
+    const [deFontSizeHundreds, setDeFontSizeHundreds] = useState<number>(34);
+    const [deFontSizeThousands, setDeFontSizeThousands] = useState<number>(34);
     const [deColor, setDeColor] = useState('#000000');
     const [deFontFamily, setDeFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [dePos, setDePos] = useState({ x: 0, y: 0 });

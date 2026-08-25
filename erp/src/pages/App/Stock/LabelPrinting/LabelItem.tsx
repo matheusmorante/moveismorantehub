@@ -167,9 +167,10 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         return fb;
     };
     const titleFontSize = pick(t.titleFontSizeTens, t.titleFontSizeHundreds, t.titleFontSizeThousands, t.titleFontSize, 26);
-    const deFontSize = pick(t.deFontSizeTens, t.deFontSizeHundreds, t.deFontSizeThousands, t.deFontSize, 34);
-    const normalPriceFontSize = pick(t.normalPriceFontSizeTens, t.normalPriceFontSizeHundreds, t.normalPriceFontSizeThousands, t.normalPriceFontSize, 34);
     const porFontSize = pick(t.porFontSizeTens, t.porFontSizeHundreds, t.porFontSizeThousands, t.porFontSize, 34);
+    const rawDeFontSize = pick(t.deFontSizeTens, t.deFontSizeHundreds, t.deFontSizeThousands, t.deFontSize, porFontSize);
+    const deFontSize = (rawDeFontSize && rawDeFontSize >= 24) ? rawDeFontSize : porFontSize;
+    const normalPriceFontSize = pick(t.normalPriceFontSizeTens, t.normalPriceFontSizeHundreds, t.normalPriceFontSizeThousands, t.normalPriceFontSize, 34);
     const currencyFontSize = pick(t.currencyFontSizeTens, t.currencyFontSizeHundreds, t.currencyFontSizeThousands, t.currencyFontSize, 70);
     const centsFontSize = pick(t.centsFontSizeTens, t.centsFontSizeHundreds, t.centsFontSizeThousands, t.centsFontSize, 70);
     const installmentsFontSize = pick(t.installmentsFontSizeTens, t.installmentsFontSizeHundreds, t.installmentsFontSizeThousands, t.installmentsFontSize, 18);

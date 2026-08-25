@@ -842,7 +842,7 @@ export default function MarketingPosts() {
         hasBackground ? background.paddingX : 0,
         hasBackground ? background.paddingY : 0,
         textHorizontalAlignments[key] || (hasBackground ? 'center' : 'left'),
-        textVerticalAlignments[key] || (hasBackground ? 'middle' : 'top'),
+        textVerticalAlignments[key] || 'middle',
       );
     };
 
@@ -2312,7 +2312,7 @@ export default function MarketingPosts() {
                   </>}
                   {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />}
                   {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextBackgroundControls value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />}
-                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'top'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />}
+                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'middle'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />}
                   {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20"><i className="bi bi-trash3-fill" /> Remover container</button>}
                 </div>
               </aside>
