@@ -140,7 +140,8 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
     const localContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = containerRefOut || localContainerRef;
 
-    const [scale, setScale] = useState<number>(1);
+    const [scaleX, setScaleX] = useState<number>(1);
+    const [scaleY, setScaleY] = useState<number>(1);
 
     useEffect(() => {
         const el = containerRef.current;
@@ -150,10 +151,11 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
             const width = el.clientWidth || (el.parentElement ? el.parentElement.clientWidth : 0);
             const height = el.clientHeight || (el.parentElement ? el.parentElement.clientHeight : 0);
             if (width > 0 && height > 0) {
-                const s = Math.min(width / BASE_ART_WIDTH, height / BASE_ART_HEIGHT);
-                setScale(s > 0 ? s : 1);
+                setScaleX(width / BASE_ART_WIDTH);
+                setScaleY(height / BASE_ART_HEIGHT);
             } else {
-                setScale(0.35);
+                setScaleX(0.35);
+                setScaleY(0.35);
             }
         };
         updateScale();
@@ -210,7 +212,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 position: 'absolute',
                 left: '50%',
                 top: '50%',
-                transform: `translate(-50%, -50%) scale(${scale})`,
+                transform: `translate(-50%, -50%) scale(${scaleX}, ${scaleY})`,
                 transformOrigin: 'center center',
                 overflow: 'visible',
                 boxSizing: 'border-box',
