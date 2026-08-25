@@ -105,11 +105,11 @@ export interface PriceLabelArtRendererProps {
 
 export const BASE_ART_WIDTH = 840;
 export const BASE_ART_HEIGHT = 480;
+export const RENDER_DPI = 300;
 const SAFETY_MARGIN_PX = 16;
-const CSS_DPI = 96;
 const MM_PER_INCH = 25.4;
 
-const mmToPx = (millimeters: number) => millimeters * CSS_DPI / MM_PER_INCH;
+export const mmToPx = (millimeters: number, dpi = RENDER_DPI) => (millimeters * dpi) / MM_PER_INCH;
 
 const getOpaqueBackgroundColor = (color?: string) => {
     const normalized = color?.trim().toLowerCase();
@@ -140,8 +140,33 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
     const localContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = containerRefOut || localContainerRef;
 
-    const [scaleX, setScaleX] = useState<number>(1);
-    const [scaleY, setScaleY] = useState<number>(1);
+    const {
+        artWidthMm, artHeightMm,
+        title, showTitle = true, titleFontSize, titleColor, titleFontFamily, titlePos, titleRotation,
+        deText, showDe = true, deFontSize, deColor, deFontFamily, deRotation = 0,
+        normalPrice, showNormalPrice = true, normalPriceFontSize, normalPriceColor, normalPriceFontFamily, normalPriceRotation = 0,
+        porText, showPor = true, porFontSize, porColor, porFontFamily, porRotation = 0,
+        dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
+        currencySymbol, showCurrency = true, currencyFontSize, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
+        promoPrice, showPromoPrice = true, priceScale, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation,
+        centsText, showCents = true, centsFontSize, centsColor, centsFontFamily, centsPos, centsRotation,
+        installments, showInstallments = false, installmentsFontSize = 14, installmentsColor = '#000000', installmentsFontFamily = 'Inter, system-ui, sans-serif', installmentsPos = { x: 0, y: 0 }, installmentsRotation = 0,
+        bgColor,
+        showPromoPriceThousands, showPromoPriceHundreds, showPromoPriceTens,
+        scaleThousands = 80, scaleHundreds = 100, scaleTens = 120,
+        testMilharStr, testCentenaStr, testDezenaStr,
+        selectedMagnitude = 'hundreds'
+    } = data;
+
+    // Dimensões do Canvas em 300 DPI baseado no tamanho real em mm
+    const canvasWidth = (artWidthMm && artHeightMm)
+        ? Math.round(mmToPx(artWidthMm, RENDER_DPI))
+        : BASE_ART_WIDTH;
+    const canvasHeight = (artWidthMm && artHeightMm)
+        ? Math.round(mmToPx(artHeightMm, RENDER_DPI))
+        : BASE_ART_HEIGHT;
+
+    const [scale, setScale] = useState<number>(1);
 
     useEffect(() => {
         const el = containerRef.current;
@@ -151,11 +176,10 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
             const width = el.clientWidth || (el.parentElement ? el.parentElement.clientWidth : 0);
             const height = el.clientHeight || (el.parentElement ? el.parentElement.clientHeight : 0);
             if (width > 0 && height > 0) {
-                setScaleX(width / BASE_ART_WIDTH);
-                setScaleY(height / BASE_ART_HEIGHT);
+                const s = Math.min(width / canvasWidth, height / canvasHeight);
+                setScale(s > 0 ? s : 1);
             } else {
-                setScaleX(0.35);
-                setScaleY(0.35);
+                setScale(0.35);
             }
         };
         updateScale();
@@ -176,43 +200,25 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         return () => {
             window.removeEventListener('beforeprint', handleBeforePrint);
         };
-    }, [containerRef]);
+    }, [containerRef, canvasWidth, canvasHeight]);
 
-    const {
-        artWidthMm, artHeightMm,
-        title, showTitle = true, titleFontSize, titleColor, titleFontFamily, titlePos, titleRotation,
-        deText, showDe = true, deFontSize, deColor, deFontFamily, deRotation = 0,
-        normalPrice, showNormalPrice = true, normalPriceFontSize, normalPriceColor, normalPriceFontFamily, normalPriceRotation = 0,
-        porText, showPor = true, porFontSize, porColor, porFontFamily, porRotation = 0,
-        dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
-        currencySymbol, showCurrency = true, currencyFontSize, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
-        promoPrice, showPromoPrice = true, priceScale, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation,
-        centsText, showCents = true, centsFontSize, centsColor, centsFontFamily, centsPos, centsRotation,
-        installments, showInstallments = false, installmentsFontSize = 14, installmentsColor = '#000000', installmentsFontFamily = 'Inter, system-ui, sans-serif', installmentsPos = { x: 0, y: 0 }, installmentsRotation = 0,
-        bgColor,
-        showPromoPriceThousands, showPromoPriceHundreds, showPromoPriceTens,
-        scaleThousands = 80, scaleHundreds = 100, scaleTens = 120,
-        testMilharStr, testCentenaStr, testDezenaStr,
-        selectedMagnitude = 'hundreds'
-    } = data;
-    const artWidthPx = artWidthMm ? mmToPx(artWidthMm) : undefined;
     // Arte de preço nunca deve usar transparência: ela seria composta com o
     // fundo do modal no editor e com o da folha na impressão.
     const effectiveBgColor = getOpaqueBackgroundColor(bgColor);
     const titleMaxWidth = Math.max(
         1,
-        BASE_ART_WIDTH - (SAFETY_MARGIN_PX * 2) - (Math.abs(titlePos.x) * 2)
+        canvasWidth - (SAFETY_MARGIN_PX * 2) - (Math.abs(titlePos.x) * 2)
     );
 
     const content = (
         <div
             style={{
-                width: `${BASE_ART_WIDTH}px`,
-                height: `${BASE_ART_HEIGHT}px`,
+                width: `${canvasWidth}px`,
+                height: `${canvasHeight}px`,
                 position: 'absolute',
                 left: '50%',
                 top: '50%',
-                transform: `translate(-50%, -50%) scale(${scaleX}, ${scaleY})`,
+                transform: `translate(-50%, -50%) scale(${scale})`,
                 transformOrigin: 'center center',
                 overflow: 'visible',
                 boxSizing: 'border-box',
@@ -765,7 +771,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     e.stopPropagation();
                     if (onSelectElement) onSelectElement('background', e);
                 }}
-                className={`w-full aspect-[1.75/1] rounded-3xl shadow-2xl relative select-none transition-all duration-200 cursor-pointer overflow-hidden ${
+                className={`w-full rounded-3xl shadow-2xl relative select-none transition-all duration-200 cursor-pointer overflow-hidden ${
                     selectedElement === 'background' ? 'ring-2 ring-blue-500 shadow-blue-500/20' : ''
                 } ${className}`}
             >
