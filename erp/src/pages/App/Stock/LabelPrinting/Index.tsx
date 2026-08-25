@@ -2202,20 +2202,30 @@ const LabelPrinting: React.FC = () => {
                     artConfig: savedArtConfigs[String(config.layoutId || 'preco_2x5_restored')] || savedArtConfigs['preco_2x5_restored'] || config.artConfig
                 }}
                 onSaveConfig={async (updated) => {
-                    setConfig(prev => ({ ...prev, ...updated }));
+                    const layoutId = String(config.layoutId || 'preco_2x5_restored');
+                    if (updated.artConfig) {
+                        setSavedArtConfigs(prev => ({
+                            ...prev,
+                            [layoutId]: updated.artConfig,
+                            'preco_2x5_restored': updated.artConfig
+                        }));
+                    }
+                    setConfig(prev => ({ 
+                        ...prev, 
+                        ...updated, 
+                        artConfig: updated.artConfig || prev.artConfig 
+                    }));
                     setArtVersion(prev => prev + 1);
 
-                    const layoutId = config.layoutId;
                     const groupPos = updated.dePricePorGroupPos;
                     if (layoutId && updated.artConfig) {
                         const { error } = await supabase.from('label_art_configs').upsert({
-                            layout_id: String(layoutId),
+                            layout_id: layoutId,
                             category: selectedCategory || 'precos',
                             art_config: updated.artConfig,
                             updated_at: new Date().toISOString(),
                         }, { onConflict: 'layout_id' });
                         if (error) console.error('Erro ao salvar arte no banco:', error);
-                        else setSavedArtConfigs(prev => ({ ...prev, [String(layoutId)]: updated.artConfig }));
                     }
                     if (layoutId && (groupPos || updated.artConfig) && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(layoutId))) {
                         const { error } = await supabase

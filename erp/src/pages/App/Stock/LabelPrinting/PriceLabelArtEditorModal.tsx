@@ -875,17 +875,18 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         const loadArtConfigFromSupabase = async () => {
             const layoutId = String(config?.layoutId || 'preco_2x5_restored');
-            let dbArtConfig = config?.artConfig;
+            let dbArtConfig = null;
 
-            if (!dbArtConfig) {
-                const { data } = await supabase
-                    .from('label_art_configs')
-                    .select('art_config')
-                    .eq('layout_id', layoutId)
-                    .maybeSingle();
-                if (data?.art_config) {
-                    dbArtConfig = data.art_config;
-                }
+            const { data } = await supabase
+                .from('label_art_configs')
+                .select('art_config')
+                .eq('layout_id', layoutId)
+                .maybeSingle();
+
+            if (data?.art_config) {
+                dbArtConfig = data.art_config;
+            } else {
+                dbArtConfig = config?.artConfig;
             }
 
             if (dbArtConfig) {
