@@ -901,7 +901,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                     || dbArtConfig.globalSnapshot;
 
                 if (snapshotToApply) {
-                    applySnapshot(snapshotToApply, isInitializedRef.current);
+                    applySnapshot({ ...snapshotToApply, selectedOppId: effectiveOppId }, isInitializedRef.current);
                 } else {
                     const initialBg = selectedOppId === 'none' ? '#ffffff' : (selectedOppId === 'salvado' ? '#ff7900' : '#ffffff');
                     setBgColor(initialBg);
@@ -1490,57 +1490,21 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // TROCA DE TIPO DE ETIQUETA (ISOLAMENTO DE ESTILOS POR TIPO DE ETIQUETA)
     const handleSelectOpportunityContext = (newOppId: string) => {
         setSelectedOppId(newOppId);
-
-        const oppSaved = localStorage.getItem(getOppTemplateKey(newOppId));
-        if (oppSaved) {
-            try {
-                applySnapshot(JSON.parse(oppSaved), true);
-                return;
-            } catch (e) {
-                console.error("Erro ao carregar template da modalidade:", e);
+        const dbArtConfig = config?.artConfig;
+        if (dbArtConfig) {
+            const snapshotToApply = dbArtConfig.opportunities?.[newOppId]
+                || dbArtConfig.opportunities?.['none']
+                || dbArtConfig.opportunities?.['default']
+                || dbArtConfig.opportunities?.['salvado']
+                || dbArtConfig.globalSnapshot;
+            if (snapshotToApply) {
+                applySnapshot({ ...snapshotToApply, selectedOppId: newOppId }, true);
             }
-        }
-
-        let fallbackSaved = null;
-        if (newOppId === 'none') {
-            fallbackSaved = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-        } else {
-            fallbackSaved = localStorage.getItem(getOppTemplateKey('salvado')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-        }
-        if (fallbackSaved) {
-            try {
-                applySnapshot(JSON.parse(fallbackSaved), true);
-            } catch (e) {}
         }
     };
 
     // SELEÇÃO UNIFICADA PLANO CARTESIANO (TIPO DE ETIQUETA X GRANDEZA)
     const handleSelectCartesianPreset = (newOppId: string, newMag: 'tens' | 'hundreds' | 'thousands') => {
-        if (newOppId !== selectedOppId) {
-            setSelectedOppId(newOppId);
-            const oppSaved = localStorage.getItem(getOppTemplateKey(newOppId));
-            let loadedSnapshot: any = null;
-            if (oppSaved) {
-                try {
-                    loadedSnapshot = JSON.parse(oppSaved);
-                } catch (e) {}
-            }
-            if (!loadedSnapshot) {
-                const salvadoSaved = localStorage.getItem(getOppTemplateKey('salvado')) || localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
-                if (salvadoSaved) {
-                    try { loadedSnapshot = JSON.parse(salvadoSaved); } catch (e) {}
-                }
-            }
-            if (loadedSnapshot) {
-                applySnapshot({
-                    ...loadedSnapshot,
-                    selectedOppId: newOppId,
-                    selectedMagnitude: newMag
-                }, true);
-                return;
-            }
-        }
-
         if (newMag !== selectedMagnitude) {
             handleSwitchMagnitude(newMag);
         }
