@@ -99,15 +99,20 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     let template: any = {};
     let oppColors: Record<string, string> = {};
     try {
-        const dbOppColors = oppId ? config.artConfig?.oppColorsMap?.[oppId] : undefined;
+        const effectiveOppId = oppId || 'none';
+        const dbOppColors = config.artConfig?.oppColorsMap?.[effectiveOppId]
+            || config.artConfig?.oppColorsMap?.['none']
+            || config.artConfig?.oppColorsMap?.['default'];
         const rawMap = localStorage.getItem('morante_hub_opp_colors_map');
         const map = rawMap ? JSON.parse(rawMap) : {};
         oppColors = dbOppColors || (oppId && map[oppId]) || {};
 
         // Prioriza a arte persistida no layout do banco (Supabase)
-        const dbTemplate = config.artConfig?.opportunities?.[oppId]
-            || (oppId === 'salvado' ? config.artConfig?.opportunities?.['salvado'] : undefined)
-            || config.artConfig?.opportunities?.['none'];
+        const dbTemplate = (oppId && config.artConfig?.opportunities?.[oppId])
+            || config.artConfig?.opportunities?.['none']
+            || config.artConfig?.opportunities?.['default']
+            || config.artConfig?.opportunities?.['salvado']
+            || config.artConfig?.globalSnapshot;
 
         if (dbTemplate) {
             template = dbTemplate;

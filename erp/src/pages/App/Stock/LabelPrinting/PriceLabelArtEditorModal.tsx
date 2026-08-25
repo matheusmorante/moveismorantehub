@@ -540,7 +540,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.titleColor) setTitleColor(s.titleColor);
         if (s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
-        if (s.titlePos) setTitlePos(s.titlePos);
+        if (s.titlePos && (s.titlePos.x !== 0 || s.titlePos.y !== 0)) setTitlePos(s.titlePos); else setTitlePos({ x: 0, y: -160 });
         if (s.titleRotation !== undefined) setTitleRotation(s.titleRotation);
 
         if (s.deText !== undefined) setDeText(s.deText);
@@ -587,7 +587,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.currencyColor) setCurrencyColor(s.currencyColor);
         if (s.currencyFontFamily) setCurrencyFontFamily(s.currencyFontFamily);
-        if (s.currencyPos) setCurrencyPos(s.currencyPos);
+        if (s.currencyPos && (s.currencyPos.x !== 0 || s.currencyPos.y !== 0)) setCurrencyPos(s.currencyPos); else setCurrencyPos({ x: -280, y: 35 });
         if (s.currencyRotation !== undefined) setCurrencyRotation(s.currencyRotation);
 
         if (s.promoPrice !== undefined) setPromoPrice(s.promoPrice);
@@ -597,11 +597,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (s.showPromoPriceThousands !== undefined) setShowPromoPriceThousands(s.showPromoPriceThousands);
         if (s.priceColor) setPriceColor(s.priceColor);
         if (s.promoPriceFontFamily) setPromoPriceFontFamily(s.promoPriceFontFamily);
-        if (s.promoPricePos) setPromoPricePos(s.promoPricePos);
+        if (s.promoPricePos && (s.promoPricePos.x !== 0 || s.promoPricePos.y !== 0)) setPromoPricePos(s.promoPricePos); else setPromoPricePos({ x: 0, y: 45 });
         if (s.promoPriceRotation !== undefined) setPromoPriceRotation(s.promoPriceRotation);
-        if (s.scaleTens !== undefined) setScaleTens(s.scaleTens);
-        if (s.scaleHundreds !== undefined) setScaleHundreds(s.scaleHundreds);
-        if (s.scaleThousands !== undefined) setScaleThousands(s.scaleThousands);
+
+        const targetScaleTens = (s.scaleTens && Number(s.scaleTens) >= 120) ? Number(s.scaleTens) : 240;
+        const targetScaleHundreds = (s.scaleHundreds && Number(s.scaleHundreds) >= 120) ? Number(s.scaleHundreds) : 210;
+        const targetScaleThousands = (s.scaleThousands && Number(s.scaleThousands) >= 120) ? Number(s.scaleThousands) : 170;
+        setScaleTens(targetScaleTens);
+        setScaleHundreds(targetScaleHundreds);
+        setScaleThousands(targetScaleThousands);
         if (s.scaleTenThousands !== undefined) setScaleTenThousands(s.scaleTenThousands);
 
         if (s.centsText !== undefined) setCentsText(s.centsText);
@@ -615,7 +619,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         if (s.centsColor) setCentsColor(s.centsColor);
         if (s.centsFontFamily) setCentsFontFamily(s.centsFontFamily);
-        if (s.centsPos) setCentsPos(s.centsPos);
+        if (s.centsPos && (s.centsPos.x !== 0 || s.centsPos.y !== 0)) setCentsPos(s.centsPos); else setCentsPos({ x: 260, y: -10 });
         if (s.centsRotation !== undefined) setCentsRotation(s.centsRotation);
 
         if (s.showInstallments !== undefined) setShowInstallments(s.showInstallments);
@@ -629,7 +633,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (s.installmentsPos) setInstallmentsPos(s.installmentsPos);
         if (s.installmentsRotation !== undefined) setInstallmentsRotation(s.installmentsRotation);
 
-        if (s.dePricePorGroupPos) setDePricePorGroupPos(s.dePricePorGroupPos);
+        if (s.dePricePorGroupPos && (s.dePricePorGroupPos.x !== 0 || s.dePricePorGroupPos.y !== 0)) setDePricePorGroupPos(s.dePricePorGroupPos); else setDePricePorGroupPos({ x: -40, y: -80 });
         if (s.dePricePorGroupRotation !== undefined) setDePricePorGroupRotation(s.dePricePorGroupRotation);
         if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
 
@@ -941,12 +945,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         const fullArtConfig = {
             ...(config.artConfig || {}),
+            globalSnapshot: currentSnapshot,
             oppColorsMap: {
                 ...(config.artConfig?.oppColorsMap || {}),
                 ...oppColorsMap,
             },
             opportunities: {
                 ...(config.artConfig?.opportunities || {}),
+                default: currentSnapshot,
+                none: currentSnapshot,
                 [selectedOppId]: currentSnapshot,
             },
         };
