@@ -246,31 +246,39 @@ const LabelGrid: React.FC<Props> = ({
 
                                     if (config.category === 'precos' && !item.isBlank) {
                                         const oppId = item.opportunityId || item.opportunity_id;
-                                        let savedTemplate: string | null = null;
+                                        let parsedTemplate: any = null;
 
-                                        if (oppId) {
-                                            const dbTemplate = config.artConfig?.opportunities?.[oppId];
-                                            savedTemplate = dbTemplate
-                                                ? JSON.stringify(dbTemplate)
-                                                : localStorage.getItem(`morante_price_label_art_template_${oppId}`);
+                                        if (oppId && config.artConfig?.opportunities?.[oppId]) {
+                                            parsedTemplate = config.artConfig.opportunities[oppId];
+                                        } else if (config.artConfig) {
+                                            parsedTemplate = config.artConfig.opportunities?.['none']
+                                                || config.artConfig.opportunities?.['default']
+                                                || config.artConfig.opportunities?.['salvado']
+                                                || config.artConfig.globalSnapshot;
                                         }
 
-                                        // Se não encontrou template de oportunidade específica, tenta carregar 'salvado', 'none' ou o global
-                                        if (!savedTemplate) {
-                                                                                        savedTemplate = oppId === 'none'
-                                                                                                ? localStorage.getItem('morante_price_label_art_template_none') ||
-                                                                                                    localStorage.getItem('morante_global_price_label_art_template') ||
-                                                                                                    localStorage.getItem('price_label_art_global')
-                                                                                                : localStorage.getItem('morante_price_label_art_template_salvado') ||
-                                                                                                    localStorage.getItem('morante_price_label_art_template_none') ||
-                                                                                                    localStorage.getItem('morante_global_price_label_art_template') ||
-                                                                                                    localStorage.getItem('price_label_art_global');
+                                        if (!parsedTemplate) {
+                                            let savedTemplate: string | null = null;
+                                            if (oppId) {
+                                                savedTemplate = localStorage.getItem(`morante_price_label_art_template_${oppId}`);
+                                            }
+                                            if (!savedTemplate) {
+                                                savedTemplate = oppId === 'none'
+                                                    ? localStorage.getItem('morante_price_label_art_template_none') ||
+                                                        localStorage.getItem('morante_global_price_label_art_template') ||
+                                                        localStorage.getItem('price_label_art_global')
+                                                    : localStorage.getItem('morante_price_label_art_template_salvado') ||
+                                                        localStorage.getItem('morante_price_label_art_template_none') ||
+                                                        localStorage.getItem('morante_global_price_label_art_template') ||
+                                                        localStorage.getItem('price_label_art_global');
+                                            }
+                                            if (savedTemplate) {
+                                                try { parsedTemplate = JSON.parse(savedTemplate); } catch (e) {}
+                                            }
                                         }
 
-                                        if (savedTemplate) {
+                                        if (parsedTemplate) {
                                             try {
-                                                const parsedTemplate = JSON.parse(savedTemplate);
-                                                
                                                 // Identifica a grandeza do produto atual
                                                 const finalDisplayPrice = itemConfig.showPromoPrice ? itemConfig.promoPrice : itemConfig.price;
                                                 const currentMag = getMagnitudeForPrice(finalDisplayPrice);
@@ -344,6 +352,7 @@ const LabelGrid: React.FC<Props> = ({
                                                 // Mescla propriedades de design do template geral, grandeza específica e tradução de chaves
                                                 itemConfig = {
                                                     ...itemConfig,
+                                                    artConfig: config.artConfig,
                                                     ...mergedDesign,
                                                     ...translatedDesign,
                                                     // Preserva os dados do produto atual e configurações físicas da folha
