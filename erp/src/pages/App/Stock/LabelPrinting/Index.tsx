@@ -380,6 +380,7 @@ const LabelPrinting: React.FC = () => {
         if (preset === 'qr_product' || preset === 'barcode_only') newConfig.category = 'identificacao';
         else if (preset === 'price_only' || preset === 'promotional_price') newConfig.category = 'precos';
         else if (preset === 'store_logo') newConfig.category = 'logos';
+        else if (preset === 'social_square') newConfig.category = 'posts';
 
         switch (preset) {
             case 'store_logo':
@@ -413,6 +414,17 @@ const LabelPrinting: React.FC = () => {
                 newConfig.showSKU = false;
                 newConfig.showStoreLogo = false;
                 newConfig.showStoreName = false;
+                newConfig.showCustomText = false;
+                break;
+            case 'social_square':
+                newConfig.type = 'rect';
+                newConfig.layout = 'horizontal';
+                newConfig.showName = true;
+                newConfig.showPrice = true;
+                newConfig.showBarcode = false;
+                newConfig.showSKU = false;
+                newConfig.showStoreLogo = true;
+                newConfig.showStoreName = true;
                 newConfig.showCustomText = false;
                 break;
         }

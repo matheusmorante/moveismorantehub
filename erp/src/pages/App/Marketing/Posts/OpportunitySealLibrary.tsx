@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { createOpportunitySealImage, OpportunitySeal } from './opportunitySealImage';
 
-type Props = { open: boolean; onToggle: () => void; onSelect: (opportunity: OpportunitySeal) => void };
+type Props = { className?: string; open: boolean; onToggle: () => void; onSelect: (opportunity: OpportunitySeal) => void };
 
-export default function OpportunitySealLibrary({ open, onToggle, onSelect }: Props) {
+export default function OpportunitySealLibrary({ className, open, onToggle, onSelect }: Props) {
   const [opportunities, setOpportunities] = useState<OpportunitySeal[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +16,7 @@ export default function OpportunitySealLibrary({ open, onToggle, onSelect }: Pro
       });
   }, []);
 
-  return <div className="rounded-xl border border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/20">
+  return <div className={`rounded-xl border border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/20 ${className || ''}`}>
     <button type="button" onClick={onToggle} className="flex w-full items-center gap-2 p-3 text-left text-[10px] font-black text-orange-800 dark:text-orange-300">
       <i className="bi bi-tag-fill" /> Selos de oportunidade
       <i className={`bi bi-chevron-${open ? 'up' : 'down'} ml-auto`} />

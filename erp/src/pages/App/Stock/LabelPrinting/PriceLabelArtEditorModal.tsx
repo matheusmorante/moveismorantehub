@@ -65,7 +65,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     initialProduct
 }) => {
     const isStandaloneTemplate = window.location.pathname === '/templates/price-label';
-    const artworkSizeMm = calculateLabelPhysicalSize(config);
+    const rawArtworkSize = calculateLabelPhysicalSize(config);
+    const artworkSizeMm = (rawArtworkSize && rawArtworkSize.widthMm >= rawArtworkSize.heightMm)
+        ? rawArtworkSize
+        : { widthMm: 100, heightMm: 56 };
     // COR DE FUNDO PADRÃO
     const getDefaultBg = (oppId: string) => oppId === 'salvado' ? (config.bg_color || '#ff7900') : '#ffffff';
 

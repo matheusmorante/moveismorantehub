@@ -85,6 +85,13 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 
 ## 📈 4. Histórico Recente de Entregas
 
+### Concluído Recentemente (Agosto 2026)
+
+#### 🖼️ Independência Total entre Template de Post Promocional e Template de Etiqueta de Preço
+- **Isolamento de Persistência:** Implementado armazenamento isolado para o Template de Post Promocional via chave `morante_digital_marketing_post_template`.
+- **Botão de Salvamento de Template:** Adicionados botões "Salvar Template" no topo e rodapé da modal de Editor de Post Promocional (`DigitalMarketingPostModal.tsx`).
+- **Tratamento de Presets por Categoria:** Atualizado `Index.tsx` e `applyPresetWithConfig` para garantir que as configurações do modo `posts` (`social_square`) não contaminem as etiquetas de preço (`precos`) e vice-versa ao alternar abas ou salvar layouts.
+
 ### Concluído Recentemente (Julho 2026)
 
 #### 🤖 Preenchimento Inteligente de Pedidos via JSON e Prompt para IA

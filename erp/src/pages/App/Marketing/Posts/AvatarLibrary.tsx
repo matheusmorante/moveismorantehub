@@ -2,14 +2,15 @@ type AvatarItem = { id: string; name: string; url: string };
 
 type Props = {
   avatars: AvatarItem[];
+  className?: string;
   open: boolean;
   onToggle: () => void;
   onSelect: (avatar: AvatarItem) => void;
   onDelete: (avatar: AvatarItem) => void;
 };
 
-export default function AvatarLibrary({ avatars, open, onToggle, onSelect, onDelete }: Props) {
-  return <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/20">
+export default function AvatarLibrary({ avatars, className, open, onToggle, onSelect, onDelete }: Props) {
+  return <div className={`rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/20 ${className || ''}`}>
     <button type="button" onClick={onToggle} className="flex w-full items-center gap-2 p-3 text-left text-[10px] font-black text-blue-800 dark:text-blue-300">
       <i className="bi bi-person-bounding-box" /> Avatares
       <i className={`bi bi-chevron-${open ? 'up' : 'down'} ml-auto`} />

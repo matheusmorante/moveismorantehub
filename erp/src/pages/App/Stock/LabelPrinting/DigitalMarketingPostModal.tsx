@@ -257,6 +257,123 @@ export const DigitalMarketingPostModal: React.FC<DigitalMarketingPostModalProps>
     }
   }, [product]);
 
+  // TEMPLATE INDEPENDENTE DE POST (MÁRKETING DIGITAL)
+  const POST_TEMPLATE_STORAGE_KEY = 'morante_digital_marketing_post_template';
+
+  const getPostTemplateSnapshot = useCallback(() => ({
+    productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleRotation, productTitleScale,
+    priceFontSize, priceDeFontSize, priceOffsetX, priceOffsetY, priceRotation, priceScale,
+    priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
+    porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY, porApenasRotation, porApenasScale,
+    installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY,
+    measuresFontSize, measuresOffsetX, measuresOffsetY,
+    brandName, brandFontSize, brandOffsetX, brandOffsetY,
+    slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
+    avatarScale, avatarOffsetX, avatarOffsetY,
+    footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
+    footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
+    showSecondaryImage, showOpportunityBadge, oppRotation, oppScale, oppOffsetX, oppOffsetY,
+    mainImageScale, secondaryImageScale, mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY,
+  }), [
+    productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleRotation, productTitleScale,
+    priceFontSize, priceDeFontSize, priceOffsetX, priceOffsetY, priceRotation, priceScale,
+    priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
+    porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY, porApenasRotation, porApenasScale,
+    installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY,
+    measuresFontSize, measuresOffsetX, measuresOffsetY,
+    brandName, brandFontSize, brandOffsetX, brandOffsetY,
+    slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
+    avatarScale, avatarOffsetX, avatarOffsetY,
+    footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
+    footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
+    showSecondaryImage, showOpportunityBadge, oppRotation, oppScale, oppOffsetX, oppOffsetY,
+    mainImageScale, secondaryImageScale, mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY,
+  ]);
+
+  const applyPostTemplateSnapshot = useCallback((s: any) => {
+    if (!s || typeof s !== 'object') return;
+    if (s.productTitleFontSize !== undefined) setProductTitleFontSize(s.productTitleFontSize);
+    if (s.productTitleOffsetX !== undefined) setProductTitleOffsetX(s.productTitleOffsetX);
+    if (s.productTitleOffsetY !== undefined) setProductTitleOffsetY(s.productTitleOffsetY);
+    if (s.productTitleRotation !== undefined) setProductTitleRotation(s.productTitleRotation);
+    if (s.productTitleScale !== undefined) setProductTitleScale(s.productTitleScale);
+    if (s.priceFontSize !== undefined) setPriceFontSize(s.priceFontSize);
+    if (s.priceDeFontSize !== undefined) setPriceDeFontSize(s.priceDeFontSize);
+    if (s.priceOffsetX !== undefined) setPriceOffsetX(s.priceOffsetX);
+    if (s.priceOffsetY !== undefined) setPriceOffsetY(s.priceOffsetY);
+    if (s.priceRotation !== undefined) setPriceRotation(s.priceRotation);
+    if (s.priceScale !== undefined) setPriceScale(s.priceScale);
+    if (s.priceDeOffsetX !== undefined) setPriceDeOffsetX(s.priceDeOffsetX);
+    if (s.priceDeOffsetY !== undefined) setPriceDeOffsetY(s.priceDeOffsetY);
+    if (s.priceDeRotation !== undefined) setPriceDeRotation(s.priceDeRotation);
+    if (s.priceDeScale !== undefined) setPriceDeScale(s.priceDeScale);
+    if (s.porApenasText !== undefined) setPorApenasText(s.porApenasText);
+    if (s.porApenasFontSize !== undefined) setPorApenasFontSize(s.porApenasFontSize);
+    if (s.porApenasColor !== undefined) setPorApenasColor(s.porApenasColor);
+    if (s.porApenasOffsetX !== undefined) setPorApenasOffsetX(s.porApenasOffsetX);
+    if (s.porApenasOffsetY !== undefined) setPorApenasOffsetY(s.porApenasOffsetY);
+    if (s.porApenasRotation !== undefined) setPorApenasRotation(s.porApenasRotation);
+    if (s.porApenasScale !== undefined) setPorApenasScale(s.porApenasScale);
+    if (s.installmentsText !== undefined) setInstallmentsText(s.installmentsText);
+    if (s.installmentsFontSize !== undefined) setInstallmentsFontSize(s.installmentsFontSize);
+    if (s.installmentsOffsetX !== undefined) setInstallmentsOffsetX(s.installmentsOffsetX);
+    if (s.installmentsOffsetY !== undefined) setInstallmentsOffsetY(s.installmentsOffsetY);
+    if (s.measuresFontSize !== undefined) setMeasuresFontSize(s.measuresFontSize);
+    if (s.measuresOffsetX !== undefined) setMeasuresOffsetX(s.measuresOffsetX);
+    if (s.measuresOffsetY !== undefined) setMeasuresOffsetY(s.measuresOffsetY);
+    if (s.brandName !== undefined) setBrandName(s.brandName);
+    if (s.brandFontSize !== undefined) setBrandFontSize(s.brandFontSize);
+    if (s.brandOffsetX !== undefined) setBrandOffsetX(s.brandOffsetX);
+    if (s.brandOffsetY !== undefined) setBrandOffsetY(s.brandOffsetY);
+    if (s.slogan !== undefined) setSlogan(s.slogan);
+    if (s.sloganFontSize !== undefined) setSloganFontSize(s.sloganFontSize);
+    if (s.sloganOffsetX !== undefined) setSloganOffsetX(s.sloganOffsetX);
+    if (s.sloganOffsetY !== undefined) setSloganOffsetY(s.sloganOffsetY);
+    if (s.avatarScale !== undefined) setAvatarScale(s.avatarScale);
+    if (s.avatarOffsetX !== undefined) setAvatarOffsetX(s.avatarOffsetX);
+    if (s.avatarOffsetY !== undefined) setAvatarOffsetY(s.avatarOffsetY);
+    if (s.footerAddressTitle !== undefined) setFooterAddressTitle(s.footerAddressTitle);
+    if (s.footerAddressTitleFontSize !== undefined) setFooterAddressTitleFontSize(s.footerAddressTitleFontSize);
+    if (s.footerAddressTitleOffsetX !== undefined) setFooterAddressTitleOffsetX(s.footerAddressTitleOffsetX);
+    if (s.footerAddressTitleOffsetY !== undefined) setFooterAddressTitleOffsetY(s.footerAddressTitleOffsetY);
+    if (s.footerAddressText !== undefined) setFooterAddressText(s.footerAddressText);
+    if (s.footerAddressTextFontSize !== undefined) setFooterAddressTextFontSize(s.footerAddressTextFontSize);
+    if (s.footerAddressTextOffsetX !== undefined) setFooterAddressTextOffsetX(s.footerAddressTextOffsetX);
+    if (s.footerAddressTextOffsetY !== undefined) setFooterAddressTextOffsetY(s.footerAddressTextOffsetY);
+    if (s.showSecondaryImage !== undefined) setShowSecondaryImage(s.showSecondaryImage);
+    if (s.showOpportunityBadge !== undefined) setShowOpportunityBadge(s.showOpportunityBadge);
+    if (s.oppRotation !== undefined) setOppRotation(s.oppRotation);
+    if (s.oppScale !== undefined) setOppScale(s.oppScale);
+    if (s.oppOffsetX !== undefined) setOppOffsetX(s.oppOffsetX);
+    if (s.oppOffsetY !== undefined) setOppOffsetY(s.oppOffsetY);
+    if (s.mainImageScale !== undefined) setMainImageScale(s.mainImageScale);
+    if (s.secondaryImageScale !== undefined) setSecondaryImageScale(s.secondaryImageScale);
+    if (s.mainImageOffsetX !== undefined) setMainImageOffsetX(s.mainImageOffsetX);
+    if (s.mainImageOffsetY !== undefined) setMainImageOffsetY(s.mainImageOffsetY);
+    if (s.secondaryImageOffsetX !== undefined) setSecondaryImageOffsetX(s.secondaryImageOffsetX);
+    if (s.secondaryImageOffsetY !== undefined) setSecondaryImageOffsetY(s.secondaryImageOffsetY);
+  }, []);
+
+  // Carrega template salvo de post quando a modal abre
+  useEffect(() => {
+    if (!isOpen) return;
+    const savedTemplate = localStorage.getItem(POST_TEMPLATE_STORAGE_KEY);
+    if (savedTemplate) {
+      try {
+        const parsed = JSON.parse(savedTemplate);
+        applyPostTemplateSnapshot(parsed);
+      } catch (e) {
+        console.error('Erro ao carregar template do post:', e);
+      }
+    }
+  }, [isOpen, applyPostTemplateSnapshot]);
+
+  const handleSavePostTemplate = () => {
+    const snapshot = getPostTemplateSnapshot();
+    localStorage.setItem(POST_TEMPLATE_STORAGE_KEY, JSON.stringify(snapshot));
+    toast.success("Template do Post salvo com sucesso como padrão!");
+  };
+
   // Pré-carregamento de imagens
   const loadImg = useCallback((url: string): Promise<HTMLImageElement | null> => {
     if (!url) return Promise.resolve(null);
@@ -834,6 +951,15 @@ export const DigitalMarketingPostModal: React.FC<DigitalMarketingPostModalProps>
             >
               <i className="bi bi-arrow-clockwise text-sm" />
             </button>
+            <button
+              type="button"
+              onClick={handleSavePostTemplate}
+              className="px-3 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-pink-500/20 active:scale-95 cursor-pointer"
+              title="Salvar layout e posições atuais como Template de Post padrão"
+            >
+              <i className="bi bi-floppy-fill text-xs" />
+              <span>Salvar Template</span>
+            </button>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1" />
             <button
               type="button"
@@ -1177,19 +1303,30 @@ export const DigitalMarketingPostModal: React.FC<DigitalMarketingPostModalProps>
             Cancelar
           </button>
 
-          <button
-            type="button"
-            disabled={downloading}
-            onClick={handleSavePost}
-            className="px-8 py-3 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-pink-500/25 active:scale-95 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            {downloading ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <i className="bi bi-cloud-arrow-up-fill text-sm" />
-            )}
-            <span>SALVAR & PUBLICAR ARTE</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSavePostTemplate}
+              className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              <i className="bi bi-floppy-fill text-sm text-pink-600" />
+              <span>SALVAR COMO TEMPLATE DE POST</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={downloading}
+              onClick={handleSavePost}
+              className="px-8 py-3 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-pink-500/25 active:scale-95 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {downloading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <i className="bi bi-cloud-arrow-up-fill text-sm" />
+              )}
+              <span>SALVAR & PUBLICAR ARTE</span>
+            </button>
+          </div>
         </div>
 
       </div>

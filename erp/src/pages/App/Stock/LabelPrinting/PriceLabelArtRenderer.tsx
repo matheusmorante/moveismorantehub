@@ -743,7 +743,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     backgroundColor: effectiveBgColor,
                     width: artWidthPx ? `min(100%, ${artWidthPx}px)` : undefined,
                     maxWidth: '100%',
-                    aspectRatio: artWidthMm && artHeightMm ? `${artWidthMm} / ${artHeightMm}` : '1.75 / 1',
+                    aspectRatio: (artWidthMm && artHeightMm && artWidthMm >= artHeightMm) ? `${artWidthMm} / ${artHeightMm}` : '1.75 / 1',
                     boxSizing: 'border-box', padding: 0, margin: 0,
                     opacity: 1,
                     isolation: 'isolate',

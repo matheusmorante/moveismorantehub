@@ -6,7 +6,16 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import HeaderFooterModelEditor from './HeaderFooterModelEditor';
 import AvatarLibrary from './AvatarLibrary';
 import OpportunitySealLibrary from './OpportunitySealLibrary';
+import TextColorPicker from './TextColorPicker';
+import TextBackgroundControls, { type TextBackground } from './TextBackgroundControls';
+import TextAlignmentControls from './TextAlignmentControls';
+import PostImageSourcePicker, { type PostImageOption } from './PostImageSourcePicker';
+import ImageGridControls from './ImageGridControls';
 import type { OpportunitySeal } from './opportunitySealImage';
+import { DEFAULT_IMAGE_GRID_SETTINGS, drawImageGrid, drawMoreColorsLabel, getPostImageGrid, placeImageInCell, type ImageGridSettings } from './postImageGrid';
+import { getTextBackgroundAlignment, type HorizontalTextAlignment, type VerticalTextAlignment } from './textAlignment';
+import { getVariationGridImages, parseVariationImageUrls } from './variationGridImages';
+import { shouldShowPreviousPrice } from './postPriceVisibility';
 
 interface Product {
   id: string;
@@ -15,6 +24,7 @@ interface Product {
   promo_price: number | null;
   product_images: { image_url: string; is_main: boolean }[];
   opportunities: { name: string; badge_color: string; border_color: string } | null;
+  product_variations?: { id: string; name?: string; sku?: string; image_url?: unknown }[];
   technical_specs?: any | null;
   width?: number | null;
   depth?: number | null;
@@ -48,7 +58,44 @@ const FONT_OPTIONS = [
 ];
 
 const DEFAULT_FONT_FAMILY = FONT_OPTIONS[0].value;
-const CONTAINER_CHILD_KEYS = ['title', 'priceDe', 'porApenas', 'pricePor', 'measures'];
+const CONTAINER_CHILD_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor'];
+const TEXT_ELEMENT_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'];
+const IMAGE_CELL_KEYS = ['mainImage', 'secondaryImage'];
+const DEFAULT_TEXT_COLORS: Record<string, string> = { brand: '#ffffff', slogan: '#0d1b2a', footerTitle: '#0d1b2a', footerAddress: '#e0a96d', title: '#111827', priceDeLabel: '#dc2626', priceDe: '#dc2626', porApenas: '#e0a96d', pricePor: '#111827', installments: '#111827', measures: '#94a3b8' };
+const INITIAL_COLOR_HISTORY = ['#000000', '#1e3a8a', '#dc2626', '#ea580c', '#ffffff', '#2563eb', '#16a34a', '#ff7900', '#7c3aed'];
+const EMPTY_TEXT_BACKGROUND: TextBackground = { color: '#ffffff', paddingX: 0, paddingY: 0, opacity: 0 };
+
+function drawTextBackground(
+  ctx: CanvasRenderingContext2D,
+  scale: number,
+  width: number,
+  height: number,
+  background: TextBackground,
+  x = 0,
+  baselineY = 0,
+  selection?: { width: number; height: number; offsetX: number; offsetY: number },
+) {
+  if (background.opacity <= 0) return;
+  const selectionWidth = selection?.width ?? width;
+  const selectionHeight = selection?.height ?? height;
+  const selectionOffsetX = selection?.offsetX ?? 0;
+  const selectionOffsetY = selection?.offsetY ?? 0;
+  const extraPaddingX = selection ? 0 : background.paddingX;
+  const extraPaddingY = selection ? 0 : background.paddingY;
+  ctx.save();
+  ctx.globalAlpha = background.opacity;
+  ctx.fillStyle = background.color;
+  ctx.beginPath();
+  ctx.roundRect(
+    (x - selectionOffsetX - extraPaddingX) * scale,
+    (baselineY - height - selectionOffsetY - extraPaddingY) * scale,
+    (selectionWidth + extraPaddingX * 2) * scale,
+    (selectionHeight + extraPaddingY * 2) * scale,
+    Math.min(18, selectionHeight / 2) * scale,
+  );
+  ctx.fill();
+  ctx.restore();
+}
 
 // Helper para detectar a caixa delimitadora (bounding box) da imagem
 function getBoundingBox(img: HTMLImageElement): { x: number; y: number; w: number; h: number } {
@@ -149,6 +196,13 @@ export default function MarketingPosts() {
   // Opções de customização do banner
   const [brandName, setBrandName] = useState("MÓVEIS MORANTE");
   const [textFontFamilies, setTextFontFamilies] = useState<Record<string, string>>({});
+  const [textColors, setTextColors] = useState<Record<string, string>>(DEFAULT_TEXT_COLORS);
+  const [textBackgrounds, setTextBackgrounds] = useState<Record<string, TextBackground>>({ pricePor: { color: '#ffe600', paddingX: 18, paddingY: 17, opacity: 1 } });
+  const [textHorizontalAlignments, setTextHorizontalAlignments] = useState<Record<string, HorizontalTextAlignment>>({});
+  const [textVerticalAlignments, setTextVerticalAlignments] = useState<Record<string, VerticalTextAlignment>>({});
+  const [textSelectionWidths, setTextSelectionWidths] = useState<Record<string, number>>({});
+  const [textSelectionHeights, setTextSelectionHeights] = useState<Record<string, number>>({});
+  const [colorHistory, setColorHistory] = useState(INITIAL_COLOR_HISTORY);
   const [brandFontSize, setBrandFontSize] = useState<number>(42);
   const [brandOffsetX, setBrandOffsetX] = useState<number>(120);
   const [brandOffsetY, setBrandOffsetY] = useState<number>(82);
@@ -185,6 +239,7 @@ export default function MarketingPosts() {
 
   const [productTitle, setProductTitle] = useState("");
   const [priceContainerBackgroundColor, setPriceContainerBackgroundColor] = useState("#f8fafc");
+  const [showPriceContainer, setShowPriceContainer] = useState(true);
   const [priceContainerOffsetX, setPriceContainerOffsetX] = useState(0);
   const [priceContainerOffsetY, setPriceContainerOffsetY] = useState(0);
   const [priceContainerWidth, setPriceContainerWidth] = useState(460);
@@ -198,7 +253,13 @@ export default function MarketingPosts() {
   const [productTitleScale, setProductTitleScale] = useState<number>(100);
 
   const [priceFontSize, setPriceFontSize] = useState<number>(48);
+  const [priceHighlightBackgroundColor, setPriceHighlightBackgroundColor] = useState('#ffe600');
+  const [priceHighlightOffsetX, setPriceHighlightOffsetX] = useState(0);
+  const [priceHighlightOffsetY, setPriceHighlightOffsetY] = useState(0);
+  const [priceHighlightExtraWidth, setPriceHighlightExtraWidth] = useState(0);
+  const [priceHighlightExtraHeight, setPriceHighlightExtraHeight] = useState(0);
   const [priceDeFontSize, setPriceDeFontSize] = useState<number>(20);
+  const [priceDeText, setPriceDeText] = useState('De');
   const [priceOffsetX, setPriceOffsetX] = useState<number>(600);
   const [priceOffsetY, setPriceOffsetY] = useState<number>(920);
   const [priceRotation, setPriceRotation] = useState<number>(0);
@@ -230,8 +291,11 @@ export default function MarketingPosts() {
   const [mainImageOffsetY, setMainImageOffsetY] = useState<number>(0);
   const [secondaryImageOffsetX, setSecondaryImageOffsetX] = useState<number>(0);
   const [secondaryImageOffsetY, setSecondaryImageOffsetY] = useState<number>(0);
+  const [imageGridSettings, setImageGridSettings] = useState<ImageGridSettings>(DEFAULT_IMAGE_GRID_SETTINGS);
   const [mainImageIndex, setMainImageIndex] = useState<number>(0);
   const [secondaryImageIndex, setSecondaryImageIndex] = useState<number>(1);
+  const [mainImageSource, setMainImageSource] = useState('product:0');
+  const [secondaryImageSource, setSecondaryImageSource] = useState('product:1');
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
@@ -278,14 +342,17 @@ export default function MarketingPosts() {
   const [selectedQuickActionsPost, setSelectedQuickActionsPost] = useState<any>(null);
 
   // Elemento selecionado no canvas para edição interativa
-  type SelectedElement = 'mainImage' | 'secondaryImage' | 'opportunityBadge' | 'priceContainer' | 'brand' | 'slogan' | 'installments' | 'avatar' | 'footerTitle' | 'footerAddress' | 'title' | 'priceDe' | 'pricePor' | 'porApenas' | 'measures' | null;
+  type SelectedElement = 'headerFooter' | 'imageGrid' | 'mainImage' | 'secondaryImage' | 'opportunityBadge' | 'priceContainer' | 'priceHighlight' | 'brand' | 'slogan' | 'installments' | 'avatar' | 'footerTitle' | 'footerAddress' | 'title' | 'priceDeLabel' | 'priceDe' | 'pricePor' | 'porApenas' | 'measures' | null;
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const productPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
+  const imageBoundsCacheRef = useRef<WeakMap<HTMLImageElement, { x: number; y: number; w: number; h: number }>>(new WeakMap());
+  const drawRequestRef = useRef(0);
+  const imageSourceProductIdRef = useRef<string | null>(null);
   const renderedRegionsRef = useRef<Record<string, { key: string; label: string; x: number; y: number; w: number; h: number }>>({});
-  const postDragRef = useRef<{ key: SelectedElement; x: number; y: number; mode: 'move' | 'resize' | 'rotate' | 'resize-container'; side?: 'top' | 'right' | 'bottom' | 'left'; centerX?: number; centerY?: number } | null>(null);
+  const postDragRef = useRef<{ key: SelectedElement; x: number; y: number; mode: 'move' | 'resize' | 'rotate' | 'resize-container' | 'resize-text' | 'resize-side'; side?: 'top' | 'right' | 'bottom' | 'left'; centerX?: number; centerY?: number } | null>(null);
 
   // Histórico de alterações (Undo / Redo)
   const historyRef = useRef<any[]>([]);
@@ -293,12 +360,13 @@ export default function MarketingPosts() {
   const isApplyingHistoryRef = useRef<boolean>(false);
   const previousSelectedElementRef = useRef<SelectedElement>(null);
   const isTemplateStateInitializedRef = useRef(false);
+  const templateUserDirtyRef = useRef(false);
   const templateSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
 
   const getCurrentState = useCallback(() => ({
     headerFooterModelVersion: 2,
     headerFooterModelName, headerTemplateImage, footerTemplateImage, defaultModelProductId,
-    brandName, brandFontSize, brandOffsetX, brandOffsetY, textFontFamilies,
+    brandName, brandFontSize, brandOffsetX, brandOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, colorHistory, textSelectionWidths, textSelectionHeights,
     slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
@@ -310,10 +378,11 @@ export default function MarketingPosts() {
     mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY,
     secondaryImageOffsetX, secondaryImageOffsetY,
-    mainImageIndex, secondaryImageIndex,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, priceContainerBackgroundColor, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
+    imageGridSettings,
+    mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
-    priceFontSize, priceDeFontSize, priceOffsetX, priceOffsetY,
+    priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
     priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
     porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY,
@@ -321,7 +390,7 @@ export default function MarketingPosts() {
     measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY
   }), [
     headerFooterModelName, headerTemplateImage, footerTemplateImage, defaultModelProductId,
-    brandName, brandFontSize, brandOffsetX, brandOffsetY, textFontFamilies,
+    brandName, brandFontSize, brandOffsetX, brandOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, colorHistory, textSelectionWidths, textSelectionHeights,
     slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
@@ -333,10 +402,11 @@ export default function MarketingPosts() {
     mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY,
     secondaryImageOffsetX, secondaryImageOffsetY,
-    mainImageIndex, secondaryImageIndex,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, priceContainerBackgroundColor, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
+    imageGridSettings,
+    mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
-    priceFontSize, priceDeFontSize, priceOffsetX, priceOffsetY,
+    priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
     priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
     porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY,
@@ -355,6 +425,13 @@ export default function MarketingPosts() {
     
     if (s.brandName !== undefined) setBrandName(s.brandName);
     if (s.textFontFamilies !== undefined) setTextFontFamilies(s.textFontFamilies);
+    if (s.textColors !== undefined) setTextColors(current => ({ ...current, ...s.textColors }));
+    if (s.textBackgrounds !== undefined) setTextBackgrounds(current => ({ ...current, ...s.textBackgrounds }));
+    if (s.textHorizontalAlignments !== undefined) setTextHorizontalAlignments(s.textHorizontalAlignments);
+    if (s.textVerticalAlignments !== undefined) setTextVerticalAlignments(s.textVerticalAlignments);
+    if (s.colorHistory !== undefined) setColorHistory(s.colorHistory);
+    if (s.textSelectionWidths !== undefined) setTextSelectionWidths(s.textSelectionWidths);
+    if (s.textSelectionHeights !== undefined) setTextSelectionHeights(s.textSelectionHeights);
     if (s.brandFontSize !== undefined) setBrandFontSize(s.brandFontSize);
     if (s.brandOffsetX !== undefined) setBrandOffsetX(s.brandOffsetX);
     if (s.brandOffsetY !== undefined) setBrandOffsetY(s.brandOffsetY);
@@ -393,11 +470,15 @@ export default function MarketingPosts() {
     if (s.mainImageOffsetY !== undefined) setMainImageOffsetY(s.mainImageOffsetY);
     if (s.secondaryImageOffsetX !== undefined) setSecondaryImageOffsetX(s.secondaryImageOffsetX);
     if (s.secondaryImageOffsetY !== undefined) setSecondaryImageOffsetY(s.secondaryImageOffsetY);
+    if (s.imageGridSettings !== undefined) setImageGridSettings(current => ({ ...current, ...s.imageGridSettings }));
     if (s.mainImageIndex !== undefined) setMainImageIndex(s.mainImageIndex);
     if (s.secondaryImageIndex !== undefined) setSecondaryImageIndex(s.secondaryImageIndex);
+    if (s.mainImageSource !== undefined) setMainImageSource(s.mainImageSource);
+    if (s.secondaryImageSource !== undefined) setSecondaryImageSource(s.secondaryImageSource);
     
     if (s.productTitle !== undefined) setProductTitle(s.productTitle);
     if (s.priceContainerBackgroundColor !== undefined) setPriceContainerBackgroundColor(s.priceContainerBackgroundColor);
+    if (s.showPriceContainer !== undefined) setShowPriceContainer(s.showPriceContainer);
     if (s.priceContainerOffsetX !== undefined) setPriceContainerOffsetX(s.priceContainerOffsetX);
     if (s.priceContainerOffsetY !== undefined) setPriceContainerOffsetY(s.priceContainerOffsetY);
     if (s.priceContainerWidth !== undefined) setPriceContainerWidth(s.priceContainerWidth);
@@ -410,7 +491,13 @@ export default function MarketingPosts() {
     if (s.productTitleRotation !== undefined) setProductTitleRotation(s.productTitleRotation);
     if (s.productTitleScale !== undefined) setProductTitleScale(s.productTitleScale);
     if (s.priceFontSize !== undefined) setPriceFontSize(s.priceFontSize);
+    if (s.priceHighlightBackgroundColor !== undefined) setPriceHighlightBackgroundColor(s.priceHighlightBackgroundColor);
+    if (s.priceHighlightOffsetX !== undefined) setPriceHighlightOffsetX(s.priceHighlightOffsetX);
+    if (s.priceHighlightOffsetY !== undefined) setPriceHighlightOffsetY(s.priceHighlightOffsetY);
+    if (s.priceHighlightExtraWidth !== undefined) setPriceHighlightExtraWidth(s.priceHighlightExtraWidth);
+    if (s.priceHighlightExtraHeight !== undefined) setPriceHighlightExtraHeight(s.priceHighlightExtraHeight);
     if (s.priceDeFontSize !== undefined) setPriceDeFontSize(s.priceDeFontSize);
+    if (s.priceDeText !== undefined) setPriceDeText(s.priceDeText);
     if (s.priceOffsetX !== undefined) setPriceOffsetX(s.priceOffsetX);
     if (s.priceOffsetY !== undefined) setPriceOffsetY(s.priceOffsetY);
     if (s.priceRotation !== undefined) setPriceRotation(s.priceRotation);
@@ -476,8 +563,7 @@ export default function MarketingPosts() {
     const saveTask = templateSaveQueueRef.current.catch(() => false).then(async () => {
       const { data, error } = await supabase
         .from("store_style_settings")
-        .update({ marketing_defaults: defaults })
-        .eq('id', true)
+        .upsert({ id: true, marketing_defaults: defaults })
         .select('marketing_defaults')
         .single();
       if (error) throw error;
@@ -551,7 +637,17 @@ export default function MarketingPosts() {
           `)
           .order("name");
 
-        const loadedProducts = (prodData as any) || [];
+        if (error) throw error;
+        const productRows = (prodData as unknown as Product[]) || [];
+        const { data: variationData } = productRows.length
+          ? await supabase.from('product_variations').select('id, product_id, name, sku, image_url').in('product_id', productRows.map(product => product.id)).order('sku', { ascending: true })
+          : { data: [] };
+        const variationsByProduct = (variationData || []).reduce<Record<string, Product['product_variations']>>((groups, variation: any) => {
+          const productId = String(variation.product_id);
+          groups[productId] = [...(groups[productId] || []), variation];
+          return groups;
+        }, {});
+        const loadedProducts = productRows.map(product => ({ ...product, product_variations: variationsByProduct[String(product.id)] || [] }));
         setProducts(loadedProducts);
 
         // Auto-seleciona o produto caso seu ID seja passado na URL (?product=ID)
@@ -587,6 +683,9 @@ export default function MarketingPosts() {
         setMarketingDefaults(defaults);
         applyState(defaults);
         setDefaultModelProductId(defaults.defaultModelProductId || '');
+        if (isTemplateRoute && defaults.defaultModelProductId && loadedProducts.some((product: Product) => product.id === defaults.defaultModelProductId)) {
+          setSelectedProductId(defaults.defaultModelProductId);
+        }
         setHeaderFooterModelName(defaults.headerFooterModelName || 'Padrão');
         setHeaderTemplateImage(defaults.headerTemplateImage);
         setFooterTemplateImage(defaults.footerTemplateImage);
@@ -605,6 +704,42 @@ export default function MarketingPosts() {
     return products.find(p => p.id === selectedProductId) || (isEditingTemplate ? TEMPLATE_PREVIEW_PRODUCT : null);
   }, [products, selectedProductId, isEditingTemplate]);
   const renderProduct = activeProduct || TEMPLATE_PREVIEW_PRODUCT;
+  const variationGridImages = useMemo(() => getVariationGridImages(renderProduct.product_variations || []), [renderProduct]);
+
+  useEffect(() => {
+    if (!activeProduct || imageSourceProductIdRef.current === activeProduct.id) return;
+    imageSourceProductIdRef.current = activeProduct.id;
+    setMainImageIndex(0);
+    setSecondaryImageIndex(1);
+    setMainImageSource(variationGridImages?.main?.key || 'product:0');
+    setSecondaryImageSource(variationGridImages?.secondary?.key || 'product:1');
+  }, [activeProduct, variationGridImages]);
+
+  const postImageOptions = useMemo<PostImageOption[]>(() => {
+    const orderedProductImages = [...(renderProduct.product_images || [])].filter(image => Boolean(image.image_url)).sort((a, b) => Number(b.is_main) - Number(a.is_main));
+    const productOptions = orderedProductImages.map((image, index) => ({ key: `product:${index}`, label: `Imagem ${index + 1}`, url: image.image_url }));
+    const variationOptions = (renderProduct.product_variations || []).flatMap((variation, variationIndex) => {
+      const variationName = variation.name || `Variação ${variationIndex + 1}`;
+      return parseVariationImageUrls(variation.image_url).map((url, imageIndex) => ({ key: `variation:${variation.id}:${imageIndex}`, label: `${variationName} — Imagem ${imageIndex + 1}`, url, variationName }));
+    });
+    return [...productOptions, ...variationOptions];
+  }, [renderProduct]);
+
+  const gridExtraImageUrls = useMemo(() => {
+    if (variationGridImages) return variationGridImages.extra.map(image => image.url);
+    return postImageOptions.filter(option => option.key.startsWith('product:')).slice(2, 3).map(option => option.url);
+  }, [postImageOptions, variationGridImages]);
+
+  const getPostImageUrl = (source: string, fallbackIndex: number) => {
+    const selected = postImageOptions.find(option => option.key === source);
+    return selected?.url || postImageOptions[fallbackIndex]?.url || '';
+  };
+
+  useEffect(() => {
+    if (!postImageOptions.length) return;
+    if (!postImageOptions.some(option => option.key === mainImageSource)) setMainImageSource(postImageOptions[0].key);
+    if (!postImageOptions.some(option => option.key === secondaryImageSource)) setSecondaryImageSource(postImageOptions[1]?.key || postImageOptions[0].key);
+  }, [postImageOptions, mainImageSource, secondaryImageSource]);
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
@@ -670,10 +805,26 @@ export default function MarketingPosts() {
     });
   };
 
+  const loadFirstAvailableImage = async (...urls: (string | null | undefined)[]) => {
+    for (const url of [...new Set(urls.filter((value): value is string => Boolean(value)))]) {
+      const image = await loadImg(url);
+      if (image) return image;
+    }
+    return null;
+  };
+
+  const getCachedBoundingBox = (image: HTMLImageElement) => {
+    const cached = imageBoundsCacheRef.current.get(image);
+    if (cached) return cached;
+    const bounds = getBoundingBox(image);
+    imageBoundsCacheRef.current.set(image, bounds);
+    return bounds;
+  };
+
   // Motor de Desenho Síncrono no Canvas 2D
   const drawBannerSync = (
     canvas: HTMLCanvasElement,
-    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null },
+    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null; variationImgs: (HTMLImageElement | null)[] },
     isExport = false
   ) => {
     if (!activeProduct && !isEditingTemplate) return;
@@ -682,59 +833,81 @@ export default function MarketingPosts() {
 
     const S = canvas.width / 1080;
     const reg: Record<string, { key: string; label: string; x: number; y: number; w: number; h: number }> = {};
+    const getTextAreaAlignment = (key: string, width: number, height: number) => {
+      const background = textBackgrounds[key] || EMPTY_TEXT_BACKGROUND;
+      const hasBackground = background.opacity > 0;
+      return getTextBackgroundAlignment(
+        width,
+        height,
+        hasBackground ? background.paddingX : 0,
+        hasBackground ? background.paddingY : 0,
+        textHorizontalAlignments[key] || (hasBackground ? 'center' : 'left'),
+        textVerticalAlignments[key] || (hasBackground ? 'middle' : 'top'),
+      );
+    };
 
     // 1. Área principal clara, conforme o template institucional padrão.
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, 1080 * S, 1350 * S);
 
     // 2. Imagens do Produto (Principal e Secundária)
+    const imageGrid = getPostImageGrid(imageGridSettings, images.variationImgs.length);
+    reg.mainImage = { ...imageGrid.main, key: 'mainImage', label: 'Célula da imagem 1' };
+    reg.secondaryImage = { ...imageGrid.secondary, key: 'secondaryImage', label: 'Célula da imagem 2' };
     if (images.mainImg) {
-      const bb = getBoundingBox(images.mainImg);
-      const scale = (mainImageScale / 100) * S;
-      const targetW = bb.w * scale;
-      const targetH = bb.h * scale;
-      const posX = (280 + mainImageOffsetX) * S - targetW / 2;
-      const posY = (660 + mainImageOffsetY) * S - targetH / 2;
+      const bb = getCachedBoundingBox(images.mainImg);
+      const placement = placeImageInCell(bb, imageGrid.main, 100, 0, 0);
+      const targetW = placement.w * S;
+      const targetH = placement.h * S;
+      const posX = placement.x * S;
+      const posY = placement.y * S;
 
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(imageGrid.main.x * S, imageGrid.main.y * S, imageGrid.main.w * S, imageGrid.main.h * S);
+      ctx.clip();
       ctx.drawImage(
         images.mainImg,
         bb.x, bb.y, bb.w, bb.h,
         posX, posY, targetW, targetH
       );
+      ctx.restore();
 
-      reg['mainImage'] = {
-        key: 'mainImage',
-        label: 'Foto Principal',
-        x: posX / S,
-        y: posY / S,
-        w: targetW / S,
-        h: targetH / S
-      };
     }
 
     if (showSecondaryImage && images.secImg) {
-      const bb = getBoundingBox(images.secImg);
-      const scale = (secondaryImageScale / 100) * 0.65 * S;
-      const targetW = bb.w * scale;
-      const targetH = bb.h * scale;
-      const posX = (780 + secondaryImageOffsetX) * S - targetW / 2;
-      const posY = (430 + secondaryImageOffsetY) * S - targetH / 2;
+      const bb = getCachedBoundingBox(images.secImg);
+      const placement = placeImageInCell(bb, imageGrid.secondary, 100, 0, 0);
+      const targetW = placement.w * S;
+      const targetH = placement.h * S;
+      const posX = placement.x * S;
+      const posY = placement.y * S;
 
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(imageGrid.secondary.x * S, imageGrid.secondary.y * S, imageGrid.secondary.w * S, imageGrid.secondary.h * S);
+      ctx.clip();
       ctx.drawImage(
         images.secImg,
         bb.x, bb.y, bb.w, bb.h,
         posX, posY, targetW, targetH
       );
+      ctx.restore();
 
-      reg['secondaryImage'] = {
-        key: 'secondaryImage',
-        label: 'Foto Secundária',
-        x: posX / S,
-        y: posY / S,
-        w: targetW / S,
-        h: targetH / S
-      };
     }
+
+    images.variationImgs.forEach((variationImage, index) => {
+      const cell = imageGrid.variationCells[index];
+      if (!variationImage || !cell) return;
+      const bb = getCachedBoundingBox(variationImage);
+      const placement = placeImageInCell(bb, cell, 100, 0, 0);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cell.x * S, cell.y * S, cell.w * S, cell.h * S);
+      ctx.clip();
+      ctx.drawImage(variationImage, bb.x, bb.y, bb.w, bb.h, placement.x * S, placement.y * S, placement.w * S, placement.h * S);
+      ctx.restore();
+    });
 
     // 3. Cabeçalho (Marca e Slogan)
     ctx.fillStyle = "#0d1b2a";
@@ -757,16 +930,17 @@ export default function MarketingPosts() {
     const brandY = brandOffsetY ?? 82;
 
     ctx.font = `italic bold ${brandSize * S}px ${textFontFamilies.brand || DEFAULT_FONT_FAMILY}`;
+    drawTextBackground(ctx, S, ctx.measureText(brandNameStr).width / S, brandSize, textBackgrounds.brand || EMPTY_TEXT_BACKGROUND, brandX, brandY);
     if (brandNameStr.toUpperCase().startsWith("MÓVEIS MORANTE")) {
       const p1 = "MÓVEIS ";
       const p2 = brandNameStr.substring(7);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = textColors.brand || DEFAULT_TEXT_COLORS.brand;
       ctx.fillText(p1, brandX * S, brandY * S);
       const p1W = ctx.measureText(p1).width;
-      ctx.fillStyle = "#e0a96d";
+      ctx.fillStyle = textColors.brand || DEFAULT_TEXT_COLORS.brand;
       ctx.fillText(p2, brandX * S + p1W, brandY * S);
     } else {
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = textColors.brand || DEFAULT_TEXT_COLORS.brand;
       ctx.fillText(brandNameStr, brandX * S, brandY * S);
     }
 
@@ -782,8 +956,9 @@ export default function MarketingPosts() {
     const sloganX = sloganOffsetX ?? 120;
     const sloganY = sloganOffsetY ?? 130;
 
-    ctx.fillStyle = "rgba(243, 244, 246, 0.85)";
+    ctx.fillStyle = textColors.slogan || DEFAULT_TEXT_COLORS.slogan;
     ctx.font = `${sloganSize * S}px ${textFontFamilies.slogan || DEFAULT_FONT_FAMILY}`;
+    drawTextBackground(ctx, S, ctx.measureText(sloganText).width / S, sloganSize, textBackgrounds.slogan || EMPTY_TEXT_BACKGROUND, sloganX, sloganY);
     ctx.fillText(sloganText, sloganX * S, sloganY * S);
     }
 
@@ -799,9 +974,10 @@ export default function MarketingPosts() {
       const aX = (avatarOffsetX ?? 35) * S;
       const aY = (avatarOffsetY ?? 1208) * S;
       ctx.drawImage(images.logo, aX, aY, targetWidth, targetHeight);
-      ctx.fillStyle = "#e0a96d";
+      ctx.fillStyle = textColors.footerAddress || DEFAULT_TEXT_COLORS.footerAddress;
       ctx.font = `bold ${(footerAddressTextFontSize || 28) * S}px ${textFontFamilies.footerAddress || DEFAULT_FONT_FAMILY}`;
       const ftAddr = footerAddressText || "RUA CASCAVEL, 306, GUARAITUBA, COLOMBO";
+      drawTextBackground(ctx, S, ctx.measureText(ftAddr).width / S, footerAddressTextFontSize || 28, textBackgrounds.footerAddress || EMPTY_TEXT_BACKGROUND, footerAddressTextOffsetX ?? 175, footerAddressTextOffsetY ?? 1302);
       ctx.fillText(ftAddr, (footerAddressTextOffsetX ?? 175) * S, (footerAddressTextOffsetY ?? 1302) * S);
     }
 
@@ -815,9 +991,19 @@ export default function MarketingPosts() {
     const prY = priceOffsetY ?? 920;
     const priceContainerX = priceContainerOffsetX ?? 0;
     const priceContainerY = priceContainerOffsetY ?? 0;
-    const contentLimit = Math.max(120, priceContainerWidth - 40);
+    // O preço principal sempre pertence ao container: ao movê-lo ou aumentar a
+    // fonte, o container expande em vez de deixar o conteúdo vazar.
+    const isPricePorDetached = false;
+    ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
+    const priceTextWidth = ctx.measureText(priceStr).width / S;
+    const rawPriceRowStartX = 580 + ((priceOffsetX ?? 600) - 600);
+    const priceRowStartX = Math.max(18 - priceContainerX, Math.min(rawPriceRowStartX, 1080 - priceContainerX - priceTextWidth - 38));
+    const priceRequiredWidth = Math.ceil(priceRowStartX - 560 + priceTextWidth + 54);
+    // Enquanto o preço estiver no container, o fundo nunca pode ficar menor que ele.
+    const effectiveContainerWidth = isPricePorDetached ? priceContainerWidth : Math.max(priceContainerWidth, priceRequiredWidth);
+    const contentLimit = Math.max(120, effectiveContainerWidth - 40);
     const pTitleSize = productTitleFontSize || 30;
-    const pTitleLimit = Math.min(productTitleMaxContainerWidth || contentLimit, contentLimit);
+    const pTitleLimit = Math.max(120, textSelectionWidths.title || contentLimit);
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
     const titleWords = (productTitle || renderProduct.name).split(/\s+/);
     const titleLines: string[] = [];
@@ -827,107 +1013,132 @@ export default function MarketingPosts() {
       if (titleLine && ctx.measureText(nextLine).width / S > pTitleLimit) { titleLines.push(titleLine); titleLine = word; } else titleLine = nextLine;
     }
     if (titleLine) titleLines.push(titleLine);
-    const requiredContentHeight = 32 + titleLines.length * (pTitleSize + 6) + 16 + (effectivePromo && effectivePromo < effectivePrice ? (priceDeFontSize || 20) + 16 : 0) + (porApenasFontSize || 16) + 14 + prSize + 52 + (measuresText ? (measuresFontSize || 20) + 20 : 0) + 24;
-    const expandedContainerHeight = Math.max(priceContainerHeight, requiredContentHeight);
-    const expandedTop = 650 - (expandedContainerHeight - priceContainerHeight);
+    const expandedContainerHeight = Math.max(80, priceContainerHeight);
+    const expandedTop = 650;
 
     ctx.save();
     ctx.translate(priceContainerX * S, priceContainerY * S);
-    ctx.beginPath();
-    ctx.roundRect(560 * S, expandedTop * S, priceContainerWidth * S, expandedContainerHeight * S, 26 * S);
-    ctx.fillStyle = priceContainerBackgroundColor;
-    ctx.fill();
-    reg['priceContainer'] = { key: 'priceContainer', label: 'Container de preços', x: 560 + priceContainerX, y: expandedTop + priceContainerY, w: priceContainerWidth, h: expandedContainerHeight };
+    if (showPriceContainer) {
+      ctx.beginPath();
+      ctx.roundRect(560 * S, expandedTop * S, effectiveContainerWidth * S, expandedContainerHeight * S, 26 * S);
+      ctx.fillStyle = priceContainerBackgroundColor;
+      ctx.fill();
+      reg['priceContainer'] = { key: 'priceContainer', label: 'Container de preços', x: 560 + priceContainerX, y: expandedTop + priceContainerY, w: effectiveContainerWidth, h: expandedContainerHeight };
+    }
 
     const contentLeft = 580;
     let contentCursorY = expandedTop + 32;
-    const pTitleX = contentLeft + ((productTitleOffsetX ?? 600) - 600);
+    const isTitleDetached = Boolean(detachedContainerElements.title);
+    const pTitleX = isTitleDetached ? (productTitleOffsetX ?? 600) : contentLeft + ((productTitleOffsetX ?? 600) - 600);
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
-    const pTitleY = contentCursorY + pTitleSize + ((productTitleOffsetY ?? 720) - 720);
-    ctx.fillStyle = "#111827";
+    const pTitleY = isTitleDetached ? (productTitleOffsetY ?? 720) : contentCursorY + pTitleSize + ((productTitleOffsetY ?? 720) - 720);
+    ctx.fillStyle = textColors.title || DEFAULT_TEXT_COLORS.title;
+    const titleContentWidth = Math.max(...titleLines.map(line => ctx.measureText(line).width / S), 0);
+    const titleContentHeight = titleLines.length * (pTitleSize + 6);
+    const titleAlignment = getTextAreaAlignment('title', titleContentWidth, titleContentHeight);
     ctx.save();
-    if (detachedContainerElements.title) ctx.translate(-priceContainerX * S, -priceContainerY * S);
-    ctx.translate(pTitleX * S, pTitleY * S);
+    if (isTitleDetached) ctx.translate(-priceContainerX * S, -priceContainerY * S);
+    ctx.translate((pTitleX + titleAlignment.x) * S, (pTitleY + titleAlignment.y) * S);
     ctx.rotate((productTitleRotation * Math.PI) / 180);
+    drawTextBackground(ctx, S, titleContentWidth, titleContentHeight, textBackgrounds.title || EMPTY_TEXT_BACKGROUND, 0, titleContentHeight - pTitleSize, { ...titleAlignment, offsetX: titleAlignment.x, offsetY: titleAlignment.y });
     titleLines.forEach((line, index) => ctx.fillText(line, 0, index * (pTitleSize + 6) * S));
     ctx.restore();
-    const titleHeight = titleLines.length * (pTitleSize + 6);
-    reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX - 6, y: pTitleY - pTitleSize - 4, w: pTitleLimit + 12, h: titleHeight + 8 };
-    contentCursorY = pTitleY + titleHeight + 16;
+    const titleHeight = titleContentHeight;
+    reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX, y: pTitleY - pTitleSize, w: titleAlignment.width, h: titleAlignment.height };
+    if (!isTitleDetached) contentCursorY = pTitleY + titleHeight + 16;
 
-    if (effectivePromo && effectivePromo < effectivePrice) {
-      const deStr = `DE: R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    if (shouldShowPreviousPrice(effectivePrice, effectivePromo, isEditingTemplate)) {
+      const deLabel = priceDeText || 'De';
+      const deStr = `R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       const deSize = priceDeFontSize || 20;
-      const deX = contentLeft + ((priceDeOffsetX ?? 600) - 600);
-      const deY = contentCursorY + deSize + ((priceDeOffsetY ?? 780) - 780);
-      ctx.fillStyle = "#dc2626";
-      ctx.font = `bold ${deSize * S}px ${textFontFamilies.priceDe || DEFAULT_FONT_FAMILY}`;
+      const isPriceDeDetached = Boolean(detachedContainerElements.priceDe);
+      const deX = isPriceDeDetached ? (priceDeOffsetX ?? 600) : contentLeft + ((priceDeOffsetX ?? 600) - 600);
+      const deY = isPriceDeDetached ? (priceDeOffsetY ?? 780) : contentCursorY + deSize + ((priceDeOffsetY ?? 780) - 780);
       ctx.save();
-      if (detachedContainerElements.priceDe) ctx.translate(-priceContainerX * S, -priceContainerY * S);
+      if (isPriceDeDetached) ctx.translate(-priceContainerX * S, -priceContainerY * S);
       ctx.translate(deX * S, deY * S);
       ctx.rotate((priceDeRotation * Math.PI) / 180);
-      ctx.fillText(deStr, 0, 0);
-      const deW = ctx.measureText(deStr).width;
+      ctx.fillStyle = textColors.priceDeLabel || DEFAULT_TEXT_COLORS.priceDeLabel;
+      ctx.font = `bold ${deSize * S}px ${textFontFamilies.priceDeLabel || DEFAULT_FONT_FAMILY}`;
+      const deLabelWidth = ctx.measureText(deLabel).width / S;
+      const deLabelAlignment = getTextAreaAlignment('priceDeLabel', deLabelWidth, deSize);
+      drawTextBackground(ctx, S, deLabelWidth, deSize, textBackgrounds.priceDeLabel || EMPTY_TEXT_BACKGROUND, deLabelAlignment.x, deLabelAlignment.y, { ...deLabelAlignment, offsetX: deLabelAlignment.x, offsetY: deLabelAlignment.y });
+      ctx.fillText(deLabel, deLabelAlignment.x * S, deLabelAlignment.y * S);
+      ctx.fillStyle = textColors.priceDe || DEFAULT_TEXT_COLORS.priceDe;
+      ctx.font = `bold ${deSize * S}px ${textFontFamilies.priceDe || DEFAULT_FONT_FAMILY}`;
+      const deWidth = ctx.measureText(deStr).width / S;
+      const deAlignment = getTextAreaAlignment('priceDe', deWidth, deSize);
+      const deBaseX = deLabelAlignment.width + 8;
+      drawTextBackground(ctx, S, deWidth, deSize, textBackgrounds.priceDe || EMPTY_TEXT_BACKGROUND, deBaseX + deAlignment.x, deAlignment.y, { ...deAlignment, offsetX: deAlignment.x, offsetY: deAlignment.y });
+      ctx.fillText(deStr, (deBaseX + deAlignment.x) * S, deAlignment.y * S);
       ctx.strokeStyle = "#ef4444";
       ctx.lineWidth = 2 * S;
       ctx.beginPath();
-      ctx.moveTo(0, -deSize * 0.3 * S);
-      ctx.lineTo(deW, -deSize * 0.3 * S);
+      ctx.moveTo((deBaseX + deAlignment.x) * S, (deAlignment.y - deSize * 0.3) * S);
+      ctx.lineTo((deBaseX + deAlignment.x + deWidth) * S, (deAlignment.y - deSize * 0.3) * S);
       ctx.stroke();
       ctx.restore();
-      reg['priceDe'] = { key: 'priceDe', label: 'Preço DE', x: deX - 6, y: deY - deSize - 4, w: deW / S + 12, h: deSize + 12 };
-      contentCursorY = deY + 16;
+      reg['priceDeLabel'] = { key: 'priceDeLabel', label: 'Texto De', x: deX, y: deY - deSize, w: deLabelAlignment.width, h: deLabelAlignment.height };
+      reg['priceDe'] = { key: 'priceDe', label: 'Preço antigo', x: deX + deBaseX, y: deY - deSize, w: deAlignment.width, h: deAlignment.height };
+      if (!isPriceDeDetached) contentCursorY = deY + 16;
     }
 
     const porApStr = porApenasText || "POR APENAS";
     const porApSize = porApenasFontSize || 16;
-    const porApX = contentLeft + ((porApenasOffsetX ?? 600) - 600);
-    const porApY = contentCursorY + porApSize + ((porApenasOffsetY ?? 825) - 825);
-    ctx.fillStyle = porApenasColor || "#e0a96d";
+    const priceRowX = isPricePorDetached ? (priceOffsetX ?? 600) : priceRowStartX;
+    const rawPriceRowY = contentCursorY + prSize + 18 + ((priceOffsetY ?? 920) - 920);
+    const priceRowY = isPricePorDetached ? (priceOffsetY ?? 920) : Math.max(prSize + 18, Math.min(rawPriceRowY, 1330 - priceContainerY));
+    ctx.font = `bold ${porApSize * S}px ${textFontFamilies.porApenas || DEFAULT_FONT_FAMILY}`;
+    const porApWidth = ctx.measureText(porApStr).width / S;
+    // “Por apenas” é independente: não pertence ao container de preços.
+    const porApX = porApenasOffsetX ?? (priceRowX - porApWidth - 14);
+    const porApY = porApenasOffsetY ?? (priceRowY - (prSize - porApSize) / 2);
+    const porAlignment = getTextAreaAlignment('porApenas', porApWidth, porApSize);
+    ctx.fillStyle = textColors.porApenas || porApenasColor || DEFAULT_TEXT_COLORS.porApenas;
     ctx.font = `bold ${porApSize * S}px ${textFontFamilies.porApenas || DEFAULT_FONT_FAMILY}`;
     ctx.save();
-    if (detachedContainerElements.porApenas) ctx.translate(-priceContainerX * S, -priceContainerY * S);
-    ctx.translate(porApX * S, porApY * S);
+    ctx.translate(-priceContainerX * S, -priceContainerY * S);
+    ctx.translate((porApX + porAlignment.x) * S, (porApY + porAlignment.y) * S);
     ctx.rotate((porApenasRotation * Math.PI) / 180);
+    drawTextBackground(ctx, S, porApWidth, porApSize, textBackgrounds.porApenas || EMPTY_TEXT_BACKGROUND, 0, 0, { ...porAlignment, offsetX: porAlignment.x, offsetY: porAlignment.y });
     ctx.fillText(porApStr, 0, 0);
     ctx.restore();
-    reg['porApenas'] = { key: 'porApenas', label: 'Texto Por Apenas', x: porApX - 6, y: porApY - porApSize - 4, w: ctx.measureText(porApStr).width / S + 12, h: porApSize + 12 };
-    contentCursorY = porApY + 14;
+    reg['porApenas'] = { key: 'porApenas', label: 'Texto Por Apenas', x: porApX, y: porApY - porApSize, w: porAlignment.width, h: porAlignment.height };
 
     ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
-    const priceBgW = Math.min(ctx.measureText(priceStr).width + 36 * S, contentLimit * S);
-    const priceBgH = (prSize + 34) * S;
+    const flowPriceX = isPricePorDetached ? (priceOffsetX ?? 600) : priceRowX;
+    const flowPriceY = isPricePorDetached ? (priceOffsetY ?? 920) : priceRowY;
+    const priceContentWidth = ctx.measureText(priceStr).width / S;
+    const priceAlignment = getTextAreaAlignment('pricePor', priceContentWidth, prSize);
     ctx.save();
-    if (detachedContainerElements.pricePor) ctx.translate(-priceContainerX * S, -priceContainerY * S);
-    const flowPriceX = contentLeft + ((priceOffsetX ?? 600) - 600);
-    const flowPriceY = contentCursorY + prSize + 18 + ((priceOffsetY ?? 920) - 920);
-    ctx.translate(flowPriceX * S, flowPriceY * S);
+    if (isPricePorDetached) ctx.translate(-priceContainerX * S, -priceContainerY * S);
+    ctx.translate((flowPriceX + priceAlignment.x) * S, (flowPriceY + priceAlignment.y) * S);
     ctx.rotate((priceRotation * Math.PI) / 180);
-    ctx.beginPath();
-    ctx.roundRect(-18 * S, (-prSize - 18) * S, priceBgW, priceBgH, 20 * S);
-    ctx.fillStyle = "#ffe600";
-    ctx.fill();
-    ctx.fillStyle = "#111827";
+    drawTextBackground(ctx, S, priceContentWidth, prSize, textBackgrounds.pricePor || { color: '#ffe600', paddingX: 18, paddingY: 17, opacity: 1 }, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceAlignment.y });
+    ctx.fillStyle = textColors.pricePor || DEFAULT_TEXT_COLORS.pricePor;
     ctx.fillText(priceStr, 0, 0);
     ctx.restore();
-    reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX - 6, y: flowPriceY - prSize - 4, w: Math.min(ctx.measureText(priceStr).width / S + 12, contentLimit + 12), h: prSize + 12 };
-    contentCursorY = flowPriceY + 34;
+    reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: flowPriceY - prSize, w: priceAlignment.width, h: priceAlignment.height };
+    if (!isPricePorDetached) contentCursorY = flowPriceY + 34;
 
     // Medidas
     if (measuresText) {
       const mSize = measuresFontSize || 20;
-      const mX = contentLeft + ((measuresOffsetX ?? 785) - 785);
-      const mY = contentCursorY + mSize + ((measuresOffsetY ?? 1035) - 1035);
-      ctx.fillStyle = "#94a3b8";
+      const mX = measuresOffsetX ?? 785;
+      const mY = measuresOffsetY ?? 1035;
+      ctx.fillStyle = textColors.measures || DEFAULT_TEXT_COLORS.measures;
       ctx.font = `bold ${mSize * S}px ${textFontFamilies.measures || DEFAULT_FONT_FAMILY}`;
+      const measuresWidth = ctx.measureText(measuresText).width / S;
+      const measuresAlignment = getTextAreaAlignment('measures', measuresWidth, mSize);
       ctx.save();
-      if (detachedContainerElements.measures) ctx.translate(-priceContainerX * S, -priceContainerY * S);
-      ctx.fillText(measuresText, mX * S, mY * S);
+      ctx.translate(-priceContainerX * S, -priceContainerY * S);
+      drawTextBackground(ctx, S, measuresWidth, mSize, textBackgrounds.measures || EMPTY_TEXT_BACKGROUND, mX + measuresAlignment.x, mY + measuresAlignment.y, { ...measuresAlignment, offsetX: measuresAlignment.x, offsetY: measuresAlignment.y });
+      ctx.fillText(measuresText, (mX + measuresAlignment.x) * S, (mY + measuresAlignment.y) * S);
       ctx.restore();
-      reg['measures'] = { key: 'measures', label: 'Medidas', x: mX - 6, y: mY - mSize - 4, w: ctx.measureText(measuresText).width / S + 12, h: mSize + 12 };
+      reg['measures'] = { key: 'measures', label: 'Medidas', x: mX, y: mY - mSize, w: measuresAlignment.width, h: measuresAlignment.height };
     }
     ctx.restore();
-    for (const key of CONTAINER_CHILD_KEYS) {
+    for (const key of [...CONTAINER_CHILD_KEYS, 'priceHighlight']) {
       if (reg[key] && !detachedContainerElements[key]) {
         reg[key].x += priceContainerX;
         reg[key].y += priceContainerY;
@@ -939,10 +1150,13 @@ export default function MarketingPosts() {
     const instSize = installmentsFontSize || 26;
     const instX = installmentsOffsetX ?? 540;
     const instY = installmentsOffsetY ?? 1140;
-    ctx.fillStyle = "#111827";
+    ctx.fillStyle = textColors.installments || DEFAULT_TEXT_COLORS.installments;
     ctx.font = `${instSize * S}px ${textFontFamilies.installments || DEFAULT_FONT_FAMILY}`;
-    ctx.fillText(instText, instX * S, instY * S);
-    reg['installments'] = { key: 'installments', label: 'Parcelas', x: instX - 6, y: instY - instSize - 4, w: ctx.measureText(instText).width / S + 12, h: instSize + 12 };
+    const installmentsWidth = ctx.measureText(instText).width / S;
+    const installmentsAlignment = getTextAreaAlignment('installments', installmentsWidth, instSize);
+    drawTextBackground(ctx, S, installmentsWidth, instSize, textBackgrounds.installments || EMPTY_TEXT_BACKGROUND, instX + installmentsAlignment.x, instY + installmentsAlignment.y, { ...installmentsAlignment, offsetX: installmentsAlignment.x, offsetY: installmentsAlignment.y });
+    ctx.fillText(instText, (instX + installmentsAlignment.x) * S, (instY + installmentsAlignment.y) * S);
+    reg['installments'] = { key: 'installments', label: 'Parcelas', x: instX, y: instY - instSize, w: installmentsAlignment.width, h: installmentsAlignment.height };
 
     // 7. Oportunidade
     if (showOpportunityBadge && (selectedOpportunitySeal || renderProduct.opportunities)) {
@@ -1009,6 +1223,16 @@ export default function MarketingPosts() {
       };
     }
 
+    if (!isExport) {
+      if (imageGridSettings.showGuides) drawImageGrid(ctx, S, imageGrid);
+      const gridSelectionMargin = 24;
+      reg.imageGrid = { key: 'imageGrid', label: 'Grid de fotos', x: imageGrid.outer.x - gridSelectionMargin, y: imageGrid.outer.y - gridSelectionMargin, w: imageGrid.outer.w + gridSelectionMargin * 2, h: imageGrid.outer.h + gridSelectionMargin * 2 };
+    }
+    if (variationGridImages?.hasMoreColors) {
+      const lastPhotoCell = imageGrid.variationCells[images.variationImgs.length - 1] || imageGrid.secondary;
+      drawMoreColorsLabel(ctx, S, lastPhotoCell, imageGridSettings);
+    }
+
     // 8. Destaque do elemento selecionado em tela
     if (selectedElement && !isExport) {
       const region = reg[selectedElement];
@@ -1026,32 +1250,50 @@ export default function MarketingPosts() {
           ctx.strokeStyle = handleColor;
           ctx.lineWidth = 6 * S;
           ctx.beginPath();
-          ctx.moveTo((region.x - 20) * S, (region.y + region.h / 2 - 35) * S); ctx.lineTo((region.x - 20) * S, (region.y + region.h / 2 + 35) * S);
-          ctx.moveTo((region.x + region.w + 20) * S, (region.y + region.h / 2 - 35) * S); ctx.lineTo((region.x + region.w + 20) * S, (region.y + region.h / 2 + 35) * S);
-          ctx.moveTo((region.x + region.w / 2 - 50) * S, (region.y - 20) * S); ctx.lineTo((region.x + region.w / 2 + 50) * S, (region.y - 20) * S);
-          ctx.moveTo((region.x + region.w / 2 - 50) * S, (region.y + region.h + 20) * S); ctx.lineTo((region.x + region.w / 2 + 50) * S, (region.y + region.h + 20) * S);
+          ctx.moveTo(region.x * S, (region.y + region.h / 2 - 35) * S); ctx.lineTo(region.x * S, (region.y + region.h / 2 + 35) * S);
+          ctx.moveTo((region.x + region.w) * S, (region.y + region.h / 2 - 35) * S); ctx.lineTo((region.x + region.w) * S, (region.y + region.h / 2 + 35) * S);
+          ctx.moveTo((region.x + region.w / 2 - 50) * S, region.y * S); ctx.lineTo((region.x + region.w / 2 + 50) * S, region.y * S);
+          ctx.moveTo((region.x + region.w / 2 - 50) * S, (region.y + region.h) * S); ctx.lineTo((region.x + region.w / 2 + 50) * S, (region.y + region.h) * S);
           ctx.stroke();
           ctx.fillStyle = "#ffffff";
           ctx.lineWidth = 3 * S;
+          [[region.x, region.y + region.h / 2], [region.x + region.w, region.y + region.h / 2], [region.x + region.w / 2, region.y], [region.x + region.w / 2, region.y + region.h]].forEach(([handleX, handleY]) => {
+            ctx.fillRect((handleX - 7) * S, (handleY - 7) * S, 14 * S, 14 * S);
+            ctx.strokeRect((handleX - 7) * S, (handleY - 7) * S, 14 * S, 14 * S);
+          });
+          ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+          ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+        } else if (IMAGE_CELL_KEYS.includes(selectedElement)) {
+          // Células do grid exibem somente a borda de seleção.
+        } else if (TEXT_ELEMENT_KEYS.includes(selectedElement)) {
+          ctx.fillStyle = '#ffffff';
+          ctx.lineWidth = 2 * S;
           ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
           ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
         } else {
+          ctx.lineWidth = 3 * S;
+          [[region.x, region.y + region.h / 2], [region.x + region.w, region.y + region.h / 2], [region.x + region.w / 2, region.y], [region.x + region.w / 2, region.y + region.h]].forEach(([handleX, handleY]) => {
+            ctx.fillRect((handleX - 6) * S, (handleY - 6) * S, 12 * S, 12 * S);
+            ctx.strokeRect((handleX - 6) * S, (handleY - 6) * S, 12 * S, 12 * S);
+          });
           ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
           ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
         }
-        const rotateX = region.x + region.w + 42;
-        const rotateY = region.y + region.h + 42;
-        ctx.beginPath();
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(rotateX * S, rotateY * S, 11 * S, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = "#2563eb";
-        ctx.font = `bold ${15 * S}px Arial`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("↻", rotateX * S, rotateY * S + 1 * S);
+        if (!IMAGE_CELL_KEYS.includes(selectedElement)) {
+          const rotateX = region.x + region.w + 42;
+          const rotateY = region.y + region.h + 42;
+          ctx.beginPath();
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(rotateX * S, rotateY * S, 11 * S, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#2563eb";
+          ctx.font = `bold ${15 * S}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("↻", rotateX * S, rotateY * S + 1 * S);
+        }
         ctx.restore();
       }
     }
@@ -1059,26 +1301,32 @@ export default function MarketingPosts() {
     renderedRegionsRef.current = reg;
   };
 
-  const drawBannerAsync = async (canvas: HTMLCanvasElement, isExport = false) => {
+  const drawBannerAsync = async (canvas: HTMLCanvasElement, isExport = false, requestId?: number) => {
     const images = renderProduct.product_images || [];
-    const mainImageUrl = images.find(image => image.is_main)?.image_url || images[mainImageIndex]?.image_url || images[0]?.image_url || "";
-    const secImageUrl = images[secondaryImageIndex]?.image_url || images.find(image => !image.is_main)?.image_url || images[1]?.image_url || "";
+    const productMainImageUrl = images.find(image => image.is_main)?.image_url || images.find(image => Boolean(image.image_url))?.image_url || "";
+    const mainImageUrl = getPostImageUrl(mainImageSource, mainImageIndex) || productMainImageUrl;
+    const secImageUrl = getPostImageUrl(secondaryImageSource, secondaryImageIndex) || images.find(image => !image.is_main)?.image_url || images[1]?.image_url || "";
+    const shouldRenderSecondaryImage = showSecondaryImage && Boolean(secImageUrl) && secImageUrl !== mainImageUrl;
 
-    const [headerBg, footerBg, logo, mainImg, secImg] = await Promise.all([
+    const [headerBg, footerBg, logo, mainImg, secImg, variationImgs] = await Promise.all([
       loadImg(headerTemplateImage || "/images/banner-header-bg.png"),
       footerTemplateImage ? loadImg(footerTemplateImage) : Promise.resolve(null),
       avatarUrl ? loadImg(avatarUrl) : loadImg("/images/avatar-morante.png"),
-      mainImageUrl ? loadImg(mainImageUrl) : Promise.resolve(null),
-      (secImageUrl && showSecondaryImage) ? loadImg(secImageUrl) : Promise.resolve(null),
+      loadFirstAvailableImage(mainImageUrl, productMainImageUrl),
+      shouldRenderSecondaryImage ? loadImg(secImageUrl) : Promise.resolve(null),
+      Promise.all(gridExtraImageUrls.map(url => loadImg(url))),
     ]);
 
-    drawBannerSync(canvas, { headerBg, footerBg, logo, mainImg, secImg }, isExport);
+    if (requestId !== undefined && requestId !== drawRequestRef.current) return;
+    drawBannerSync(canvas, { headerBg, footerBg, logo, mainImg, secImg, variationImgs }, isExport);
   };
 
   // Re-renderiza o canvas sempre que os estados mudam
   useEffect(() => {
     if (!loading && isModalOpen && previewCanvasRef.current && (activeProduct || isEditingTemplate)) {
-      drawBannerAsync(previewCanvasRef.current, false);
+      const requestId = ++drawRequestRef.current;
+      const canvas = previewCanvasRef.current;
+      void drawBannerAsync(canvas, false, requestId);
     }
     if (productPreviewCanvasRef.current && activeProduct) {
       drawBannerAsync(productPreviewCanvasRef.current, true);
@@ -1089,10 +1337,10 @@ export default function MarketingPosts() {
     footerAddressTitleOffsetY, footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
     installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
-    mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleRotation, priceContainerBackgroundColor, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceDeFontSize,
+    mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource, imageGridSettings,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleRotation, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
     priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
-    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, selectedOpportunitySeal, detachedContainerElements, selectedElement
+    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, variationGridImages, gridExtraImageUrls
   ]);
 
   // Registra no histórico
@@ -1105,8 +1353,8 @@ export default function MarketingPosts() {
   useEffect(() => {
     const previousElement = previousSelectedElementRef.current;
     previousSelectedElementRef.current = selectedElement;
-    if (isEditingTemplate && isModalOpen && previousElement !== null && previousElement !== selectedElement) {
-      void saveTemplateDefaults();
+    if (isEditingTemplate && isModalOpen && templateUserDirtyRef.current && previousElement !== null && previousElement !== selectedElement) {
+      void saveTemplateDefaults().then(saved => { if (saved) templateUserDirtyRef.current = false; });
     }
   }, [selectedElement]);
 
@@ -1119,15 +1367,23 @@ export default function MarketingPosts() {
       isTemplateStateInitializedRef.current = true;
       return;
     }
-    const saveTimer = window.setTimeout(() => void saveTemplateDefaults(), 450);
+    if (!templateUserDirtyRef.current) return;
+    const saveTimer = window.setTimeout(() => {
+      void saveTemplateDefaults().then(saved => { if (saved) templateUserDirtyRef.current = false; });
+    }, 450);
     return () => window.clearTimeout(saveTimer);
   }, [templateStateSignature, isEditingTemplate, isModalOpen]);
 
   useEffect(() => {
     if (isEditingTemplate && defaultModelProductId && products.some(product => product.id === defaultModelProductId)) {
       setSelectedProductId(defaultModelProductId);
+      setSearchTerm(products.find(product => product.id === defaultModelProductId)?.name || '');
     }
   }, [isEditingTemplate, defaultModelProductId, products]);
+
+  useEffect(() => {
+    if (selectedElement === 'priceHighlight') setSelectedElement('pricePor');
+  }, [selectedElement]);
 
   // Handlers de Ações
   const handleNewPost = () => {
@@ -1140,9 +1396,12 @@ export default function MarketingPosts() {
     if (!key) return;
     const move = (setX: React.Dispatch<React.SetStateAction<number>>, setY: React.Dispatch<React.SetStateAction<number>>) => { setX(v => v + dx); setY(v => v + dy); };
     if (key === 'title') move(setProductTitleOffsetX, setProductTitleOffsetY);
+    else if (key === 'imageGrid') setImageGridSettings(current => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
     else if (key === 'priceContainer') move(setPriceContainerOffsetX, setPriceContainerOffsetY);
+    else if (key === 'priceDeLabel') move(setPriceDeOffsetX, setPriceDeOffsetY);
     else if (key === 'priceDe') move(setPriceDeOffsetX, setPriceDeOffsetY);
     else if (key === 'pricePor') move(setPriceOffsetX, setPriceOffsetY);
+    else if (key === 'priceHighlight') move(setPriceHighlightOffsetX, setPriceHighlightOffsetY);
     else if (key === 'porApenas') move(setPorApenasOffsetX, setPorApenasOffsetY);
     else if (key === 'installments') move(setInstallmentsOffsetX, setInstallmentsOffsetY);
     else if (key === 'measures') move(setMeasuresOffsetX, setMeasuresOffsetY);
@@ -1156,10 +1415,43 @@ export default function MarketingPosts() {
     else if (key === 'secondaryImage') move(setSecondaryImageOffsetX, setSecondaryImageOffsetY);
   };
 
+  useEffect(() => {
+    if (!isModalOpen || !selectedElement || selectedElement === 'headerFooter') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+      const step = event.shiftKey ? 10 : 1;
+      const movement: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step],
+      };
+      const delta = movement[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      templateUserDirtyRef.current = true;
+      moveSelectedElement(selectedElement, delta[0], delta[1]);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isModalOpen, selectedElement]);
+
+  const alignSelectedElementInContainer = (axis: 'horizontal' | 'vertical', alignment: 'start' | 'center' | 'end') => {
+    if (!selectedElement || ![...CONTAINER_CHILD_KEYS, 'priceHighlight'].includes(selectedElement)) return;
+    const container = renderedRegionsRef.current.priceContainer;
+    const element = renderedRegionsRef.current[selectedElement];
+    if (!container || !element) return;
+    const padding = 20;
+    const target = axis === 'horizontal'
+      ? alignment === 'start' ? container.x + padding : alignment === 'center' ? container.x + (container.w - element.w) / 2 : container.x + container.w - element.w - padding
+      : alignment === 'start' ? container.y + padding : alignment === 'center' ? container.y + (container.h - element.h) / 2 : container.y + container.h - element.h - padding;
+    moveSelectedElement(selectedElement, axis === 'horizontal' ? target - element.x : 0, axis === 'vertical' ? target - element.y : 0);
+    setDetachedContainerElements(current => ({ ...current, [selectedElement]: false }));
+  };
+
   const resizeSelectedElement = (key: SelectedElement, amount: number) => {
     const resizeFont = (setSize: React.Dispatch<React.SetStateAction<number>>) => setSize(value => Math.max(8, Math.min(180, value + amount)));
     if (key === 'title') resizeFont(setProductTitleFontSize);
-    else if (key === 'priceDe') resizeFont(setPriceDeFontSize);
+    else if (key === 'imageGrid') setImageGridSettings(current => ({ ...current, scale: Math.max(50, Math.min(120, current.scale + amount)) }));
+    else if (key === 'priceDeLabel' || key === 'priceDe') resizeFont(setPriceDeFontSize);
     else if (key === 'pricePor') resizeFont(setPriceFontSize);
     else if (key === 'porApenas') resizeFont(setPorApenasFontSize);
     else if (key === 'installments') resizeFont(setInstallmentsFontSize);
@@ -1171,6 +1463,11 @@ export default function MarketingPosts() {
     else if (key === 'mainImage') setMainImageScale(value => Math.max(40, Math.min(180, value + amount)));
     else if (key === 'secondaryImage') setSecondaryImageScale(value => Math.max(40, Math.min(180, value + amount)));
     else if (key === 'opportunityBadge') setOppScale(value => Math.max(40, Math.min(180, value + amount)));
+    else if (key === 'avatar') setAvatarScale(value => Math.max(20, Math.min(250, value + amount)));
+    else if (key === 'priceHighlight') {
+      setPriceHighlightExtraWidth(value => Math.max(-20, value + amount));
+      setPriceHighlightExtraHeight(value => Math.max(-20, value + amount));
+    }
   };
 
   const rotateSelectedElement = (key: SelectedElement, angle: number) => {
@@ -1181,30 +1478,54 @@ export default function MarketingPosts() {
     else if (key === 'opportunityBadge') setOppRotation(angle);
   };
 
-  const startPostDrag = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const startPostDrag = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (1080 / rect.width);
     const y = (e.clientY - rect.top) * (1350 / rect.height);
-    const activeRegion = selectedElement ? renderedRegionsRef.current[selectedElement] : null;
+    if (y <= 170 || y >= 1180) {
+      setSelectedElement('headerFooter');
+      postDragRef.current = null;
+      return;
+    }
+    const gridRegion = renderedRegionsRef.current.imageGrid;
+    if (selectedElement !== 'imageGrid' && gridRegion) {
+      const onVerticalBorder = (Math.abs(x - gridRegion.x) <= 12 || Math.abs(x - (gridRegion.x + gridRegion.w)) <= 12) && y >= gridRegion.y && y <= gridRegion.y + gridRegion.h;
+      const onHorizontalBorder = (Math.abs(y - gridRegion.y) <= 12 || Math.abs(y - (gridRegion.y + gridRegion.h)) <= 12) && x >= gridRegion.x && x <= gridRegion.x + gridRegion.w;
+      if (onVerticalBorder || onHorizontalBorder) {
+        setSelectedElement('imageGrid');
+        postDragRef.current = null;
+        return;
+      }
+    }
+    const selectedRegion = selectedElement ? renderedRegionsRef.current[selectedElement] : null;
+    if (selectedElement && IMAGE_CELL_KEYS.includes(selectedElement) && selectedRegion && x >= selectedRegion.x && x <= selectedRegion.x + selectedRegion.w && y >= selectedRegion.y && y <= selectedRegion.y + selectedRegion.h) {
+      postDragRef.current = null;
+      return;
+    }
+    const activeRegion = selectedElement && !IMAGE_CELL_KEYS.includes(selectedElement) ? selectedRegion : null;
     if (activeRegion) {
       if (selectedElement === 'priceContainer') {
-        const inRect = (left: number, top: number, width: number, height: number) => x >= left && x <= left + width && y >= top && y <= top + height;
-        if (Math.hypot(x - (activeRegion.x + activeRegion.w), y - (activeRegion.y + activeRegion.h)) <= 18) { postDragRef.current = { key: selectedElement, x, y, mode: 'resize' }; return; }
-        const side = inRect(activeRegion.x - 25, activeRegion.y + activeRegion.h / 2 - 40, 10, 80) ? 'left' : inRect(activeRegion.x + activeRegion.w + 15, activeRegion.y + activeRegion.h / 2 - 40, 10, 80) ? 'right' : inRect(activeRegion.x + activeRegion.w / 2 - 55, activeRegion.y - 25, 110, 10) ? 'top' : inRect(activeRegion.x + activeRegion.w / 2 - 55, activeRegion.y + activeRegion.h + 15, 110, 10) ? 'bottom' : null;
+        const scaleHandleX = activeRegion.x + activeRegion.w;
+        const scaleHandleY = activeRegion.y + activeRegion.h;
+        // O controle de escala fica no mesmo canto da alça inferior direita.
+        // Ele precisa ter prioridade quando o container estiver baixo, pois nesse
+        // caso a alça lateral fica próxima demais do canto.
+        if (Math.hypot(x - scaleHandleX, y - scaleHandleY) <= 24) {
+          postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
+          return;
+        }
+        const centerX = activeRegion.x + activeRegion.w / 2;
+        const centerY = activeRegion.y + activeRegion.h / 2;
+        const side = Math.abs(x - activeRegion.x) <= 16 && Math.abs(y - centerY) <= 52 ? 'left'
+          : Math.abs(x - (activeRegion.x + activeRegion.w)) <= 16 && Math.abs(y - centerY) <= 52 ? 'right'
+          : Math.abs(x - centerX) <= 80 && Math.abs(y - activeRegion.y) <= 16 ? 'top'
+          : Math.abs(x - centerX) <= 80 && Math.abs(y - (activeRegion.y + activeRegion.h)) <= 16 ? 'bottom'
+          : null;
         if (side) { postDragRef.current = { key: selectedElement, x, y, mode: 'resize-container', side }; return; }
         const rotateX = activeRegion.x + activeRegion.w + 42;
         const rotateY = activeRegion.y + activeRegion.h + 42;
         if (Math.hypot(x - rotateX, y - rotateY) <= 22) { postDragRef.current = { key: selectedElement, x, y, mode: 'rotate' }; return; }
-        const childRegion = CONTAINER_CHILD_KEYS
-          .map(key => renderedRegionsRef.current[key])
-          .filter(Boolean)
-          .reverse()
-          .find(region => x >= region.x && x <= region.x + region.w && y >= region.y && y <= region.y + region.h);
-        if (childRegion) {
-          setSelectedElement(childRegion.key as SelectedElement);
-          postDragRef.current = { key: childRegion.key as SelectedElement, x, y, mode: 'move' };
-          return;
-        }
         if (x >= activeRegion.x && x <= activeRegion.x + activeRegion.w && y >= activeRegion.y && y <= activeRegion.y + activeRegion.h) {
           postDragRef.current = { key: selectedElement, x, y, mode: 'move' };
           return;
@@ -1214,6 +1535,18 @@ export default function MarketingPosts() {
       const handleY = activeRegion.y + activeRegion.h;
       const rotateX = activeRegion.x + activeRegion.w + 42;
       const rotateY = activeRegion.y + activeRegion.h + 42;
+      if (selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement)) {
+        // Textos usam somente o quadrado do canto para alterar a fonte.
+      } else if (selectedElement) {
+        const centerX = activeRegion.x + activeRegion.w / 2;
+        const centerY = activeRegion.y + activeRegion.h / 2;
+        const side = Math.abs(x - activeRegion.x) <= 14 && Math.abs(y - centerY) <= 30 ? 'left'
+          : Math.abs(x - (activeRegion.x + activeRegion.w)) <= 14 && Math.abs(y - centerY) <= 30 ? 'right'
+          : Math.abs(x - centerX) <= 30 && Math.abs(y - activeRegion.y) <= 14 ? 'top'
+          : Math.abs(x - centerX) <= 30 && Math.abs(y - (activeRegion.y + activeRegion.h)) <= 14 ? 'bottom'
+          : null;
+        if (side) { postDragRef.current = { key: selectedElement, x, y, mode: 'resize-side', side }; return; }
+      }
       if (Math.hypot(x - handleX, y - handleY) <= 22) {
         postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
         return;
@@ -1223,12 +1556,18 @@ export default function MarketingPosts() {
         return;
       }
     }
-    const hit = Object.values(renderedRegionsRef.current).reverse().find(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+    const priceHighlightRegion = renderedRegionsRef.current.priceHighlight;
+    if (selectedElement !== 'priceHighlight' && priceHighlightRegion && x >= priceHighlightRegion.x && x <= priceHighlightRegion.x + priceHighlightRegion.w && y >= priceHighlightRegion.y && y <= priceHighlightRegion.y + priceHighlightRegion.h) {
+      setSelectedElement('priceHighlight');
+      postDragRef.current = null;
+      return;
+    }
+    const hit = Object.values(renderedRegionsRef.current).filter(region => region.key !== 'imageGrid').reverse().find(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
     setSelectedElement((hit?.key || null) as SelectedElement);
-    postDragRef.current = hit ? { key: hit.key as SelectedElement, x, y, mode: 'move' } : null;
+    postDragRef.current = hit && !IMAGE_CELL_KEYS.includes(hit.key) ? { key: hit.key as SelectedElement, x, y, mode: 'move' } : null;
   };
 
-  const dragPostElement = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const dragPostElement = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const drag = postDragRef.current;
     if (!drag) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -1240,15 +1579,32 @@ export default function MarketingPosts() {
       if (amount) {
         if (drag.key === 'priceContainer') {
           setPriceContainerWidth(value => Math.max(180, value + amount));
-          setPriceContainerHeight(value => Math.max(160, value + amount));
+          setPriceContainerHeight(value => Math.max(80, value + amount));
         } else resizeSelectedElement(drag.key, amount);
         postDragRef.current = { ...drag, x, y };
       }
     } else if (drag.mode === 'resize-container' && drag.side) {
       if (drag.side === 'right') setPriceContainerWidth(value => Math.max(180, value + dx));
-      else if (drag.side === 'bottom') setPriceContainerHeight(value => Math.max(160, value + dy));
+      else if (drag.side === 'bottom') setPriceContainerHeight(value => Math.max(80, value + dy));
       else if (drag.side === 'left') { setPriceContainerWidth(value => Math.max(180, value - dx)); setPriceContainerOffsetX(value => value + dx); }
-      else { setPriceContainerHeight(value => Math.max(160, value - dy)); setPriceContainerOffsetY(value => value + dy); }
+      else { setPriceContainerHeight(value => Math.max(80, value - dy)); setPriceContainerOffsetY(value => value + dy); }
+      postDragRef.current = { ...drag, x, y };
+    } else if (drag.mode === 'resize-side' && drag.side) {
+      const distance = drag.side === 'left' ? -dx : drag.side === 'right' ? dx : drag.side === 'top' ? -dy : dy;
+      const amount = Math.round(distance / 4);
+      if (amount) {
+        if (drag.key === 'priceHighlight') {
+          if (drag.side === 'left' || drag.side === 'right') setPriceHighlightExtraWidth(value => Math.max(-20, value + amount));
+          else setPriceHighlightExtraHeight(value => Math.max(-20, value + amount));
+        } else resizeSelectedElement(drag.key, amount);
+        postDragRef.current = { ...drag, x, y };
+      }
+    } else if (drag.mode === 'resize-text' && drag.side) {
+      const distance = drag.side === 'left' ? -dx : drag.side === 'right' ? dx : drag.side === 'top' ? -dy : dy;
+      const region = drag.key ? renderedRegionsRef.current[drag.key] : null;
+      if (drag.side === 'left' || drag.side === 'right') {
+        if (drag.key && region && distance) setTextSelectionWidths(current => ({ ...current, [drag.key as string]: Math.max(30, (current[drag.key as string] || region.w) + distance) }));
+      } else if (drag.key && region && distance) setTextSelectionHeights(current => ({ ...current, [drag.key as string]: Math.max(20, (current[drag.key as string] || region.h) + distance) }));
       postDragRef.current = { ...drag, x, y };
     } else if (drag.mode === 'rotate' && drag.centerX !== undefined && drag.centerY !== undefined) {
       rotateSelectedElement(drag.key, Math.round(Math.atan2(y - drag.centerY, x - drag.centerX) * 180 / Math.PI + 90));
@@ -1273,6 +1629,10 @@ export default function MarketingPosts() {
 
   const handleChooseModelProduct = (product: Product) => {
     setSelectedProductId(product.id);
+    setMainImageIndex(0);
+    setSecondaryImageIndex(1);
+    setMainImageSource('product:0');
+    setSecondaryImageSource('product:1');
     setDefaultModelProductId(product.id);
     setSearchTerm(product.name);
     setModelProductQuery('');
@@ -1429,7 +1789,8 @@ export default function MarketingPosts() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto animate-fade-in">
+    <div className={isTemplateRoute ? 'h-[100dvh] w-full overflow-hidden bg-white dark:bg-slate-900' : 'mx-auto max-w-7xl animate-fade-in space-y-8 p-4 md:p-8'}>
+      {!isTemplateRoute && <>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-4">
@@ -1755,10 +2116,12 @@ export default function MarketingPosts() {
         </div>
       )}
 
-      {/* Modal Principal do Editor Visual de Post */}
+      </>}
+
+      {/* Editor Visual de Post */}
       {isModalOpen && (activeProduct || isEditingTemplate) && (
-        <div className={`fixed inset-0 z-50 flex p-0 overflow-hidden ${isTemplateRoute ? 'bg-white dark:bg-slate-900' : 'bg-slate-950/80 backdrop-blur-md'}`}>
-          <div className="bg-white dark:bg-slate-900 w-full h-full flex flex-col shadow-2xl overflow-hidden" onBlurCapture={() => { if (isEditingTemplate) void saveTemplateDefaults(); }}>
+        <div className={`z-50 flex w-full p-0 overflow-hidden ${isTemplateRoute ? 'relative h-full bg-white dark:bg-slate-900' : 'fixed inset-0 h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen bg-slate-950/80 backdrop-blur-md'}`}>
+          <div className={`flex min-h-0 w-full flex-col overflow-hidden bg-white dark:bg-slate-900 ${isTemplateRoute ? 'h-full' : 'h-[100dvh] shadow-2xl'}`} onPointerDownCapture={() => { if (isEditingTemplate) templateUserDirtyRef.current = true; }} onChangeCapture={() => { if (isEditingTemplate) templateUserDirtyRef.current = true; }} onBlurCapture={() => { if (isEditingTemplate && templateUserDirtyRef.current) void saveTemplateDefaults().then(saved => { if (saved) templateUserDirtyRef.current = false; }); }}>
             
             {/* Modal Header */}
             <div className={`${isTemplateRoute ? 'px-6 pb-4 pt-0' : 'px-6 py-4'} border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/30`}>
@@ -1797,6 +2160,7 @@ export default function MarketingPosts() {
                   onClick={() => {
                     setIsModalOpen(false);
                     if (isTemplateRoute && window.opener) window.close();
+                    else if (isTemplateRoute) window.history.back();
                   }}
                   className="px-3 py-2 text-xs font-black text-slate-500 hover:text-rose-500 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20"
                 >
@@ -1805,7 +2169,7 @@ export default function MarketingPosts() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2 dark:border-slate-800 dark:bg-slate-950">
               <div className="relative shrink-0">
                 <button type="button" onClick={() => setIsFileMenuOpen(value => !value)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Arquivos">
                   Arquivos <i className="bi bi-chevron-down text-[9px] text-slate-400" />
@@ -1868,11 +2232,21 @@ export default function MarketingPosts() {
               <button type="button" onClick={() => setEditorZoom(v => Math.min(1.4, v + 0.1))} className="rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Aumentar zoom"><i className="bi bi-zoom-in" /></button>
             </div>
 
-            <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+            <div className="hidden min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
               {!selectedElement && <span className="text-xs font-medium text-slate-400">Selecione um elemento no preview.</span>}
               {selectedElement && <>
-                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
-                {selectedElement === 'priceContainer' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceContainerBackgroundColor} onChange={event => setPriceContainerBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceContainerBackgroundColor}</output></label>}
+                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Fundo do preço principal' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
+                {selectedElement === 'priceContainer' && <>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceContainerBackgroundColor} onChange={event => setPriceContainerBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceContainerBackgroundColor}</output></label>
+                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="px-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Altura</span>
+                    <button type="button" onClick={() => setPriceContainerHeight(value => Math.max(80, value - 20))} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700" title="Diminuir altura"><i className="bi bi-dash-lg" /></button>
+                    <input type="number" min="80" value={priceContainerHeight} onChange={event => setPriceContainerHeight(Math.max(80, Number(event.target.value) || 80))} className="w-14 bg-transparent text-center text-xs font-black outline-none" />
+                    <button type="button" onClick={() => setPriceContainerHeight(value => value + 20)} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700" title="Aumentar altura"><i className="bi bi-plus-lg" /></button>
+                  </div>
+                </>}
+                {selectedElement === 'priceHighlight' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceHighlightBackgroundColor} onChange={event => setPriceHighlightBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceHighlightBackgroundColor}</output></label>}
+                {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30" title="Remover container" aria-label="Remover container"><i className="bi bi-trash3-fill" /></button>}
                 {selectedElement === 'title' && <input value={productTitle} onChange={event => setProductTitle(event.target.value)} placeholder="Título do produto" className="w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'priceDe' && <input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} placeholder="Preço antigo" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'pricePor' && <input type="number" step="0.01" value={customPromoPrice} onChange={event => setCustomPromoPrice(event.target.value)} placeholder="Preço final" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
@@ -1895,27 +2269,53 @@ export default function MarketingPosts() {
                     </select>
                   </label>
                 )}
-                {(['mainImage', 'secondaryImage', 'opportunityBadge'] as SelectedElement[]).includes(selectedElement) && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Escala <input type="number" min="40" max="180" value={selectedElement === 'mainImage' ? mainImageScale : selectedElement === 'secondaryImage' ? secondaryImageScale : oppScale} onChange={event => { const value = Math.min(180, Math.max(40, Number(event.target.value) || 40)); if (selectedElement === 'mainImage') setMainImageScale(value); else if (selectedElement === 'secondaryImage') setSecondaryImageScale(value); else setOppScale(value); }} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> %</label>}
+                {(['title', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                  <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label={selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por apenas' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerTitle' ? 'Título do rodapé' : 'Endereço'} recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />
+                )}
+                {selectedElement === 'opportunityBadge' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Escala <input type="number" min="40" max="180" value={oppScale} onChange={event => setOppScale(Math.min(180, Math.max(40, Number(event.target.value) || 40)))} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> %</label>}
               </>}
             </div>
 
             {/* Modal Body: 2 Colunas (Canvas Preview + Controles) */}
             <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <aside className="lg:col-span-2 min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 custom-scrollbar dark:border-slate-800 dark:bg-slate-950">
-                  <div className="space-y-2">
-                    <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Biblioteca de elementos</p>
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
-                      <div className="flex items-center">
-                        <button type="button" onClick={() => setIsHeaderFooterLibraryOpen(value => !value)} className="flex flex-1 items-center gap-2 p-3 text-left text-[10px] font-black text-amber-800 dark:text-amber-300"><i className="bi bi-collection-fill" /> Cabeçalhos e rodapés <i className={`bi bi-chevron-${isHeaderFooterLibraryOpen ? 'up' : 'down'} ml-auto`} /></button>
-                        <button type="button" onClick={() => setIsHeaderFooterInfoOpen(true)} className="mr-1 flex h-6 w-6 items-center justify-center rounded-md text-amber-900 hover:bg-amber-200" title="Informações de tamanho"><i className="bi bi-info-circle" /></button>
-                        <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-amber-200 text-amber-900 hover:bg-amber-300" title="Adicionar cabeçalhos e rodapés"><i className="bi bi-plus-lg" /></button>
-                      </div>
-                      {isHeaderFooterLibraryOpen && <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="mx-2 mb-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg bg-white/80 px-2 py-2 text-left text-[10px] font-bold text-slate-700 dark:bg-slate-900/70 dark:text-slate-200"><i className="bi bi-layout-text-window" /> {headerFooterModelName || 'Padrão'}</button>}
-                    </div>
-                    <OpportunitySealLibrary open={isOpportunityLibraryOpen} onToggle={() => setIsOpportunityLibraryOpen(value => !value)} onSelect={opportunity => { setSelectedOpportunitySeal(opportunity); setShowOpportunityBadge(true); setSelectedElement('opportunityBadge'); }} />
-                    <AvatarLibrary avatars={avatarLibrary} open={isAvatarLibraryOpen} onToggle={() => setIsAvatarLibraryOpen(value => !value)} onSelect={avatar => setAvatarUrl(avatar.url)} onDelete={avatar => { setAvatarLibrary(items => items.filter(item => item.id !== avatar.id)); if (avatarUrl === avatar.url) setAvatarUrl(''); }} />
-                  </div>
-                </aside>
+              <aside className="lg:col-span-2 -mb-4 -ml-4 -mt-4 min-h-0 self-stretch overflow-y-auto border-b border-r border-slate-200 bg-slate-50 p-3 custom-scrollbar sm:-mb-6 sm:-ml-6 sm:-mt-6 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex flex-col gap-3">
+                  {selectedElement === 'headerFooter' && <label className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-black text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">Cabeçalho e rodapé
+                    <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="flex items-center justify-between rounded-lg bg-white/80 px-2 py-2 text-left text-[10px] font-bold text-slate-700 dark:bg-slate-900/70 dark:text-slate-200"><span className="truncate">{headerFooterModelName || 'Padrão'}</span><i className="bi bi-chevron-right" /></button>
+                  </label>}
+                  {selectedElement ? <div className="rounded-xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-900/50 dark:bg-pink-950/20"><p className="text-[9px] font-black uppercase tracking-wider text-pink-500">Elemento selecionado</p><p className="mt-1 text-xs font-black text-slate-700 dark:text-slate-200">{selectedElement === 'headerFooter' ? 'Cabeçalho e rodapé' : selectedElement === 'imageGrid' ? 'Grid de fotos' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Fundo do preço principal' : selectedElement}</p></div> : <p className="rounded-xl border border-dashed border-slate-200 p-3 text-center text-[10px] font-bold text-slate-400 dark:border-slate-700">Selecione um elemento no preview.</p>}
+                  {(selectedElement === 'mainImage' || selectedElement === 'secondaryImage') && <PostImageSourcePicker activeSlot={selectedElement === 'mainImage' ? 'main' : 'secondary'} mainImageSource={mainImageSource} secondaryImageSource={secondaryImageSource} options={postImageOptions} onMainImageSourceChange={setMainImageSource} onSecondaryImageSourceChange={setSecondaryImageSource} />}
+                  {selectedElement === 'imageGrid' && <ImageGridControls settings={imageGridSettings} additionalImageCount={gridExtraImageUrls.length} onChange={setImageGridSettings} />}
+                  {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “De”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'porApenas' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “Por apenas”<input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'installments' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto do parcelamento<input value={installmentsText} onChange={event => setInstallmentsText(event.target.value)} onBlur={event => saveInstallmentsText(event.currentTarget.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'brand' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Marca<input value={brandName} onChange={event => setBrandName(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'slogan' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Slogan<input value={slogan} onChange={event => setSlogan(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'footerTitle' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Título do rodapé<input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'footerAddress' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Endereço<input value={footerAddressText} onChange={event => setFooterAddressText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'priceContainer' && <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Tamanho do container</p>
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Laterais</span><div className="flex items-center gap-1"><button type="button" onClick={() => setPriceContainerWidth(value => Math.max(180, value - 20))} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir largura">−</button><output className="w-10 text-center">{priceContainerWidth}</output><button type="button" onClick={() => setPriceContainerWidth(value => value + 20)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar largura">+</button></div></div>
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Altura</span><div className="flex items-center gap-1"><button type="button" onClick={() => setPriceContainerHeight(value => Math.max(80, value - 20))} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir altura">−</button><output className="w-10 text-center">{priceContainerHeight}</output><button type="button" onClick={() => setPriceContainerHeight(value => value + 20)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar altura">+</button></div></div>
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Escala</span><div className="flex items-center gap-1"><button type="button" onClick={() => { setPriceContainerWidth(value => Math.max(180, value - 20)); setPriceContainerHeight(value => Math.max(80, value - 20)); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir escala">−</button><button type="button" onClick={() => { setPriceContainerWidth(value => value + 20); setPriceContainerHeight(value => value + 20); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar escala">+</button></div></div>
+                  </div>}
+                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <>
+                    <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Tamanho da fonte (px)
+                      <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDeLabel' || selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDeLabel' || selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
+                    </label>
+                    <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Fonte
+                      <select value={textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY} onChange={event => setTextFontFamilies(current => ({ ...current, [selectedElement as string]: event.target.value }))} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" style={{ fontFamily: textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY }}>
+                        {FONT_OPTIONS.map(font => <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>{font.label}</option>)}
+                      </select>
+                    </label>
+                  </>}
+                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />}
+                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextBackgroundControls value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />}
+                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'top'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />}
+                  {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20"><i className="bi bi-trash3-fill" /> Remover container</button>}
+                </div>
+              </aside>
               
               {/* Coluna Esquerda: Canvas Preview Interativo (6 cols) */}
               <div className="lg:col-span-10 flex min-h-0 flex-col items-center justify-center">
@@ -1925,10 +2325,10 @@ export default function MarketingPosts() {
                     width={1080}
                     height={1350}
                     className="w-full h-full object-contain cursor-crosshair"
-                    onMouseDown={startPostDrag}
-                    onMouseMove={dragPostElement}
-                    onMouseUp={() => { postDragRef.current = null; }}
-                    onMouseLeave={() => { postDragRef.current = null; }}
+                    onPointerDown={startPostDrag}
+                    onPointerMove={dragPostElement}
+                    onPointerUp={event => { postDragRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+                    onPointerCancel={() => { postDragRef.current = null; }}
                   />
                 </div>
 
