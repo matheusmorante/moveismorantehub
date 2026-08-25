@@ -156,8 +156,10 @@ function Router() {
             <Route path='/stock/bling' element={<BlingStock />} />
             <Route path='/stock/label-printing' element={<LabelPrinting />} />
             <Route path='/design/labels' element={<LabelPrinting />} />
+            <Route path='/templates/price-label' element={<LabelPrinting />} />
             <Route path='/marketing' element={<MarketingPosts />} />
             <Route path='/marketing/posts' element={<MarketingPosts />} />
+            <Route path='/templates/posts' element={<MarketingPosts />} />
             <Route path='/marketing/meta-catalog' element={<MetaCatalog />} />
             <Route path='/marketing/channel-catalog' element={<ChannelCatalog />} />
             <Route path='/registrations/services' element={<Services />} />

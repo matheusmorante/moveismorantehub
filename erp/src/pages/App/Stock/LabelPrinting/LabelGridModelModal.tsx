@@ -48,6 +48,9 @@ export interface GridModel {
     promoPosY?: number;
     barcodePosX?: number;
     barcodePosY?: number;
+    dePricePorGroupPos?: { x: number; y: number };
+    dePricePorGroupRotation?: number;
+    dePricePorGroupGap?: number;
     // Fontes por faixa
     priceFontSizeTens?: number;
     priceFontSizeHundreds?: number;
@@ -105,6 +108,9 @@ export interface GridModel {
     imageScale?: number;
     previewImage?: string | null;
     showPromoPrice?: boolean;
+    artConfig?: {
+        opportunities?: Record<string, any>;
+    };
 }
 
 interface LabelGridModelModalProps {
@@ -643,6 +649,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 promoPosY: promoPos.y, 
                 barcodePosX: barcodePos.x, 
                 barcodePosY: barcodePos.y,
+                dePricePorGroupPos: editingModel?.dePricePorGroupPos,
+                dePricePorGroupRotation: editingModel?.dePricePorGroupRotation,
+                dePricePorGroupGap: editingModel?.dePricePorGroupGap,
                 nameWidth: nameWidth, 
                 nameHeight: nameHeight, 
                 priceWidth: priceWidth, 

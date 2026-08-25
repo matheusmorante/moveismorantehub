@@ -100,6 +100,7 @@ const LabelPrinting: React.FC = () => {
     const [previewZoom, setPreviewZoom] = useState(0.7);
     const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
     const previewContainerRef = useRef<HTMLDivElement>(null);
+    const previewScaleRef = useRef<HTMLDivElement>(null);
     const [cellImages, setCellImages] = useState<Record<number, string>>({});
     const cellInputRef = useRef<HTMLInputElement>(null);
     const logoInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +110,10 @@ const LabelPrinting: React.FC = () => {
     const [isModelManagerModalOpen, setIsModelManagerModalOpen] = useState(false);
     const [isPriceLabelArtEditorOpen, setIsPriceLabelArtEditorOpen] = useState(false);
     const [isDigitalMarketingPostOpen, setIsDigitalMarketingPostOpen] = useState(false);
+
+    useEffect(() => {
+        if (location.pathname === '/templates/price-label') setIsPriceLabelArtEditorOpen(true);
+    }, [location.pathname]);
     const [selectedProductToAdd, setSelectedProductToAdd] = useState<Product | null>(null);
     const [productAddQty, setProductAddQty] = useState<number>(1);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -131,6 +136,7 @@ const LabelPrinting: React.FC = () => {
     const [currentModel, setCurrentModel] = useState<GridModel | null>(null);
     const [editingGridModel, setEditingGridModel] = useState<GridModel | null>(null);
     const [customLayouts, setCustomLayouts] = useState<GridModel[]>([]);
+    const [savedArtConfigs, setSavedArtConfigs] = useState<Record<string, any>>({});
     const [hiddenDefaultIds, setHiddenDefaultIds] = useState<string[]>(() => {
         try { return JSON.parse(localStorage.getItem('hidden_default_layout_ids') || '[]'); } catch { return []; }
     });
@@ -277,6 +283,10 @@ const LabelPrinting: React.FC = () => {
             priceHeight: model.priceHeight,
             barcodePosX: model.barcodePosX,
             barcodePosY: model.barcodePosY,
+            dePricePorGroupPos: model.dePricePorGroupPos,
+            dePricePorGroupRotation: model.dePricePorGroupRotation,
+            dePricePorGroupGap: model.dePricePorGroupGap,
+            artConfig: model.artConfig || prefConfig.artConfig,
 
             // Estilos Promocionais (Novo Preço)
             promoPriceFontSize: model.promoPriceFontSize || 24,
@@ -454,10 +464,17 @@ const LabelPrinting: React.FC = () => {
 
     useEffect(() => {
         const fetchCustomLayouts = async () => {
-            const { data, error } = await supabase
+            const [{ data, error }, { data: artData }] = await Promise.all([
+                supabase
                 .from('label_layouts')
                 .select('*')
-                .order('name', { ascending: true });
+                .order('name', { ascending: true }),
+                supabase.from('label_art_configs').select('layout_id, category, art_config')
+            ]);
+
+            if (artData) {
+                setSavedArtConfigs(Object.fromEntries(artData.map((item: any) => [item.layout_id, item.art_config])));
+            }
 
             if (data && !error) {
                 const mapped: GridModel[] = data.map((m: any) => mapDbToModel(m));
@@ -473,6 +490,13 @@ const LabelPrinting: React.FC = () => {
         fetchCustomLayouts();
         fetchAllProducts();
     }, []);
+
+    useEffect(() => {
+        const artConfig = savedArtConfigs[config.layoutId || ''];
+        if (artConfig && config.artConfig !== artConfig) {
+            setConfig(prev => ({ ...prev, artConfig }));
+        }
+    }, [config.layoutId, savedArtConfigs]);
 
     useEffect(() => {
         const cat = selectedCategory || catFromUrl;
@@ -742,16 +766,27 @@ const LabelPrinting: React.FC = () => {
             fullName = fullName.split(' - ')[0];
         }
 
+        const rawProductOpportunity = (product as any).opportunity || (product as any).opportunities;
+        const productOpportunity = Array.isArray(rawProductOpportunity)
+            ? rawProductOpportunity[0]
+            : rawProductOpportunity;
+        const opportunityId = (product as any).opportunityId ||
+            (product as any).opportunity_id ||
+            productOpportunity?.id ||
+            (productOpportunity?.slug) ||
+            ((product as any).condition === 'salvado' ? 'salvado' : 'none');
+
         const newItem: LabelItemConfig = {
             name: fullName,
             price: product.unitPrice ? formatCurrency(product.unitPrice) : 
                    (product as any).price ? formatCurrency((product as any).price) : 'R$ 0,00',
             promoPrice: (product as any).promoPrice ? formatCurrency((product as any).promoPrice) : 
                         (product as any).promo_price ? formatCurrency((product as any).promo_price) : '',
+            showPromoPrice: Boolean((product as any).promoPrice || (product as any).promo_price),
             sku: product.sku || '', 
             quantity: Math.max(1, quantity),
             extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
-            opportunityId: (product as any).opportunityId || (product as any).opportunity_id || null
+            opportunityId
         };
 
         setLabelItems(prev => [...prev, newItem]);
@@ -841,7 +876,10 @@ const LabelPrinting: React.FC = () => {
     const handleDownloadImage = async () => {
         if (!gridRef.current) return;
         setIsDownloading(true);
+        const previewScaleElement = previewScaleRef.current;
+        const previousTransform = previewScaleElement?.style.transform;
         try {
+            if (previewScaleElement) previewScaleElement.style.transform = 'none';
             const canvas = await html2canvas(gridRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
             const link = document.createElement('a');
             link.download = `etiquetas-${selectedProduct?.description || 'geral'}.png`;
@@ -852,6 +890,7 @@ const LabelPrinting: React.FC = () => {
             console.error(e);
             toast.error('Erro ao gerar imagem.');
         } finally {
+            if (previewScaleElement) previewScaleElement.style.transform = previousTransform || '';
             setIsDownloading(false);
         }
     };
@@ -1118,14 +1157,12 @@ const LabelPrinting: React.FC = () => {
 
                         {/* BOTÃO ARTE DA ETIQUETA - MOSTRADO APENAS EM DESIGN AVANÇADO (OU DEMAIS CATEGORIAS) */}
                         <div className="flex items-center gap-3 flex-wrap">
-                            {selectedCategory && (selectedCategory !== 'precos' || printingMode === 'advanced') && (
+                            {selectedCategory && selectedCategory !== 'posts' && (selectedCategory !== 'precos' || printingMode === 'advanced') && (
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        if (selectedCategory === 'posts') {
-                                            setIsDigitalMarketingPostOpen(true);
-                                        } else if (selectedCategory === 'precos') {
-                                            setIsPriceLabelArtEditorOpen(true);
+                                        if (selectedCategory === 'precos') {
+                                            window.open('/templates/price-label', '_blank');
                                         } else {
                                             setGridModalOpen(true);
                                         }
@@ -1134,15 +1171,14 @@ const LabelPrinting: React.FC = () => {
                                 >
                                     <i className="bi bi-palette-fill text-xs" />
                                     <span>
-                                        {selectedCategory === 'posts' ? 'CRIAR / EDITAR POST PROMOCIONAL' :
-                                         selectedCategory === 'precos' ? 'ARTE DE ETIQUETA DE PREÇO' :
+                                        {selectedCategory === 'precos' ? 'TEMPLATE DA ETIQUETA DE PREÇO' :
                                          'ALTERAR ARTE DO MODELO'}
                                     </span>
                                 </button>
                             )}
 
                             {/* MODELO DE ETIQUETA EM USO */}
-                            {selectedCategory && (() => {
+                            {selectedCategory && selectedCategory !== 'posts' && (() => {
                                 const activeModel = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find(m => m.id === config.layoutId) || 
                                                     DEFAULT_LAYOUT_MODELS.find(m => m.category === selectedCategory) || 
                                                     DEFAULT_LAYOUT_MODELS[0];
@@ -1164,6 +1200,18 @@ const LabelPrinting: React.FC = () => {
                             })()}
                         </div>
                     </div>
+                    {selectedCategory === 'posts' && (
+                        <div className="ml-14 mt-3 flex">
+                            <button
+                                type="button"
+                                onClick={() => setIsDigitalMarketingPostOpen(true)}
+                                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white shadow-md shadow-pink-500/20 transition-all hover:from-pink-700 hover:to-blue-700 active:scale-95 cursor-pointer"
+                            >
+                                <i className="bi bi-layout-text-window-reverse text-xs" />
+                                Template para os Posts
+                            </button>
+                        </div>
+                    )}
                 </header>
 
                 {!selectedCategory ? (
@@ -1423,7 +1471,7 @@ const LabelPrinting: React.FC = () => {
                                              </div>
                                          </div>
 
-                                         <div style={{ 
+                                         <div ref={previewScaleRef} style={{ 
                                              transform: `scale(${previewZoom})`, 
                                              transformOrigin: 'top center',
                                              transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -2101,11 +2149,40 @@ const LabelPrinting: React.FC = () => {
                 onClose={() => {
                     setIsPriceLabelArtEditorOpen(false);
                     setArtVersion(prev => prev + 1);
+                    if (location.pathname === '/templates/price-label' && window.opener) window.close();
                 }}
                 config={config}
-                onSaveConfig={(updated) => {
+                onSaveConfig={async (updated) => {
                     setConfig(prev => ({ ...prev, ...updated }));
                     setArtVersion(prev => prev + 1);
+
+                    const layoutId = config.layoutId;
+                    const groupPos = updated.dePricePorGroupPos;
+                    if (layoutId && updated.artConfig) {
+                        const { error } = await supabase.from('label_art_configs').upsert({
+                            layout_id: String(layoutId),
+                            category: selectedCategory || 'precos',
+                            art_config: updated.artConfig,
+                            updated_at: new Date().toISOString(),
+                        }, { onConflict: 'layout_id' });
+                        if (error) console.error('Erro ao salvar arte no banco:', error);
+                        else setSavedArtConfigs(prev => ({ ...prev, [String(layoutId)]: updated.artConfig }));
+                    }
+                    if (layoutId && (groupPos || updated.artConfig) && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(layoutId))) {
+                        const { error } = await supabase
+                            .from('label_layouts')
+                            .update({
+                                ...(groupPos ? {
+                                    de_price_por_group_pos_x: groupPos.x,
+                                    de_price_por_group_pos_y: groupPos.y,
+                                    de_price_por_group_rotation: updated.dePricePorGroupRotation ?? 0,
+                                    de_price_por_group_gap: updated.dePricePorGroupGap ?? 10,
+                                } : {}),
+                                ...(updated.artConfig ? { art_config: updated.artConfig } : {}),
+                            })
+                            .eq('id', layoutId);
+                        if (error) console.error('Erro ao salvar posição do grupo no banco:', error);
+                    }
                 }}
                 initialProduct={selectedProductToAdd ? {
                     name: selectedProductToAdd.description,

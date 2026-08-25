@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 
 export interface PriceLabelArtData {
+    artWidthMm?: number;
+    artHeightMm?: number;
     title: string;
     showTitle?: boolean;
     titleFontSize: number;
@@ -103,6 +105,20 @@ export interface PriceLabelArtRendererProps {
 
 export const BASE_ART_WIDTH = 840;
 export const BASE_ART_HEIGHT = 480;
+const SAFETY_MARGIN_PX = 16;
+const CSS_DPI = 96;
+const MM_PER_INCH = 25.4;
+
+const mmToPx = (millimeters: number) => millimeters * CSS_DPI / MM_PER_INCH;
+
+const getOpaqueBackgroundColor = (color?: string) => {
+    const normalized = color?.trim().toLowerCase();
+    const rgba = normalized?.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/);
+    if (!normalized || normalized === 'transparent' || (rgba && Number(rgba[1]) === 0)) {
+        return '#ffffff';
+    }
+    return color;
+};
 
 export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
     data,
@@ -131,9 +147,13 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         if (!el) return;
 
         const updateScale = () => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-                const s = Math.min(rect.width / BASE_ART_WIDTH, rect.height / BASE_ART_HEIGHT);
+            // clientWidth/clientHeight são dimensões de layout. Ao usar
+            // getBoundingClientRect aqui, o zoom do preview da folha entra no
+            // cálculo e é aplicado outra vez ao conteúdo do artboard.
+            const width = el.clientWidth;
+            const height = el.clientHeight;
+            if (width > 0 && height > 0) {
+                const s = Math.min(width / BASE_ART_WIDTH, height / BASE_ART_HEIGHT);
                 setScale(s > 0 ? s : 1);
             }
         };
@@ -147,6 +167,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
     }, [containerRef]);
 
     const {
+        artWidthMm, artHeightMm,
         title, showTitle = true, titleFontSize, titleColor, titleFontFamily, titlePos, titleRotation,
         deText, showDe = true, deFontSize, deColor, deFontFamily, deRotation = 0,
         normalPrice, showNormalPrice = true, normalPriceFontSize, normalPriceColor, normalPriceFontFamily, normalPriceRotation = 0,
@@ -162,6 +183,14 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         testMilharStr, testCentenaStr, testDezenaStr,
         selectedMagnitude = 'hundreds'
     } = data;
+    const artWidthPx = artWidthMm ? mmToPx(artWidthMm) : undefined;
+    // Arte de preço nunca deve usar transparência: ela seria composta com o
+    // fundo do modal no editor e com o da folha na impressão.
+    const effectiveBgColor = getOpaqueBackgroundColor(bgColor);
+    const titleMaxWidth = Math.max(
+        1,
+        BASE_ART_WIDTH - (SAFETY_MARGIN_PX * 2) - (Math.abs(titlePos.x) * 2)
+    );
 
     const content = (
         <div
@@ -174,6 +203,10 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 transform: `translate(-50%, -50%) scale(${scale})`,
                 transformOrigin: 'center center',
                 overflow: 'visible',
+                boxSizing: 'border-box',
+                padding: 0,
+                margin: 0,
+                zIndex: 1,
                 pointerEvents: isEdit ? 'auto' : 'none'
             }}
         >
@@ -213,11 +246,12 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         fontFamily: titleFontFamily,
                         top: '20px',
                         left: '50%',
+                        maxWidth: `${titleMaxWidth}px`,
                         transform: `translate(calc(-50% + ${titlePos.x}px), ${titlePos.y}px) rotate(${titleRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('title') ? 30 : 10
                     }}
-                    className={`absolute w-max max-w-[92%] inline-flex items-center justify-center font-black uppercase tracking-tight text-center leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
+                    className={`absolute w-max inline-flex min-w-0 items-center justify-center font-black uppercase tracking-tight text-center leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
                         isEdit && selectedElements.has('title') 
                             ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                             : 'border border-transparent'
@@ -229,7 +263,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         </div>
                     )}
 
-                    <span>{title || 'TÍTULO DO PRODUTO'}</span>
+                    <span className="block min-w-0 truncate">{title || 'TÍTULO DO PRODUTO'}</span>
                     
                     {isEdit && selectedElement === 'title' && (
                         <>
@@ -259,16 +293,19 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
             {/* 2, 3 e 4. CONTAINER AGRUPADO FLEX: DE + PREÇO ORIGINAL + POR */}
             {(showDe || showNormalPrice || showPor) && (
                 <div
-                    onMouseDown={isEdit && startDragging ? (e) => startDragging('dePricePorGroup', e) : undefined}
-                    onTouchStart={isEdit && startDragging ? (e) => startDragging('dePricePorGroup', e) : undefined}
-                    onClick={isEdit && onSelectElement ? (e) => onSelectElement('dePricePorGroup', e) : undefined}
+                    onMouseDown={isEdit && startDragging ? (e) => { if (e.target === e.currentTarget) startDragging('dePricePorGroup', e); } : undefined}
+                    onTouchStart={isEdit && startDragging ? (e) => { if (e.target === e.currentTarget) startDragging('dePricePorGroup', e); } : undefined}
+                    onClick={isEdit && onSelectElement ? (e) => { if (e.target === e.currentTarget) onSelectElement('dePricePorGroup', e); } : undefined}
                     style={{ 
                         gap: `${dePricePorGroupGap}px`,
-                        transform: `translate(calc(-50% + ${dePricePorGroupPos.x}px), calc(-50% + ${dePricePorGroupPos.y}px)) rotate(${dePricePorGroupRotation}deg)`,
+                        // O grupo usa uma largura-base fixa: assim, a troca de
+                        // "499" por "1.999" não desloca o início de "De" para
+                        // a esquerda ao centralizar um conteúdo mais largo.
+                        transform: `translate(calc(-224px + ${dePricePorGroupPos.x}px), calc(-50% + ${dePricePorGroupPos.y}px)) rotate(${dePricePorGroupRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: (selectedElements.has('dePricePorGroup') || selectedElements.has('deText') || selectedElements.has('normalPrice') || selectedElements.has('porText')) ? 30 : 10
                     }}
-                    className={`absolute top-1/2 left-1/2 flex flex-row items-baseline justify-center w-max p-2 rounded-xl border select-none transition-all ${
+                    className={`absolute top-1/2 left-1/2 flex w-[448px] flex-row items-baseline justify-start p-0 rounded-xl border select-none transition-all ${
                         isEdit && selectedElements.has('dePricePorGroup') 
                             ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/10 shadow-md' 
                             : 'border-transparent hover:border-slate-300 dark:hover:border-slate-700'
@@ -283,6 +320,8 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     {/* ELEMENTO 1: TEXTO "DE" */}
                     {showDe && (
                         <div
+                            onMouseDown={isEdit && startDragging ? (e) => startDragging('deText', e) : undefined}
+                            onTouchStart={isEdit && startDragging ? (e) => startDragging('deText', e) : undefined}
                             onClick={isEdit && onSelectElement ? (e) => onSelectElement('deText', e) : undefined}
                             style={{ 
                                 color: deColor, 
@@ -331,6 +370,8 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     {/* ELEMENTO 2: PREÇO ORIGINAL (NORMAL) RISCADO */}
                     {showNormalPrice && (
                         <div
+                            onMouseDown={isEdit && startDragging ? (e) => startDragging('normalPrice', e) : undefined}
+                            onTouchStart={isEdit && startDragging ? (e) => startDragging('normalPrice', e) : undefined}
                             onClick={isEdit && onSelectElement ? (e) => onSelectElement('normalPrice', e) : undefined}
                             style={{
                                 color: normalPriceColor,
@@ -382,6 +423,8 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     {/* ELEMENTO 3: TEXTO "POR:" */}
                     {showPor && (
                         <div
+                            onMouseDown={isEdit && startDragging ? (e) => startDragging('porText', e) : undefined}
+                            onTouchStart={isEdit && startDragging ? (e) => startDragging('porText', e) : undefined}
                             onClick={isEdit && onSelectElement ? (e) => onSelectElement('porText', e) : undefined}
                             style={{ 
                                 color: porColor, 
@@ -503,7 +546,9 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     style={{ 
                         color: priceColor,
                         fontFamily: promoPriceFontFamily,
-                        transform: `translate(calc(-50% + ${promoPricePos.x}px), calc(-50% + ${promoPricePos.y}px)) rotate(${promoPriceRotation}deg)`,
+                        top: `calc(50% + ${promoPricePos.y}px)`,
+                        left: `calc(50% + ${promoPricePos.x}px)`,
+                        transform: `translate(-50%, -50%) rotate(${promoPriceRotation}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('promoPrice') ? 30 : 10
                     }}
@@ -692,15 +737,43 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         return (
             <div 
                 ref={containerRef}
-                style={{ backgroundColor: bgColor, ...style }}
+                style={{
+                    ...style,
+                    background: effectiveBgColor,
+                    backgroundColor: effectiveBgColor,
+                    width: artWidthPx ? `min(100%, ${artWidthPx}px)` : undefined,
+                    maxWidth: '100%',
+                    aspectRatio: artWidthMm && artHeightMm ? `${artWidthMm} / ${artHeightMm}` : '1.75 / 1',
+                    boxSizing: 'border-box', padding: 0, margin: 0,
+                    opacity: 1,
+                    isolation: 'isolate',
+                    overflow: 'hidden'
+                }}
                 onClick={(e) => {
                     e.stopPropagation();
                     if (onSelectElement) onSelectElement('background', e);
                 }}
-                className={`w-full aspect-[1.75/1] rounded-3xl shadow-2xl relative select-none transition-all duration-200 cursor-pointer overflow-visible ${
+                className={`w-full aspect-[1.75/1] rounded-3xl shadow-2xl relative select-none transition-all duration-200 cursor-pointer overflow-hidden ${
                     selectedElement === 'background' ? 'ring-2 ring-blue-500 shadow-blue-500/20' : ''
                 } ${className}`}
             >
+                <div
+                    aria-hidden="true"
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                        background: effectiveBgColor,
+                        backgroundColor: effectiveBgColor,
+                        borderRadius: 'inherit',
+                        zIndex: 0,
+                        opacity: 1,
+                        overflow: 'hidden',
+                        pointerEvents: 'none'
+                    }}
+                />
                 {content}
             </div>
         );
@@ -710,11 +783,15 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         <div 
             ref={containerRef}
             style={{ 
-                backgroundColor: bgColor, 
+                ...style,
+                background: effectiveBgColor,
+                backgroundColor: effectiveBgColor,
                 position: 'absolute', 
                 inset: 0, 
                 overflow: 'hidden',
-                ...style 
+                boxSizing: 'border-box',
+                padding: 0,
+                margin: 0
             }}
             className={className}
         >

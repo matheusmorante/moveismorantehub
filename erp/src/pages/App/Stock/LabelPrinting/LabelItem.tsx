@@ -94,7 +94,7 @@ const getCentsStr = (priceStr: string, tplCentsText: string): string => {
 import { PriceLabelArtRenderer, PriceLabelArtData } from './PriceLabelArtRenderer';
 
 export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
-    const oppId = config.opportunityId || config.opportunity_id || (config.opportunity?.id || config.opportunity?.slug || config.opportunity) || 'salvado';
+    const oppId = config.opportunityId || config.opportunity_id || (config.opportunity?.id || config.opportunity?.slug || config.opportunity) || 'none';
 
     let template: any = {};
     let oppColors: Record<string, string> = {};
@@ -102,7 +102,13 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         const rawMap = localStorage.getItem('morante_hub_opp_colors_map');
         const map = rawMap ? JSON.parse(rawMap) : {};
 
-        // Tenta carregar o template específico da oportunidade
+        // Prioriza a arte persistida no layout do banco; localStorage é legado.
+        const dbTemplate = config.artConfig?.opportunities?.[oppId];
+        if (dbTemplate) {
+            template = dbTemplate;
+        }
+
+        // Tenta carregar o template específico da oportunidade somente se não veio do banco
         const rawUuid = oppId ? localStorage.getItem(getOppTemplateKey(oppId)) : null;
         const parsedUuid = rawUuid ? JSON.parse(rawUuid) : null;
 
@@ -111,18 +117,19 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         const useUuidTemplate = parsedUuid && parsedUuid.selectedOppId === oppId;
 
         // Template base: none > salvado > global
-        const rawBase =
-            localStorage.getItem(getOppTemplateKey('none')) ||
-            localStorage.getItem(getOppTemplateKey('salvado')) ||
-            localStorage.getItem(PRICE_ART_GLOBAL_KEY);
+                const rawBase = oppId === 'none'
+                        ? localStorage.getItem(getOppTemplateKey('none')) || localStorage.getItem(PRICE_ART_GLOBAL_KEY)
+                        : localStorage.getItem(getOppTemplateKey('none')) ||
+                            localStorage.getItem(getOppTemplateKey('salvado')) ||
+                            localStorage.getItem(PRICE_ART_GLOBAL_KEY);
 
-        if (useUuidTemplate) {
+        if (!dbTemplate && useUuidTemplate) {
             template = parsedUuid;
-        } else if (rawBase) {
+        } else if (!dbTemplate && rawBase) {
             template = JSON.parse(rawBase);
         }
 
-        oppColors = (oppId && map[oppId]) || map['salvado'] || map['none'] || {};
+        oppColors = (oppId && map[oppId]) || {};
     } catch (e) {}
 
     const displayPrice = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || '0');
@@ -141,7 +148,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     // t = base do template (raiz) + dados específicos da magnitude
     const t = { ...template, ...magDesign };
     const defaultFallbackBg = (oppId === 'salvado') ? '#ff7900' : '#ffffff';
-    const bgColor = oppColors['background'] || t.bgColor || (oppId === 'none' ? '#ffffff' : config.bg_color) || defaultFallbackBg;
+    const bgColor = oppColors['background'] || t.bgColor || (oppId === 'salvado' ? config.bg_color : '#ffffff') || defaultFallbackBg;
     const titleColor = oppColors['title'] || t.titleColor || '#000000';
     const deColor = oppColors['deText'] || t.deColor || '#000000';
     const normalPriceColor = oppColors['normalPrice'] || t.normalPriceColor || '#000000';
@@ -170,9 +177,15 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
 
     const titlePos = t.titlePos || { x: 0, y: 0 };
     const titleRot = t.titleRotation ?? 0;
-    const groupPos = t.dePricePorGroupPos || { x: -160, y: -90 };
-    const groupRot = t.dePricePorGroupRotation ?? 0;
-    const groupGap = t.dePricePorGroupGap ?? 10;
+    // O editor inicia o grupo no centro do artboard. O fallback legado
+    // deslocava somente a impressão quando a posição não existia no template
+    // específico da grandeza.
+    // A posição deste grupo é compartilhada no editor entre as grandezas.
+    // Priorizar o snapshot-base evita que a impressão use uma cópia antiga
+    // presente no template de dezenas/centenas/milhares do produto.
+    const groupPos = template.dePricePorGroupPos || t.dePricePorGroupPos || { x: 0, y: 0 };
+    const groupRot = template.dePricePorGroupRotation ?? t.dePricePorGroupRotation ?? 0;
+    const groupGap = template.dePricePorGroupGap ?? t.dePricePorGroupGap ?? 10;
     const currPos = t.currencyPos || { x: 0, y: 0 };
     const currRot = t.currencyRotation ?? 0;
     const pricePos = t.promoPricePos || { x: 0, y: 55 };
@@ -198,6 +211,8 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const centsDisplay = getCentsStr(rawPromo, t.centsText || ',00');
 
     const artData: PriceLabelArtData = {
+        artWidthMm: Number(config.labelWidth) || undefined,
+        artHeightMm: Number(config.labelHeight) || undefined,
         title: titleText,
         showTitle,
         titleFontSize,
@@ -296,29 +311,33 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
         height: '100%',
         backgroundColor: hideContent ? 'transparent' : (isPriceLabel ? 'transparent' : (config.bg_color || 'white')),
         boxSizing: 'border-box',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: isPriceLabel ? 'block' : 'flex',
+        alignItems: isPriceLabel ? undefined : 'center',
+        justifyContent: isPriceLabel ? undefined : 'center',
         position: 'relative',
         transform: `rotate(${rotation || 0}deg)`,
         transformOrigin: 'center center',
         zIndex: 5,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        padding: 0,
+        margin: 0
     };
 
     const labelStyle: React.CSSProperties = {
-        width: (config.labelWidth && config.labelWidth > 0) ? `${config.labelWidth}mm` : '100%',
-        height: (config.labelHeight && config.labelHeight > 0) ? `${config.labelHeight}mm` : '100%',
+        width: '100%',
+        height: '100%',
         border: (hidePhysicalBorder) ? 'none' : (isPriceLabel ? 'none' : '1px solid #e2e8f0'),
         position: 'relative',
-        display: 'flex',
-        flexDirection: config.layout === 'horizontal' ? 'row' : 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
+        display: isPriceLabel ? 'block' : 'flex',
+        flexDirection: isPriceLabel ? undefined : (config.layout === 'horizontal' ? 'row' : 'column'),
+        alignItems: isPriceLabel ? undefined : 'center',
+        justifyContent: isPriceLabel ? undefined : 'flex-start',
         overflow: 'hidden',
         boxSizing: 'border-box',
         borderRadius: isRound ? '50%' : undefined,
         backgroundColor: hideContent ? 'transparent' : (isPriceLabel ? 'transparent' : (config.bg_color || 'white')),
+        padding: 0,
+        margin: 0
     };
 
     const hasPromo = !!(config.promoPrice && config.promoPrice !== config.price);

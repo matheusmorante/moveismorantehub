@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { uploadFile } from '@/pages/utils/storageService';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import HeaderFooterModelEditor from './HeaderFooterModelEditor';
+import AvatarLibrary from './AvatarLibrary';
+import OpportunitySealLibrary from './OpportunitySealLibrary';
 
 interface Product {
   id: string;
@@ -15,6 +19,15 @@ interface Product {
   depth?: number | null;
   height?: number | null;
 }
+
+const TEMPLATE_PREVIEW_PRODUCT: Product = {
+  id: "template-preview",
+  name: "PRODUTO MODELO",
+  price: 999,
+  promo_price: 799,
+  product_images: [],
+  opportunities: null,
+};
 
 // Helper para detectar a caixa delimitadora (bounding box) da imagem
 function getBoundingBox(img: HTMLImageElement): { x: number; y: number; w: number; h: number } {
@@ -81,9 +94,9 @@ function resolveBadgeColor(badgeColorClass: string) {
   return "#ef4444";
 }
 
-function drawFlameIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+function drawFlameIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color = "#ffffff") {
   ctx.save();
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = color;
   ctx.translate(x, y);
   const scale = size / 24;
   ctx.scale(scale, scale);
@@ -93,6 +106,9 @@ function drawFlameIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size
 }
 
 export default function MarketingPosts() {
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const isTemplateRoute = location.pathname === '/templates/posts';
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -115,57 +131,57 @@ export default function MarketingPosts() {
   
   const [oppRotation, setOppRotation] = useState<number>(0);
   const [oppScale, setOppScale] = useState<number>(100);
-  const [oppOffsetX, setOppOffsetX] = useState<number>(50);
-  const [oppOffsetY, setOppOffsetY] = useState<number>(220);
+  const [oppOffsetX, setOppOffsetX] = useState<number>(270);
+  const [oppOffsetY, setOppOffsetY] = useState<number>(240);
 
   const [avatarUrl, setAvatarUrl] = useState("/images/avatar-morante.png");
   const [avatarScale, setAvatarScale] = useState<number>(100);
   const [avatarOffsetX, setAvatarOffsetX] = useState<number>(35);
-  const [avatarOffsetY, setAvatarOffsetY] = useState<number>(938);
+  const [avatarOffsetY, setAvatarOffsetY] = useState<number>(1208);
   const [footerAddressTitle, setFooterAddressTitle] = useState("VISITE NOSSA LOJA NO ENDEREÇO");
   const [footerAddressTitleFontSize, setFooterAddressTitleFontSize] = useState<number>(24);
   const [footerAddressTitleOffsetX, setFooterAddressTitleOffsetX] = useState<number>(175);
-  const [footerAddressTitleOffsetY, setFooterAddressTitleOffsetY] = useState<number>(988);
+  const [footerAddressTitleOffsetY, setFooterAddressTitleOffsetY] = useState<number>(1258);
   const [footerAddressText, setFooterAddressText] = useState("RUA CASCAVEL, 306, GUARAITUBA, COLOMBO");
   const [footerAddressTextFontSize, setFooterAddressTextFontSize] = useState<number>(28);
   const [footerAddressTextOffsetX, setFooterAddressTextOffsetX] = useState<number>(175);
-  const [footerAddressTextOffsetY, setFooterAddressTextOffsetY] = useState<number>(1032);
+  const [footerAddressTextOffsetY, setFooterAddressTextOffsetY] = useState<number>(1302);
   const [installmentsFontSize, setInstallmentsFontSize] = useState<number>(26);
-  const [installmentsOffsetX, setInstallmentsOffsetX] = useState<number>(540);
-  const [installmentsOffsetY, setInstallmentsOffsetY] = useState<number>(895);
+  const [installmentsOffsetX, setInstallmentsOffsetX] = useState<number>(600);
+  const [installmentsOffsetY, setInstallmentsOffsetY] = useState<number>(1090);
 
   const [productTitle, setProductTitle] = useState("");
   const [productTitleFontSize, setProductTitleFontSize] = useState<number>(30);
-  const [productTitleOffsetX, setProductTitleOffsetX] = useState<number>(570);
-  const [productTitleOffsetY, setProductTitleOffsetY] = useState<number>(660);
-  const [productTitleMaxContainerWidth, setProductTitleMaxContainerWidth] = useState<number>(430);
+  const [productTitleOffsetX, setProductTitleOffsetX] = useState<number>(600);
+  const [productTitleOffsetY, setProductTitleOffsetY] = useState<number>(720);
+  const [productTitleMaxContainerWidth, setProductTitleMaxContainerWidth] = useState<number>(390);
   const [productTitleRotation, setProductTitleRotation] = useState<number>(0);
   const [productTitleScale, setProductTitleScale] = useState<number>(100);
 
   const [priceFontSize, setPriceFontSize] = useState<number>(48);
   const [priceDeFontSize, setPriceDeFontSize] = useState<number>(20);
-  const [priceOffsetX, setPriceOffsetX] = useState<number>(570);
-  const [priceOffsetY, setPriceOffsetY] = useState<number>(730);
+  const [priceOffsetX, setPriceOffsetX] = useState<number>(600);
+  const [priceOffsetY, setPriceOffsetY] = useState<number>(920);
   const [priceRotation, setPriceRotation] = useState<number>(0);
   const [priceScale, setPriceScale] = useState<number>(100);
 
-  const [priceDeOffsetX, setPriceDeOffsetX] = useState<number>(570);
-  const [priceDeOffsetY, setPriceDeOffsetY] = useState<number>(610);
+  const [priceDeOffsetX, setPriceDeOffsetX] = useState<number>(600);
+  const [priceDeOffsetY, setPriceDeOffsetY] = useState<number>(780);
   const [priceDeRotation, setPriceDeRotation] = useState<number>(0);
   const [priceDeScale, setPriceDeScale] = useState<number>(100);
 
   const [porApenasText, setPorApenasText] = useState("POR APENAS");
   const [porApenasFontSize, setPorApenasFontSize] = useState<number>(16);
   const [porApenasColor, setPorApenasColor] = useState("#e0a96d");
-  const [porApenasOffsetX, setPorApenasOffsetX] = useState<number>(570);
-  const [porApenasOffsetY, setPorApenasOffsetY] = useState<number>(635);
+  const [porApenasOffsetX, setPorApenasOffsetX] = useState<number>(600);
+  const [porApenasOffsetY, setPorApenasOffsetY] = useState<number>(825);
   const [porApenasRotation, setPorApenasRotation] = useState<number>(0);
   const [porApenasScale, setPorApenasScale] = useState<number>(100);
 
   const [measuresText, setMeasuresText] = useState("");
   const [measuresFontSize, setMeasuresFontSize] = useState<number>(20);
-  const [measuresOffsetX, setMeasuresOffsetX] = useState<number>(785);
-  const [measuresOffsetY, setMeasuresOffsetY] = useState<number>(610);
+  const [measuresOffsetX, setMeasuresOffsetX] = useState<number>(600);
+  const [measuresOffsetY, setMeasuresOffsetY] = useState<number>(1035);
 
   const [customPrice, setCustomPrice] = useState("");
   const [customPromoPrice, setCustomPromoPrice] = useState("");
@@ -179,6 +195,45 @@ export default function MarketingPosts() {
   const [secondaryImageIndex, setSecondaryImageIndex] = useState<number>(1);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+  const [editorZoom, setEditorZoom] = useState(1);
+  const [isLayersPanelOpen, setIsLayersPanelOpen] = useState(false);
+  const [isHeaderFooterLibraryOpen, setIsHeaderFooterLibraryOpen] = useState(false);
+  const [isOpportunityLibraryOpen, setIsOpportunityLibraryOpen] = useState(false);
+  const [isAvatarLibraryOpen, setIsAvatarLibraryOpen] = useState(false);
+  const [avatarLibrary, setAvatarLibrary] = useState([{ id: 'lisandro', name: 'Lisandro', url: '/images/avatar-morante.png' }]);
+  const [isHeaderFooterInfoOpen, setIsHeaderFooterInfoOpen] = useState(false);
+  const [isHeaderFooterEditorOpen, setIsHeaderFooterEditorOpen] = useState(false);
+  const [headerFooterModelName, setHeaderFooterModelName] = useState('Padrão');
+  const [headerTemplateImage, setHeaderTemplateImage] = useState('/images/banner-header-standard.svg');
+  const [footerTemplateImage, setFooterTemplateImage] = useState('/images/banner-footer-bg.svg');
+  const [uploadingTemplateImage, setUploadingTemplateImage] = useState(false);
+  const [layerOrder, setLayerOrder] = useState<string[]>(['mainImage', 'secondaryImage', 'opportunityBadge', 'title', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures']);
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const [modelProductQuery, setModelProductQuery] = useState('');
+  const [isModelProductPickerOpen, setIsModelProductPickerOpen] = useState(false);
+  const postLayerLabels: Record<string, string> = { mainImage: 'Imagem principal', secondaryImage: 'Imagem secundária', opportunityBadge: 'Selo oportunidade', title: 'Título do produto', priceDe: 'Preço de', porApenas: 'Texto por', pricePor: 'Preço por', installments: 'Parcelamento', measures: 'Descrição' };
+  const uploadTemplateImage = async (kind: 'header' | 'footer', file: File) => {
+    setUploadingTemplateImage(true);
+    try {
+      const extension = file.name.split('.').pop() || 'png';
+      const url = await uploadFile(file, `marketing/post-templates/${kind}-${Date.now()}.${extension}`);
+      if (kind === 'header') setHeaderTemplateImage(url); else setFooterTemplateImage(url);
+      const defaults = { ...getCurrentState(), [kind === 'header' ? 'headerTemplateImage' : 'footerTemplateImage']: url };
+      const { error } = await supabase.from('store_style_settings').upsert({ id: true, marketing_defaults: defaults });
+      if (error) throw error;
+      setMarketingDefaults(defaults);
+      toast.success(`${kind === 'header' ? 'Cabeçalho' : 'Rodapé'} enviado ao Storage.`);
+    } catch { toast.error('Não foi possível enviar a imagem.'); }
+    finally { setUploadingTemplateImage(false); }
+  };
+
+  useEffect(() => {
+    if (isTemplateRoute) {
+      setIsEditingTemplate(true);
+      setIsModalOpen(true);
+    }
+  }, [isTemplateRoute]);
   const [marketingDefaults, setMarketingDefaults] = useState<any>(null);
   const [selectedQuickActionsPost, setSelectedQuickActionsPost] = useState<any>(null);
 
@@ -187,8 +242,10 @@ export default function MarketingPosts() {
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const productPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
   const renderedRegionsRef = useRef<Record<string, { key: string; label: string; x: number; y: number; w: number; h: number }>>({});
+  const postDragRef = useRef<{ key: SelectedElement; x: number; y: number; mode: 'move' | 'resize' | 'rotate'; centerX?: number; centerY?: number } | null>(null);
 
   // Histórico de alterações (Undo / Redo)
   const historyRef = useRef<any[]>([]);
@@ -196,6 +253,8 @@ export default function MarketingPosts() {
   const isApplyingHistoryRef = useRef<boolean>(false);
 
   const getCurrentState = useCallback(() => ({
+    headerFooterModelVersion: 2,
+    headerFooterModelName, headerTemplateImage, footerTemplateImage,
     brandName, brandFontSize, brandOffsetX, brandOffsetY,
     slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
@@ -218,6 +277,7 @@ export default function MarketingPosts() {
     porApenasRotation, porApenasScale,
     measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY
   }), [
+    headerFooterModelName, headerTemplateImage, footerTemplateImage,
     brandName, brandFontSize, brandOffsetX, brandOffsetY,
     slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
@@ -242,6 +302,9 @@ export default function MarketingPosts() {
   ]);
 
   const applyState = (s: any) => {
+    if (s.headerFooterModelName !== undefined) setHeaderFooterModelName(s.headerFooterModelName);
+    if (s.headerTemplateImage !== undefined) setHeaderTemplateImage(s.headerTemplateImage);
+    if (s.footerTemplateImage !== undefined) setFooterTemplateImage(s.footerTemplateImage);
     if (!s) return;
     isApplyingHistoryRef.current = true;
     
@@ -421,9 +484,23 @@ export default function MarketingPosts() {
           .eq("id", true)
           .maybeSingle();
 
-        if (styleData?.marketing_defaults) {
-          setMarketingDefaults(styleData.marketing_defaults);
+        let defaults = styleData?.marketing_defaults || {};
+        if (defaults.headerFooterModelVersion !== 2 || !defaults.headerTemplateImage || !defaults.footerTemplateImage) {
+          const uploadDefault = async (url: string, name: string, type: string) => {
+            const blob = await fetch(url).then(response => response.blob());
+            return uploadFile(new File([blob], name, { type }), `marketing/post-templates/${name}`);
+          };
+          const [defaultHeader, defaultFooter] = await Promise.all([
+            uploadDefault('/images/banner-header-standard.svg', 'padrao-cabecalho-v2.svg', 'image/svg+xml'),
+            uploadDefault('/images/banner-footer-bg.svg', 'padrao-rodape-v2.svg', 'image/svg+xml'),
+          ]);
+          defaults = { ...defaults, headerFooterModelVersion: 2, headerFooterModelName: defaults.headerFooterModelName || 'Padrão', headerTemplateImage: defaultHeader, footerTemplateImage: defaultFooter };
+          await supabase.from('store_style_settings').upsert({ id: true, marketing_defaults: defaults });
         }
+        setMarketingDefaults(defaults);
+        setHeaderFooterModelName(defaults.headerFooterModelName || 'Padrão');
+        setHeaderTemplateImage(defaults.headerTemplateImage);
+        setFooterTemplateImage(defaults.footerTemplateImage);
       } catch (err: any) {
         console.error("Erro ao carregar dados:", err);
         toast.error("Falha ao carregar produtos.");
@@ -436,8 +513,9 @@ export default function MarketingPosts() {
   }, []);
 
   const activeProduct = useMemo(() => {
-    return products.find(p => p.id === selectedProductId) || null;
-  }, [products, selectedProductId]);
+    return products.find(p => p.id === selectedProductId) || (isEditingTemplate ? TEMPLATE_PREVIEW_PRODUCT : null);
+  }, [products, selectedProductId, isEditingTemplate]);
+  const renderProduct = activeProduct || TEMPLATE_PREVIEW_PRODUCT;
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
@@ -506,26 +584,19 @@ export default function MarketingPosts() {
   // Motor de Desenho Síncrono no Canvas 2D
   const drawBannerSync = (
     canvas: HTMLCanvasElement,
-    images: { headerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null },
+    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null },
     isExport = false
   ) => {
-    if (!activeProduct) return;
+    if (!activeProduct && !isEditingTemplate) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const S = canvas.width / 1080;
     const reg: Record<string, { key: string; label: string; x: number; y: number; w: number; h: number }> = {};
 
-    // 1. Fundo Geral
-    ctx.fillStyle = "#0c1523";
-    ctx.fillRect(0, 0, 1080 * S, 1080 * S);
-
-    // Fundo degrade elegante
-    const bgGrad = ctx.createRadialGradient(540 * S, 540 * S, 100 * S, 540 * S, 540 * S, 750 * S);
-    bgGrad.addColorStop(0, "#1a2a40");
-    bgGrad.addColorStop(1, "#0c1523");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, 1080 * S, 1080 * S);
+    // 1. Área principal clara, conforme o template institucional padrão.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 1080 * S, 1350 * S);
 
     // 2. Imagens do Produto (Principal e Secundária)
     if (images.mainImg) {
@@ -534,7 +605,7 @@ export default function MarketingPosts() {
       const targetW = bb.w * scale;
       const targetH = bb.h * scale;
       const posX = (280 + mainImageOffsetX) * S - targetW / 2;
-      const posY = (540 + mainImageOffsetY) * S - targetH / 2;
+      const posY = (660 + mainImageOffsetY) * S - targetH / 2;
 
       ctx.drawImage(
         images.mainImg,
@@ -557,8 +628,8 @@ export default function MarketingPosts() {
       const scale = (secondaryImageScale / 100) * 0.65 * S;
       const targetW = bb.w * scale;
       const targetH = bb.h * scale;
-      const posX = (720 + secondaryImageOffsetX) * S - targetW / 2;
-      const posY = (460 + secondaryImageOffsetY) * S - targetH / 2;
+      const posX = (780 + secondaryImageOffsetX) * S - targetW / 2;
+      const posY = (430 + secondaryImageOffsetY) * S - targetH / 2;
 
       ctx.drawImage(
         images.secImg,
@@ -578,26 +649,18 @@ export default function MarketingPosts() {
 
     // 3. Cabeçalho (Marca e Slogan)
     ctx.fillStyle = "#0d1b2a";
-    ctx.fillRect(0, 0, 1080 * S, 200 * S);
+    ctx.fillRect(0, 0, 1080 * S, 170 * S);
 
     if (images.headerBg) {
-      const tW = 1080 * 0.70 * S;
-      const tH = 200 * S;
-      const tX = 1080 * S - tW;
-      const sc = tW / (images.headerBg.width * S);
-      const srcW = images.headerBg.width;
-      const srcH = tH / (sc * S);
-      const srcY = Math.max(0, (images.headerBg.height - srcH) / 2);
-      ctx.drawImage(images.headerBg, 0, srcY, srcW, srcH, tX, 0, tW, tH);
-    }
-
+      ctx.drawImage(images.headerBg, 0, 0, images.headerBg.width, images.headerBg.height, 0, 0, 1080 * S, 170 * S);
+    } else {
     const headerGrad = ctx.createLinearGradient(0, 0, 1080 * S, 0);
     headerGrad.addColorStop(0, "rgba(12, 21, 35, 1)");
     headerGrad.addColorStop(0.4, "rgba(12, 21, 35, 1)");
     headerGrad.addColorStop(0.7, "rgba(12, 21, 35, 0.4)");
     headerGrad.addColorStop(1, "rgba(12, 21, 35, 0)");
     ctx.fillStyle = headerGrad;
-    ctx.fillRect(0, 0, 1080 * S, 200 * S);
+    ctx.fillRect(0, 0, 1080 * S, 170 * S);
 
     const brandNameStr = brandName || "MÓVEIS MORANTE";
     const brandSize = brandFontSize || 42;
@@ -613,13 +676,9 @@ export default function MarketingPosts() {
       const p1W = ctx.measureText(p1).width;
       ctx.fillStyle = "#e0a96d";
       ctx.fillText(p2, brandX * S + p1W, brandY * S);
-      const brandTotalW = (p1W + ctx.measureText(p2).width) / S;
-      reg['brand'] = { key: 'brand', label: 'Marca', x: brandX - 6, y: brandY - brandSize - 4, w: brandTotalW + 12, h: brandSize + 12 };
     } else {
       ctx.fillStyle = "#ffffff";
       ctx.fillText(brandNameStr, brandX * S, brandY * S);
-      const brandTxtW = ctx.measureText(brandNameStr).width / S;
-      reg['brand'] = { key: 'brand', label: 'Marca', x: brandX - 6, y: brandY - brandSize - 4, w: brandTxtW + 12, h: brandSize + 12 };
     }
 
     ctx.strokeStyle = "#e0a96d";
@@ -637,98 +696,112 @@ export default function MarketingPosts() {
     ctx.fillStyle = "rgba(243, 244, 246, 0.85)";
     ctx.font = `${sloganSize * S}px 'Segoe UI', Arial, sans-serif`;
     ctx.fillText(sloganText, sloganX * S, sloganY * S);
-    reg['slogan'] = { key: 'slogan', label: 'Slogan', x: sloganX - 6, y: sloganY - sloganSize - 4, w: ctx.measureText(sloganText).width / S + 12, h: sloganSize + 12 };
+    }
 
     // 4. Rodapé
     ctx.fillStyle = "#0d1b2a";
-    ctx.fillRect(0, 930 * S, 1080 * S, 150 * S);
+    ctx.fillRect(0, 1180 * S, 1080 * S, 170 * S);
+    if (images.footerBg) ctx.drawImage(images.footerBg, 0, 0, images.footerBg.width, images.footerBg.height, 0, 1180 * S, 1080 * S, 170 * S);
 
-    if (images.logo) {
+    if (!images.footerBg && images.logo) {
       const aspect = images.logo.width / images.logo.height;
       const targetHeight = 135 * (avatarScale / 100) * S;
       const targetWidth = targetHeight * aspect;
       const aX = (avatarOffsetX ?? 35) * S;
-      const aY = (avatarOffsetY ?? 938) * S;
+      const aY = (avatarOffsetY ?? 1208) * S;
       ctx.drawImage(images.logo, aX, aY, targetWidth, targetHeight);
-      reg['avatar'] = { key: 'avatar', label: 'Avatar', x: aX / S, y: aY / S, w: targetWidth / S, h: targetHeight / S };
+      ctx.fillStyle = "#e0a96d";
+      ctx.font = `bold ${(footerAddressTextFontSize || 28) * S}px 'Segoe UI', Arial, sans-serif`;
+      const ftAddr = footerAddressText || "RUA CASCAVEL, 306, GUARAITUBA, COLOMBO";
+      ctx.fillText(ftAddr, (footerAddressTextOffsetX ?? 175) * S, (footerAddressTextOffsetY ?? 1302) * S);
     }
 
-    ctx.fillStyle = "#e0a96d";
-    ctx.font = `bold ${(footerAddressTitleFontSize || 24) * S}px 'Segoe UI', Arial, sans-serif`;
-    const ftTitle = footerAddressTitle || "VISITE NOSSA LOJA NO ENDEREÇO";
-    const ftTitleX = footerAddressTitleOffsetX ?? 175;
-    const ftTitleY = footerAddressTitleOffsetY ?? 988;
-    ctx.fillText(ftTitle, ftTitleX * S, ftTitleY * S);
-    reg['footerTitle'] = { key: 'footerTitle', label: 'Título Endereço', x: ftTitleX - 6, y: ftTitleY - (footerAddressTitleFontSize || 24) - 4, w: ctx.measureText(ftTitle).width / S + 12, h: (footerAddressTitleFontSize || 24) + 12 };
+    // 5. Bloco de descrição e preço, abaixo da foto secundária à direita.
+    const effectivePrice = customPrice ? parseFloat(customPrice) : renderProduct.price;
+    const effectivePromo = customPromoPrice ? parseFloat(customPromoPrice) : renderProduct.promo_price;
+    const finalPriceVal = effectivePromo || effectivePrice;
+    const priceStr = `R$ ${finalPriceVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    const prSize = priceFontSize || 48;
+    const prX = priceOffsetX ?? 600;
+    const prY = priceOffsetY ?? 920;
 
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${(footerAddressTextFontSize || 28) * S}px 'Segoe UI', Arial, sans-serif`;
-    const ftAddr = footerAddressText || "RUA CASCAVEL, 306, GUARAITUBA, COLOMBO";
-    const ftAddrX = footerAddressTextOffsetX ?? 175;
-    const ftAddrY = footerAddressTextOffsetY ?? 1032;
-    ctx.fillText(ftAddr, ftAddrX * S, ftAddrY * S);
-    reg['footerAddress'] = { key: 'footerAddress', label: 'Endereço', x: ftAddrX - 6, y: ftAddrY - (footerAddressTextFontSize || 28) - 4, w: ctx.measureText(ftAddr).width / S + 12, h: (footerAddressTextFontSize || 28) + 12 };
+    ctx.beginPath();
+    ctx.roundRect(560 * S, 650 * S, 460 * S, 450 * S, 26 * S);
+    ctx.fillStyle = "#f8fafc";
+    ctx.fill();
 
-    // 5. Título do Produto
-    const pTitle = productTitle || activeProduct.name;
     const pTitleSize = productTitleFontSize || 30;
-    const pTitleX = productTitleOffsetX ?? 570;
-    const pTitleY = productTitleOffsetY ?? 660;
-    ctx.fillStyle = "#ffffff";
+    const pTitleX = productTitleOffsetX ?? 600;
+    const pTitleY = productTitleOffsetY ?? 720;
+    const pTitleLimit = productTitleMaxContainerWidth || 390;
     ctx.font = `bold ${pTitleSize * S}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillText(pTitle, pTitleX * S, pTitleY * S);
+    let pTitle = productTitle || renderProduct.name;
+    while (pTitle.length > 1 && ctx.measureText(`${pTitle}...`).width / S > pTitleLimit) pTitle = pTitle.slice(0, -1);
+    if (pTitle !== (productTitle || renderProduct.name)) pTitle += "...";
+    ctx.fillStyle = "#111827";
+    ctx.save();
+    ctx.translate(pTitleX * S, pTitleY * S);
+    ctx.rotate((productTitleRotation * Math.PI) / 180);
+    ctx.fillText(pTitle, 0, 0);
+    ctx.restore();
     reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX - 6, y: pTitleY - pTitleSize - 4, w: ctx.measureText(pTitle).width / S + 12, h: pTitleSize + 12 };
 
-    // 6. Preço De / Por
-    const effectivePrice = customPrice ? parseFloat(customPrice) : activeProduct.price;
-    const effectivePromo = customPromoPrice ? parseFloat(customPromoPrice) : activeProduct.promo_price;
-
     if (effectivePromo && effectivePromo < effectivePrice) {
-      // Preço De
       const deStr = `DE: R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       const deSize = priceDeFontSize || 20;
-      const deX = priceDeOffsetX ?? 570;
-      const deY = priceDeOffsetY ?? 610;
-      ctx.fillStyle = "rgba(203, 213, 225, 0.7)";
+      const deX = priceDeOffsetX ?? 600;
+      const deY = priceDeOffsetY ?? 780;
+      ctx.fillStyle = "#dc2626";
       ctx.font = `bold ${deSize * S}px 'Segoe UI', Arial, sans-serif`;
-      ctx.fillText(deStr, deX * S, deY * S);
+      ctx.save();
+      ctx.translate(deX * S, deY * S);
+      ctx.rotate((priceDeRotation * Math.PI) / 180);
+      ctx.fillText(deStr, 0, 0);
       const deW = ctx.measureText(deStr).width;
       ctx.strokeStyle = "#ef4444";
       ctx.lineWidth = 2 * S;
       ctx.beginPath();
-      ctx.moveTo(deX * S, (deY - deSize * 0.3) * S);
-      ctx.lineTo((deX * S) + deW, (deY - deSize * 0.3) * S);
+      ctx.moveTo(0, -deSize * 0.3 * S);
+      ctx.lineTo(deW, -deSize * 0.3 * S);
       ctx.stroke();
+      ctx.restore();
       reg['priceDe'] = { key: 'priceDe', label: 'Preço DE', x: deX - 6, y: deY - deSize - 4, w: deW / S + 12, h: deSize + 12 };
     }
 
-    // Por Apenas
     const porApStr = porApenasText || "POR APENAS";
     const porApSize = porApenasFontSize || 16;
-    const porApX = porApenasOffsetX ?? 570;
-    const porApY = porApenasOffsetY ?? 635;
+    const porApX = porApenasOffsetX ?? 600;
+    const porApY = porApenasOffsetY ?? 825;
     ctx.fillStyle = porApenasColor || "#e0a96d";
     ctx.font = `bold ${porApSize * S}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillText(porApStr, porApX * S, porApY * S);
+    ctx.save();
+    ctx.translate(porApX * S, porApY * S);
+    ctx.rotate((porApenasRotation * Math.PI) / 180);
+    ctx.fillText(porApStr, 0, 0);
+    ctx.restore();
     reg['porApenas'] = { key: 'porApenas', label: 'Texto Por Apenas', x: porApX - 6, y: porApY - porApSize - 4, w: ctx.measureText(porApStr).width / S + 12, h: porApSize + 12 };
 
-    // Preço Final
-    const finalPriceVal = effectivePromo || effectivePrice;
-    const priceStr = `R$ ${finalPriceVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    const prSize = priceFontSize || 48;
-    const prX = priceOffsetX ?? 570;
-    const prY = priceOffsetY ?? 730;
-    ctx.fillStyle = "#ffffff";
     ctx.font = `bold ${prSize * S}px 'Segoe UI', Arial, sans-serif`;
-    ctx.fillText(priceStr, prX * S, prY * S);
+    const priceBgW = ctx.measureText(priceStr).width + 36 * S;
+    const priceBgH = (prSize + 34) * S;
+    ctx.save();
+    ctx.translate(prX * S, prY * S);
+    ctx.rotate((priceRotation * Math.PI) / 180);
+    ctx.beginPath();
+    ctx.roundRect(-18 * S, (-prSize - 18) * S, priceBgW, priceBgH, 20 * S);
+    ctx.fillStyle = "#ffe600";
+    ctx.fill();
+    ctx.fillStyle = "#111827";
+    ctx.fillText(priceStr, 0, 0);
+    ctx.restore();
     reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: prX - 6, y: prY - prSize - 4, w: ctx.measureText(priceStr).width / S + 12, h: prSize + 12 };
 
     // Parcelas
     const instText = installmentsText || "Em até 10x sem juros no cartão";
     const instSize = installmentsFontSize || 26;
     const instX = installmentsOffsetX ?? 540;
-    const instY = installmentsOffsetY ?? 895;
-    ctx.fillStyle = "#cbd5e1";
+    const instY = installmentsOffsetY ?? 1090;
+    ctx.fillStyle = "#111827";
     ctx.font = `${instSize * S}px 'Segoe UI', Arial, sans-serif`;
     ctx.fillText(instText, instX * S, instY * S);
     reg['installments'] = { key: 'installments', label: 'Parcelas', x: instX - 6, y: instY - instSize - 4, w: ctx.measureText(instText).width / S + 12, h: instSize + 12 };
@@ -737,7 +810,7 @@ export default function MarketingPosts() {
     if (measuresText) {
       const mSize = measuresFontSize || 20;
       const mX = measuresOffsetX ?? 785;
-      const mY = measuresOffsetY ?? 610;
+      const mY = measuresOffsetY ?? 1035;
       ctx.fillStyle = "#94a3b8";
       ctx.font = `bold ${mSize * S}px 'Segoe UI', Arial, sans-serif`;
       ctx.fillText(measuresText, mX * S, mY * S);
@@ -745,8 +818,8 @@ export default function MarketingPosts() {
     }
 
     // 7. Oportunidade
-    if (showOpportunityBadge && activeProduct.opportunities) {
-      const opp = activeProduct.opportunities;
+    if (showOpportunityBadge && renderProduct.opportunities) {
+      const opp = renderProduct.opportunities;
       const labelText = opp.name.toUpperCase();
       ctx.save();
       const bx = oppOffsetX * S;
@@ -788,10 +861,10 @@ export default function MarketingPosts() {
       }
 
       if (isSalvados) {
-        drawFlameIcon(ctx, rx + 15, ry + 12, 20);
+        drawFlameIcon(ctx, rx + 15, ry + 12, 20, "#000000");
       }
 
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = isSalvados ? "#000000" : "#ffffff";
       ctx.font = `bold 16px 'Segoe UI', Arial, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -801,7 +874,7 @@ export default function MarketingPosts() {
       const scaleFactor = (oppScale / 100);
       reg['opportunityBadge'] = {
         key: 'opportunityBadge',
-        label: 'Rótulo Oportunidade',
+        label: 'Selo de oportunidade',
         x: oppOffsetX - (badgeW * scaleFactor) / 2 - 6,
         y: oppOffsetY - (badgeH * scaleFactor) / 2 - 6,
         w: badgeW * scaleFactor + 12,
@@ -818,6 +891,27 @@ export default function MarketingPosts() {
         ctx.lineWidth = 3 * S;
         ctx.setLineDash([10 * S, 6 * S]);
         ctx.strokeRect(region.x * S, region.y * S, region.w * S, region.h * S);
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#ec4899";
+        ctx.lineWidth = 3 * S;
+        ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+        ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+        const rotateX = region.x + region.w / 2;
+        const rotateY = region.y - 28;
+        ctx.beginPath();
+        ctx.moveTo(rotateX * S, region.y * S);
+        ctx.lineTo(rotateX * S, (rotateY + 9) * S);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(rotateX * S, rotateY * S, 11 * S, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#ec4899";
+        ctx.font = `bold ${15 * S}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("↻", rotateX * S, rotateY * S + 1 * S);
         ctx.restore();
       }
     }
@@ -826,36 +920,39 @@ export default function MarketingPosts() {
   };
 
   const drawBannerAsync = async (canvas: HTMLCanvasElement, isExport = false) => {
-    if (!activeProduct) return;
-    const images = activeProduct.product_images || [];
+    const images = renderProduct.product_images || [];
     const mainImageUrl = images[mainImageIndex]?.image_url || images[0]?.image_url || "";
     const secImageUrl = images[secondaryImageIndex]?.image_url || images[1]?.image_url || "";
 
-    const [headerBg, logo, mainImg, secImg] = await Promise.all([
-      loadImg("/images/banner-header-bg.png"),
+    const [headerBg, footerBg, logo, mainImg, secImg] = await Promise.all([
+      loadImg(headerTemplateImage || "/images/banner-header-bg.png"),
+      footerTemplateImage ? loadImg(footerTemplateImage) : Promise.resolve(null),
       avatarUrl ? loadImg(avatarUrl) : loadImg("/images/avatar-morante.png"),
       mainImageUrl ? loadImg(mainImageUrl) : Promise.resolve(null),
       (secImageUrl && showSecondaryImage) ? loadImg(secImageUrl) : Promise.resolve(null),
     ]);
 
-    drawBannerSync(canvas, { headerBg, logo, mainImg, secImg }, isExport);
+    drawBannerSync(canvas, { headerBg, footerBg, logo, mainImg, secImg }, isExport);
   };
 
   // Re-renderiza o canvas sempre que os estados mudam
   useEffect(() => {
-    if (previewCanvasRef.current && activeProduct) {
+    if (!loading && isModalOpen && previewCanvasRef.current && (activeProduct || isEditingTemplate)) {
       drawBannerAsync(previewCanvasRef.current, false);
     }
+    if (productPreviewCanvasRef.current && activeProduct) {
+      drawBannerAsync(productPreviewCanvasRef.current, true);
+    }
   }, [
-    activeProduct, brandName, brandFontSize, brandOffsetX, brandOffsetY, slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
+    loading, isModalOpen, activeProduct, isEditingTemplate, headerTemplateImage, footerTemplateImage, brandName, brandFontSize, brandOffsetX, brandOffsetY, slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY, footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX,
     footerAddressTitleOffsetY, footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
     installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, priceFontSize, priceDeFontSize,
-    priceOffsetX, priceOffsetY, priceDeOffsetX, priceDeOffsetY, porApenasText, porApenasFontSize, porApenasColor,
-    porApenasOffsetX, porApenasOffsetY, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, selectedElement
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleRotation, priceFontSize, priceDeFontSize,
+    priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
+    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, selectedElement
   ]);
 
   // Registra no histórico
@@ -867,8 +964,107 @@ export default function MarketingPosts() {
 
   // Handlers de Ações
   const handleNewPost = () => {
+    setIsEditingTemplate(false);
     setActivePostId(null);
     setIsModalOpen(true);
+  };
+
+  const moveSelectedElement = (key: SelectedElement, dx: number, dy: number) => {
+    if (!key) return;
+    const move = (setX: React.Dispatch<React.SetStateAction<number>>, setY: React.Dispatch<React.SetStateAction<number>>) => { setX(v => v + dx); setY(v => v + dy); };
+    if (key === 'title') move(setProductTitleOffsetX, setProductTitleOffsetY);
+    else if (key === 'priceDe') move(setPriceDeOffsetX, setPriceDeOffsetY);
+    else if (key === 'pricePor') move(setPriceOffsetX, setPriceOffsetY);
+    else if (key === 'porApenas') move(setPorApenasOffsetX, setPorApenasOffsetY);
+    else if (key === 'installments') move(setInstallmentsOffsetX, setInstallmentsOffsetY);
+    else if (key === 'measures') move(setMeasuresOffsetX, setMeasuresOffsetY);
+    else if (key === 'brand') move(setBrandOffsetX, setBrandOffsetY);
+    else if (key === 'slogan') move(setSloganOffsetX, setSloganOffsetY);
+    else if (key === 'avatar') move(setAvatarOffsetX, setAvatarOffsetY);
+    else if (key === 'footerTitle') move(setFooterAddressTitleOffsetX, setFooterAddressTitleOffsetY);
+    else if (key === 'footerAddress') move(setFooterAddressTextOffsetX, setFooterAddressTextOffsetY);
+    else if (key === 'opportunityBadge') move(setOppOffsetX, setOppOffsetY);
+    else if (key === 'mainImage') move(setMainImageOffsetX, setMainImageOffsetY);
+    else if (key === 'secondaryImage') move(setSecondaryImageOffsetX, setSecondaryImageOffsetY);
+  };
+
+  const resizeSelectedElement = (key: SelectedElement, amount: number) => {
+    const resizeFont = (setSize: React.Dispatch<React.SetStateAction<number>>) => setSize(value => Math.max(8, Math.min(180, value + amount)));
+    if (key === 'title') resizeFont(setProductTitleFontSize);
+    else if (key === 'priceDe') resizeFont(setPriceDeFontSize);
+    else if (key === 'pricePor') resizeFont(setPriceFontSize);
+    else if (key === 'porApenas') resizeFont(setPorApenasFontSize);
+    else if (key === 'installments') resizeFont(setInstallmentsFontSize);
+    else if (key === 'measures') resizeFont(setMeasuresFontSize);
+    else if (key === 'brand') resizeFont(setBrandFontSize);
+    else if (key === 'slogan') resizeFont(setSloganFontSize);
+    else if (key === 'footerTitle') resizeFont(setFooterAddressTitleFontSize);
+    else if (key === 'footerAddress') resizeFont(setFooterAddressTextFontSize);
+    else if (key === 'mainImage') setMainImageScale(value => Math.max(40, Math.min(180, value + amount)));
+    else if (key === 'secondaryImage') setSecondaryImageScale(value => Math.max(40, Math.min(180, value + amount)));
+    else if (key === 'opportunityBadge') setOppScale(value => Math.max(40, Math.min(180, value + amount)));
+  };
+
+  const rotateSelectedElement = (key: SelectedElement, angle: number) => {
+    if (key === 'title') setProductTitleRotation(angle);
+    else if (key === 'priceDe') setPriceDeRotation(angle);
+    else if (key === 'pricePor') setPriceRotation(angle);
+    else if (key === 'porApenas') setPorApenasRotation(angle);
+    else if (key === 'opportunityBadge') setOppRotation(angle);
+  };
+
+  const startPostDrag = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (1080 / rect.width);
+    const y = (e.clientY - rect.top) * (1350 / rect.height);
+    const activeRegion = selectedElement ? renderedRegionsRef.current[selectedElement] : null;
+    if (activeRegion) {
+      const handleX = activeRegion.x + activeRegion.w;
+      const handleY = activeRegion.y + activeRegion.h;
+      const rotateX = activeRegion.x + activeRegion.w / 2;
+      const rotateY = activeRegion.y - 28;
+      if (Math.hypot(x - handleX, y - handleY) <= 22) {
+        postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
+        return;
+      }
+      if (Math.hypot(x - rotateX, y - rotateY) <= 22) {
+        postDragRef.current = { key: selectedElement, x, y, mode: 'rotate', centerX: activeRegion.x + activeRegion.w / 2, centerY: activeRegion.y + activeRegion.h / 2 };
+        return;
+      }
+    }
+    const hit = Object.values(renderedRegionsRef.current).reverse().find(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+    setSelectedElement((hit?.key || null) as SelectedElement);
+    postDragRef.current = hit ? { key: hit.key as SelectedElement, x, y, mode: 'move' } : null;
+  };
+
+  const dragPostElement = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const drag = postDragRef.current;
+    if (!drag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (1080 / rect.width);
+    const y = (e.clientY - rect.top) * (1350 / rect.height);
+    const dx = Math.round(x - drag.x), dy = Math.round(y - drag.y);
+    if (drag.mode === 'resize') {
+      const amount = Math.round((dx + dy) / 8);
+      if (amount) { resizeSelectedElement(drag.key, amount); postDragRef.current = { ...drag, x, y }; }
+    } else if (drag.mode === 'rotate' && drag.centerX !== undefined && drag.centerY !== undefined) {
+      rotateSelectedElement(drag.key, Math.round(Math.atan2(y - drag.centerY, x - drag.centerX) * 180 / Math.PI + 90));
+    } else if (dx || dy) { moveSelectedElement(drag.key, dx, dy); postDragRef.current = { ...drag, x, y }; }
+  };
+
+  const handleOpenTemplate = () => {
+    setActivePostId(null);
+    if (marketingDefaults) applyState(marketingDefaults);
+    setIsEditingTemplate(true);
+    setIsModalOpen(true);
+  };
+
+  const handleChooseModelProduct = (product: Product) => {
+    setSelectedProductId(product.id);
+    setSearchTerm(product.name);
+    setModelProductQuery('');
+    setIsModelProductPickerOpen(false);
+    toast.success(`"${product.name}" definido como produto modelo.`);
   };
 
   const handleEditPost = (post: any) => {
@@ -902,7 +1098,7 @@ export default function MarketingPosts() {
     if (!activeProduct) return;
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
-    canvas.height = 1080;
+    canvas.height = 1350;
     await drawBannerAsync(canvas, true);
 
     canvas.toBlob((blob) => {
@@ -921,7 +1117,7 @@ export default function MarketingPosts() {
     if (!activeProduct) return;
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
-    canvas.height = 1080;
+    canvas.height = 1350;
     await drawBannerAsync(canvas, true);
 
     canvas.toBlob(async (blob) => {
@@ -937,13 +1133,30 @@ export default function MarketingPosts() {
     }, "image/png");
   };
 
+  const handleShareDirect = async () => {
+    if (!activeProduct) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1350;
+    await drawBannerAsync(canvas, true);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `post-${activeProduct.name}.png`, { type: "image/png" });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: activeProduct.name });
+      } else {
+        await handleCopyDirect();
+      }
+    }, "image/png");
+  };
+
   const handleSavePost = async () => {
     if (!activeProduct) return;
     setDownloading(true);
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = 1080;
-      canvas.height = 1080;
+    canvas.width = 1080;
+    canvas.height = 1350;
       await drawBannerAsync(canvas, true);
 
       canvas.toBlob(async (blob) => {
@@ -990,17 +1203,7 @@ export default function MarketingPosts() {
 
   const handleSaveDefaults = async () => {
     try {
-      const defaults = {
-        brandName,
-        slogan,
-        avatarUrl,
-        footerAddressText,
-        installmentsText,
-        brandFontSize,
-        sloganFontSize,
-        footerAddressTextFontSize,
-        installmentsFontSize
-      };
+      const defaults = getCurrentState();
       const { error } = await supabase
         .from("store_style_settings")
         .upsert({ id: true, marketing_defaults: defaults });
@@ -1043,8 +1246,17 @@ export default function MarketingPosts() {
               </span>
             </div>
             <p className="text-slate-400 dark:text-slate-500 text-xs font-medium mt-1">
-              Crie artes promocionais profissionais (1080x1080) automaticamente para Instagram, Facebook e WhatsApp.
+              Crie artes promocionais profissionais (1080 × 1350, proporção 4:5) para Instagram, Facebook e WhatsApp.
             </p>
+            <button
+              type="button"
+              onClick={() => window.open('/templates/posts', '_blank')}
+              title="Editar as regras usadas na geração dos posts"
+              className="mt-3 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-pink-500/20"
+            >
+              <i className="bi bi-layout-text-window-reverse text-xs" />
+              Template para os Posts
+            </button>
           </div>
         </div>
 
@@ -1052,7 +1264,7 @@ export default function MarketingPosts() {
           <button
             onClick={handleSaveDefaults}
             className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-            title="Salvar cabeçalho e rodapé como padrão para novos posts"
+            title="Salvar cabeçalhos e rodapés como padrão para novos posts"
           >
             <i className="bi bi-pin-angle-fill text-amber-500" />
             <span>Fixar Padrões</span>
@@ -1150,6 +1362,27 @@ export default function MarketingPosts() {
         })()}
       </div>
 
+      {activeProduct && (
+        <section className="mx-auto w-full max-w-xl rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-4 text-center">
+            <h2 className="text-sm font-black uppercase tracking-wide text-slate-800 dark:text-slate-200">Post gerado pelo template</h2>
+            <p className="mt-1 text-xs text-slate-400">Prévia para {activeProduct.name}</p>
+          </div>
+          <canvas ref={productPreviewCanvasRef} width={1080} height={1350} className="mx-auto block aspect-[4/5] w-full max-w-sm rounded-2xl bg-slate-950 shadow-lg" />
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <button type="button" onClick={handleDownloadDirect} className="rounded-xl bg-pink-600 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white hover:bg-pink-700">
+              <i className="bi bi-download mr-1" />Baixar
+            </button>
+            <button type="button" onClick={handleCopyDirect} className="rounded-xl bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200">
+              <i className="bi bi-copy mr-1" />Copiar
+            </button>
+            <button type="button" onClick={handleShareDirect} className="rounded-xl bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200">
+              <i className="bi bi-share mr-1" />Compartilhar
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Grid de Posts do Produto */}
       {activeProduct && (
         <div className="space-y-6 animate-fade-in">
@@ -1187,7 +1420,7 @@ export default function MarketingPosts() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {postsList.map((post: any) => (
                 <div key={post.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition group flex flex-col">
-                  <div className="relative aspect-square w-full bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800 overflow-hidden">
+                  <div className="relative aspect-[4/5] w-full bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800 overflow-hidden">
                     <img src={post.imageUrl} alt="Post" className="w-full h-full object-contain p-2" />
                     <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 px-2 flex-wrap">
                       <button
@@ -1323,21 +1556,21 @@ export default function MarketingPosts() {
       )}
 
       {/* Modal Principal do Editor Visual de Post */}
-      {isModalOpen && activeProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      {isModalOpen && (activeProduct || isEditingTemplate) && (
+        <div className={`fixed inset-0 z-50 flex p-0 overflow-hidden ${isTemplateRoute ? 'bg-white dark:bg-slate-900' : 'bg-slate-950/80 backdrop-blur-md'}`}>
+          <div className="bg-white dark:bg-slate-900 w-full h-full flex flex-col shadow-2xl overflow-hidden">
             
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/30">
+            <div className={`${isTemplateRoute ? 'px-6 pb-4 pt-0' : 'px-6 py-4'} border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-950/30`}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-pink-50 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center">
                   <i className="bi bi-brush text-lg" />
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                    Editor de Post Promocional
+                    {isEditingTemplate ? 'Template para os Posts' : 'Editor de Post Promocional'}
                   </h3>
-                  <span className="text-[10px] text-slate-400 font-bold">{activeProduct.name}</span>
+                  <span className="text-[10px] text-slate-400 font-bold">{isEditingTemplate ? 'Regras globais de geração' : activeProduct?.name}</span>
                 </div>
               </div>
 
@@ -1361,63 +1594,143 @@ export default function MarketingPosts() {
                 <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    if (isTemplateRoute && window.opener) window.close();
+                  }}
+                  className="px-3 py-2 text-xs font-black text-slate-500 hover:text-rose-500 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20"
                 >
-                  <i className="bi bi-x-lg text-sm" />
+                  <i className="bi bi-arrow-left mr-1" />Voltar ao ERP
                 </button>
               </div>
             </div>
 
+            <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2 dark:border-slate-800 dark:bg-slate-950">
+              <div className="relative shrink-0">
+                <button type="button" onClick={() => setIsFileMenuOpen(value => !value)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Arquivos">
+                  Arquivos <i className="bi bi-chevron-down text-[9px] text-slate-400" />
+                </button>
+                {isFileMenuOpen && (
+                  <div className="absolute left-0 top-full z-30 mt-2 w-52 rounded-2xl border border-slate-200 bg-white py-1.5 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+                    <button type="button" onClick={() => { setIsFileMenuOpen(false); handleDownloadDirect(); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-blue-50 dark:text-slate-200 dark:hover:bg-blue-950">
+                      <i className="bi bi-file-earmark-arrow-down-fill text-sm text-emerald-600" /> Baixar PNG
+                    </button>
+                    <button type="button" onClick={() => { setIsFileMenuOpen(false); handleCopyDirect(); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-blue-50 dark:text-slate-200 dark:hover:bg-blue-950">
+                      <i className="bi bi-clipboard-check-fill text-sm text-blue-600" /> Copiar imagem
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="relative shrink-0">
+                <button type="button" onClick={() => setIsLayersPanelOpen(v => !v)} className="rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Camadas"><i className="bi bi-layers-fill text-blue-600" /></button>
+                {isLayersPanelOpen && (
+                  <div className="absolute left-0 top-full z-30 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <p className="px-2 pb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Arraste para organizar</p>
+                    <div className="max-h-72 overflow-y-auto">
+                      {layerOrder.map(key => (
+                        <button key={key} type="button" draggable onDragStart={event => event.dataTransfer.setData('text/plain', key)} onDragOver={event => event.preventDefault()} onDrop={event => { const dragged = event.dataTransfer.getData('text/plain'); if (dragged && dragged !== key) setLayerOrder(items => { const next = items.filter(item => item !== dragged); next.splice(next.indexOf(key), 0, dragged); return next; }); }} onClick={() => { setSelectedElement(key as SelectedElement); setIsLayersPanelOpen(false); }} className={`mb-1 flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-2 text-left text-[10px] font-bold active:cursor-grabbing ${selectedElement === key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}>
+                          <i className="bi bi-grip-vertical text-slate-400" />{postLayerLabels[key]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <button type="button" onClick={() => setIsModelProductPickerOpen(v => !v)} className="flex max-w-56 items-center gap-1 rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Escolher produto modelo">
+                  <i className="bi bi-box-seam text-pink-600" />
+                  <span className="truncate">{activeProduct ? activeProduct.name : 'Produto modelo'}</span>
+                  <i className="bi bi-chevron-down text-[9px]" />
+                </button>
+                {isModelProductPickerOpen && (
+                  <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div className="relative mb-2">
+                      <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input autoFocus value={modelProductQuery} onChange={event => setModelProductQuery(event.target.value)} placeholder="Buscar produto no ERP..." className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-pink-400 dark:border-slate-700 dark:bg-slate-800" />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {products.filter(product => product.name.toLowerCase().includes(modelProductQuery.trim().toLowerCase())).slice(0, 10).map(product => (
+                        <button key={product.id} type="button" onClick={() => handleChooseModelProduct(product)} className="flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800">
+                          <span className="truncate text-xs font-bold text-slate-800 dark:text-slate-100">{product.name}</span>
+                          <span className="text-[10px] text-slate-500">R$ {Number(product.promo_price ?? product.price ?? 0).toFixed(2).replace('.', ',')}</span>
+                        </button>
+                      ))}
+                      {!products.some(product => product.name.toLowerCase().includes(modelProductQuery.trim().toLowerCase())) && (
+                        <p className="px-3 py-4 text-center text-xs text-slate-500">Nenhum produto encontrado.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <span className="mx-1 h-5 w-px bg-slate-300 dark:bg-slate-700" />
+              <button type="button" onClick={() => setEditorZoom(v => Math.max(0.5, v - 0.1))} className="rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Diminuir zoom"><i className="bi bi-zoom-out" /></button>
+              <button type="button" onClick={() => setEditorZoom(1)} className="rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800">{Math.round(editorZoom * 100)}%</button>
+              <button type="button" onClick={() => setEditorZoom(v => Math.min(1.4, v + 0.1))} className="rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Aumentar zoom"><i className="bi bi-zoom-in" /></button>
+            </div>
+
+            <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+              {!selectedElement && <span className="text-xs font-medium text-slate-400">Selecione um elemento no preview.</span>}
+              {selectedElement && <>
+                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
+                {selectedElement === 'title' && <input value={productTitle} onChange={event => setProductTitle(event.target.value)} placeholder="Título do produto" className="w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'priceDe' && <input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} placeholder="Preço antigo" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'pricePor' && <input type="number" step="0.01" value={customPromoPrice} onChange={event => setCustomPromoPrice(event.target.value)} placeholder="Preço final" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'porApenas' && <input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="w-40 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'installments' && <input value={installmentsText} onChange={event => setInstallmentsText(event.target.value)} className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'measures' && <input value={measuresText} onChange={event => setMeasuresText(event.target.value)} placeholder="Descrição e medidas" className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'brand' && <input value={brandName} onChange={event => setBrandName(event.target.value)} className="w-56 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'slogan' && <input value={slogan} onChange={event => setSlogan(event.target.value)} className="w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'footerAddress' && <input value={footerAddressText} onChange={event => setFooterAddressText(event.target.value)} className="w-80 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'footerTitle' && <input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {(['title', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Tamanho
+                    <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> px
+                  </label>
+                )}
+                {(['mainImage', 'secondaryImage', 'opportunityBadge'] as SelectedElement[]).includes(selectedElement) && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Escala <input type="number" min="40" max="180" value={selectedElement === 'mainImage' ? mainImageScale : selectedElement === 'secondaryImage' ? secondaryImageScale : oppScale} onChange={event => { const value = Math.min(180, Math.max(40, Number(event.target.value) || 40)); if (selectedElement === 'mainImage') setMainImageScale(value); else if (selectedElement === 'secondaryImage') setSecondaryImageScale(value); else setOppScale(value); }} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> %</label>}
+              </>}
+            </div>
+
             {/* Modal Body: 2 Colunas (Canvas Preview + Controles) */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <aside className="lg:col-span-2 min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 custom-scrollbar dark:border-slate-800 dark:bg-slate-950">
+                  <div className="space-y-2">
+                    <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Biblioteca de elementos</p>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
+                      <div className="flex items-center">
+                        <button type="button" onClick={() => setIsHeaderFooterLibraryOpen(value => !value)} className="flex flex-1 items-center gap-2 p-3 text-left text-[10px] font-black text-amber-800 dark:text-amber-300"><i className="bi bi-collection-fill" /> Cabeçalhos e rodapés <i className={`bi bi-chevron-${isHeaderFooterLibraryOpen ? 'up' : 'down'} ml-auto`} /></button>
+                        <button type="button" onClick={() => setIsHeaderFooterInfoOpen(true)} className="mr-1 flex h-6 w-6 items-center justify-center rounded-md text-amber-900 hover:bg-amber-200" title="Informações de tamanho"><i className="bi bi-info-circle" /></button>
+                        <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-amber-200 text-amber-900 hover:bg-amber-300" title="Adicionar cabeçalhos e rodapés"><i className="bi bi-plus-lg" /></button>
+                      </div>
+                      {isHeaderFooterLibraryOpen && <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="mx-2 mb-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg bg-white/80 px-2 py-2 text-left text-[10px] font-bold text-slate-700 dark:bg-slate-900/70 dark:text-slate-200"><i className="bi bi-layout-text-window" /> {headerFooterModelName || 'Padrão'}</button>}
+                    </div>
+                    <OpportunitySealLibrary open={isOpportunityLibraryOpen} onToggle={() => setIsOpportunityLibraryOpen(value => !value)} onSelect={() => { setShowOpportunityBadge(true); setSelectedElement('opportunityBadge'); }} />
+                    <AvatarLibrary avatars={avatarLibrary} open={isAvatarLibraryOpen} onToggle={() => setIsAvatarLibraryOpen(value => !value)} onSelect={avatar => setAvatarUrl(avatar.url)} onDelete={avatar => { setAvatarLibrary(items => items.filter(item => item.id !== avatar.id)); if (avatarUrl === avatar.url) setAvatarUrl(''); }} />
+                  </div>
+                </aside>
               
               {/* Coluna Esquerda: Canvas Preview Interativo (6 cols) */}
-              <div className="lg:col-span-6 flex flex-col items-center gap-4">
-                <div className="relative w-full max-w-[480px] aspect-square rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl bg-slate-950">
+              <div className="lg:col-span-10 flex min-h-0 flex-col items-center justify-center">
+                <div className="relative aspect-[4/5] h-[min(100%,calc(100vh-13rem))] max-h-full w-auto max-w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl bg-white" style={{ transform: `scale(${editorZoom})`, transformOrigin: 'center center' }}>
                   <canvas
                     ref={previewCanvasRef}
                     width={1080}
-                    height={1080}
+                    height={1350}
                     className="w-full h-full object-contain cursor-crosshair"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const scaleX = 1080 / rect.width;
-                      const scaleY = 1080 / rect.height;
-                      const cx = (e.clientX - rect.left) * scaleX;
-                      const cy = (e.clientY - rect.top) * scaleY;
-                      const regions = Object.values(renderedRegionsRef.current).reverse();
-                      const hit = regions.find(r => cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h);
-                      setSelectedElement((hit ? hit.key : null) as any);
-                    }}
+                    onMouseDown={startPostDrag}
+                    onMouseMove={dragPostElement}
+                    onMouseUp={() => { postDragRef.current = null; }}
+                    onMouseLeave={() => { postDragRef.current = null; }}
                   />
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap justify-center w-full">
-                  <button
-                    type="button"
-                    onClick={handleCopyDirect}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
-                  >
-                    <i className="bi bi-copy" />
-                    Copiar Imagem
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadDirect}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
-                  >
-                    <i className="bi bi-download" />
-                    Baixar PNG
-                  </button>
-                </div>
               </div>
 
               {/* Coluna Direita: Controles de Customização (6 cols) */}
-              <div className="lg:col-span-6 space-y-6">
+              {selectedElement && <div className="hidden">
                 
                 {/* Seção 1: Textos & Preços */}
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                <div className={`${selectedElement ? '' : 'hidden'} bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4`}>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                     <i className="bi bi-type text-blue-500" />
                     Informações do Produto
@@ -1481,7 +1794,7 @@ export default function MarketingPosts() {
                 </div>
 
                 {/* Seção 2: Marca & Rodapé */}
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                <div className={`${selectedElement ? '' : 'hidden'} bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4`}>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                     <i className="bi bi-shop text-amber-500" />
                     Identidade da Loja
@@ -1522,7 +1835,7 @@ export default function MarketingPosts() {
                 </div>
 
                 {/* Seção 3: Imagens & Oportunidade */}
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                <div className={`${selectedElement ? '' : 'hidden'} bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4`}>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                     <i className="bi bi-sliders text-purple-500" />
                     Ajustes Visuais
@@ -1557,17 +1870,17 @@ export default function MarketingPosts() {
                       <span>{mainImageScale}%</span>
                     </div>
                     <input
-                      type="range"
+                      type="number"
                       min="40"
                       max="180"
                       value={mainImageScale}
-                      onChange={(e) => setMainImageScale(Number(e.target.value))}
-                      className="w-full accent-pink-600"
+                      onChange={(e) => setMainImageScale(Math.min(180, Math.max(40, Number(e.target.value) || 40)))}
+                      className="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800"
                     />
                   </div>
                 </div>
 
-              </div>
+              </div>}
             </div>
 
             {/* Modal Footer */}
@@ -1584,7 +1897,11 @@ export default function MarketingPosts() {
                 <button
                   type="button"
                   disabled={downloading}
-                  onClick={handleSavePost}
+                  onClick={isEditingTemplate ? async () => {
+                    await handleSaveDefaults();
+                    setIsModalOpen(false);
+                    setIsEditingTemplate(false);
+                  } : handleSavePost}
                   className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50"
                 >
                   {downloading ? (
@@ -1592,7 +1909,7 @@ export default function MarketingPosts() {
                   ) : (
                     <i className="bi bi-cloud-arrow-up-fill" />
                   )}
-                  <span>Salvar & Publicar Arte</span>
+                  <span>{isEditingTemplate ? 'Salvar Template' : 'Salvar & Publicar Arte'}</span>
                 </button>
               </div>
             </div>
@@ -1600,6 +1917,9 @@ export default function MarketingPosts() {
           </div>
         </div>
       )}
+
+      {isHeaderFooterInfoOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h4 className="text-sm font-black text-slate-800 dark:text-slate-100">Tamanhos para o Canva</h4><button type="button" onClick={() => setIsHeaderFooterInfoOpen(false)}><i className="bi bi-x-lg" /></button></div><div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"><p><strong>Cabeçalho:</strong> 1080 × 170 px</p><p><strong>Rodapé:</strong> 1080 × 170 px</p><p className="text-xs text-slate-400">Exporte cada arte em PNG para preservar transparência e qualidade.</p></div></div></div>}
+      {isHeaderFooterEditorOpen && <HeaderFooterModelEditor name={headerFooterModelName} headerImage={headerTemplateImage} footerImage={footerTemplateImage} uploading={uploadingTemplateImage} onNameChange={setHeaderFooterModelName} onImageChange={uploadTemplateImage} onRemoveImage={kind => kind === 'header' ? setHeaderTemplateImage('') : setFooterTemplateImage('')} onClose={() => setIsHeaderFooterEditorOpen(false)} />}
 
     </div>
   );

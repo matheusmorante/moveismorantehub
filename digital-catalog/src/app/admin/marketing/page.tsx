@@ -2103,6 +2103,19 @@ export default function MarketingPage() {
           <div>
             <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Gerador de Posts Promocionais</h1>
             <p className="text-gray-500 text-sm">Crie imagens quadradas de divulgação de forma 100% automatizada para redes sociais.</p>
+            <Button
+              type="button"
+              onClick={handleNewPost}
+              disabled={!activeProduct}
+              className="mt-3 h-9 rounded-full gap-2 px-4 text-xs font-bold shadow-md shadow-primary/10"
+              title={activeProduct ? "Abrir o editor com o template atual" : "Selecione um produto para usar o template"}
+            >
+              <Layers className="h-4 w-4" />
+              Template para os Posts
+            </Button>
+            {!activeProduct && (
+              <p className="mt-1 text-xs text-gray-400">Selecione um produto para abrir o template.</p>
+            )}
           </div>
         </div>
       </div>
@@ -2228,7 +2241,7 @@ export default function MarketingPage() {
               className="rounded-full gap-2 font-bold shadow-md shadow-primary/10 self-start md:self-auto"
             >
               <Plus className="h-4 w-4" />
-              Criar Novo Post
+              Criar Post com Template
             </Button>
           </div>
 
@@ -2237,10 +2250,10 @@ export default function MarketingPage() {
               <ImageIcon className="h-16 w-16 mx-auto text-gray-300 animate-pulse" />
               <div className="space-y-1">
                 <h3 className="font-bold text-gray-700">Nenhum post criado ainda</h3>
-                <p className="text-xs text-gray-400">Clique no botão "Criar Novo Post" acima para montar a imagem de propaganda deste produto!</p>
+                <p className="text-xs text-gray-400">Use o template para montar a imagem de propaganda deste produto.</p>
               </div>
               <Button type="button" onClick={handleNewPost} variant="outline" className="font-bold">
-                Criar Primeiro Post
+                Criar Primeiro Post com Template
               </Button>
             </div>
           ) : (

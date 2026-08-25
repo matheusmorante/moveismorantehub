@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
@@ -17,6 +17,7 @@ import logoMorante from "./assets/logo.jpeg";
 export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
 
 export default function AppLayout() {
+  const location = useLocation();
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
@@ -67,6 +68,7 @@ export default function AppLayout() {
       Boolean((window as any).ReactNativeWebView)
     )
   );
+  const isTemplateEditor = location.pathname === '/templates/price-label' || location.pathname === '/templates/posts';
 
   return (
     <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
@@ -82,7 +84,7 @@ export default function AppLayout() {
       />
 
       {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
-      {!isMobileAppView && (
+      {!isMobileAppView && !isTemplateEditor && (
         <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 ${activeMenu ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
           <div className="flex items-center gap-6 xl:gap-12 h-full">
             <button
@@ -205,14 +207,14 @@ export default function AppLayout() {
 
 
       {/* Mobile Nav */}
-      <MobileNav
-        isOpen={isMobileMenuOpen}
-        onClose={() => setIsMobileMenuOpen(false)}
-        activeMenu={activeMenu}
-        setActiveMenu={setActiveMenu}
-      />
+      {!isTemplateEditor && <MobileNav
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+      />}
 
-      <main className={`flex-1 ${isMobileAppView ? 'p-1 sm:p-4' : 'p-4 xl:p-8'} overflow-x-clip`}>
+      <main className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-1 sm:p-4' : 'p-4 xl:p-8'} overflow-x-clip`}>
         <Outlet />
       </main>
 

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { LabelConfig } from './LabelConstants';
 import LabelItem from './LabelItem';
+import { calculateLabelPhysicalSize } from './LabelPhysicalGeometry';
 
 export interface LabelItemConfig {
     name: string;
@@ -17,6 +18,7 @@ export interface LabelItemConfig {
     opportunityId?: string | null;
     opportunity_id?: string | null;
     showName?: boolean;
+    showPromoPrice?: boolean;
     isLogoOnly?: boolean;
 }
 
@@ -108,6 +110,7 @@ const LabelGrid: React.FC<Props> = ({
     };
 
     const dimensions = getPaperSize();
+    const labelPhysicalSize = calculateLabelPhysicalSize(config);
 
     // Injeta os estilos de impressao dinamicamente no document.head para evitar conflito com display: none no #root
     useEffect(() => {
@@ -229,12 +232,16 @@ const LabelGrid: React.FC<Props> = ({
                                         text: item.isBlank ? '' : (item.showName === false ? '' : (item.name || (item.type === 'logo' ? '' : (config.text || '')))),
                                         price: item.isBlank ? '' : (item.price || (item.type === 'logo' ? '' : (config.price || ''))),
                                         promoPrice: item.isBlank ? '' : (item.promoPrice || (item.type === 'logo' ? '' : (config.promoPrice || ''))),
-                                        showPromoPrice: Boolean((item.promoPrice && item.promoPrice.trim() !== '') || config.showPromoPrice),
+                                        showPromoPrice: item.isBlank
+                                            ? false
+                                            : (item.showPromoPrice ?? Boolean(item.promoPrice && item.promoPrice.trim() !== '')),
                                         sku: item.isBlank ? '' : (item.sku || (item.type === 'logo' ? '' : (config.sku || ''))),
                                         extraFields: item.isBlank ? [] : (item.extraFields || (item.type === 'logo' ? [] : (config.extraFields || []))),
                                         imageFit: item.imageFit || config.imageFit,
-                                        opportunityId: item.opportunityId || item.opportunity_id || null,
-                                        opportunity_id: item.opportunityId || item.opportunity_id || null,
+                                        opportunityId: item.opportunityId || item.opportunity_id || 'none',
+                                        opportunity_id: item.opportunityId || item.opportunity_id || 'none',
+                                        labelWidth: labelPhysicalSize.widthMm,
+                                        labelHeight: labelPhysicalSize.heightMm,
                                     };
 
                                     if (config.category === 'precos' && !item.isBlank) {
@@ -242,15 +249,22 @@ const LabelGrid: React.FC<Props> = ({
                                         let savedTemplate: string | null = null;
 
                                         if (oppId) {
-                                            savedTemplate = localStorage.getItem(`morante_price_label_art_template_${oppId}`);
+                                            const dbTemplate = config.artConfig?.opportunities?.[oppId];
+                                            savedTemplate = dbTemplate
+                                                ? JSON.stringify(dbTemplate)
+                                                : localStorage.getItem(`morante_price_label_art_template_${oppId}`);
                                         }
 
                                         // Se não encontrou template de oportunidade específica, tenta carregar 'salvado', 'none' ou o global
                                         if (!savedTemplate) {
-                                            savedTemplate = localStorage.getItem('morante_price_label_art_template_salvado') ||
-                                                            localStorage.getItem('morante_price_label_art_template_none') || 
-                                                            localStorage.getItem('morante_global_price_label_art_template') ||
-                                                            localStorage.getItem('price_label_art_global');
+                                                                                        savedTemplate = oppId === 'none'
+                                                                                                ? localStorage.getItem('morante_price_label_art_template_none') ||
+                                                                                                    localStorage.getItem('morante_global_price_label_art_template') ||
+                                                                                                    localStorage.getItem('price_label_art_global')
+                                                                                                : localStorage.getItem('morante_price_label_art_template_salvado') ||
+                                                                                                    localStorage.getItem('morante_price_label_art_template_none') ||
+                                                                                                    localStorage.getItem('morante_global_price_label_art_template') ||
+                                                                                                    localStorage.getItem('price_label_art_global');
                                         }
 
                                         if (savedTemplate) {

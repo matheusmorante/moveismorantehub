@@ -73,6 +73,9 @@ export interface LabelConfig {
     promoPosY?: number;
     barcodePosX?: number;
     barcodePosY?: number;
+    dePricePorGroupPos?: { x: number; y: number };
+    dePricePorGroupRotation?: number;
+    dePricePorGroupGap?: number;
     // Fontes por faixa
     priceFontSizeHundreds?: number;
     priceFontSizeThousands?: number;
@@ -138,6 +141,9 @@ export interface LabelConfig {
     opportunityId?: string | null;
     opportunity_id?: string | null;
     isBlank?: boolean;
+    artConfig?: {
+        opportunities?: Record<string, any>;
+    };
 }
 
 export const DEFAULT_LAYOUT_MODELS: GridModel[] = [

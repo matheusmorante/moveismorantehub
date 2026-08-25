@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { LabelConfig } from './LabelConstants';
 import { PriceLabelArtRenderer } from './PriceLabelArtRenderer';
+import { calculateLabelPhysicalSize } from './LabelPhysicalGeometry';
 
 const GLOBAL_PRICE_LABEL_ART_KEY = 'morante_global_price_label_art_template';
 const getOppTemplateKey = (oppId: string) => `morante_price_label_art_template_${oppId}`;
@@ -63,8 +64,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     onSaveConfig,
     initialProduct
 }) => {
+    const isStandaloneTemplate = window.location.pathname === '/templates/price-label';
+    const artworkSizeMm = calculateLabelPhysicalSize(config);
     // COR DE FUNDO PADRÃO
-    const getDefaultBg = (oppId: string) => oppId === 'none' ? '#ffffff' : (config.bg_color || '#ff7900');
+    const getDefaultBg = (oppId: string) => oppId === 'salvado' ? (config.bg_color || '#ff7900') : '#ffffff';
 
     // MARGEM DE SEGURANÇA DA IMPRESSÃO
     const [showSafetyMargin, setShowSafetyMargin] = useState(true);
@@ -145,10 +148,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [promoPriceRotation, setPromoPriceRotation] = useState<number>(0);
     
     // Escalas por Ordem de Grandeza (Dezena, Centena, Milhar, Dezena de Milhar)
-    const [scaleTens, setScaleTens] = useState<number>(120);            
-    const [scaleHundreds, setScaleHundreds] = useState<number>(100);    
-    const [scaleThousands, setScaleThousands] = useState<number>(80);   
-    const [scaleTenThousands, setScaleTenThousands] = useState<number>(75); 
+    const [scaleTens, setScaleTens] = useState<number>(120);
+    const [scaleHundreds, setScaleHundreds] = useState<number>(100);
+    const [scaleThousands, setScaleThousands] = useState<number>(80);
+    const [scaleTenThousands, setScaleTenThousands] = useState<number>(75);
 
     // 7. CENTAVOS ",00" - POR ORDEM DE GRANDEZA
     const [centsText, setCentsText] = useState(',00');
@@ -206,6 +209,16 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
     const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
     const [showColorPickerDropdown, setShowColorPickerDropdown] = useState(false);
+    const pendingGradientColorRef = useRef<string | null>(null);
+
+    const closeColorPicker = () => {
+        const color = pendingGradientColorRef.current;
+        if (color) {
+            setColorHistory(prev => [color, ...prev.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10));
+            pendingGradientColorRef.current = null;
+        }
+        setShowColorPickerDropdown(false);
+    };
 
     // SISTEMA DE HISTÓRICO (REFS DECLARADAS NO TOPO DO COMPONENTE)
     const undoStackRef = useRef<any[]>([]);
@@ -412,6 +425,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         initialTens?: number;
         initialHundreds?: number;
         initialThousands?: number;
+        initialTenThousands?: number;
     }>({
         isResizing: false,
         layer: null,
@@ -475,8 +489,23 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // SNAPSHOT COMPLETO DO TIPO DE ETIQUETA (INCLUINDO AS 3 ORDENS DE GRANDEZA)
     const getSnapshot = useCallback(() => {
         const curMagState = getMagnitudeSnapshot();
+        const sharedLayout = {
+            titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos,
+            centsPos, installmentsPos, dePricePorGroupPos,
+            titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
+            deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
+            normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
+            porFontSizeTens, porFontSizeHundreds, porFontSizeThousands,
+            currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands,
+            scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
+            centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands,
+            installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands,
+        };
         const fullTemplates = {
-            ...magnitudeTemplates,
+            ...Object.fromEntries(Object.entries(magnitudeTemplates).map(([magnitude, template]) => [
+                magnitude,
+                { ...template, ...sharedLayout }
+            ])),
             [selectedMagnitude]: curMagState
         };
         return {
@@ -486,7 +515,16 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             oppColorsMap,
             ...curMagState
         };
-    }, [selectedOppId, selectedMagnitude, magnitudeTemplates, getMagnitudeSnapshot, oppColorsMap]);
+    }, [selectedOppId, selectedMagnitude, magnitudeTemplates, getMagnitudeSnapshot, oppColorsMap,
+        titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos, dePricePorGroupPos,
+        titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
+        deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
+        normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
+        porFontSizeTens, porFontSizeHundreds, porFontSizeThousands,
+        currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands,
+        scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
+        centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands,
+        installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands]);
 
     // APLICA O SNAPSHOT DE UMA ORDEM DE GRANDEZA ESPECÍFICA
     const applyMagnitudeSnapshot = (s: any) => {
@@ -505,7 +543,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (s.deText !== undefined) setDeText(s.deText);
         if (s.showDe !== undefined) setShowDe(s.showDe);
         if (s.deFontSizeTens !== undefined) setDeFontSizeTens(s.deFontSizeTens); else if (s.deFontSize !== undefined) setDeFontSizeTens(s.deFontSize);
-        if (s.deFontSizeHundreds !== undefined) setDeFontSizeHundreds(s.deFontSizeHundreds); else if (s.deFontSizeHundreds !== undefined) setDeFontSizeHundreds(s.deFontSize);
+        if (s.deFontSizeHundreds !== undefined) setDeFontSizeHundreds(s.deFontSizeHundreds); else if (s.deFontSize !== undefined) setDeFontSizeHundreds(s.deFontSize);
         if (s.deFontSizeThousands !== undefined) setDeFontSizeThousands(s.deFontSizeThousands); else if (s.deFontSize !== undefined) setDeFontSizeThousands(s.deFontSize);
 
         if (s.deColor) setDeColor(s.deColor);
@@ -592,40 +630,56 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (s.dePricePorGroupRotation !== undefined) setDePricePorGroupRotation(s.dePricePorGroupRotation);
         if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
 
-        if (s.bgColor) {
+        if (s.bgColor && s.bgColor !== 'transparent') {
             setBgColor(s.bgColor);
         } else if (defaultBgColor) {
             setBgColor(defaultBgColor);
         }
     };
 
-    const applySnapshot = (s: any) => {
+    const applySnapshot = (s: any, preserveLayout = false) => {
         if (!s) return;
         isApplyingHistoryRef.current = true;
+        const currentLayout = preserveLayout ? {
+            titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos,
+            centsPos, installmentsPos, dePricePorGroupPos,
+            titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
+            deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
+            normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
+            porFontSizeTens, porFontSizeHundreds, porFontSizeThousands,
+            currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands,
+            scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
+            centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands,
+            installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands,
+        } : null;
 
-        // Restaura o mapa de cores por tipo de etiqueta
-        if (s.oppColorsMap && typeof s.oppColorsMap === 'object') {
-            setOppColorsMap(s.oppColorsMap);
-        }
-
-        if (s.magnitudeTemplates) {
-            setMagnitudeTemplates(s.magnitudeTemplates);
-        }
-
+        if (s.oppColorsMap && typeof s.oppColorsMap === 'object') setOppColorsMap(s.oppColorsMap);
+        if (s.magnitudeTemplates) setMagnitudeTemplates(s.magnitudeTemplates);
         if (s.selectedOppId) setSelectedOppId(s.selectedOppId);
 
         const targetMag = s.selectedMagnitude || selectedMagnitude || 'hundreds';
         setSelectedMagnitude(targetMag);
-
         if (s.magnitudeTemplates && s.magnitudeTemplates[targetMag]) {
             applyMagnitudeSnapshot(s.magnitudeTemplates[targetMag]);
         } else {
             applyMagnitudeSnapshot(s);
         }
 
-        setTimeout(() => {
-            isApplyingHistoryRef.current = false;
-        }, 50);
+        if (currentLayout) {
+            setTitlePos(currentLayout.titlePos); setDePos(currentLayout.dePos); setNormalPricePos(currentLayout.normalPricePos);
+            setPorPos(currentLayout.porPos); setCurrencyPos(currentLayout.currencyPos); setPromoPricePos(currentLayout.promoPricePos);
+            setCentsPos(currentLayout.centsPos); setInstallmentsPos(currentLayout.installmentsPos); setDePricePorGroupPos(currentLayout.dePricePorGroupPos);
+            setTitleFontSizeTens(currentLayout.titleFontSizeTens); setTitleFontSizeHundreds(currentLayout.titleFontSizeHundreds); setTitleFontSizeThousands(currentLayout.titleFontSizeThousands);
+            setDeFontSizeTens(currentLayout.deFontSizeTens); setDeFontSizeHundreds(currentLayout.deFontSizeHundreds); setDeFontSizeThousands(currentLayout.deFontSizeThousands);
+            setNormalPriceFontSizeTens(currentLayout.normalPriceFontSizeTens); setNormalPriceFontSizeHundreds(currentLayout.normalPriceFontSizeHundreds); setNormalPriceFontSizeThousands(currentLayout.normalPriceFontSizeThousands);
+            setPorFontSizeTens(currentLayout.porFontSizeTens); setPorFontSizeHundreds(currentLayout.porFontSizeHundreds); setPorFontSizeThousands(currentLayout.porFontSizeThousands);
+            setCurrencyFontSizeTens(currentLayout.currencyFontSizeTens); setCurrencyFontSizeHundreds(currentLayout.currencyFontSizeHundreds); setCurrencyFontSizeThousands(currentLayout.currencyFontSizeThousands);
+            setScaleTens(currentLayout.scaleTens); setScaleHundreds(currentLayout.scaleHundreds); setScaleThousands(currentLayout.scaleThousands); setScaleTenThousands(currentLayout.scaleTenThousands);
+            setCentsFontSizeTens(currentLayout.centsFontSizeTens); setCentsFontSizeHundreds(currentLayout.centsFontSizeHundreds); setCentsFontSizeThousands(currentLayout.centsFontSizeThousands);
+            setInstallmentsFontSizeTens(currentLayout.installmentsFontSizeTens); setInstallmentsFontSizeHundreds(currentLayout.installmentsFontSizeHundreds); setInstallmentsFontSizeThousands(currentLayout.installmentsFontSizeThousands);
+        }
+
+        setTimeout(() => { isApplyingHistoryRef.current = false; }, 50);
     };
 
     // TROCA DE ORDEM DE GRANDEZA (COM SALVAMENTO E CARREGAMENTO INDEPENDENTE DE LAYOUT)
@@ -784,7 +838,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             }
         }
 
-        let savedGlobal = localStorage.getItem(getOppTemplateKey(selectedOppId));
+        const dbArtSnapshot = config.artConfig?.opportunities?.[selectedOppId];
+        let savedGlobal = dbArtSnapshot
+            ? JSON.stringify(dbArtSnapshot)
+            : localStorage.getItem(getOppTemplateKey(selectedOppId));
         if (!savedGlobal && selectedOppId === 'salvado') {
             savedGlobal = localStorage.getItem(GLOBAL_PRICE_LABEL_ART_KEY);
         }
@@ -792,7 +849,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (savedGlobal) {
             try {
                 const parsed = JSON.parse(savedGlobal);
-                applySnapshot(parsed);
+                applySnapshot(parsed, isInitializedRef.current);
             } catch (e) {
                 console.error("Erro ao restaurar template da etiqueta:", e);
             }
@@ -853,8 +910,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (!isInitializedRef.current) return;
 
         const currentOppColors = oppColorsMap[selectedOppId] || {};
-        // Só aplica se houver cores salvas para este tipo (evita resetar para defaults)
-        if (Object.keys(currentOppColors).length === 0) return;
 
         setTitleColor(currentOppColors['title'] || '#000000');
         setDeColor(currentOppColors['deText'] || '#000000');
@@ -864,24 +919,19 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         setPriceColor(currentOppColors['promoPrice'] || '#1e3a8a');
         setCentsColor(currentOppColors['cents'] || '#000000');
         setInstallmentsColor(currentOppColors['installments'] || '#000000');
-        setBgColor(currentOppColors['background'] || defaultBgColor);
+        const savedBackground = currentOppColors['background'];
+        setBgColor(savedBackground && savedBackground !== 'transparent' ? savedBackground : defaultBgColor);
     }, [selectedOppId, oppColorsMap, defaultBgColor]);
 
-    // SALVAMENTO AUTOMÁTICO DE MODELO POR TIPO DE ETIQUETA (SOMENTE APÓS INICIALIZAÇÃO CONCLUÍDA E ESTRITAMENTE ISOLADO POR oppId)
-    useEffect(() => {
-        if (!isOpen || !isInitializedRef.current || isApplyingHistoryRef.current) return;
-
+    const handleSaveAndExit = () => {
         const currentSnapshot = getSnapshot();
-        // Salva ESTRITAMENTE sob a chave individual da modalidade selecionada
         localStorage.setItem(getOppTemplateKey(selectedOppId), JSON.stringify(currentSnapshot));
         localStorage.setItem('morante_hub_opp_colors_map', JSON.stringify(oppColorsMap));
-        
-        // Apenas atualiza a chave global se a modalidade for salvado
         if (selectedOppId === 'salvado') {
             localStorage.setItem(GLOBAL_PRICE_LABEL_ART_KEY, JSON.stringify(currentSnapshot));
         }
 
-        onSaveConfig({
+        const saveResult = onSaveConfig({
             text: title,
             price: normalPrice,
             promoPrice: promoPrice,
@@ -899,18 +949,19 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             namePosY: titlePos.y,
             pricePosX: promoPricePos.x,
             pricePosY: promoPricePos.y,
+            dePricePorGroupPos,
+            dePricePorGroupRotation,
+            dePricePorGroupGap,
+            artConfig: {
+                ...(config.artConfig || {}),
+                opportunities: {
+                    ...(config.artConfig?.opportunities || {}),
+                    [selectedOppId]: currentSnapshot,
+                },
+            },
         });
-    }, [
-        isOpen, selectedOppId, title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation,
-        deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
-        normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
-        porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
-        currencySymbol, showCurrency, currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
-        promoPrice, showPromoPrice, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
-        centsText, showCents, centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands, centsColor, centsFontFamily, centsPos, centsRotation,
-        showInstallments, installments, installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
-        bgColor, magnitudeTemplates, selectedMagnitude
-    ]);
+        Promise.resolve(saveResult).finally(onClose);
+    };
 
     // TECLAS DO TECLADO PARA MOVER ELEMENTO & ATALHOS DESFAZER/REFAZER
     useEffect(() => {
@@ -1240,7 +1291,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             initialVal: initial,
             initialTens: scaleTens,
             initialHundreds: scaleHundreds,
-            initialThousands: scaleThousands
+            initialThousands: scaleThousands,
+            initialTenThousands: scaleTenThousands
         };
 
         const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
@@ -1252,14 +1304,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             const l = resizeRef.current.layer;
 
             if (l === 'promoPrice') {
-                const factor = Math.max(0.1, 1 + (delta * 0.0035));
-                const newTens = Math.max(10, Math.round((resizeRef.current.initialTens ?? scaleTens) * factor));
-                const newHundreds = Math.max(10, Math.round((resizeRef.current.initialHundreds ?? scaleHundreds) * factor));
-                const newThousands = Math.max(10, Math.round((resizeRef.current.initialThousands ?? scaleThousands) * factor));
-
-                setScaleTens(newTens);
-                setScaleHundreds(newHundreds);
-                setScaleThousands(newThousands);
+                const deltaPx = Math.round(delta * 0.18);
+                setScaleTens(Math.max(10, (resizeRef.current.initialTens ?? scaleTens) + deltaPx));
+                setScaleHundreds(Math.max(10, (resizeRef.current.initialHundreds ?? scaleHundreds) + deltaPx));
+                setScaleThousands(Math.max(10, (resizeRef.current.initialThousands ?? scaleThousands) + deltaPx));
+                setScaleTenThousands(Math.max(10, (resizeRef.current.initialTenThousands ?? scaleTenThousands) + deltaPx));
             } else if (l === 'currencySymbol') {
                 const newSize = Math.max(4, Math.round(resizeRef.current.initialVal + delta * 0.18));
                 setCurrencyFontSizeTens(newSize);
@@ -1376,7 +1425,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         const oppSaved = localStorage.getItem(getOppTemplateKey(newOppId));
         if (oppSaved) {
             try {
-                applySnapshot(JSON.parse(oppSaved));
+                applySnapshot(JSON.parse(oppSaved), true);
                 return;
             } catch (e) {
                 console.error("Erro ao carregar template da modalidade:", e);
@@ -1391,7 +1440,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         }
         if (fallbackSaved) {
             try {
-                applySnapshot(JSON.parse(fallbackSaved));
+                applySnapshot(JSON.parse(fallbackSaved), true);
             } catch (e) {}
         }
     };
@@ -1418,7 +1467,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                     ...loadedSnapshot,
                     selectedOppId: newOppId,
                     selectedMagnitude: newMag
-                });
+                }, true);
                 return;
             }
         }
@@ -1429,7 +1478,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     };
 
     // APLICAÇÃO DE COR
-    const handleColorSelect = (newColor: string) => {
+    const handleColorSelect = (newColor: string, addToHistory = true) => {
         if (selectedElement === 'title') setTitleColor(newColor);
         else if (selectedElement === 'deText') setDeColor(newColor);
         else if (selectedElement === 'normalPrice') setNormalPriceColor(newColor);
@@ -1451,10 +1500,12 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             }));
         }
 
-        setColorHistory(prev => {
-            const filtered = prev.filter(c => c.toLowerCase() !== newColor.toLowerCase());
-            return [newColor, ...filtered].slice(0, 10);
-        });
+        if (addToHistory) {
+            setColorHistory(prev => {
+                const filtered = prev.filter(c => c.toLowerCase() !== newColor.toLowerCase());
+                return [newColor, ...filtered].slice(0, 10);
+            });
+        }
     };
 
     // ALTERAR FONTE DA CAMADA ATIVA
@@ -1486,9 +1537,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 else if (selectedMagnitude === 'hundreds') setCentsFontSizeHundreds(v);
                 else setCentsFontSizeThousands(v);
             } else if (key === 'promoPrice') {
-                if (selectedMagnitude === 'tens') setScaleTens(Math.round(v * 4.5));
-                else if (selectedMagnitude === 'hundreds') setScaleHundreds(Math.round(v * 4));
-                else setScaleThousands(Math.round(v * 3.5));
+                if (selectedMagnitude === 'tens') setScaleTens(v);
+                else if (selectedMagnitude === 'hundreds') setScaleHundreds(v);
+                else setScaleThousands(v);
             }
         });
     };
@@ -1526,7 +1577,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         selectedElement === 'promoPrice' ? priceColor :
         selectedElement === 'cents' ? centsColor :
         selectedElement === 'installments' ? installmentsColor :
-        bgColor;
+        (bgColor && bgColor !== 'transparent' ? bgColor : oppColorsMap[selectedOppId]?.background || defaultBgColor);
 
     if (!isOpen) return null;
 
@@ -1638,7 +1689,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             const hiddenEls = previewRef.current.querySelectorAll('[data-hide-export="true"]');
             hiddenEls.forEach(el => (el as HTMLElement).style.display = 'none');
 
-            const canvas = await html2canvas(previewRef.current, { scale: 3, useCORS: true, backgroundColor: null });
+            const canvas = await html2canvas(previewRef.current, {
+                scale: 1,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                width: previewRef.current.clientWidth,
+                height: previewRef.current.clientHeight,
+                scrollX: 0,
+                scrollY: 0
+            });
             
             hiddenEls.forEach(el => (el as HTMLElement).style.display = '');
 
@@ -1661,7 +1720,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             const hiddenEls = previewRef.current.querySelectorAll('[data-hide-export="true"]');
             hiddenEls.forEach(el => (el as HTMLElement).style.display = 'none');
 
-            const canvas = await html2canvas(previewRef.current, { scale: 3, useCORS: true, backgroundColor: null });
+            const canvas = await html2canvas(previewRef.current, {
+                scale: 1,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                width: previewRef.current.clientWidth,
+                height: previewRef.current.clientHeight,
+                scrollX: 0,
+                scrollY: 0
+            });
             
             hiddenEls.forEach(el => (el as HTMLElement).style.display = '');
 
@@ -1677,7 +1744,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/90 backdrop-blur-md animate-fade-in overflow-hidden w-screen h-screen">
+        <div className={`fixed inset-0 z-50 flex flex-col animate-fade-in overflow-hidden w-screen h-screen ${isStandaloneTemplate ? 'bg-white dark:bg-slate-950' : 'bg-slate-900/90 backdrop-blur-md'}`}>
             {/* CARREGAMENTO DAS FONTES GOOGLE PARA AS ETIQUETAS */}
             <link 
                 href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Poppins:wght@400;700;900&family=Roboto:wght@400;700;900&family=Playfair+Display:wght@700;900&display=swap" 
@@ -1692,7 +1759,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                     </div>
                     <div>
                         <h2 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">
-                            EDITOR DE ARTE DA ETIQUETA DE PREÇO
+                            TEMPLATE DA ETIQUETA DE PREÇO
                         </h2>
                     </div>
                 </div>
@@ -1719,14 +1786,15 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         <span className="hidden sm:inline">Refazer</span>
                     </button>
 
-                    <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors cursor-pointer ml-1">
-                        <i className="bi bi-x-lg text-xs" />
+                    <button type="button" onClick={onClose} className="h-8 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 hover:text-red-500 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ml-1 text-xs font-black">
+                        <i className="bi bi-arrow-left text-xs" />
+                        <span>Voltar ao ERP</span>
                     </button>
                 </div>
             </div>
 
             {/* 2. BARRA DE MENU PRINCIPAL (SUPERIOR) */}
-            <div className="flex items-center justify-start gap-3 bg-slate-200/80 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-1.5 shrink-0 overflow-x-auto custom-scrollbar relative z-30">
+            <div className="flex items-center justify-start gap-3 bg-slate-200/80 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-1.5 shrink-0 overflow-visible relative z-[1000]">
                 
                 {/* LADO ESQUERDO: ARQUIVO (DROPDOWN), CAMADAS, MARGEM DE SEGURANÇA & SELEÇÃO DE TIPO DE ETIQUETA */}
                 <div className="flex items-center gap-3 shrink-0 flex-nowrap">
@@ -1745,7 +1813,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         {isFileMenuOpen && (
                             <div 
                                 style={{ zIndex: 99999 }}
-                                className="absolute left-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 z-[99999] animate-fade-in"
+                                className="absolute left-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 z-[1100] animate-fade-in"
                             >
                                 <button
                                     type="button"
@@ -2176,7 +2244,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                         className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[9999]" 
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setShowColorPickerDropdown(false);
+                                            closeColorPicker();
                                         }} 
                                     />
                                     
@@ -2201,7 +2269,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                             </div>
                                             <button 
                                                 type="button" 
-                                                onClick={() => setShowColorPickerDropdown(false)} 
+                                                        onClick={closeColorPicker} 
                                                 className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                                             >
                                                 <i className="bi bi-x-lg text-xs" />
@@ -2216,7 +2284,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                                     if (selectedElement && oppColorsMap[opp.id]?.[selectedElement]) {
                                                         return oppColorsMap[opp.id][selectedElement];
                                                     }
-                                                    if (selectedElement === 'background') return defaultBgColor;
+                                                    if (selectedElement === 'background') return getDefaultBg(opp.id);
                                                     if (selectedElement === 'promoPrice') return '#1e3a8a';
                                                     if (selectedElement === 'title' || selectedElement === 'deText' || selectedElement === 'normalPrice' || selectedElement === 'porText' || selectedElement === 'currencySymbol' || selectedElement === 'cents' || selectedElement === 'installments') {
                                                         return '#000000';
@@ -2234,16 +2302,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                                         }
                                                     }));
                                                     if (isCurrentActiveOpp) {
-                                                        handleColorSelect(color);
+                                                        handleColorSelect(color, false);
                                                     }
-                                                };
-
-                                                const commitRecentColor = (color: string) => {
-                                                    if (!color) return;
-                                                    setColorHistory(prev => {
-                                                        const filtered = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
-                                                        return [color, ...filtered].slice(0, 10);
-                                                    });
+                                                    pendingGradientColorRef.current = color;
                                                 };
 
                                                 return (
@@ -2277,7 +2338,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                                                     type="color"
                                                                     value={oppColor}
                                                                     onChange={e => handleOppColorChange(e.target.value)}
-                                                                    onBlur={e => commitRecentColor(e.target.value)}
                                                                     className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                                                                 />
                                                                 <div className="w-full h-full rounded-lg border border-white/60" style={{ backgroundColor: oppColor }} />
@@ -2373,9 +2433,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         <div className="w-full max-w-full lg:max-w-4xl xl:max-w-5xl flex flex-col items-center justify-center my-auto p-4 sm:p-6 overflow-visible">
                             {/* Etiqueta de Preço: Renderizador Unificado 1:1 */}
                             <PriceLabelArtRenderer
-                                containerRefOut={previewRef}
-                                mode="edit"
-                                data={{
+                                    containerRefOut={previewRef}
+                                    mode="edit"
+                                    data={{
+                                        artWidthMm: artworkSizeMm.widthMm,
+                                        artHeightMm: artworkSizeMm.heightMm,
                                     title,
                                     showTitle,
                                     titleFontSize: activeTitleFontSize,
@@ -2441,7 +2503,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     installmentsPos,
                                     installmentsRotation,
 
-                                    bgColor,
+                                    bgColor: bgColor && bgColor !== 'transparent'
+                                        ? bgColor
+                                        : oppColorsMap[selectedOppId]?.background || defaultBgColor,
 
                                     showPromoPriceThousands,
                                     showPromoPriceHundreds,
@@ -2453,16 +2517,16 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     testCentenaStr: isTestValuesModalOpen ? `${testCentenaD1}${testCentenaD2}${testCentenaD3}` : undefined,
                                     testDezenaStr: isTestValuesModalOpen ? `${testDezenaD1}${testDezenaD2}` : undefined,
                                     selectedMagnitude
-                                }}
-                                selectedElement={selectedElement}
-                                selectedElements={selectedElements}
-                                onSelectElement={handleElementClick}
-                                startDragging={startDragging}
-                                startResizing={startResizing}
-                                startRotating={startRotating}
-                                showSafetyMargin={showSafetyMargin}
-                                activeGuideX={activeGuideX}
-                                activeGuideY={activeGuideY}
+                                    }}
+                                    selectedElement={selectedElement}
+                                    selectedElements={selectedElements}
+                                    onSelectElement={handleElementClick}
+                                    startDragging={startDragging}
+                                    startResizing={startResizing}
+                                    startRotating={startRotating}
+                                    showSafetyMargin={showSafetyMargin}
+                                    activeGuideX={activeGuideX}
+                                    activeGuideY={activeGuideY}
                             />
                         </div>
                     </div>
@@ -2875,20 +2939,20 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 </div>
             )}
 
-            {/* Modal Footer Fullwidth com indicação de salvamento automático */}
+            {/* Modal Footer Fullwidth */}
             <div className="flex items-center justify-between px-6 lg:px-10 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                    <i className="bi bi-check-circle-fill text-emerald-500 text-sm" />
-                    <span>Salvamento Automático Ativo</span>
+                    <i className="bi bi-info-circle-fill text-blue-500 text-sm" />
+                    <span>As alterações serão salvas ao sair</span>
                 </div>
 
                 <button
                     type="button"
-                    onClick={onClose}
-                    className="px-8 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                    onClick={handleSaveAndExit}
+                    className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                 >
-                    <i className="bi bi-box-arrow-right text-sm" />
-                    <span>SAIR</span>
+                    <i className="bi bi-check2-circle text-sm" />
+                    <span>SALVAR E SAIR</span>
                 </button>
             </div>
 
