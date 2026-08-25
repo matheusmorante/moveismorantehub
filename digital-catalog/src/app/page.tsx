@@ -212,7 +212,7 @@ function HomeContent() {
     }
 
     return badges
-  }, [filters, categories, relationships, opportunities, handleFilterChange])nge])
+  }, [filters, categories, relationships, opportunities, handleFilterChange])
 
   const activeFilterCount = filterBadges.length
   const showHeroAndAdvantages = !filters.search
