@@ -122,10 +122,10 @@ const Products: React.FC = () => {
 
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
-            <div className="flex-1 flex flex-col min-w-0 p-1.5 sm:p-4 lg:p-8">
+            <div className="flex-1 flex flex-col min-w-0 p-0.5 sm:p-2 lg:p-6 xl:p-8">
                 <div className="flex flex-col gap-3 sm:gap-6 flex-1 min-h-0">
                     {/* Header Actions Container */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 px-1 sm:px-2">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 px-0.5 sm:px-1">
                         <div className="flex flex-wrap items-center gap-3 w-full">
                             <div className="relative flex-1 min-w-[200px] max-w-md">
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
