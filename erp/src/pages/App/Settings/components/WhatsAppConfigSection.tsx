@@ -9,6 +9,17 @@ interface WhatsAppConfigSectionProps {
     onChange: (path: string, value: any) => void;
 }
 
+const VARIABLE_OPTIONS = [
+    { value: 0, label: '0 variáveis — Apenas texto fixo sem {{1}}' },
+    { value: 1, label: '1 variável — {{1}} Nome do Cliente' },
+    { value: 2, label: '2 variáveis — {{1}} Nome, {{2}} Data/Prazo' },
+    { value: 3, label: '3 variáveis — {{1}} Nome, {{2}} Produtos, {{3}} Valor Total' },
+    { value: 4, label: '4 variáveis — {{1}} Nome, {{2}} Data, {{3}} Produtos, {{4}} Total' },
+    { value: 5, label: '5 variáveis — {{1}} Nome, {{2}} Data, {{3}} Endereço, {{4}} Produtos, {{5}} Total' },
+    { value: 6, label: '6 variáveis — {{1}} Nome, {{2}} Data, {{3}} Endereço, {{4}} Produtos, {{5}} Total, {{6}} Pagamento' },
+    { value: 7, label: '7 variáveis — Completo (Nome, Data, Hora, Endereço, Produtos, Total, Pagamento)' }
+];
+
 export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppConfigSectionProps) {
     const [isTesting, setIsTesting] = useState(false);
     const [isTestingTemplate, setIsTestingTemplate] = useState(false);
@@ -23,10 +34,11 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         catalogId: '',
         sendMode: 'graph_api',
         templateNameOrderConfirmation: '',
-        templateLanguage: 'pt_BR'
+        templateLanguage: 'pt_BR',
+        templateVariableCount: 7
     };
 
-    const handleFieldChange = (field: string, value: string) => {
+    const handleFieldChange = (field: string, value: any) => {
         onChange(`whatsappConfig.${field}`, value);
     };
 
@@ -45,7 +57,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
 
     const handleFetchTemplates = async () => {
         if (!config.wabaId) {
-            toast.warning("Preencha o WABA ID para consultar os modelos cadastrados no Meta.");
+            toast.warning("Preencha o WABA ID (ID da Conta do WhatsApp Business) para listar automaticamente.");
             return;
         }
         if (!config.accessToken) {
@@ -64,7 +76,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
             }
         } catch (err: any) {
             console.error(err);
-            toast.error(`Erro ao buscar modelos: ${err.message}`);
+            toast.error(`Aviso: ${err.message}. Você pode configurar o nome e variáveis do modelo manualmente abaixo!`);
         } finally {
             setIsLoadingTemplates(false);
         }
@@ -85,20 +97,9 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         try {
             toast.info("Enviando mensagem de teste via Meta API...");
             
-            // Verifica se encontramos o modelo na lista para saber a quantidade exata de variáveis
-            const matchedTemplate = fetchedTemplates.find(t => t.name === config.templateNameOrderConfirmation?.trim());
-            let paramCount = 0;
-            if (matchedTemplate) {
-                const bodyComp = matchedTemplate.components?.find((c: any) => c.type === 'BODY');
-                if (bodyComp?.text) {
-                    const matches = bodyComp.text.match(/\{\{\d+\}\}/g);
-                    paramCount = matches ? new Set(matches).size : 0;
-                }
-            }
-
-            // Monta lista de parâmetros adaptada à quantidade de variáveis do modelo
+            const varCount = typeof config.templateVariableCount === 'number' ? config.templateVariableCount : 7;
             const mockParams = ["Cliente Teste", "26/08/2026", "Manhã", "Rua Teste, 123", "1x Guarda-Roupa", "R$ 949,00", "Pix"];
-            const finalParams = paramCount > 0 ? mockParams.slice(0, paramCount) : (matchedTemplate ? [] : mockParams);
+            const finalParams = varCount === 0 ? [] : mockParams.slice(0, varCount);
 
             await whatsappGraphService.sendTemplateMessage(
                 cleanPhone,
@@ -123,7 +124,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                     <div className="flex-1">
                         <h5 className="text-amber-800 dark:text-amber-400 font-bold text-sm uppercase tracking-wider">Atenção</h5>
                         <p className="text-amber-700/80 dark:text-amber-500/80 text-xs mt-1 leading-relaxed font-medium">
-                            Para o Catálogo e envio de mensagens funcionarem, você deve usar um <b>Token de Sistema (Permanente)</b> gerado no Meta Business Manager. Tokens temporários expiram em 24 horas.
+                            Para o envio direto de mensagens funcionar, utilize um <b>Token Permanente de Usuário do Sistema</b> gerado no Meta Business Manager com permissões <code>whatsapp_business_messaging</code>.
                         </p>
                     </div>
                 </div>
@@ -190,7 +191,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                                     WhatsApp Web / App (wa.me)
                                 </span>
                                 <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 font-medium">
-                                    Abre uma nova aba no WhatsApp Web com o texto pré-preenchido para envio.
+                                    Abre uma nova aba no WhatsApp Web com o texto pré-preenchido para envio manual.
                                 </span>
                             </div>
                         </label>
@@ -198,6 +199,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                 </div>
             </div>
 
+            {/* Token de Acesso */}
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div className="flex-1 max-w-lg">
@@ -216,27 +218,29 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                 </div>
             </div>
 
+            {/* Phone Number ID */}
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex-1 max-w-lg">
                         <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Phone Number ID</h4>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Identificador do número de telefone registrado na API.</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Identificador numérico do número de telefone registrado na API.</p>
                     </div>
                     <input
                         type="text"
                         value={config.phoneNumberId}
                         onChange={(e) => handleFieldChange('phoneNumberId', e.target.value)}
-                        placeholder="Ex: 1092837465..."
+                        placeholder="Ex: 1020981007772705"
                         className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-80 transition-all font-medium"
                     />
                 </div>
             </div>
 
+            {/* WABA ID */}
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex-1 max-w-lg">
-                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">WABA ID</h4>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">WhatsApp Business Account ID (usado para sincronizar modelos de mensagem).</p>
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">WABA ID (Opcional)</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">WhatsApp Business Account ID (usado para listagem automática de modelos).</p>
                     </div>
                     <input
                         type="text"
@@ -261,15 +265,17 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                                 Nome do modelo aprovado no <b>Meta Business Suite</b> para envio do resumo do pedido (produtos, valores e prazos) ao cliente quando o pedido é gerado.
                             </p>
 
-                            <button
-                                type="button"
-                                disabled={isLoadingTemplates}
-                                onClick={handleFetchTemplates}
-                                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50"
-                            >
-                                <i className={`bi ${isLoadingTemplates ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-clockwise'}`} />
-                                {isLoadingTemplates ? 'Consultando Meta...' : 'Consultar Modelos na Conta Meta (WABA)'}
-                            </button>
+                            {config.wabaId && (
+                                <button
+                                    type="button"
+                                    disabled={isLoadingTemplates}
+                                    onClick={handleFetchTemplates}
+                                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+                                >
+                                    <i className={`bi ${isLoadingTemplates ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-clockwise'}`} />
+                                    {isLoadingTemplates ? 'Consultando Meta...' : 'Consultar Modelos na Conta Meta (WABA)'}
+                                </button>
+                            )}
                         </div>
                         <div className="flex flex-col gap-3 w-full md:w-80">
                             <div>
@@ -281,6 +287,21 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                                     placeholder="Ex: confirmacao_pedido ou pedido_cliente"
                                     className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-mono font-medium"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Quantidade de Variáveis do Modelo ({{1}}, {{2}}...)</label>
+                                <select
+                                    value={config.templateVariableCount ?? 7}
+                                    onChange={(e) => handleFieldChange('templateVariableCount', Number(e.target.value))}
+                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-medium"
+                                >
+                                    {VARIABLE_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>
@@ -317,7 +338,8 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                                             onClick={() => {
                                                 handleFieldChange('templateNameOrderConfirmation', tpl.name);
                                                 handleFieldChange('templateLanguage', tpl.language || 'pt_BR');
-                                                toast.info(`Modelo "${tpl.name}" selecionado!`);
+                                                handleFieldChange('templateVariableCount', varCount);
+                                                toast.info(`Modelo "${tpl.name}" selecionado (${varCount} variáveis)!`);
                                             }}
                                             className={`text-left p-3 rounded-xl border transition-all ${
                                                 isSelected 

@@ -248,24 +248,29 @@ export const sendDirectCustomerMessage = async (order: Order) => {
         ? (order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado")
         : stringifyFullAddressWithObservation(customer.fullAddress);
 
-    const totalValStr = formatCurrency(order.paymentsSummary?.totalOrderValue || 0);
-    const paymentsStr = stringifyPayments(order.payments || []);
+    const settings = getSettings();
+    const config = settings.whatsappConfig;
+
+    const allParams = [
+        customer.fullName || "Cliente",
+        date || "A confirmar",
+        time || "Não informado",
+        addressStr || "Não informado",
+        itemsBlock || "Produtos",
+        totalValStr || "R$ 0,00",
+        paymentsStr || "Não informado"
+    ];
+
+    const varCount = typeof config?.templateVariableCount === 'number' ? config.templateVariableCount : allParams.length;
+    const finalParams = varCount === 0 ? [] : allParams.slice(0, varCount);
 
     await safeSendWhatsAppOrFallback({
         phone: customer.phone,
         message,
         fallbackUrl: url,
-        successMessage: "Mensagem enviada para o cliente com sucesso!",
+        successMessage: "Mensagem do pedido enviada para o cliente com sucesso!",
         templateData: {
-            parameters: [
-                customer.fullName || "Cliente",
-                date || "A confirmar",
-                time || "Não informado",
-                addressStr || "Não informado",
-                itemsBlock || "Produtos",
-                totalValStr || "R$ 0,00",
-                paymentsStr || "Não informado"
-            ]
+            parameters: finalParams
         }
     });
 };

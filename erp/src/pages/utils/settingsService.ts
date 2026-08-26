@@ -124,6 +124,7 @@ export interface AppSettings {
         sendMode?: 'graph_api' | 'wame';
         templateNameOrderConfirmation?: string;
         templateLanguage?: string;
+        templateVariableCount?: number;
     };
     channelBaseDescriptions: {
         whatsapp: string;
