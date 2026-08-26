@@ -209,12 +209,12 @@ export const generateDeliveryAISummary = async (
       deliveryOrders.forEach((o: any) => {
         const oData = o.order_data || {};
         const shipping = oData.shipping || {};
-        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};\r
-\r
-        const obsText = (\r
-          oData.observations || oData.notes || oData.observation ||\r
-          shipping.observations || shipping.notes || shipping.observation ||\r
-          o.observations || o.notes || o.observation || ''\r
+        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
+
+        const obsText = (
+          oData.observations || oData.notes || oData.observation ||
+          shipping.observations || shipping.notes || shipping.observation ||
+          o.observations || o.notes || o.observation || ''
         ).toString().toLowerCase();
 
         const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
