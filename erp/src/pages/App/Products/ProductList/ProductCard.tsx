@@ -108,10 +108,10 @@ const ProductCard = ({
 
     return (
         <div
-            className={`border rounded-xl p-3 shadow-sm transition-all relative
+            className={`border rounded-2xl p-2.5 sm:p-3.5 shadow-sm transition-all relative w-full
                 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 
                   isParent ? 'border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/10' :
-                  isVariation ? 'border-slate-200 dark:border-slate-800 ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
+                  isVariation ? 'border-slate-200 dark:border-slate-800 ml-2.5 sm:ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
                   'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
         >
             <div className="flex justify-between items-start mb-2">

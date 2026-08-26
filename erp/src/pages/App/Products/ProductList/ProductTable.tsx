@@ -254,7 +254,7 @@ const ProductTable = ({
                     </table>
                 </div>
             ) : (
-                <div className="flex flex-col gap-4 overflow-y-auto pb-4">
+                <div className="flex flex-col gap-2.5 sm:gap-4 overflow-y-auto pb-4 w-full px-0">
                     {finalProducts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <i className="bi bi-search text-4xl mb-3 opacity-20" />
