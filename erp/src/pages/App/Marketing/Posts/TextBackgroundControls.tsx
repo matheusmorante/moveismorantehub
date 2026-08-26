@@ -17,7 +17,10 @@ type Props = {
 
 export default function TextBackgroundControls({ value, onChange }: Props) {
   const update = <K extends keyof TextBackground>(key: K, next: TextBackground[K]) => onChange({ ...value, [key]: next });
-  const spacing = (side: 'Left' | 'Right' | 'Top' | 'Bottom') => value[`padding${side}`] ?? (side === 'Left' || side === 'Right' ? value.paddingX : value.paddingY) ?? 0;
+  const horizontalSpacing = value.paddingX ?? value.paddingLeft ?? value.paddingRight ?? 0;
+  const verticalSpacing = value.paddingY ?? value.paddingTop ?? value.paddingBottom ?? 0;
+  const updateHorizontalSpacing = (next: number) => onChange({ ...value, paddingX: next, paddingLeft: next, paddingRight: next });
+  const updateVerticalSpacing = (next: number) => onChange({ ...value, paddingY: next, paddingTop: next, paddingBottom: next });
 
   return <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
     <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Fundo do texto</p>
@@ -26,9 +29,12 @@ export default function TextBackgroundControls({ value, onChange }: Props) {
     </label>
     <p className="text-[10px] font-black text-slate-500">Espaçamento</p>
     <div className="grid grid-cols-2 gap-2">
-      {([['Left', 'Esquerdo'], ['Right', 'Direito'], ['Top', 'Cima'], ['Bottom', 'Embaixo']] as const).map(([side, label]) => <label key={side} className="flex flex-col gap-1 text-[10px] font-black text-slate-500">{label}
-        <input type="number" min="0" max="200" value={spacing(side)} onChange={event => update(`padding${side}`, Math.max(0, Number(event.target.value) || 0))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" />
-      </label>)}
+      <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Horizontal
+        <input type="number" min="0" max="200" value={horizontalSpacing} onChange={event => updateHorizontalSpacing(Math.max(0, Number(event.target.value) || 0))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" />
+      </label>
+      <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Vertical
+        <input type="number" min="0" max="200" value={verticalSpacing} onChange={event => updateVerticalSpacing(Math.max(0, Number(event.target.value) || 0))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" />
+      </label>
     </div>
     <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Transparência: {Math.round((1 - value.opacity) * 100)}%
       <input type="range" min="0" max="100" value={Math.round(value.opacity * 100)} onChange={event => update('opacity', Number(event.target.value) / 100)} className="accent-pink-600" />

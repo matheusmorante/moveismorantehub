@@ -11,6 +11,7 @@ dist/
 .gemini/
 *.exe
 *.msi
+*.apk
 .expo/
 
 # Multimedia (Large files)

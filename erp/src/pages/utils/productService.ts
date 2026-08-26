@@ -63,6 +63,9 @@ const mapToDB = (product: Partial<Product>) => {
     if (nameCandidate !== undefined && nameCandidate !== '') {
         data.name = nameCandidate;
         data.slug = normalizeSlug(nameCandidate);
+    } else if (product.isDraft) {
+        data.name = 'Rascunho de Produto';
+        data.slug = normalizeSlug(`rascunho-${product.id || Date.now()}`);
     }
     if (product.description !== undefined) data.description = product.description;
     if (product.brand !== undefined) data.brand = product.brand;
@@ -76,6 +79,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.condition !== undefined) data.condition = product.condition;
     if (product.unitPrice !== undefined) {
         data.unit_price = product.unitPrice;
+        data.price = product.unitPrice;
     }
     if (product.costPrice !== undefined) data.cost_price = product.costPrice;
     if (product.freightType !== undefined) data.freight_type = product.freightType;
@@ -772,9 +776,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         // Sincronizar variações na tabela product_variations
         if (product.id) {
             if ((product.hasVariations || (Array.isArray(product.variations) && product.variations.length > 0)) && product.variations && product.variations.length > 0) {
-                const varWithoutImage = product.variations.find(v => !v.images || v.images.length === 0);
-                if (varWithoutImage) {
-                    throw new Error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
+                if (!product.isDraft) {
+                    const varWithoutImage = product.variations.find(v => !v.images || v.images.length === 0);
+                    if (varWithoutImage) {
+                        throw new Error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
+                    }
                 }
 
                 const currentIds = product.variations.map(v => v.id).filter(Boolean);
@@ -807,11 +813,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         product_id: product.id,
                         name: v.name,
                         sku: resolvedSku,
-                        price: v.syncUnitPrice ? null : (v.unitPrice ? Number(v.unitPrice) : null),
+                        price: v.syncUnitPrice ? (product.unitPrice ? Number(product.unitPrice) : 0) : (v.unitPrice !== undefined && v.unitPrice !== null ? Number(v.unitPrice) : 0),
                         stock: v.stock ? parseInt(String(v.stock), 10) : 0,
                         image_url: v.images && v.images.length > 0 ? v.images.join(",") : null,
                         attributes: attributesObj,
-                        promo_price: v.syncPromoPrice !== false ? null : (v.promoPrice ? Number(v.promoPrice) : null),
+                        promo_price: v.syncPromoPrice !== false ? (product.promoPrice ? Number(product.promoPrice) : null) : (v.promoPrice !== undefined && v.promoPrice !== null ? Number(v.promoPrice) : null),
                         description: v.syncDescription ? null : (v.description || null),
                         width: v.width ? String(v.width) : null,
                         depth: v.depth ? String(v.depth) : null,
@@ -1326,16 +1332,23 @@ export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ succ
     }
 };
 
+export const deactivateProduct = async (id: string): Promise<void> => {
+    // Desativa o produto e oculta do catálogo sem afetar histórico de vendas passadas
+    await updateProduct(id, { active: false, status: 'hidden' });
+};
+
+export const activateProduct = async (id: string): Promise<void> => {
+    // Reativa o produto para voltar a ficar visível nas buscas e catálogo
+    await updateProduct(id, { active: true, status: 'published' });
+};
+
 export const moveToTrash = async (id: string): Promise<void> => {
-    const linkedOrderId = await checkProductLinkedToSales(id);
-    if (linkedOrderId) {
-        throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser removido para preservar o histórico.`);
-    }
-    await updateProduct(id, { deleted: true, active: false });
+    // Redireciona para desativação
+    await deactivateProduct(id);
 };
 
 export const restoreProduct = async (id: string): Promise<void> => {
-    await updateProduct(id, { deleted: false, active: true });
+    await activateProduct(id);
 };
 
 export const permanentDeleteProduct = async (id: string): Promise<void> => {

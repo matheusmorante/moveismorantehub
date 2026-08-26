@@ -434,19 +434,33 @@ const ProductRow = ({
                                                     </>
                                                 )}
 
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setIsMenuOpen(false);
-                                                        if (window.confirm(`Tem certeza que deseja excluir o produto "${product.name || product.title || product.description}" permanentemente? Esta ação só é permitida para produtos sem movimentações de estoque ou vendas.`)) {
-                                                            onPermanentDelete(product.id!);
-                                                        }
-                                                    }}
-                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                                >
-                                                    <i className="bi bi-trash3-fill text-red-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Produto</span>
-                                                </button>
+                                                {product.active !== false && !showTrash ? (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onDelete(product.id!);
+                                                        }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                        title="Desativa o produto e oculta do catálogo e das pesquisas de venda"
+                                                    >
+                                                        <i className="bi bi-slash-circle text-amber-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Desativar Produto</span>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onRestore(product.id!);
+                                                        }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                        title="Reativa o produto no sistema e catálogo"
+                                                    >
+                                                        <i className="bi bi-check-circle-fill text-emerald-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Reativar Produto</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         </DropdownPortal>
                                     </div>

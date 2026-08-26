@@ -13,7 +13,7 @@ interface Props {
 }
 
 const PERIOD_OPTIONS = [
-  { id: 'today_and_following', label: 'Hoje e Dias Seguintes' },
+  { id: 'today_and_following', label: 'A partir de hoje' },
   { id: 'today', label: 'Hoje' },
   { id: 'this_week', label: 'Esta Semana' },
   { id: 'this_month', label: 'Este Mês' },
@@ -86,7 +86,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
     }));
   };
 
-  const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'Hoje e Dias Seguintes';
+  const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'A partir de hoje';
 
   const deliveryOrders = orders.filter((o) => {
     const oData = o.order_data || {};
@@ -253,10 +253,9 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
     const distanceKm = shipping.distance != null ? Number(shipping.distance).toFixed(1) : null;
     const durationMin = shipping.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
 
-    let cardBorderColor = '#10b981';
-    if (hasOutsideAssembly) cardBorderColor = '#ef4444';
-    else if (isAssistance) cardBorderColor = '#f59e0b';
-    else if (isPickup) cardBorderColor = '#a855f7';
+    let cardBorderColor = '#10b981'; // verde = entrega (padrão)
+    if (isAssistance) cardBorderColor = '#f59e0b'; // âmbar = assistência
+    else if (isPickup) cardBorderColor = '#a855f7'; // roxo = retirada
 
     return (
       <TouchableOpacity

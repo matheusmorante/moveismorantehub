@@ -1316,10 +1316,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         isSavingDraftRef.current = true;
         setIsSavingDraft(true);
         try {
+            const draftTitle = (data.title || data.name || data.marketplaceTitle || data.description || '').trim() || 'Rascunho de Produto';
             const normalizedData = {
                 ...data,
-                isDraft: data.isDraft !== false,
-                active: true,
+                name: data.name || draftTitle,
+                title: data.title || draftTitle,
+                description: data.description || draftTitle,
+                isDraft: true,
+                active: false,
                 status: data.status || 'draft'
             } as Product;
             await saveProduct(normalizedData);
@@ -1333,26 +1337,27 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     }, []);
 
-    // Durante a criação, cada alteração é salva automaticamente após uma breve
-    // pausa. Produtos em edição permanecem exclusivamente com salvamento manual.
-    // Não depende de `loading` para evitar loop de re-render.
+    // Durante a criação ou edição de rascunho, cada alteração é salva automaticamente após 800ms
     useEffect(() => {
-        if (!isOpen || product || !hasProductName || !hasChanged.current) return;
+        const isDraftProduct = !product || Boolean(product.isDraft) || Boolean(formData.isDraft);
+        if (!isOpen || !isDraftProduct || !hasChanged.current) return;
 
         const timer = window.setTimeout(() => {
             autoSaveDraft(formData);
         }, 800);
 
         return () => window.clearTimeout(timer);
-    }, [formData, hasProductName, isOpen, product, autoSaveDraft]);
+    }, [formData, isOpen, product, autoSaveDraft]);
 
     const handleSaveAndClose = async () => {
-        const saved = await handleSubmit(false, !product && formData.isDraft !== false);
+        const isDraftProduct = !product || Boolean(product.isDraft) || Boolean(formData.isDraft);
+        const saved = await handleSubmit(false, isDraftProduct);
         if (saved) onClose();
     };
 
     const handleCloseWithAutoSave = async () => {
-        if (!product && hasChanged.current && !loading && !isSavingDraftRef.current) {
+        const isDraftProduct = !product || Boolean(product.isDraft) || Boolean(formData.isDraft);
+        if (isDraftProduct && hasChanged.current && !loading && !isSavingDraftRef.current) {
             await autoSaveDraft(formData);
         }
         onClose();

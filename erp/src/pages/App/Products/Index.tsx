@@ -58,33 +58,45 @@ const Products: React.FC = () => {
 
     const [catalogStats, setCatalogStats] = React.useState({
         total: 0,
-        active: 0,
-        disabled: 0
+        published: 0,
+        disabled: 0,
+        drafts: 0
     });
 
     const fetchStats = React.useCallback(async () => {
         try {
             const { count: totalCount } = await supabase
                 .from('products')
-                .select('*', { count: 'exact', head: true });
+                .select('*', { count: 'exact', head: true })
+                .eq('deleted', false);
 
-            const { count: activeCount } = await supabase
+            const { count: publishedCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
-                .eq('status', 'active');
+                .eq('deleted', false)
+                .eq('status', 'published')
+                .eq('active', true);
 
             const { count: disabledCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
-                .eq('status', 'inactive');
+                .eq('deleted', false)
+                .eq('active', false);
+
+            const { count: draftsCount } = await supabase
+                .from('products')
+                .select('*', { count: 'exact', head: true })
+                .eq('deleted', false)
+                .eq('is_draft', true);
 
             setCatalogStats({
                 total: totalCount || 0,
-                active: activeCount || 0,
-                disabled: disabledCount || 0
+                published: publishedCount || 0,
+                disabled: disabledCount || 0,
+                drafts: draftsCount || 0
             });
         } catch (err) {
-            console.error('Erro ao carregar estatísticas do catálogo:', err);
+            console.error('Erro ao carregar estatísticas dos produtos:', err);
         }
     }, []);
 
@@ -106,8 +118,8 @@ const Products: React.FC = () => {
         // Ordenação gerenciada internamente pela ProductList
     };
 
-    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false }), [filters]);
-    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, activeOnly: undefined }), [filters]);
+    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: filters.activeOnly ?? true }), [filters]);
+    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: false }), [filters]);
 
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
@@ -120,8 +132,8 @@ const Products: React.FC = () => {
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                                 <input
                                     type="text"
-                                    placeholder="Pesquisar..."
-                                    value={filters.search}
+                                    placeholder="Pesquisar produtos ativos..."
+                                    value={filters.search || ""}
                                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                                     className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
                                 />
@@ -162,6 +174,8 @@ const Products: React.FC = () => {
                         <div className="flex-1 min-w-0">
                             <ProductList
                                 filters={isTrashOpen ? trashFilters : activeFilters}
+                                title={isTrashOpen ? "Produtos Desativados" : undefined}
+                                onCloseTrash={isTrashOpen ? () => setIsTrashOpen(false) : undefined}
                                 visibilitySettings={visibilitySettings}
                                 onEdit={(p: any) => {
                                     if (p.isVariation) {
@@ -216,24 +230,39 @@ const Products: React.FC = () => {
                                 </button>
 
                                 {accordionOpen.summary && (
-                                    <div className="grid grid-cols-2 gap-2 mt-3 animate-fade-in">
-                                        <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                                            <span className="text-[9px] font-black uppercase text-slate-400 block">Publicados</span>
-                                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-                                                {catalogStats.active}
+                                    <div className="flex flex-col gap-2 mt-3 animate-fade-in">
+                                        <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <i className="bi bi-boxes text-blue-600 dark:text-blue-400 text-sm" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">Total de Produtos</span>
+                                            </div>
+                                            <span className="text-base font-black text-blue-800 dark:text-blue-300">
+                                                {catalogStats.total}
                                             </span>
                                         </div>
-                                        <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                                            <span className="text-[9px] font-black uppercase text-slate-400 block">Desativados</span>
-                                            <span className="text-base font-black text-rose-500 dark:text-rose-400 mt-0.5 block">
-                                                {catalogStats.disabled}
-                                            </span>
-                                        </div>
-                                        <div className="col-span-2 p-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">Total no Catálogo</span>
-                                            <span className="text-sm font-black text-blue-700 dark:text-blue-300">
-                                                {catalogStats.total} itens
-                                            </span>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+                                                <span className="text-[9px] font-black uppercase text-slate-400 block">Publicados no Catálogo</span>
+                                                <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                                                    {catalogStats.published}
+                                                </span>
+                                            </div>
+                                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+                                                <span className="text-[9px] font-black uppercase text-slate-400 block">Desativados</span>
+                                                <span className="text-base font-black text-rose-500 dark:text-rose-400 mt-0.5 block">
+                                                    {catalogStats.disabled}
+                                                </span>
+                                            </div>
+                                            <div className="col-span-2 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <i className="bi bi-file-earmark-text text-amber-500 text-sm" />
+                                                    <span className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400">Rascunhos</span>
+                                                </div>
+                                                <span className="text-base font-black text-amber-600 dark:text-amber-400">
+                                                    {catalogStats.drafts}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -311,7 +340,7 @@ const Products: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* TÓPICO 4: Atalhos e Desativados (Sanfona) */}
+                            {/* TÓPICO 4: Produtos Desativados (Sanfona) */}
                             <div>
                                 <button
                                     type="button"
@@ -319,11 +348,11 @@ const Products: React.FC = () => {
                                     className="w-full flex items-center justify-between py-2 text-left hover:opacity-80 transition-opacity"
                                 >
                                     <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-sm">
-                                            <i className="bi bi-trash-fill" />
+                                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
+                                            <i className="bi bi-slash-circle" />
                                         </div>
                                         <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                                            Lixeira e Desativados
+                                            Produtos Desativados
                                         </h4>
                                     </div>
                                     <i className={`bi bi-chevron-down text-slate-400 text-xs transition-transform duration-200 ${accordionOpen.shortcuts ? 'rotate-180' : ''}`} />
@@ -336,7 +365,7 @@ const Products: React.FC = () => {
                                             className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <i className="bi bi-trash text-rose-500" />
+                                                <i className="bi bi-eye-slash text-amber-500" />
                                                 <span>Ver Produtos Desativados</span>
                                             </div>
                                             <i className="bi bi-chevron-right text-slate-400 text-xs" />

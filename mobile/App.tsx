@@ -8,7 +8,7 @@ import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supaba
 import { registerPushToken } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
-import { isDateInPeriod } from './src/utils/orderUtils';
+import { isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
 
 import { DashboardHeader } from './src/features/dashboard/components/DashboardHeader';
 import { AISummaryCard } from './src/features/dashboard/components/AISummaryCard';

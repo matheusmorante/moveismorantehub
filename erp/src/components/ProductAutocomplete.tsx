@@ -87,7 +87,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 let dbQuery = supabase
                     .from('products')
                     .select('*, product_variations(*), product_images(*)')
-                    .is('deleted_at', null);
+                    .eq('active', true)
+                    .eq('deleted', false)
+                    .eq('is_draft', false);
 
                 if (words.length === 1) {
                     dbQuery = dbQuery.or(`description.ilike.%${words[0]}%,code.ilike.%${words[0]}%`);

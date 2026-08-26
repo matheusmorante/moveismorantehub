@@ -10,11 +10,12 @@ import TextColorPicker from './TextColorPicker';
 import TextBackgroundControls, { type TextBackground } from './TextBackgroundControls';
 import TextAlignmentControls from './TextAlignmentControls';
 import PostImageSourcePicker, { type PostImageOption } from './PostImageSourcePicker';
+import InstallmentImageGallery from './InstallmentImageGallery';
 import ImageGridControls from './ImageGridControls';
 import type { OpportunitySeal } from './opportunitySealImage';
 import { DEFAULT_IMAGE_GRID_SETTINGS, drawImageGrid, drawMoreColorsLabel, getPostImageGrid, placeImageInCell, type ImageGridSettings } from './postImageGrid';
 import { getTextBackgroundAlignment, type HorizontalTextAlignment, type VerticalTextAlignment } from './textAlignment';
-import { getVariationGridImages, parseVariationImageUrls } from './variationGridImages';
+import { getPostGridImages, parseVariationImageUrls } from './variationGridImages';
 import { shouldShowPreviousPrice } from './postPriceVisibility';
 
 interface Product {
@@ -58,8 +59,8 @@ const FONT_OPTIONS = [
 ];
 
 const DEFAULT_FONT_FAMILY = FONT_OPTIONS[0].value;
-const CONTAINER_CHILD_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor'];
-const TEXT_ELEMENT_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'];
+const CONTAINER_CHILD_KEYS = ['title', 'priceDeLabel', 'priceDe', 'porApenas', 'pricePor'];
+const TEXT_ELEMENT_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'];
 const IMAGE_CELL_KEYS = ['mainImage', 'secondaryImage'];
 const DEFAULT_TEXT_COLORS: Record<string, string> = { brand: '#ffffff', slogan: '#0d1b2a', footerTitle: '#0d1b2a', footerAddress: '#e0a96d', title: '#111827', priceDeLabel: '#dc2626', priceDe: '#dc2626', porApenas: '#e0a96d', pricePor: '#111827', installments: '#111827', measures: '#94a3b8' };
 const INITIAL_COLOR_HISTORY = ['#000000', '#1e3a8a', '#dc2626', '#ea580c', '#ffffff', '#2563eb', '#16a34a', '#ff7900', '#7c3aed'];
@@ -211,7 +212,9 @@ export default function MarketingPosts() {
   const [sloganOffsetX, setSloganOffsetX] = useState<number>(120);
   const [sloganOffsetY, setSloganOffsetY] = useState<number>(130);
 
-  const [installmentsText, setInstallmentsText] = useState("Em até 10x sem juros no cartão");
+  const [installmentImageUrl, setInstallmentImageUrl] = useState('/images/installment-badge-10x-transparent.png');
+  const [installmentImageLibrary, setInstallmentImageLibrary] = useState<string[]>(['/images/installment-badge-10x-transparent.png', '/images/installment-badge-10x-juros.png']);
+  const [uploadingInstallmentImage, setUploadingInstallmentImage] = useState(false);
   const [showSecondaryImage, setShowSecondaryImage] = useState(true);
   const [showOpportunityBadge, setShowOpportunityBadge] = useState(true);
   const [selectedOpportunitySeal, setSelectedOpportunitySeal] = useState<OpportunitySeal | null>(null);
@@ -311,12 +314,15 @@ export default function MarketingPosts() {
   const [headerTemplateImage, setHeaderTemplateImage] = useState('/images/banner-header-standard.svg');
   const [footerTemplateImage, setFooterTemplateImage] = useState('/images/banner-footer-bg.svg');
   const [uploadingTemplateImage, setUploadingTemplateImage] = useState(false);
-  const [layerOrder, setLayerOrder] = useState<string[]>(['imageGrid', 'opportunityBadge', 'priceContainer', 'title', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures']);
+  const [layerOrder, setLayerOrder] = useState<string[]>(['imageGrid', 'opportunityBadge', 'title', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures']);
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const [modelProductQuery, setModelProductQuery] = useState('');
   const [isModelProductPickerOpen, setIsModelProductPickerOpen] = useState(false);
   const [defaultModelProductId, setDefaultModelProductId] = useState('');
-  const postLayerLabels: Record<string, string> = { imageGrid: 'Grid de fotos', opportunityBadge: 'Selo oportunidade', priceContainer: 'Container de preços', title: 'Título do produto', priceDe: 'Preço de', porApenas: 'Texto por', pricePor: 'Preço por', installments: 'Parcelamento', measures: 'Descrição' };
+  const postLayerLabels: Record<string, string> = { imageGrid: 'Grid de fotos', opportunityBadge: 'Selo oportunidade', title: 'Título do produto', priceDe: 'Preço de', porApenas: 'Texto por', pricePor: 'Preço por', installments: 'Parcelamento', measures: 'Descrição' };
+  useEffect(() => {
+    setLayerOrder(current => current.filter(key => key !== 'priceContainer'));
+  }, []);
   const uploadTemplateImage = async (kind: 'header' | 'footer', file: File) => {
     setUploadingTemplateImage(true);
     try {
@@ -344,6 +350,9 @@ export default function MarketingPosts() {
   // Elemento selecionado no canvas para edição interativa
   type SelectedElement = 'headerFooter' | 'imageGrid' | 'mainImage' | 'secondaryImage' | 'opportunityBadge' | 'priceContainer' | 'priceHighlight' | 'brand' | 'slogan' | 'installments' | 'avatar' | 'footerTitle' | 'footerAddress' | 'title' | 'priceDeLabel' | 'priceDe' | 'pricePor' | 'porApenas' | 'measures' | null;
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
+  useEffect(() => {
+    if (selectedElement === 'priceContainer') setSelectedElement(null);
+  }, [selectedElement]);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const productPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -352,6 +361,7 @@ export default function MarketingPosts() {
   const drawRequestRef = useRef(0);
   const imageSourceProductIdRef = useRef<string | null>(null);
   const renderedRegionsRef = useRef<Record<string, { key: string; label: string; x: number; y: number; w: number; h: number }>>({});
+  const renderedLayerOrderRef = useRef<string[]>([]);
   const postDragRef = useRef<{ key: SelectedElement; x: number; y: number; mode: 'move' | 'resize' | 'rotate' | 'resize-container' | 'resize-text' | 'resize-side'; side?: 'top' | 'right' | 'bottom' | 'left'; centerX?: number; centerY?: number } | null>(null);
 
   // Histórico de alterações (Undo / Redo)
@@ -371,7 +381,7 @@ export default function MarketingPosts() {
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY,
+    installmentImageUrl, installmentImageLibrary, installmentsOffsetX, installmentsOffsetY,
     showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
@@ -395,7 +405,7 @@ export default function MarketingPosts() {
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY,
+    installmentImageUrl, installmentImageLibrary, installmentsOffsetX, installmentsOffsetY,
     showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
@@ -416,6 +426,10 @@ export default function MarketingPosts() {
   const templateStateSignature = useMemo(() => JSON.stringify(getCurrentState()), [getCurrentState]);
 
   const applyState = (s: any) => {
+    const canvasCoordinate = (value: unknown, fallback: number, limit: number) => {
+      const coordinate = Number(value);
+      return Number.isFinite(coordinate) && coordinate >= 0 && coordinate <= limit ? coordinate : fallback;
+    };
     if (s.headerFooterModelName !== undefined) setHeaderFooterModelName(s.headerFooterModelName);
     if (s.headerTemplateImage !== undefined) setHeaderTemplateImage(s.headerTemplateImage);
     if (s.footerTemplateImage !== undefined) setFooterTemplateImage(s.footerTemplateImage);
@@ -430,7 +444,11 @@ export default function MarketingPosts() {
     if (s.textHorizontalAlignments !== undefined) setTextHorizontalAlignments(s.textHorizontalAlignments);
     if (s.textVerticalAlignments !== undefined) setTextVerticalAlignments(s.textVerticalAlignments);
     if (s.colorHistory !== undefined) setColorHistory(s.colorHistory);
-    if (s.textSelectionWidths !== undefined) setTextSelectionWidths(s.textSelectionWidths);
+    if (s.textSelectionWidths !== undefined) {
+      setTextSelectionWidths(s.textSelectionWidths);
+      const savedTitleWidth = Number(s.textSelectionWidths?.title);
+      if (Number.isFinite(savedTitleWidth)) setProductTitleMaxContainerWidth(Math.max(120, savedTitleWidth));
+    }
     if (s.textSelectionHeights !== undefined) setTextSelectionHeights(s.textSelectionHeights);
     if (s.brandFontSize !== undefined) setBrandFontSize(s.brandFontSize);
     if (s.brandOffsetX !== undefined) setBrandOffsetX(s.brandOffsetX);
@@ -451,10 +469,11 @@ export default function MarketingPosts() {
     if (s.footerAddressTextFontSize !== undefined) setFooterAddressTextFontSize(s.footerAddressTextFontSize);
     if (s.footerAddressTextOffsetX !== undefined) setFooterAddressTextOffsetX(s.footerAddressTextOffsetX);
     if (s.footerAddressTextOffsetY !== undefined) setFooterAddressTextOffsetY(s.footerAddressTextOffsetY);
-    if (s.installmentsText !== undefined) setInstallmentsText(s.installmentsText);
+    if (s.installmentImageUrl !== undefined) setInstallmentImageUrl(s.installmentImageUrl);
+    if (s.installmentImageLibrary !== undefined) setInstallmentImageLibrary(s.installmentImageLibrary);
     if (s.installmentsFontSize !== undefined) setInstallmentsFontSize(s.installmentsFontSize);
-    if (s.installmentsOffsetX !== undefined) setInstallmentsOffsetX(s.installmentsOffsetX);
-    if (s.installmentsOffsetY !== undefined) setInstallmentsOffsetY(s.installmentsOffsetY <= 1100 ? 1140 : s.installmentsOffsetY);
+    if (s.installmentsOffsetX !== undefined) setInstallmentsOffsetX(canvasCoordinate(s.installmentsOffsetX, 600, 1080));
+    if (s.installmentsOffsetY !== undefined) setInstallmentsOffsetY(canvasCoordinate(s.installmentsOffsetY, 1140, 1350));
     if (s.showSecondaryImage !== undefined) setShowSecondaryImage(s.showSecondaryImage);
     if (s.showOpportunityBadge !== undefined) setShowOpportunityBadge(s.showOpportunityBadge);
     if (s.selectedOpportunitySeal !== undefined) setSelectedOpportunitySeal(s.selectedOpportunitySeal);
@@ -485,8 +504,8 @@ export default function MarketingPosts() {
     if (s.priceContainerHeight !== undefined) setPriceContainerHeight(s.priceContainerHeight);
     if (s.detachedContainerElements !== undefined) setDetachedContainerElements(s.detachedContainerElements);
     if (s.productTitleFontSize !== undefined) setProductTitleFontSize(s.productTitleFontSize);
-    if (s.productTitleOffsetX !== undefined) setProductTitleOffsetX(s.productTitleOffsetX);
-    if (s.productTitleOffsetY !== undefined) setProductTitleOffsetY(s.productTitleOffsetY);
+    if (s.productTitleOffsetX !== undefined) setProductTitleOffsetX(canvasCoordinate(s.productTitleOffsetX, 600, 1080));
+    if (s.productTitleOffsetY !== undefined) setProductTitleOffsetY(canvasCoordinate(s.productTitleOffsetY, 720, 1350));
     if (s.productTitleMaxContainerWidth !== undefined) setProductTitleMaxContainerWidth(s.productTitleMaxContainerWidth);
     if (s.productTitleRotation !== undefined) setProductTitleRotation(s.productTitleRotation);
     if (s.productTitleScale !== undefined) setProductTitleScale(s.productTitleScale);
@@ -498,8 +517,8 @@ export default function MarketingPosts() {
     if (s.priceHighlightExtraHeight !== undefined) setPriceHighlightExtraHeight(s.priceHighlightExtraHeight);
     if (s.priceDeFontSize !== undefined) setPriceDeFontSize(s.priceDeFontSize);
     if (s.priceDeText !== undefined) setPriceDeText(s.priceDeText);
-    if (s.priceOffsetX !== undefined) setPriceOffsetX(s.priceOffsetX);
-    if (s.priceOffsetY !== undefined) setPriceOffsetY(s.priceOffsetY);
+    if (s.priceOffsetX !== undefined) setPriceOffsetX(canvasCoordinate(s.priceOffsetX, 600, 1080));
+    if (s.priceOffsetY !== undefined) setPriceOffsetY(canvasCoordinate(s.priceOffsetY, 920, 1350));
     if (s.priceRotation !== undefined) setPriceRotation(s.priceRotation);
     if (s.priceScale !== undefined) setPriceScale(s.priceScale);
     if (s.priceDeOffsetX !== undefined) setPriceDeOffsetX(s.priceDeOffsetX);
@@ -509,19 +528,108 @@ export default function MarketingPosts() {
     if (s.porApenasText !== undefined) setPorApenasText(s.porApenasText);
     if (s.porApenasFontSize !== undefined) setPorApenasFontSize(s.porApenasFontSize);
     if (s.porApenasColor !== undefined) setPorApenasColor(s.porApenasColor);
-    if (s.porApenasOffsetX !== undefined) setPorApenasOffsetX(s.porApenasOffsetX);
-    if (s.porApenasOffsetY !== undefined) setPorApenasOffsetY(s.porApenasOffsetY);
+    if (s.porApenasOffsetX !== undefined) setPorApenasOffsetX(canvasCoordinate(s.porApenasOffsetX, 600, 1080));
+    if (s.porApenasOffsetY !== undefined) setPorApenasOffsetY(canvasCoordinate(s.porApenasOffsetY, 825, 1350));
     if (s.porApenasRotation !== undefined) setPorApenasRotation(s.porApenasRotation);
     if (s.porApenasScale !== undefined) setPorApenasScale(s.porApenasScale);
     if (s.measuresText !== undefined) setMeasuresText(s.measuresText);
     if (s.measuresFontSize !== undefined) setMeasuresFontSize(s.measuresFontSize);
     if (s.measuresOffsetX !== undefined) setMeasuresOffsetX(s.measuresOffsetX);
     if (s.measuresOffsetY !== undefined) setMeasuresOffsetY(s.measuresOffsetY);
+
+    // Templates antigos chegaram a salvar eixos como null. Como a posição de
+    // cada camada é relativa a esses valores, isso deixa os elementos fora da
+    // arte e impede que a ação de centralizar calcule um destino utilizável.
+    const hasInvalidPostLayout = [
+      s.productTitleOffsetY,
+      s.priceOffsetY,
+      s.porApenasOffsetY,
+      s.installmentsOffsetX,
+      s.textSelectionHeights?.title,
+    ].some(value => value === null || value === undefined || !Number.isFinite(Number(value)))
+      || s.showPriceContainer === false
+      || Number(s.priceOffsetY) <= 0;
+
+    if (hasInvalidPostLayout) {
+      setShowPriceContainer(true);
+      setProductTitleOffsetX(600);
+      setProductTitleOffsetY(720);
+      setPriceOffsetX(600);
+      setPriceOffsetY(920);
+      setPriceDeOffsetX(600);
+      setPriceDeOffsetY(780);
+      setPorApenasOffsetX(600);
+      setPorApenasOffsetY(825);
+      setMeasuresOffsetX(600);
+      setMeasuresOffsetY(1035);
+      setInstallmentsOffsetX(600);
+      setInstallmentsOffsetY(1140);
+      setDetachedContainerElements({});
+      setTextSelectionWidths(current => ({ ...current, title: 420, pricePor: 320, porApenas: 180 }));
+      setTextSelectionHeights(current => ({ ...current, title: 120 }));
+      templateUserDirtyRef.current = true;
+    }
     
     setTimeout(() => {
       isApplyingHistoryRef.current = false;
     }, 50);
   };
+  const uploadInstallmentImage = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) return toast.error('A imagem do parcelamento deve ter no máximo 2 MB.');
+    setUploadingInstallmentImage(true);
+    try {
+      const extension = file.name.split('.').pop() || 'png';
+      const url = await uploadFile(file, `marketing/installments/${Date.now()}.${extension}`);
+      setInstallmentImageUrl(url);
+      setInstallmentImageLibrary(current => current.includes(url) ? current : [...current, url]);
+    } catch {
+      toast.error('Não foi possível enviar a imagem do parcelamento.');
+    } finally {
+      setUploadingInstallmentImage(false);
+    }
+  };
+
+  // Recupera também um editor que já estava aberto quando um template com
+  // coordenadas corrompidas foi carregado. Sem isso, a correção persistida só
+  // apareceria após fechar e abrir toda a tela novamente.
+  useEffect(() => {
+    if (!isEditingTemplate || !isModalOpen) return;
+
+    const hasInvalidLayout = [
+      productTitleOffsetY,
+      priceOffsetY,
+      porApenasOffsetY,
+      installmentsOffsetX,
+    ].some(value => value === null || value === undefined || !Number.isFinite(Number(value)))
+      || Number(priceOffsetY) <= 0;
+
+    if (!hasInvalidLayout) return;
+
+    setShowPriceContainer(true);
+    setProductTitleOffsetX(600);
+    setProductTitleOffsetY(720);
+    setPriceOffsetX(600);
+    setPriceOffsetY(920);
+    setPriceDeOffsetX(600);
+    setPriceDeOffsetY(780);
+    setPorApenasOffsetX(600);
+    setPorApenasOffsetY(825);
+    setMeasuresOffsetX(600);
+    setMeasuresOffsetY(1035);
+    setInstallmentsOffsetX(600);
+    setInstallmentsOffsetY(1140);
+    setDetachedContainerElements({});
+    setTextSelectionWidths(current => ({ ...current, title: 420, pricePor: 320, porApenas: 180 }));
+    setTextSelectionHeights(current => ({ ...current, title: 120 }));
+    templateUserDirtyRef.current = true;
+  }, [
+    isEditingTemplate,
+    isModalOpen,
+    productTitleOffsetY,
+    priceOffsetY,
+    porApenasOffsetY,
+    installmentsOffsetX,
+  ]);
 
   const pushToHistory = (s: any) => {
     if (isApplyingHistoryRef.current) return;
@@ -583,11 +691,6 @@ export default function MarketingPosts() {
     } finally {
       if (templateSaveQueueRef.current === saveTask) setIsAutoSaving(false);
     }
-  };
-
-  const saveInstallmentsText = (value: string) => {
-    setInstallmentsText(value);
-    void saveTemplateDefaults(false, { installmentsText: value });
   };
 
   // Atalhos globais de teclado
@@ -704,16 +807,16 @@ export default function MarketingPosts() {
     return products.find(p => p.id === selectedProductId) || (isEditingTemplate ? TEMPLATE_PREVIEW_PRODUCT : null);
   }, [products, selectedProductId, isEditingTemplate]);
   const renderProduct = activeProduct || TEMPLATE_PREVIEW_PRODUCT;
-  const variationGridImages = useMemo(() => getVariationGridImages(renderProduct.product_variations || []), [renderProduct]);
+  const gridImages = useMemo(() => getPostGridImages(renderProduct.product_images || [], renderProduct.product_variations || []), [renderProduct]);
 
   useEffect(() => {
     if (!activeProduct || imageSourceProductIdRef.current === activeProduct.id) return;
     imageSourceProductIdRef.current = activeProduct.id;
     setMainImageIndex(0);
     setSecondaryImageIndex(1);
-    setMainImageSource(variationGridImages?.main?.key || 'product:0');
-    setSecondaryImageSource(variationGridImages?.secondary?.key || 'product:1');
-  }, [activeProduct, variationGridImages]);
+    setMainImageSource(gridImages.main?.key || 'product:0');
+    setSecondaryImageSource(gridImages.secondary?.key || 'product:1');
+  }, [activeProduct, gridImages]);
 
   const postImageOptions = useMemo<PostImageOption[]>(() => {
     const orderedProductImages = [...(renderProduct.product_images || [])].filter(image => Boolean(image.image_url)).sort((a, b) => Number(b.is_main) - Number(a.is_main));
@@ -726,9 +829,8 @@ export default function MarketingPosts() {
   }, [renderProduct]);
 
   const gridExtraImageUrls = useMemo(() => {
-    if (variationGridImages) return variationGridImages.extra.map(image => image.url);
-    return postImageOptions.filter(option => option.key.startsWith('product:')).slice(2, 3).map(option => option.url);
-  }, [postImageOptions, variationGridImages]);
+    return gridImages.extra.map(image => image.url);
+  }, [gridImages]);
 
   const getPostImageUrl = (source: string, fallbackIndex: number) => {
     const selected = postImageOptions.find(option => option.key === source);
@@ -781,7 +883,6 @@ export default function MarketingPosts() {
       if (def.slogan) setSlogan(def.slogan);
       if (def.avatarUrl) setAvatarUrl(def.avatarUrl);
       if (def.footerAddressText) setFooterAddressText(def.footerAddressText);
-      if (def.installmentsText) setInstallmentsText(def.installmentsText);
     }
   }, [activeProduct, marketingDefaults]);
 
@@ -792,16 +893,30 @@ export default function MarketingPosts() {
       return Promise.resolve(imageCacheRef.current[url]);
     }
     return new Promise((resolve) => {
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      img.src = url;
-      img.onload = () => {
-        imageCacheRef.current[url] = img;
-        resolve(img);
+      let settled = false;
+      const finish = (image: HTMLImageElement | null) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        resolve(image);
       };
-      img.onerror = () => {
-        resolve(null);
+      const timeoutId = window.setTimeout(() => finish(null), 3000);
+      const tryLoad = (withCors: boolean) => {
+        const img = new window.Image();
+        if (withCors) img.crossOrigin = "anonymous";
+        img.onload = () => {
+          imageCacheRef.current[url] = img;
+          finish(img);
+        };
+        img.onerror = () => {
+          // Alguns servidores de fornecedores não liberam CORS. Tentamos
+          // novamente para que a foto ainda apareça no editor.
+          if (withCors) tryLoad(false);
+          else finish(null);
+        };
+        img.src = url;
       };
+      tryLoad(true);
     });
   };
 
@@ -824,7 +939,7 @@ export default function MarketingPosts() {
   // Motor de Desenho Síncrono no Canvas 2D
   const drawBannerSync = (
     canvas: HTMLCanvasElement,
-    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null; variationImgs: (HTMLImageElement | null)[] },
+    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null; installmentImg: HTMLImageElement | null; variationImgs: (HTMLImageElement | null)[] },
     isExport = false
   ) => {
     if (!activeProduct && !isEditingTemplate) return;
@@ -836,11 +951,17 @@ export default function MarketingPosts() {
     const getTextAreaAlignment = (key: string, width: number, height: number) => {
       const background = textBackgrounds[key] || EMPTY_TEXT_BACKGROUND;
       const hasBackground = background.opacity > 0;
+      const paddingLeft = hasBackground ? background.paddingLeft ?? background.paddingX ?? 0 : 0;
+      const paddingRight = hasBackground ? background.paddingRight ?? background.paddingX ?? 0 : 0;
+      const paddingTop = hasBackground ? background.paddingTop ?? background.paddingY ?? 0 : 0;
+      const paddingBottom = hasBackground ? background.paddingBottom ?? background.paddingY ?? 0 : 0;
       return getTextBackgroundAlignment(
         width,
         height,
-        hasBackground ? background.paddingX : 0,
-        hasBackground ? background.paddingY : 0,
+        paddingLeft,
+        paddingRight,
+        paddingTop,
+        paddingBottom,
         textHorizontalAlignments[key] || (hasBackground ? 'center' : 'left'),
         textVerticalAlignments[key] || 'middle',
       );
@@ -1005,11 +1126,13 @@ export default function MarketingPosts() {
     const priceRequiredWidth = Math.ceil(priceRowStartX - 560 + priceTextWidth + 54);
     // Enquanto o preço estiver no container, o fundo nunca pode ficar menor que ele.
     const effectiveContainerWidth = isPricePorDetached ? priceContainerWidth : Math.max(priceContainerWidth, priceRequiredWidth);
-    const contentLimit = Math.max(120, effectiveContainerWidth - 40);
     const pTitleSize = productTitleFontSize || 30;
-    const pTitleLimit = Math.max(120, textSelectionWidths.title || contentLimit);
+    // A largura salva é o limite máximo. A caixa de seleção fica flexível e
+    // acompanha o conteúdo enquanto ele couber em uma única linha.
+    const pTitleLimit = Math.min(1040, Math.max(120, productTitleMaxContainerWidth || 0, textSelectionWidths.title || 0, 390));
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
     const titleWords = (productTitle || renderProduct.name).split(/\s+/);
+    const titleSingleLineWidth = ctx.measureText(titleWords.join(' ')).width / S;
     const titleLines: string[] = [];
     let titleLine = '';
     for (const word of titleWords) {
@@ -1020,46 +1143,43 @@ export default function MarketingPosts() {
     const expandedContainerHeight = Math.max(80, priceContainerHeight);
     const expandedTop = 650;
 
-    if (showPriceContainer) {
-      ctx.beginPath();
-      ctx.roundRect((560 + priceContainerX) * S, (expandedTop + priceContainerY) * S, effectiveContainerWidth * S, expandedContainerHeight * S, 26 * S);
-      ctx.fillStyle = priceContainerBackgroundColor;
-      ctx.fill();
-      reg['priceContainer'] = { key: 'priceContainer', label: 'Container de preços', x: 560 + priceContainerX, y: expandedTop + priceContainerY, w: effectiveContainerWidth, h: expandedContainerHeight };
-    }
+    // O bloco de preço não usa mais uma caixa visual: título e preços ficam
+    // diretamente sobre a arte, preservando apenas a área interna de cálculo.
+    reg['priceContainer'] = { key: 'priceContainer', label: 'Área de preços', x: 560 + priceContainerX, y: expandedTop + priceContainerY, w: effectiveContainerWidth, h: expandedContainerHeight };
 
     const contentLeft = 580;
-    let contentCursorY = expandedTop + 32;
-    const isTitleDetached = Boolean(detachedContainerElements.title);
+    const isTitleDetached = false;
     const pTitleX = isTitleDetached ? (productTitleOffsetX ?? 600) : contentLeft + ((productTitleOffsetX ?? 600) - 600);
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
-    const pTitleY = isTitleDetached ? (productTitleOffsetY ?? 720) : contentCursorY + pTitleSize + ((productTitleOffsetY ?? 720) - 720);
+    const pTitleY = productTitleOffsetY ?? 720;
     ctx.fillStyle = textColors.title || DEFAULT_TEXT_COLORS.title;
     const titleContentWidth = Math.max(...titleLines.map(line => ctx.measureText(line).width / S), 0);
     const titleContentHeight = titleLines.length * (pTitleSize + 6);
+    const titleAreaWidth = Math.min(pTitleLimit, Math.max(120, titleSingleLineWidth, titleContentWidth));
     const titleAlignment = getTextAreaAlignment('title', titleContentWidth, titleContentHeight);
     const drawTitleLayer = () => {
       ctx.save();
       if (!isTitleDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
       ctx.translate((pTitleX + titleAlignment.x) * S, (pTitleY + titleAlignment.y) * S);
       ctx.rotate((productTitleRotation * Math.PI) / 180);
+      // As demais camadas alteram a fonte do canvas. O título precisa definir
+      // a sua própria fonte aqui para o tamanho visual e o espaçamento coincidirem.
+      ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
+      ctx.fillStyle = textColors.title || DEFAULT_TEXT_COLORS.title;
       drawTextBackground(ctx, S, titleContentWidth, titleContentHeight, textBackgrounds.title || EMPTY_TEXT_BACKGROUND, 0, titleContentHeight - pTitleSize, { ...titleAlignment, offsetX: titleAlignment.x, offsetY: titleAlignment.y });
       titleLines.forEach((line, index) => ctx.fillText(line, 0, index * (pTitleSize + 6) * S));
       ctx.restore();
-      reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX, y: pTitleY - pTitleSize, w: titleAlignment.width, h: titleAlignment.height };
+      // A região usa a largura de seleção, e não apenas a largura das letras,
+      // para que os puxadores laterais controlem a área de quebra do título.
+      reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX, y: pTitleY - pTitleSize, w: titleAreaWidth, h: titleAlignment.height };
     };
-    // Usa a altura já calculada das linhas do título. A referência anterior a
-    // `titleHeight` lançava um ReferenceError e interrompia toda a renderização
-    // das camadas do template (fotos, título, preços e demais elementos).
-    if (!isTitleDetached) contentCursorY = pTitleY + titleContentHeight + 16;
-
     if (shouldShowPreviousPrice(effectivePrice, effectivePromo, isEditingTemplate)) {
       const deLabel = priceDeText || 'De';
       const deStr = `R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       const deSize = priceDeFontSize || 20;
-      const isPriceDeDetached = Boolean(detachedContainerElements.priceDe);
+      const isPriceDeDetached = false;
       const deX = isPriceDeDetached ? (priceDeOffsetX ?? 600) : contentLeft + ((priceDeOffsetX ?? 600) - 600);
-      const deY = isPriceDeDetached ? (priceDeOffsetY ?? 780) : contentCursorY + deSize + ((priceDeOffsetY ?? 780) - 780);
+      const deY = priceDeOffsetY ?? 780;
       const drawPriceDeLayer = () => {
         ctx.save();
         if (!isPriceDeDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
@@ -1096,25 +1216,24 @@ export default function MarketingPosts() {
         ctx.restore();
         reg['priceDe'] = { key: 'priceDe', label: 'Preço antigo', x: deX + deBaseX, y: deY - deSize, w: deAlignment.width, h: deAlignment.height };
       };
-      if (!isPriceDeDetached) contentCursorY = deY + 16;
     }
 
     const porApStr = porApenasText || "POR APENAS";
     const porApSize = porApenasFontSize || 16;
     const priceRowX = isPricePorDetached ? (priceOffsetX ?? 600) : priceRowStartX;
-    const rawPriceRowY = contentCursorY + prSize + 18 + ((priceOffsetY ?? 920) - 920);
-    const priceRowY = isPricePorDetached ? (priceOffsetY ?? 920) : Math.max(prSize + 18, Math.min(rawPriceRowY, 1330 - priceContainerY));
+    const priceRowY = isPricePorDetached ? (priceOffsetY ?? 920) : Math.max(prSize + 18, Math.min(priceOffsetY ?? 920, 1330 - priceContainerY));
     ctx.font = `bold ${porApSize * S}px ${textFontFamilies.porApenas || DEFAULT_FONT_FAMILY}`;
     const porApWidth = ctx.measureText(porApStr).width / S;
-    // “Por apenas” é independente: não pertence ao container de preços.
-    const porApX = porApenasOffsetX ?? (priceRowX - porApWidth - 14);
-    const porApY = porApenasOffsetY ?? (priceRowY - (prSize - porApSize) / 2);
+    // “Por apenas” é independente: mover o preço principal não pode alterar
+    // sua posição. Mantemos apenas os limites seguros da arte.
+    const porApX = Math.max(20, Math.min(porApenasOffsetX ?? 600, 1060 - porApWidth));
+    const porApY = Math.max(porApSize + 8, Math.min(porApenasOffsetY ?? 825, 1330));
     const porAlignment = getTextAreaAlignment('porApenas', porApWidth, porApSize);
     const drawPorApenasLayer = () => {
       ctx.fillStyle = textColors.porApenas || porApenasColor || DEFAULT_TEXT_COLORS.porApenas;
       ctx.font = `bold ${porApSize * S}px ${textFontFamilies.porApenas || DEFAULT_FONT_FAMILY}`;
       ctx.save();
-      // ctx.translate(-priceContainerX * S, -priceContainerY * S); // Removido
+      ctx.translate(priceContainerX * S, priceContainerY * S);
       ctx.translate((porApX + porAlignment.x) * S, (porApY + porAlignment.y) * S);
       ctx.rotate((porApenasRotation * Math.PI) / 180);
       drawTextBackground(ctx, S, porApWidth, porApSize, textBackgrounds.porApenas || EMPTY_TEXT_BACKGROUND, 0, 0, { ...porAlignment, offsetX: porAlignment.x, offsetY: porAlignment.y });
@@ -1142,8 +1261,6 @@ export default function MarketingPosts() {
       ctx.restore();
       reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: flowPriceY - prSize, w: priceAlignment.width, h: priceAlignment.height };
     };
-    if (!isPricePorDetached) contentCursorY = flowPriceY + 34;
-
     // Medidas
     if (measuresText) {
       const mSize = measuresFontSize || 20;
@@ -1161,18 +1278,19 @@ export default function MarketingPosts() {
         reg['measures'] = { key: 'measures', label: 'Medidas', x: mX, y: mY - mSize, w: measuresAlignment.width, h: measuresAlignment.height };
       };
     }
-    // Parcelamento é um elemento independente do Container de preços.
-    const instText = installmentsText || "Em até 10x sem juros no cartão";
-    const instSize = installmentsFontSize || 26;
+    // Parcelamento é uma imagem livre, sem texto gerado pelo template.
     const instX = installmentsOffsetX ?? 540;
     const instY = installmentsOffsetY ?? 1140;
-    ctx.fillStyle = textColors.installments || DEFAULT_TEXT_COLORS.installments;
-    ctx.font = `${instSize * S}px ${textFontFamilies.installments || DEFAULT_FONT_FAMILY}`;
-    const installmentsWidth = ctx.measureText(instText).width / S;
-    const installmentsAlignment = getTextAreaAlignment('installments', installmentsWidth, instSize);
-    drawTextBackground(ctx, S, installmentsWidth, instSize, textBackgrounds.installments || EMPTY_TEXT_BACKGROUND, instX + installmentsAlignment.x, instY + installmentsAlignment.y, { ...installmentsAlignment, offsetX: installmentsAlignment.x, offsetY: installmentsAlignment.y });
-    ctx.fillText(instText, (instX + installmentsAlignment.x) * S, (instY + installmentsAlignment.y) * S);
-    reg['installments'] = { key: 'installments', label: 'Parcelas', x: instX, y: instY - instSize, w: installmentsAlignment.width, h: installmentsAlignment.height };
+    if (images.installmentImg) {
+      const bounds = getCachedBoundingBox(images.installmentImg);
+      const maxWidth = 380;
+      const maxHeight = 120;
+      const scale = Math.min(maxWidth / bounds.w, maxHeight / bounds.h, 1);
+      const width = bounds.w * scale;
+      const height = bounds.h * scale;
+      ctx.drawImage(images.installmentImg, bounds.x, bounds.y, bounds.w, bounds.h, instX * S, (instY - height) * S, width * S, height * S);
+      reg['installments'] = { key: 'installments', label: 'Imagem do parcelamento', x: instX, y: instY - height, w: width, h: height };
+    }
 
     // 7. Oportunidade
     if (showOpportunityBadge && (selectedOpportunitySeal || renderProduct.opportunities)) {
@@ -1252,13 +1370,20 @@ export default function MarketingPosts() {
       opportunityBadge: typeof drawOpportunityLayer !== 'undefined' ? drawOpportunityLayer : undefined,
     };
 
-    const drawOrder = [...layerOrder].reverse();
+    // Uma ordem salva incompleta não pode fazer o conteúdo do post sumir.
+    // Mantemos a personalização da pilha, mas garantimos as camadas essenciais
+    // e as desenhamos depois do grid e do container de preço.
+    const requiredPostLayers = ['title', 'priceDeLabel', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures', 'opportunityBadge'];
+    const drawOrder = [...new Set([...requiredPostLayers, ...layerOrder])].reverse();
+    renderedLayerOrderRef.current = drawOrder;
     drawOrder.forEach(key => {
       if (layerDrawFns[key]) layerDrawFns[key]();
     });
 
     for (const key of [...CONTAINER_CHILD_KEYS, 'priceHighlight']) {
-      if (reg[key] && !detachedContainerElements[key]) {
+      // As camadas do bloco de preço são desenhadas sempre em relação ao
+      // container; a região clicável precisa usar a mesma referência.
+      if (reg[key]) {
         reg[key].x += priceContainerX;
         reg[key].y += priceContainerY;
       }
@@ -1269,7 +1394,7 @@ export default function MarketingPosts() {
       const gridSelectionMargin = 24;
       reg.imageGrid = { key: 'imageGrid', label: 'Grid de fotos', x: imageGrid.outer.x - gridSelectionMargin, y: imageGrid.outer.y - gridSelectionMargin, w: imageGrid.outer.w + gridSelectionMargin * 2, h: imageGrid.outer.h + gridSelectionMargin * 2 };
     }
-    if (variationGridImages?.hasMoreColors) {
+    if (gridImages.hasMoreColors) {
       const lastPhotoCell = imageGrid.variationCells[images.variationImgs.length - 1] || imageGrid.secondary;
       drawMoreColorsLabel(ctx, S, lastPhotoCell, imageGridSettings);
     }
@@ -1309,8 +1434,18 @@ export default function MarketingPosts() {
         } else if (TEXT_ELEMENT_KEYS.includes(selectedElement)) {
           ctx.fillStyle = '#ffffff';
           ctx.lineWidth = 2 * S;
-          ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
-          ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+          if (selectedElement === 'title') {
+            [[region.x, region.y + region.h / 2], [region.x + region.w, region.y + region.h / 2]].forEach(([handleX, handleY]) => {
+              ctx.fillRect((handleX - 9) * S, (handleY - 9) * S, 18 * S, 18 * S);
+              ctx.strokeRect((handleX - 9) * S, (handleY - 9) * S, 18 * S, 18 * S);
+            });
+            // O canto inferior direito continua exclusivo para o tamanho da fonte.
+            ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+            ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+          } else {
+            ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+            ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+          }
         } else {
           ctx.lineWidth = 3 * S;
           [[region.x, region.y + region.h / 2], [region.x + region.w, region.y + region.h / 2], [region.x + region.w / 2, region.y], [region.x + region.w / 2, region.y + region.h]].forEach(([handleX, handleY]) => {
@@ -1343,23 +1478,46 @@ export default function MarketingPosts() {
   };
 
   const drawBannerAsync = async (canvas: HTMLCanvasElement, isExport = false, requestId?: number) => {
+    // Desenha a estrutura imediatamente; imagens lentas ou inválidas não podem
+    // deixar o editor inteiro em branco enquanto carregam.
+    try {
+      drawBannerSync(canvas, { headerBg: null, footerBg: null, logo: null, mainImg: null, secImg: null, installmentImg: null, variationImgs: [] }, isExport);
+    } catch (error) {
+      console.error('Falha ao desenhar a estrutura do post:', error);
+    }
     const images = renderProduct.product_images || [];
     const productMainImageUrl = images.find(image => image.is_main)?.image_url || images.find(image => Boolean(image.image_url))?.image_url || "";
-    const mainImageUrl = getPostImageUrl(mainImageSource, mainImageIndex) || productMainImageUrl;
-    const secImageUrl = getPostImageUrl(secondaryImageSource, secondaryImageIndex) || images.find(image => !image.is_main)?.image_url || images[1]?.image_url || "";
+    // O grid sempre obedece à ordem da regra visual. Assim, uma seleção antiga
+    // ou inválida do editor não deixa o slot 1 vazio.
+    const mainImageUrl = gridImages.main?.url || getPostImageUrl(mainImageSource, mainImageIndex) || productMainImageUrl;
+    const secImageUrl = gridImages.secondary?.url || getPostImageUrl(secondaryImageSource, secondaryImageIndex) || images.find(image => !image.is_main)?.image_url || images[1]?.image_url || "";
     const shouldRenderSecondaryImage = showSecondaryImage && Boolean(secImageUrl) && secImageUrl !== mainImageUrl;
 
-    const [headerBg, footerBg, logo, mainImg, secImg, variationImgs] = await Promise.all([
+    const [headerBg, footerBg, logo, mainImg, secImg, installmentImg, variationImgs] = await Promise.all([
       loadImg(headerTemplateImage || "/images/banner-header-bg.png"),
       footerTemplateImage ? loadImg(footerTemplateImage) : Promise.resolve(null),
       avatarUrl ? loadImg(avatarUrl) : loadImg("/images/avatar-morante.png"),
       loadFirstAvailableImage(mainImageUrl, productMainImageUrl),
       shouldRenderSecondaryImage ? loadImg(secImageUrl) : Promise.resolve(null),
+      loadImg(installmentImageUrl),
       Promise.all(gridExtraImageUrls.map(url => loadImg(url))),
     ]);
 
     if (requestId !== undefined && requestId !== drawRequestRef.current) return;
-    drawBannerSync(canvas, { headerBg, footerBg, logo, mainImg, secImg, variationImgs }, isExport);
+    try {
+      const renderedCanvas = document.createElement('canvas');
+      renderedCanvas.width = canvas.width;
+      renderedCanvas.height = canvas.height;
+      drawBannerSync(renderedCanvas, { headerBg, footerBg, logo, mainImg, secImg, installmentImg, variationImgs }, isExport);
+      const visibleContext = canvas.getContext('2d');
+      if (visibleContext) {
+        visibleContext.clearRect(0, 0, canvas.width, canvas.height);
+        visibleContext.drawImage(renderedCanvas, 0, 0);
+      }
+    } catch (error) {
+      // Mantém a estrutura já desenhada em vez de apagar a arte visível.
+      console.error('Falha ao desenhar o post com imagens:', error);
+    }
   };
 
   // Re-renderiza o canvas sempre que os estados mudam
@@ -1376,12 +1534,12 @@ export default function MarketingPosts() {
     loading, isModalOpen, activeProduct, isEditingTemplate, headerTemplateImage, footerTemplateImage, brandName, brandFontSize, brandOffsetX, brandOffsetY, slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY, footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX,
     footerAddressTitleOffsetY, footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentsText, installmentsFontSize, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
+    installmentImageUrl, installmentImageLibrary, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource, imageGridSettings,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleRotation, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
     priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
-    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, variationGridImages, gridExtraImageUrls
+    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, gridImages, gridExtraImageUrls
   ]);
 
   // Registra no histórico
@@ -1546,12 +1704,6 @@ export default function MarketingPosts() {
       postDragRef.current = null;
       return;
     }
-    const gridRegion = renderedRegionsRef.current.imageGrid;
-    if (gridRegion && x >= gridRegion.x && x <= gridRegion.x + gridRegion.w && y >= gridRegion.y && y <= gridRegion.y + gridRegion.h) {
-      setSelectedElement('imageGrid');
-      postDragRef.current = { key: 'imageGrid', x, y, mode: 'move' };
-      return;
-    }
     const selectedRegion = selectedElement ? renderedRegionsRef.current[selectedElement] : null;
     const activeRegion = selectedElement && !IMAGE_CELL_KEYS.includes(selectedElement) ? selectedRegion : null;
     if (activeRegion) {
@@ -1586,7 +1738,21 @@ export default function MarketingPosts() {
       const rotateX = activeRegion.x + activeRegion.w + 42;
       const rotateY = activeRegion.y + activeRegion.h + 42;
       if (selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement)) {
-        // Textos usam somente o quadrado do canto para alterar a fonte.
+        if (selectedElement === 'title') {
+          if (Math.hypot(x - handleX, y - handleY) <= 22) {
+            postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
+            return;
+          }
+          const centerY = activeRegion.y + activeRegion.h / 2;
+          const side = Math.abs(x - activeRegion.x) <= 28 && Math.abs(y - centerY) <= Math.max(36, activeRegion.h / 2 + 12) ? 'left'
+            : Math.abs(x - (activeRegion.x + activeRegion.w)) <= 28 && Math.abs(y - centerY) <= Math.max(36, activeRegion.h / 2 + 12) ? 'right'
+            : null;
+          if (side) {
+            postDragRef.current = { key: selectedElement, x, y, mode: 'resize-text', side };
+            return;
+          }
+        }
+        // Os demais textos usam somente o quadrado do canto para alterar a fonte.
       } else if (selectedElement) {
         const centerX = activeRegion.x + activeRegion.w / 2;
         const centerY = activeRegion.y + activeRegion.h / 2;
@@ -1612,7 +1778,20 @@ export default function MarketingPosts() {
       postDragRef.current = null;
       return;
     }
-    const hit = Object.values(renderedRegionsRef.current).filter(region => region.key !== 'imageGrid').reverse().find(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+    const regions = Object.values(renderedRegionsRef.current)
+      .filter(region => region.key !== 'imageGrid' && region.key !== 'priceContainer');
+    const drawnOrder = renderedLayerOrderRef.current;
+    const topmostFirst = [...regions].sort((first, second) => drawnOrder.indexOf(second.key) - drawnOrder.indexOf(first.key));
+    const hit = [...topmostFirst, ...regions.filter(region => !drawnOrder.includes(region.key)).reverse()]
+      .find(region => x >= region.x && x <= region.x + region.w && y >= region.y && y <= region.y + region.h);
+    if (!hit) {
+      const gridRegion = renderedRegionsRef.current.imageGrid;
+      if (gridRegion && x >= gridRegion.x && x <= gridRegion.x + gridRegion.w && y >= gridRegion.y && y <= gridRegion.y + gridRegion.h) {
+        setSelectedElement('imageGrid');
+        postDragRef.current = { key: 'imageGrid', x, y, mode: 'move' };
+        return;
+      }
+    }
     setSelectedElement((hit?.key || null) as SelectedElement);
     postDragRef.current = hit && !IMAGE_CELL_KEYS.includes(hit.key) ? { key: hit.key as SelectedElement, x, y, mode: 'move' } : null;
   };
@@ -1625,7 +1804,7 @@ export default function MarketingPosts() {
     const y = (e.clientY - rect.top) * (1350 / rect.height);
     const dx = Math.round(x - drag.x), dy = Math.round(y - drag.y);
     if (drag.mode === 'resize') {
-      const amount = Math.round((dx + dy) / 8);
+      const amount = Math.round((dx + dy) / (drag.key === 'title' ? 2 : 8));
       if (amount) {
         if (drag.key === 'priceContainer') {
           setPriceContainerWidth(value => Math.max(180, value + amount));
@@ -1653,7 +1832,12 @@ export default function MarketingPosts() {
       const distance = drag.side === 'left' ? -dx : drag.side === 'right' ? dx : drag.side === 'top' ? -dy : dy;
       const region = drag.key ? renderedRegionsRef.current[drag.key] : null;
       if (drag.side === 'left' || drag.side === 'right') {
-        if (drag.key && region && distance) setTextSelectionWidths(current => ({ ...current, [drag.key as string]: Math.max(30, (current[drag.key as string] || region.w) + distance) }));
+        if (drag.key && region && distance) {
+          const minimum = drag.key === 'title' ? 120 : 30;
+          const nextWidth = Math.min(900, Math.max(minimum, drag.key === 'title' ? region.w + distance : (textSelectionWidths[drag.key as string] || region.w) + distance));
+          if (drag.key === 'title') setProductTitleMaxContainerWidth(nextWidth);
+          setTextSelectionWidths(current => ({ ...current, [drag.key as string]: nextWidth }));
+        }
       } else if (drag.key && region && distance) setTextSelectionHeights(current => ({ ...current, [drag.key as string]: Math.max(20, (current[drag.key as string] || region.h) + distance) }));
       postDragRef.current = { ...drag, x, y };
     } else if (drag.mode === 'rotate' && drag.centerX !== undefined && drag.centerY !== undefined) {
@@ -2306,25 +2490,24 @@ export default function MarketingPosts() {
                 {selectedElement === 'priceDe' && <input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} placeholder="Preço antigo" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'pricePor' && <input type="number" step="0.01" value={customPromoPrice} onChange={event => setCustomPromoPrice(event.target.value)} placeholder="Preço final" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'porApenas' && <input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="w-40 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
-                {selectedElement === 'installments' && <input value={installmentsText} onChange={event => setInstallmentsText(event.target.value)} onBlur={event => saveInstallmentsText(event.currentTarget.value)} className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'measures' && <input value={measuresText} onChange={event => setMeasuresText(event.target.value)} placeholder="Descrição e medidas" className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'brand' && <input value={brandName} onChange={event => setBrandName(event.target.value)} className="w-56 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'slogan' && <input value={slogan} onChange={event => setSlogan(event.target.value)} className="w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'footerAddress' && <input value={footerAddressText} onChange={event => setFooterAddressText(event.target.value)} className="w-80 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'footerTitle' && <input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
-                {(['title', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                {(['title', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Tamanho
                     <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> px
                   </label>
                 )}
-                {(['title', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                {(['title', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Fonte
                     <select value={textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY} onChange={event => setTextFontFamilies(current => ({ ...current, [selectedElement as string]: event.target.value }))} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" style={{ fontFamily: textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY }}>
                       {FONT_OPTIONS.map(font => <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>{font.label}</option>)}
                     </select>
                   </label>
                 )}
-                {(['title', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                {(['title', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
                   <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label={selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por apenas' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerTitle' ? 'Título do rodapé' : 'Endereço'} recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />
                 )}
                 {selectedElement === 'opportunityBadge' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Escala <input type="number" min="40" max="180" value={oppScale} onChange={event => setOppScale(Math.min(180, Math.max(40, Number(event.target.value) || 40)))} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> %</label>}
@@ -2332,7 +2515,7 @@ export default function MarketingPosts() {
             </div>
 
             {/* Modal Body: 2 Colunas (Canvas Preview + Controles) */}
-            <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-6 grid grid-cols-[minmax(132px,30vw)_minmax(0,1fr)] lg:grid-cols-12 gap-3 sm:gap-6">
               <aside className="lg:col-span-2 -mb-4 -ml-4 -mt-4 min-h-0 self-stretch overflow-y-auto border-b border-r border-slate-200 bg-slate-50 p-3 custom-scrollbar sm:-mb-6 sm:-ml-6 sm:-mt-6 dark:border-slate-800 dark:bg-slate-950">
                 <div className="flex flex-col gap-3">
                   {selectedElement === 'headerFooter' && <label className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-black text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">Cabeçalho e rodapé
@@ -2344,7 +2527,7 @@ export default function MarketingPosts() {
                   {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “De”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'porApenas' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “Por apenas”<input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'installments' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto do parcelamento<input value={installmentsText} onChange={event => setInstallmentsText(event.target.value)} onBlur={event => saveInstallmentsText(event.currentTarget.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'installments' && <InstallmentImageGallery images={installmentImageLibrary} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onUpload={uploadInstallmentImage} />}
                   {selectedElement === 'brand' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Marca<input value={brandName} onChange={event => setBrandName(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'slogan' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Slogan<input value={slogan} onChange={event => setSlogan(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'footerTitle' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Título do rodapé<input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
@@ -2355,7 +2538,7 @@ export default function MarketingPosts() {
                     <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Altura</span><div className="flex items-center gap-1"><button type="button" onClick={() => setPriceContainerHeight(value => Math.max(80, value - 20))} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir altura">−</button><output className="w-10 text-center">{priceContainerHeight}</output><button type="button" onClick={() => setPriceContainerHeight(value => value + 20)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar altura">+</button></div></div>
                     <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Escala</span><div className="flex items-center gap-1"><button type="button" onClick={() => { setPriceContainerWidth(value => Math.max(180, value - 20)); setPriceContainerHeight(value => Math.max(80, value - 20)); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir escala">−</button><button type="button" onClick={() => { setPriceContainerWidth(value => value + 20); setPriceContainerHeight(value => value + 20); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar escala">+</button></div></div>
                   </div>}
-                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <>
+                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <>
                     <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Tamanho da fonte (px)
                       <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDeLabel' || selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDeLabel' || selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
                     </label>
@@ -2365,7 +2548,7 @@ export default function MarketingPosts() {
                       </select>
                     </label>
                   </>}
-                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />}
+                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />}
                   {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextBackgroundControls value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />}
                   {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'middle'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />}
                   {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20"><i className="bi bi-trash3-fill" /> Remover container</button>}
@@ -2433,16 +2616,7 @@ export default function MarketingPosts() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Parcelamento</label>
-                      <input
-                        type="text"
-                        value={installmentsText}
-                        onChange={(e) => setInstallmentsText(e.target.value)}
-                        onBlur={(e) => saveInstallmentsText(e.currentTarget.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
+                    <InstallmentImageGallery images={installmentImageLibrary} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onUpload={uploadInstallmentImage} />
 
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Medidas Técnicas</label>

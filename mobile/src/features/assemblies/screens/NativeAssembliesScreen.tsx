@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, StyleSheet, Platform, StatusBar, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Hammer, RefreshCw, ChevronRight, ChevronDown, Calendar, Clock, MapPin, Navigation, Package, Truck, AlertCircle, Check } from 'lucide-react-native';
+import { Hammer, RefreshCw, ChevronRight, ChevronDown, ChevronUp, Calendar, Clock, MapPin, Navigation, Package, Truck, AlertCircle, Check } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod } from '../../../utils/orderUtils';
@@ -13,7 +13,7 @@ interface Props {
 }
 
 const PERIOD_OPTIONS = [
-  { id: 'today_and_following', label: 'Hoje e Dias Seguintes' },
+  { id: 'today_and_following', label: 'A partir de hoje' },
   { id: 'today', label: 'Hoje' },
   { id: 'this_week', label: 'Esta Semana' },
   { id: 'this_month', label: 'Este Mês' },
@@ -91,7 +91,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
     }));
   };
 
-  const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'Hoje e Dias Seguintes';
+  const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'A partir de hoje';
 
   const filteredAssemblies = orders.filter(o => {
     const oData = o.order_data || {};
