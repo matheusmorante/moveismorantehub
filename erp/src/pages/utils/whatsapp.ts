@@ -165,27 +165,35 @@ const safeSendWhatsAppOrFallback = async ({
     // Modo Meta Graph API (Envio direto via servidor Meta)
     const hasCloudApi = !!(config?.accessToken && config?.phoneNumberId);
     if (!hasCloudApi) {
-        toast.warning("Token de Acesso ou Phone Number ID não configurados em Configurações > WhatsApp API.");
+        toast.warning("Token de Acesso ou Phone Number ID não configurados em Configurações > WhatsApp API. Abrindo WhatsApp Web...");
+        window.open(fallbackUrl, "_blank");
         return;
     }
 
+    const templateName = templateData?.templateName || config?.templateNameOrderConfirmation?.trim();
+
     try {
-        const templateName = templateData?.templateName || config?.templateNameOrderConfirmation || 'confirmacao_pedido';
-        if (templateData && templateData.parameters && templateData.parameters.length > 0) {
-            try {
-                await whatsappGraphService.sendTemplateMessage(phone, templateName, templateData.parameters);
-                toast.success(successMessage);
-                return;
-            } catch (err: any) {
-                console.warn("[WhatsApp] Envio por Modelo de Mensagem falhou, tentando envio de texto direto:", err);
-            }
+        if (templateName) {
+            await whatsappGraphService.sendTemplateMessage(
+                phone, 
+                templateName, 
+                templateData?.parameters || [],
+                config?.templateLanguage || 'pt_BR'
+            );
+            toast.success(successMessage);
+            return;
         }
 
+        // Se não tiver nome de modelo configurado, tenta envio direto de texto
         await whatsappGraphService.sendTextMessage(phone, message);
         toast.success(successMessage);
     } catch (error: any) {
-        console.error("Erro no envio via Meta Graph API:", error);
+        console.error("[WhatsApp] Erro no envio via Meta Graph API:", error);
         toast.error(`Falha no envio pela API da Meta: ${error.message || "Erro desconhecido"}`);
+        
+        // Em caso de falha na API da Meta, oferece abrir o WhatsApp Web para não perder a venda/comunicação
+        toast.info("Abrindo WhatsApp Web como alternativa...");
+        window.open(fallbackUrl, "_blank");
     }
 };
 

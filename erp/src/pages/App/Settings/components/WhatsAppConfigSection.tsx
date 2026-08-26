@@ -1,9 +1,8 @@
 /** @jsxImportSource react */
-import React from 'react';
+import React, { useState } from 'react';
 import { AppSettings } from '@/pages/utils/settingsService';
 import { whatsappGraphService } from '../../../utils/whatsappGraphService';
 import { toast } from 'react-toastify';
-import { useState } from 'react';
 
 interface WhatsAppConfigSectionProps {
     settings: AppSettings;
@@ -12,12 +11,17 @@ interface WhatsAppConfigSectionProps {
 
 export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppConfigSectionProps) {
     const [isTesting, setIsTesting] = useState(false);
+    const [isTestingTemplate, setIsTestingTemplate] = useState(false);
+    const [testPhone, setTestPhone] = useState('');
 
     const config = settings.whatsappConfig || {
         accessToken: '',
         phoneNumberId: '',
         wabaId: '',
-        catalogId: ''
+        catalogId: '',
+        sendMode: 'graph_api',
+        templateNameOrderConfirmation: '',
+        templateLanguage: 'pt_BR'
     };
 
     const handleFieldChange = (field: string, value: string) => {
@@ -37,6 +41,35 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         }
     };
 
+    const handleTestTemplateSend = async () => {
+        const cleanPhone = testPhone.trim();
+        if (!cleanPhone) {
+            toast.warning("Digite um número de telefone com DDD para o teste.");
+            return;
+        }
+        if (!config.templateNameOrderConfirmation) {
+            toast.warning("Preencha o Nome do Modelo (Template Name) antes de testar.");
+            return;
+        }
+
+        setIsTestingTemplate(true);
+        try {
+            toast.info("Enviando mensagem de teste via Meta API...");
+            await whatsappGraphService.sendTemplateMessage(
+                cleanPhone,
+                config.templateNameOrderConfirmation,
+                ["Cliente Teste", "26/08/2026", "Manhã", "Rua Teste, 123", "1x Guarda-Roupa", "R$ 949,00", "Pix"],
+                config.templateLanguage || 'pt_BR'
+            );
+            toast.success("✅ Mensagem de teste enviada com sucesso! Verifique seu WhatsApp.");
+        } catch (err: any) {
+            console.error(err);
+            toast.error(`❌ Erro no envio do modelo: ${err.message}`);
+        } finally {
+            setIsTestingTemplate(false);
+        }
+    };
+
     return (
         <div className="flex flex-col gap-8">
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 p-6 rounded-2xl flex flex-col md:flex-row justify-between gap-4">
@@ -45,7 +78,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                     <div className="flex-1">
                         <h5 className="text-amber-800 dark:text-amber-400 font-bold text-sm uppercase tracking-wider">Atenção</h5>
                         <p className="text-amber-700/80 dark:text-amber-500/80 text-xs mt-1 leading-relaxed font-medium">
-                            Para o Catálogo e Marketplace funcionarem, você deve usar um <b>Token de Sistema (Permanente)</b> gerado no Meta Business Manager. Tokens temporários expiram em 24 horas.
+                            Para o Catálogo e envio de mensagens funcionarem, você deve usar um <b>Token de Sistema (Permanente)</b> gerado no Meta Business Manager. Tokens temporários expiram em 24 horas.
                         </p>
                     </div>
                 </div>
@@ -167,6 +200,77 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                         placeholder="Ex: 987654321..."
                         className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-80 transition-all font-medium"
                     />
+                </div>
+            </div>
+
+            {/* Seção Modelo de Mensagem (Meta Template) para Notificação de Pedidos */}
+            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-t border-slate-100 dark:border-slate-800/50">
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                        <div className="flex-1 max-w-lg">
+                            <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-emerald-600 dark:text-emerald-400 text-sm uppercase tracking-wider">Modelo de Mensagem (Template Meta)</h4>
+                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-[9px] font-black rounded text-emerald-500">OBRIGATÓRIO P/ ENVIO DIRETO</span>
+                            </div>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                                Nome do modelo aprovado no <b>Meta Business Suite / Gerenciador de WhatsApp</b>. A Meta exige modelos aprovados para iniciar conversas com clientes.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-3 w-full md:w-80">
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Nome do Modelo (Template Name)</label>
+                                <input
+                                    type="text"
+                                    value={config.templateNameOrderConfirmation || ''}
+                                    onChange={(e) => handleFieldChange('templateNameOrderConfirmation', e.target.value)}
+                                    placeholder="Ex: confirmacao_pedido"
+                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-mono font-medium"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Código do Idioma</label>
+                                <input
+                                    type="text"
+                                    value={config.templateLanguage || 'pt_BR'}
+                                    onChange={(e) => handleFieldChange('templateLanguage', e.target.value)}
+                                    placeholder="pt_BR"
+                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-mono font-medium"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Teste de Envio do Modelo */}
+                    <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
+                                <i className="bi bi-send-check text-base" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200">Testar Modelo de Mensagem</p>
+                                <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80">Envie um teste para o seu número para confirmar que o template está aprovado e ativo no Meta.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <input
+                                type="text"
+                                value={testPhone}
+                                onChange={(e) => setTestPhone(e.target.value)}
+                                placeholder="DDD + Número (ex: 41999999999)"
+                                className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl px-3 py-2 text-xs outline-none w-full sm:w-56 dark:text-slate-200 font-medium"
+                            />
+                            <button
+                                type="button"
+                                disabled={isTestingTemplate}
+                                onClick={handleTestTemplateSend}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                            >
+                                {isTestingTemplate ? 'Enviando...' : 'Testar Envio'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

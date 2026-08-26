@@ -504,43 +504,49 @@ ____________________________________
     /**
      * Sends an approved message template via Meta Cloud API
      */
-    sendTemplateMessage: async (to: string, templateName: string, parameters: string[], languageCode: string = 'pt_BR') => {
+    sendTemplateMessage: async (to: string, templateName: string, parameters: string[] = [], languageCode?: string) => {
         const { whatsappConfig } = getSettings();
-        if (!whatsappConfig?.phoneNumberId) throw new Error("Phone Number ID não configurado.");
+        if (!whatsappConfig?.phoneNumberId) throw new Error("Phone Number ID não configurado nas Configurações > WhatsApp API.");
 
         const cleanPhone = to.replace(/\D/g, '');
         const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+        const targetLanguage = languageCode || whatsappConfig?.templateLanguage || 'pt_BR';
 
-        const bodyParams = parameters.map(p => ({ type: 'text', text: p || ' ' }));
+        const components: any[] = [];
+        if (parameters && parameters.length > 0) {
+            const bodyParams = parameters.map(p => ({ type: 'text', text: String(p ?? ' ') }));
+            components.push({
+                type: 'body',
+                parameters: bodyParams
+            });
+        }
+
+        const payload: any = {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: formattedPhone,
+            type: 'template',
+            template: {
+                name: templateName.trim(),
+                language: { code: targetLanguage },
+                ...(components.length > 0 ? { components } : {})
+            }
+        };
 
         const response = await fetch(
             `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
             {
                 method: 'POST',
                 headers: whatsappGraphService.getHeaders(),
-                body: JSON.stringify({
-                    messaging_product: 'whatsapp',
-                    recipient_type: 'individual',
-                    to: formattedPhone,
-                    type: 'template',
-                    template: {
-                        name: templateName,
-                        language: { code: languageCode },
-                        components: [
-                            {
-                                type: 'body',
-                                parameters: bodyParams
-                            }
-                        ]
-                    }
-                })
+                body: JSON.stringify(payload)
             }
         );
 
         const data = await response.json();
         if (data.error) {
             console.error("Erro API Meta Template WhatsApp:", data.error);
-            throw new Error(data.error.message);
+            const msg = data.error.error_user_msg || data.error.message || "Erro desconhecido na Meta API";
+            throw new Error(`Meta API: ${msg} (Código ${data.error.code})`);
         }
         return data;
     }

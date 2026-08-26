@@ -123,6 +123,7 @@ export interface AppSettings {
         catalogId: string;
         sendMode?: 'graph_api' | 'wame';
         templateNameOrderConfirmation?: string;
+        templateLanguage?: string;
     };
     channelBaseDescriptions: {
         whatsapp: string;
