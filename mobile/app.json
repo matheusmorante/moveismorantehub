@@ -4,6 +4,7 @@
     "slug": "mobile",
     "scheme": "morantehub",
     "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -35,6 +36,9 @@
       ]
     },
     "web": {},
+    "updates": {
+      "url": "https://u.expo.dev/dd556f93-9a32-4219-84a2-378b626f09ae"
+    },
     "extra": {
       "eas": {
         "projectId": "dd556f93-9a32-4219-84a2-378b626f09ae"
