@@ -93,6 +93,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const [titleFontFamily, setTitleFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [titlePos, setTitlePos] = useState({ x: 0, y: 0 });
     const [titleRotation, setTitleRotation] = useState<number>(0);
+    const [titleWidth, setTitleWidth] = useState<number>(520);
 
     // 2. TEXTO "DE"
     const [deText, setDeText] = useState('De');
@@ -511,7 +512,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     // SNAPSHOT DOS VALORES DE ESTILO E POSICIONAMENTO DA MAGNITUDE ATUAL
     // oppColorsMap é global (não por grandeza), salvo somente no getSnapshot
     const getMagnitudeSnapshot = useCallback(() => ({
-        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation,
+        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation, titleWidth,
         deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
         normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
         porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
@@ -522,7 +523,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
         bgColor,
     }), [
-        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation,
+        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation, titleWidth,
         deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
         normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
         porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
@@ -596,6 +597,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (!preserveFixedTextStyles && s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
         if (s.titlePos && (s.titlePos.x !== 0 || s.titlePos.y !== 0)) setTitlePos(s.titlePos); else setTitlePos({ x: 0, y: -160 });
         if (s.titleRotation !== undefined) setTitleRotation(s.titleRotation);
+        if (Number.isFinite(Number(s.titleWidth))) setTitleWidth(Number(s.titleWidth));
 
         if (s.deText !== undefined) setDeText(s.deText);
         if (s.showDe !== undefined) setShowDe(s.showDe);
@@ -1052,6 +1054,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             priceFontSizeTenThousands: scaleTenThousands,
             namePosX: titlePos.x,
             namePosY: titlePos.y,
+            nameWidth: titleWidth,
             pricePosX: promoPricePos.x,
             pricePosY: promoPricePos.y,
             dePricePorGroupPos,
@@ -2549,6 +2552,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     titleFontFamily,
                                     titlePos,
                                     titleRotation,
+                                    titleWidth,
 
                                     deText,
                                     showDe,
@@ -2628,6 +2632,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                                     startDragging={startDragging}
                                     startResizing={startResizing}
                                     startRotating={startRotating}
+                                    onTitleWidthChange={setTitleWidth}
                                     showSafetyMargin={showSafetyMargin}
                                     activeGuideX={activeGuideX}
                                     activeGuideY={activeGuideY}

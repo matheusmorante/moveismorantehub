@@ -200,6 +200,22 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                     />
                                 </div>
 
+                                {/* Visibilidade do título somente desta etiqueta */}
+                                <button
+                                    type="button"
+                                    onClick={() => updateItem(idx, { showName: item.showName === false })}
+                                    aria-pressed={item.showName !== false}
+                                    title={item.showName === false ? 'Mostrar título na etiqueta' : 'Ocultar título na etiqueta'}
+                                    className={`h-8 px-2 rounded-lg border text-[9px] font-black uppercase transition-all shrink-0 ${
+                                        item.showName === false
+                                            ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                                            : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300'
+                                    }`}
+                                >
+                                    <i className={`bi ${item.showName === false ? 'bi-eye-slash' : 'bi-eye'} mr-1`} />
+                                    {item.showName === false ? 'Título oculto' : 'Ocultar título'}
+                                </button>
+
                                 {/* Quantidade compacta */}
                                 <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-2 py-1.5 shrink-0">
                                     <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-400 hover:text-blue-500"><i className="bi bi-dash" /></button>

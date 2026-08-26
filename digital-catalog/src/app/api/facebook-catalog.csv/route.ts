@@ -122,8 +122,9 @@ export async function GET(request: Request) {
     const rows: string[][] = []
 
     for (const p of (products || [])) {
-      // Garantia: ignorar produtos inativos ou rascunhos no ERP
-      if (p.active === false || p.status !== 'published' || p.is_draft || p.deleted || p.deleted_at) {
+      // Produtos publicados entram no feed mesmo quando marcados como inativos
+      // no ERP. Apenas ocultos, rascunhos ou removidos ficam fora do catálogo.
+      if (p.status !== 'published' || p.is_draft || p.deleted || p.deleted_at) {
         continue
       }
 

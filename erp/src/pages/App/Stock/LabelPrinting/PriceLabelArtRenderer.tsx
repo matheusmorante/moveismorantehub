@@ -14,6 +14,7 @@ export interface PriceLabelArtData {
     titleFontFamily: string;
     titlePos: { x: number; y: number };
     titleRotation: number;
+    titleWidth?: number;
 
     deText: string;
     showDe?: boolean;
@@ -105,6 +106,7 @@ export interface PriceLabelArtRendererProps {
     className?: string;
     style?: React.CSSProperties;
     containerRefOut?: React.RefObject<HTMLDivElement>;
+    onTitleWidthChange?: (width: number) => void;
 }
 
 export const BASE_ART_WIDTH = 840;
@@ -139,7 +141,8 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
     activeGuideY = null,
     className = '',
     style = {},
-    containerRefOut
+    containerRefOut,
+    onTitleWidthChange
 }) => {
     const isEdit = mode === 'edit';
     const fontsReady = usePriceLabelFonts();
@@ -232,6 +235,32 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         1,
         canvasWidth - (SAFETY_MARGIN_PX * 2) - (Math.abs(titlePos.x) * 2)
     );
+    const titleWidth = Math.min(Math.max(60, data.titleWidth ?? titleMaxWidth), titleMaxWidth);
+
+    const startTitleWidthResize = (edge: 'left' | 'right', event: React.MouseEvent | React.TouchEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!onTitleWidthChange) return;
+
+        const startX = 'touches' in event ? event.touches[0].clientX : event.clientX;
+        const initialWidth = titleWidth;
+        const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+            const currentX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            const delta = (currentX - startX) / Math.max(scale, 0.01);
+            const nextWidth = initialWidth + (edge === 'right' ? delta : -delta);
+            onTitleWidthChange(Math.min(titleMaxWidth, Math.max(60, Math.round(nextWidth))));
+        };
+        const handleEnd = () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('touchend', handleEnd);
+        };
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleMove, { passive: true });
+        window.addEventListener('touchend', handleEnd);
+    };
 
     const content = (
         <div
@@ -288,12 +317,12 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                         fontFamily: titleFontFamily,
                         top: '25px',
                         left: '50%',
-                        maxWidth: `${titleMaxWidth}px`,
+                        width: `${titleWidth}px`,
                         transform: `translate(calc(-50% + ${titlePos?.x || 0}px), ${Math.max(-15, Math.min(300, titlePos?.y || 0))}px) rotate(${titleRotation || 0}deg)`,
                         cursor: isEdit ? 'move' : 'default',
                         zIndex: selectedElements.has('title') ? 30 : 10
                     }}
-                    className={`absolute w-max inline-flex min-w-0 items-center justify-center font-black uppercase tracking-tight text-center leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
+                    className={`absolute inline-flex min-w-0 items-center justify-center overflow-hidden font-black uppercase tracking-tight text-center leading-none px-0.5 py-0.5 select-none transition-shadow whitespace-nowrap ${
                         isEdit && selectedElements.has('title') 
                             ? 'ring-1 ring-blue-500 border border-blue-500 bg-blue-500/10 rounded-none' 
                             : 'border border-transparent'
@@ -309,7 +338,25 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                     
                     {isEdit && selectedElement === 'title' && (
                         <>
-                            {startResizing && (
+                            {onTitleWidthChange && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => startTitleWidthResize('left', e)}
+                                        onTouchStart={(e) => startTitleWidthResize('left', e)}
+                                        title="Arraste para ajustar a largura do título"
+                                        className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-blue-600 shadow-sm cursor-ew-resize z-40"
+                                    />
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => startTitleWidthResize('right', e)}
+                                        onTouchStart={(e) => startTitleWidthResize('right', e)}
+                                        title="Arraste para ajustar a largura do título"
+                                        className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-blue-600 shadow-sm cursor-ew-resize z-40"
+                                    />
+                                </>
+                            )}
+                            {startResizing && selectedElement !== 'title' && (
                                 <div
                                     onMouseDown={(e) => startResizing('title', e)}
                                     onTouchStart={(e) => startResizing('title', e)}

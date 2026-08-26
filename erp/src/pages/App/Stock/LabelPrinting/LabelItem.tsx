@@ -77,6 +77,16 @@ const fmtBRL = (val: string): string => {
     return isNaN(num) ? clean : num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+const parseLabelPrice = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+
+    const digits = String(value).replace(/[^0-9]/g, '');
+    if (!digits) return null;
+
+    const price = Number(digits) / 100;
+    return Number.isFinite(price) && price > 0 ? price : null;
+};
+
 const getCentsStr = (priceStr: string, tplCentsText: string): string => {
     if (tplCentsText && tplCentsText !== ',00') return tplCentsText;
     if (!priceStr) return ',00';
@@ -118,7 +128,14 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const template: any = dbTemplate || {};
 
     // 3. ORDEM DE GRANDEZA BASEADA NO PREÇO PRINCIPAL DO PRODUTO ESCOLHIDO (Dezena, Centena, Milhar)
-    const displayPrice = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || '0');
+    const normalPriceValue = parseLabelPrice(config.price);
+    const promoPriceValue = parseLabelPrice(config.promoPrice);
+    const hasPromotion = Boolean(
+        config.showPromoPrice
+        && promoPriceValue !== null
+        && promoPriceValue !== normalPriceValue
+    );
+    const displayPrice = hasPromotion ? config.promoPrice : (config.price || '0');
     const mag = getPriceMagnitude(displayPrice);
 
     // 4. DESIGN DA GRANDEZA ATUAL, salvo no banco.
@@ -177,10 +194,13 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const instRot = t.installmentsRotation ?? 0;
 
     // 8. VISIBILIDADE DOS COMPONENTES
-    const showTitle = t.showTitle ?? false;
-    const showDe = t.showDe ?? false;
-    const showNormalPrice = t.showNormalPrice ?? false;
-    const showPor = t.showPor ?? false;
+    const showTitle = config.showName !== false && (t.showTitle ?? false);
+    // "De", preço anterior e "Por" só fazem sentido para um produto com
+    // preço promocional válido. O template continua configurável no editor,
+    // mas esses elementos não aparecem no resultado final sem promoção.
+    const showDe = hasPromotion && (t.showDe ?? false);
+    const showNormalPrice = hasPromotion && (t.showNormalPrice ?? false);
+    const showPor = hasPromotion && (t.showPor ?? false);
     const showCurrency = t.showCurrency ?? false;
     const showPromoPrice = t.showPromoPrice ?? false;
     const showCents = t.showCents ?? false;
@@ -189,7 +209,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     // 9. VALORES DOS TEXTOS DO PRODUTO SELECIONADO
     const titleText = config.text || config.name || t.title || 'NOME DO PRODUTO';
     const rawNormal = config.price || t.normalPrice || '0';
-    const rawPromo = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || t.promoPrice || '0');
+    const rawPromo = hasPromotion ? config.promoPrice : (config.price || t.promoPrice || '0');
     const intDigits = getIntegerPart(rawPromo);
     const centsDisplay = getCentsStr(rawPromo, t.centsText || ',00');
 
@@ -204,6 +224,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         titleFontFamily: t.titleFontFamily,
         titlePos,
         titleRotation: titleRot,
+        titleWidth: t.titleWidth,
 
         deText: t.deText,
         showDe,
