@@ -154,18 +154,19 @@ const safeSendWhatsAppOrFallback = async ({
 }) => {
     const settings = getSettings();
     const config = settings.whatsappConfig;
-    const sendMode = config?.sendMode || 'graph_api';
+    const sendMode = config?.sendMode || 'wame';
 
-    // Se o modo for 'wame' (WhatsApp Web / App), abre a aba wa.me diretamente
+    // Se o modo for 'wame' (WhatsApp Web / App), abre a aba wa.me diretamente sem chamar a API
     if (sendMode === 'wame') {
+        console.log("[WhatsApp] Modo WA.ME (WhatsApp Web) ativo. Abrindo link:", fallbackUrl);
         window.open(fallbackUrl, "_blank");
         return;
     }
 
     // Modo Meta Graph API (Envio direto via servidor Meta)
-    const hasCloudApi = !!(config?.accessToken && config?.phoneNumberId);
+    const hasCloudApi = Boolean(config?.accessToken && config?.phoneNumberId);
     if (!hasCloudApi) {
-        toast.warning("Token de Acesso ou Phone Number ID não configurados em Configurações > WhatsApp API. Abrindo WhatsApp Web...");
+        toast.warning("Token de Acesso ou Phone Number ID não configurados. Abrindo WhatsApp Web...");
         window.open(fallbackUrl, "_blank");
         return;
     }

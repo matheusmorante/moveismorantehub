@@ -32,7 +32,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         phoneNumberId: '',
         wabaId: '',
         catalogId: '',
-        sendMode: 'graph_api',
+        sendMode: 'wame',
         templateNameOrderConfirmation: '',
         templateLanguage: 'pt_BR',
         templateVariableCount: 7

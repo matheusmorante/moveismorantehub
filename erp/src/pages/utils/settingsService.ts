@@ -496,7 +496,7 @@ RESPOSTA NO FORMATO JSON:
         phoneNumberId: '',
         wabaId: '',
         catalogId: '',
-        sendMode: 'graph_api'
+        sendMode: 'wame'
     },
     channelBaseDescriptions: {
         whatsapp: `🏠 *Móveis Morante*
