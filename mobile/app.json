@@ -10,7 +10,9 @@
     "splash": {
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "expo-notifications",
@@ -22,22 +24,22 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.matheusmorante.mobile"
+      "bundleIdentifier": "com.morante.mobile"
     },
     "android": {
-      "package": "com.matheusmorante.mobile",
+      "package": "com.morante.mobile",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "POST_NOTIFICATIONS"
       ]
     },
-    "web": {
-    },
+    "web": {},
     "extra": {
       "eas": {
-        "projectId": "bda44a09-b091-47ec-a0b1-25bc097ac641"
+        "projectId": "dd556f93-9a32-4219-84a2-378b626f09ae"
       }
-    }
+    },
+    "owner": "morante"
   }
 }

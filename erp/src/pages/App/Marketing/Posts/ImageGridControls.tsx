@@ -24,7 +24,6 @@ export default function ImageGridControls({ additionalImageCount, settings, onCh
       <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Gap linhas<input type="number" min="0" max="300" value={settings.gapY} onChange={number('gapY', 0, 0)} className={inputClass} /></label>
     </div>
     <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Escala: {settings.scale}%<input type="range" min="50" max="120" value={settings.scale} onChange={event => update('scale', Number(event.target.value))} className="accent-blue-600" /></label>
-    <label className="flex items-center justify-between text-[10px] font-black text-slate-500">Mostrar demarcações<input type="checkbox" checked={settings.showGuides} onChange={event => update('showGuides', event.target.checked)} className="h-4 w-4 accent-blue-600" /></label>
     <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2 text-[10px] font-black text-slate-500 dark:bg-slate-900">
       <span>Linhas coluna 2</span><output className="text-right">{sideGrid.rightRowCount}</output>
       <span>Células 1:1</span><output className="text-right">{Math.round(sideGrid.size)} × {Math.round(sideGrid.size)} px</output>

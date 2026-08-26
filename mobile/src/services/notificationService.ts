@@ -66,7 +66,7 @@ export const registerPushToken = async () => {
     }
 
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'bda44a09-b091-47ec-a0b1-25bc097ac641',
+      projectId: 'dd556f93-9a32-4219-84a2-378b626f09ae',
     });
     const token = tokenData?.data;
 

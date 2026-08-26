@@ -14,7 +14,7 @@ import InstallmentImageGallery from './InstallmentImageGallery';
 import ImageGridControls from './ImageGridControls';
 import type { OpportunitySeal } from './opportunitySealImage';
 import { DEFAULT_IMAGE_GRID_SETTINGS, drawImageGrid, drawMoreColorsLabel, getPostImageGrid, placeImageInCell, type ImageGridSettings } from './postImageGrid';
-import { getTextBackgroundAlignment, type HorizontalTextAlignment, type VerticalTextAlignment } from './textAlignment';
+import { type HorizontalTextAlignment, type VerticalTextAlignment } from './textAlignment';
 import { getPostGridImages, parseVariationImageUrls } from './variationGridImages';
 import { shouldShowPreviousPrice } from './postPriceVisibility';
 
@@ -106,8 +106,19 @@ function getBoundingBox(img: HTMLImageElement): { x: number; y: number; w: numbe
   const ctx = canvas.getContext("2d");
   if (!ctx) return { x: 0, y: 0, w: img.width, h: img.height };
   
-  ctx.drawImage(img, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  try {
+    ctx.drawImage(img, 0, 0);
+  } catch {
+    return { x: 0, y: 0, w: img.width, h: img.height };
+  }
+  let imageData: ImageData;
+  try {
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch {
+    // Imagens de domínios sem CORS ainda podem ser exibidas no grid; apenas
+    // não permitem a leitura dos pixels para remover bordas transparentes.
+    return { x: 0, y: 0, w: img.width, h: img.height };
+  }
   const data = imageData.data;
   
   let minX = canvas.width;
@@ -214,6 +225,7 @@ export default function MarketingPosts() {
 
   const [installmentImageUrl, setInstallmentImageUrl] = useState('/images/installment-badge-10x-transparent.png');
   const [installmentImageLibrary, setInstallmentImageLibrary] = useState<string[]>(['/images/installment-badge-10x-transparent.png', '/images/installment-badge-10x-juros.png']);
+  const [installmentImageScale, setInstallmentImageScale] = useState(100);
   const [uploadingInstallmentImage, setUploadingInstallmentImage] = useState(false);
   const [showSecondaryImage, setShowSecondaryImage] = useState(true);
   const [showOpportunityBadge, setShowOpportunityBadge] = useState(true);
@@ -252,6 +264,7 @@ export default function MarketingPosts() {
   const [productTitleOffsetX, setProductTitleOffsetX] = useState<number>(600);
   const [productTitleOffsetY, setProductTitleOffsetY] = useState<number>(720);
   const [productTitleMaxContainerWidth, setProductTitleMaxContainerWidth] = useState<number>(390);
+  const [isTitleWidthFixed, setIsTitleWidthFixed] = useState(false);
   const [productTitleRotation, setProductTitleRotation] = useState<number>(0);
   const [productTitleScale, setProductTitleScale] = useState<number>(100);
 
@@ -350,6 +363,7 @@ export default function MarketingPosts() {
   // Elemento selecionado no canvas para edição interativa
   type SelectedElement = 'headerFooter' | 'imageGrid' | 'mainImage' | 'secondaryImage' | 'opportunityBadge' | 'priceContainer' | 'priceHighlight' | 'brand' | 'slogan' | 'installments' | 'avatar' | 'footerTitle' | 'footerAddress' | 'title' | 'priceDeLabel' | 'priceDe' | 'pricePor' | 'porApenas' | 'measures' | null;
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
+  const [isGridHovered, setIsGridHovered] = useState(false);
   useEffect(() => {
     if (selectedElement === 'priceContainer') setSelectedElement(null);
   }, [selectedElement]);
@@ -381,7 +395,7 @@ export default function MarketingPosts() {
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentImageUrl, installmentImageLibrary, installmentsOffsetX, installmentsOffsetY,
+    installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
     showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
@@ -390,7 +404,7 @@ export default function MarketingPosts() {
     secondaryImageOffsetX, secondaryImageOffsetY,
     imageGridSettings,
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
     priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
@@ -405,7 +419,7 @@ export default function MarketingPosts() {
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentImageUrl, installmentImageLibrary, installmentsOffsetX, installmentsOffsetY,
+    installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
     showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
@@ -414,7 +428,7 @@ export default function MarketingPosts() {
     secondaryImageOffsetX, secondaryImageOffsetY,
     imageGridSettings,
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
     priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
@@ -471,6 +485,7 @@ export default function MarketingPosts() {
     if (s.footerAddressTextOffsetY !== undefined) setFooterAddressTextOffsetY(s.footerAddressTextOffsetY);
     if (s.installmentImageUrl !== undefined) setInstallmentImageUrl(s.installmentImageUrl);
     if (s.installmentImageLibrary !== undefined) setInstallmentImageLibrary(s.installmentImageLibrary);
+    if (s.installmentImageScale !== undefined) setInstallmentImageScale(Math.max(20, Math.min(300, Number(s.installmentImageScale) || 100)));
     if (s.installmentsFontSize !== undefined) setInstallmentsFontSize(s.installmentsFontSize);
     if (s.installmentsOffsetX !== undefined) setInstallmentsOffsetX(canvasCoordinate(s.installmentsOffsetX, 600, 1080));
     if (s.installmentsOffsetY !== undefined) setInstallmentsOffsetY(canvasCoordinate(s.installmentsOffsetY, 1140, 1350));
@@ -507,6 +522,7 @@ export default function MarketingPosts() {
     if (s.productTitleOffsetX !== undefined) setProductTitleOffsetX(canvasCoordinate(s.productTitleOffsetX, 600, 1080));
     if (s.productTitleOffsetY !== undefined) setProductTitleOffsetY(canvasCoordinate(s.productTitleOffsetY, 720, 1350));
     if (s.productTitleMaxContainerWidth !== undefined) setProductTitleMaxContainerWidth(s.productTitleMaxContainerWidth);
+    if (s.isTitleWidthFixed !== undefined) setIsTitleWidthFixed(Boolean(s.isTitleWidthFixed));
     if (s.productTitleRotation !== undefined) setProductTitleRotation(s.productTitleRotation);
     if (s.productTitleScale !== undefined) setProductTitleScale(s.productTitleScale);
     if (s.priceFontSize !== undefined) setPriceFontSize(s.priceFontSize);
@@ -700,6 +716,11 @@ export default function MarketingPosts() {
         e.preventDefault();
         if (e.shiftKey) {
           handleRedo();
+        } else if (selectedElement === 'installments') {
+          // Parcelamento é uma imagem: apenas o canto altera a escala proporcionalmente.
+          ctx.lineWidth = 3 * S;
+          ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+          ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
         } else {
           handleUndo();
         }
@@ -955,16 +976,18 @@ export default function MarketingPosts() {
       const paddingRight = hasBackground ? background.paddingRight ?? background.paddingX ?? 0 : 0;
       const paddingTop = hasBackground ? background.paddingTop ?? background.paddingY ?? 0 : 0;
       const paddingBottom = hasBackground ? background.paddingBottom ?? background.paddingY ?? 0 : 0;
-      return getTextBackgroundAlignment(
-        width,
-        height,
-        paddingLeft,
-        paddingRight,
-        paddingTop,
-        paddingBottom,
-        textHorizontalAlignments[key] || (hasBackground ? 'center' : 'left'),
-        textVerticalAlignments[key] || 'middle',
-      );
+      const areaWidth = Math.max(width + paddingLeft + paddingRight, textSelectionWidths[key] || 0);
+      const areaHeight = Math.max(height + paddingTop + paddingBottom, textSelectionHeights[key] || 0);
+      const horizontal = textHorizontalAlignments[key] || (hasBackground ? 'center' : 'left');
+      const vertical = textVerticalAlignments[key] || 'middle';
+      // O espaço configurado pertence à área do fundo. Os controles de
+      // alinhamento redistribuem esse espaço ao redor do texto: topo deixa o
+      // espaço embaixo, meio divide, e base deixa o espaço em cima.
+      const freeWidth = Math.max(0, areaWidth - width);
+      const freeHeight = Math.max(0, areaHeight - height);
+      const textX = horizontal === 'right' ? freeWidth : horizontal === 'center' ? freeWidth / 2 : 0;
+      const textBaseline = height + (vertical === 'bottom' ? freeHeight : vertical === 'middle' ? freeHeight / 2 : 0);
+      return { x: textX, y: textBaseline - height, width: areaWidth, height: areaHeight };
     };
 
     // 1. Área principal clara, conforme o template institucional padrão.
@@ -1131,7 +1154,9 @@ export default function MarketingPosts() {
     // acompanha o conteúdo enquanto ele couber em uma única linha.
     const pTitleLimit = Math.min(1040, Math.max(120, productTitleMaxContainerWidth || 0, textSelectionWidths.title || 0, 390));
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
-    const titleWords = (productTitle || renderProduct.name).split(/\s+/);
+    // O nome exibido é sempre o do produto em uso. No editor de template,
+    // o produto-modelo serve para testar a área e regular as quebras de linha.
+    const titleWords = (renderProduct.name || productTitle || 'PRODUTO').split(/\s+/);
     const titleSingleLineWidth = ctx.measureText(titleWords.join(' ')).width / S;
     const titleLines: string[] = [];
     let titleLine = '';
@@ -1155,7 +1180,7 @@ export default function MarketingPosts() {
     ctx.fillStyle = textColors.title || DEFAULT_TEXT_COLORS.title;
     const titleContentWidth = Math.max(...titleLines.map(line => ctx.measureText(line).width / S), 0);
     const titleContentHeight = titleLines.length * (pTitleSize + 6);
-    const titleAreaWidth = Math.min(pTitleLimit, Math.max(120, titleSingleLineWidth, titleContentWidth));
+    const titleAreaWidth = isTitleWidthFixed ? pTitleLimit : Math.min(pTitleLimit, Math.max(120, titleSingleLineWidth, titleContentWidth));
     const titleAlignment = getTextAreaAlignment('title', titleContentWidth, titleContentHeight);
     const drawTitleLayer = () => {
       ctx.save();
@@ -1245,21 +1270,31 @@ export default function MarketingPosts() {
     ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
     const flowPriceX = isPricePorDetached ? (priceOffsetX ?? 600) : priceRowX;
     const flowPriceY = isPricePorDetached ? (priceOffsetY ?? 920) : priceRowY;
-    const priceContentWidth = ctx.measureText(priceStr).width / S;
-    const priceAlignment = getTextAreaAlignment('pricePor', priceContentWidth, prSize);
+    const priceMetrics = ctx.measureText(priceStr);
+    const priceContentWidth = priceMetrics.width / S;
+    const priceAscent = Math.max(1, priceMetrics.actualBoundingBoxAscent / S || prSize * 0.72);
+    const priceDescent = Math.max(0, priceMetrics.actualBoundingBoxDescent / S || prSize * 0.12);
+    const priceContentHeight = priceAscent + priceDescent;
+    const priceAlignment = getTextAreaAlignment('pricePor', priceContentWidth, priceContentHeight);
+    // O Canvas posiciona texto pela linha de base. A área de seleção é medida
+    // pelo topo e pela base visíveis do desenho; por isso descontamos a
+    // descendente ao posicionar o preço dentro do fundo.
+    const priceBaselineOffsetY = priceAlignment.y - priceDescent;
     const drawPricePorLayer = () => {
       ctx.save();
       if (!isPricePorDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
-      ctx.translate((flowPriceX + priceAlignment.x) * S, (flowPriceY + priceAlignment.y) * S);
+      ctx.translate((flowPriceX + priceAlignment.x) * S, (flowPriceY + priceBaselineOffsetY) * S);
       ctx.rotate((priceRotation * Math.PI) / 180);
+      // O preço não pode herdar a fonte da camada desenhada antes dele.
+      ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
       // Aqui usamos o textBackgrounds.pricePor como estava
       let defaultBg = { color: '#ffe600', paddingLeft: 18, paddingRight: 18, paddingTop: 17, paddingBottom: 17, opacity: 1 };
       // Mas com fallbacks corretos caso não seja esse. Se não for vazio:
-      drawTextBackground(ctx, S, priceContentWidth, prSize, textBackgrounds.pricePor || defaultBg, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceAlignment.y });
+      drawTextBackground(ctx, S, priceContentWidth, priceContentHeight, textBackgrounds.pricePor || defaultBg, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceBaselineOffsetY });
       ctx.fillStyle = textColors.pricePor || DEFAULT_TEXT_COLORS.pricePor;
       ctx.fillText(priceStr, 0, 0);
       ctx.restore();
-      reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: flowPriceY - prSize, w: priceAlignment.width, h: priceAlignment.height };
+      reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: flowPriceY - priceContentHeight, w: priceAlignment.width, h: priceAlignment.height };
     };
     // Medidas
     if (measuresText) {
@@ -1285,7 +1320,7 @@ export default function MarketingPosts() {
       const bounds = getCachedBoundingBox(images.installmentImg);
       const maxWidth = 380;
       const maxHeight = 120;
-      const scale = Math.min(maxWidth / bounds.w, maxHeight / bounds.h, 1);
+      const scale = Math.min(maxWidth / bounds.w, maxHeight / bounds.h, 1) * (installmentImageScale / 100);
       const width = bounds.w * scale;
       const height = bounds.h * scale;
       ctx.drawImage(images.installmentImg, bounds.x, bounds.y, bounds.w, bounds.h, instX * S, (instY - height) * S, width * S, height * S);
@@ -1390,7 +1425,7 @@ export default function MarketingPosts() {
     }
 
     if (!isExport) {
-      if (imageGridSettings.showGuides) drawImageGrid(ctx, S, imageGrid);
+      if (isGridHovered) drawImageGrid(ctx, S, imageGrid);
       const gridSelectionMargin = 24;
       reg.imageGrid = { key: 'imageGrid', label: 'Grid de fotos', x: imageGrid.outer.x - gridSelectionMargin, y: imageGrid.outer.y - gridSelectionMargin, w: imageGrid.outer.w + gridSelectionMargin * 2, h: imageGrid.outer.h + gridSelectionMargin * 2 };
     }
@@ -1455,7 +1490,7 @@ export default function MarketingPosts() {
           ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
           ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
         }
-        if (!IMAGE_CELL_KEYS.includes(selectedElement)) {
+        if (!IMAGE_CELL_KEYS.includes(selectedElement) && selectedElement !== 'installments') {
           const rotateX = region.x + region.w + 42;
           const rotateY = region.y + region.h + 42;
           ctx.beginPath();
@@ -1534,12 +1569,12 @@ export default function MarketingPosts() {
     loading, isModalOpen, activeProduct, isEditingTemplate, headerTemplateImage, footerTemplateImage, brandName, brandFontSize, brandOffsetX, brandOffsetY, slogan, sloganFontSize, sloganOffsetX, sloganOffsetY,
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY, footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX,
     footerAddressTitleOffsetY, footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentImageUrl, installmentImageLibrary, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
+    installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource, imageGridSettings,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
     priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
-    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, gridImages, gridExtraImageUrls
+    porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, isGridHovered, gridImages, gridExtraImageUrls
   ]);
 
   // Registra no histórico
@@ -1670,7 +1705,7 @@ export default function MarketingPosts() {
     else if (key === 'priceDeLabel' || key === 'priceDe') resizeFont(setPriceDeFontSize);
     else if (key === 'pricePor') resizeFont(setPriceFontSize);
     else if (key === 'porApenas') resizeFont(setPorApenasFontSize);
-    else if (key === 'installments') resizeFont(setInstallmentsFontSize);
+    else if (key === 'installments') setInstallmentImageScale(value => Math.max(20, Math.min(300, value + amount)));
     else if (key === 'measures') resizeFont(setMeasuresFontSize);
     else if (key === 'brand') resizeFont(setBrandFontSize);
     else if (key === 'slogan') resizeFont(setSloganFontSize);
@@ -1753,7 +1788,7 @@ export default function MarketingPosts() {
           }
         }
         // Os demais textos usam somente o quadrado do canto para alterar a fonte.
-      } else if (selectedElement) {
+      } else if (selectedElement && selectedElement !== 'installments') {
         const centerX = activeRegion.x + activeRegion.w / 2;
         const centerY = activeRegion.y + activeRegion.h / 2;
         const side = Math.abs(x - activeRegion.x) <= 14 && Math.abs(y - centerY) <= 30 ? 'left'
@@ -1767,7 +1802,7 @@ export default function MarketingPosts() {
         postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
         return;
       }
-      if (Math.hypot(x - rotateX, y - rotateY) <= 22) {
+      if (selectedElement !== 'installments' && Math.hypot(x - rotateX, y - rotateY) <= 22) {
         postDragRef.current = { key: selectedElement, x, y, mode: 'rotate', centerX: activeRegion.x + activeRegion.w / 2, centerY: activeRegion.y + activeRegion.h / 2 };
         return;
       }
@@ -1804,7 +1839,7 @@ export default function MarketingPosts() {
     const y = (e.clientY - rect.top) * (1350 / rect.height);
     const dx = Math.round(x - drag.x), dy = Math.round(y - drag.y);
     if (drag.mode === 'resize') {
-      const amount = Math.round((dx + dy) / (drag.key === 'title' ? 2 : 8));
+      const amount = Math.round((dx + dy) / (drag.key === 'title' || drag.key === 'installments' ? 2 : 8));
       if (amount) {
         if (drag.key === 'priceContainer') {
           setPriceContainerWidth(value => Math.max(180, value + amount));
@@ -1835,7 +1870,7 @@ export default function MarketingPosts() {
         if (drag.key && region && distance) {
           const minimum = drag.key === 'title' ? 120 : 30;
           const nextWidth = Math.min(900, Math.max(minimum, drag.key === 'title' ? region.w + distance : (textSelectionWidths[drag.key as string] || region.w) + distance));
-          if (drag.key === 'title') setProductTitleMaxContainerWidth(nextWidth);
+          if (drag.key === 'title') { setProductTitleMaxContainerWidth(nextWidth); setIsTitleWidthFixed(true); }
           setTextSelectionWidths(current => ({ ...current, [drag.key as string]: nextWidth }));
         }
       } else if (drag.key && region && distance) setTextSelectionHeights(current => ({ ...current, [drag.key as string]: Math.max(20, (current[drag.key as string] || region.h) + distance) }));
@@ -1852,6 +1887,16 @@ export default function MarketingPosts() {
       }
       postDragRef.current = { ...drag, x, y };
     }
+  };
+
+  const handlePostPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    dragPostElement(event);
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) * (1080 / rect.width);
+    const y = (event.clientY - rect.top) * (1350 / rect.height);
+    const grid = renderedRegionsRef.current.imageGrid;
+    const hovering = Boolean(grid && x >= grid.x && x <= grid.x + grid.w && y >= grid.y && y <= grid.y + grid.h);
+    setIsGridHovered(current => current === hovering ? current : hovering);
   };
 
   const handleOpenTemplate = () => {
@@ -2486,7 +2531,7 @@ export default function MarketingPosts() {
                 </>}
                 {selectedElement === 'priceHighlight' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceHighlightBackgroundColor} onChange={event => setPriceHighlightBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceHighlightBackgroundColor}</output></label>}
                 {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30" title="Remover container" aria-label="Remover container"><i className="bi bi-trash3-fill" /></button>}
-                {selectedElement === 'title' && <input value={productTitle} onChange={event => setProductTitle(event.target.value)} placeholder="Título do produto" className="w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
+                {selectedElement === 'title' && <span className="text-xs font-bold text-slate-500">Nome dinâmico do produto selecionado</span>}
                 {selectedElement === 'priceDe' && <input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} placeholder="Preço antigo" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'pricePor' && <input type="number" step="0.01" value={customPromoPrice} onChange={event => setCustomPromoPrice(event.target.value)} placeholder="Preço final" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'porApenas' && <input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="w-40 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
@@ -2527,7 +2572,15 @@ export default function MarketingPosts() {
                   {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “De”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'porApenas' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “Por apenas”<input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'installments' && <InstallmentImageGallery images={installmentImageLibrary} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onUpload={uploadInstallmentImage} />}
+                  {selectedElement === 'pricePor' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Altura da área de texto
+                    <input type="number" min="20" value={textSelectionHeights.pricePor || Math.ceil(priceFontSize * 1.45)} onChange={event => setTextSelectionHeights(current => ({ ...current, pricePor: Math.max(20, Number(event.target.value) || 20) }))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
+                  </label>}
+                  {selectedElement === 'installments' && <>
+                    <InstallmentImageGallery images={installmentImageLibrary} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onUpload={uploadInstallmentImage} />
+                    <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Escala da imagem (%)
+                      <input type="number" min="20" max="300" value={installmentImageScale} onChange={event => setInstallmentImageScale(Math.max(20, Math.min(300, Number(event.target.value) || 20)))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
+                    </label>
+                  </>}
                   {selectedElement === 'brand' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Marca<input value={brandName} onChange={event => setBrandName(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'slogan' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Slogan<input value={slogan} onChange={event => setSlogan(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'footerTitle' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Título do rodapé<input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
@@ -2564,9 +2617,10 @@ export default function MarketingPosts() {
                     height={1350}
                     className="w-full h-full object-contain cursor-crosshair"
                     onPointerDown={startPostDrag}
-                    onPointerMove={dragPostElement}
+                    onPointerMove={handlePostPointerMove}
                     onPointerUp={event => { postDragRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
                     onPointerCancel={() => { postDragRef.current = null; }}
+                    onPointerLeave={() => setIsGridHovered(false)}
                   />
                 </div>
 
