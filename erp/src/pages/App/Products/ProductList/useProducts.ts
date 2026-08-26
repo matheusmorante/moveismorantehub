@@ -44,6 +44,7 @@ export const useProducts = (filters?: any) => {
                 search: filters?.search,
                 category: filters?.category,
                 activeOnly: filters?.activeOnly,
+                status: filters?.status,
                 sortBy: filters?.sortBy,
                 sortOrder: filters?.sortOrder,
             });
@@ -52,7 +53,7 @@ export const useProducts = (filters?: any) => {
         } finally {
             setServerLoading(false);
         }
-    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.sortBy, filters?.sortOrder]);
+    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.sortBy, filters?.sortOrder]);
 
     // Fetch on page/perPage/filters/refresh change
     useEffect(() => {

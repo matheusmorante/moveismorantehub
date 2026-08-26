@@ -74,20 +74,19 @@ const Products: React.FC = () => {
                 .from('products')
                 .select('*', { count: 'exact', head: true })
                 .eq('deleted', false)
-                .eq('status', 'published')
-                .eq('active', true);
+                .eq('status', 'published');
 
             const { count: disabledCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
                 .eq('deleted', false)
-                .eq('active', false);
+                .eq('status', 'hidden');
 
             const { count: draftsCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
                 .eq('deleted', false)
-                .eq('is_draft', true);
+                .or('is_draft.eq.true,status.eq.draft');
 
             setCatalogStats({
                 total: totalCount || 0,

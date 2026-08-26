@@ -511,6 +511,7 @@ export const fetchProductsPage = async (
         search?: string;
         category?: string;
         activeOnly?: boolean;
+        status?: string;
         sortBy?: string;
         sortOrder?: 'asc' | 'desc';
     }
@@ -555,6 +556,11 @@ export const fetchProductsPage = async (
             query = query.eq('item_type', 'service');
         } else if (options?.category === 'Produtos') {
             query = query.eq('item_type', 'product');
+        }
+
+        // Filtro por status (ex: 'published', 'hidden', 'draft')
+        if (options?.status) {
+            query = query.eq('status', options.status);
         }
 
         // Filtro de apenas ativos
