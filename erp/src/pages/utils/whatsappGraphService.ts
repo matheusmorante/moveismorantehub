@@ -556,7 +556,7 @@ ____________________________________
 
         console.log("[WhatsApp API] Enviando Template Payload:", JSON.stringify(payload, null, 2));
 
-        const response = await fetch(
+        let response = await fetch(
             `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
             {
                 method: 'POST',
@@ -565,7 +565,52 @@ ____________________________________
             }
         );
 
-        const data = await response.json();
+        let data = await response.json();
+
+        // Se falhar e for número brasileiro com 9 dígitos (ex: 554199...), tenta sem o 9º dígito (ex: 55419...)
+        if (data.error && data.error.code === 100 && formattedPhone.length === 13 && formattedPhone.startsWith('55')) {
+            const phoneWithoutNine = `55${formattedPhone.substring(2, 4)}${formattedPhone.substring(5)}`;
+            console.log(`[WhatsApp API] Tentando formato sem 9º dígito: ${phoneWithoutNine}`);
+            const altPayload = { ...payload, to: phoneWithoutNine };
+            const altResponse = await fetch(
+                `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
+                {
+                    method: 'POST',
+                    headers: whatsappGraphService.getHeaders(),
+                    body: JSON.stringify(altPayload)
+                }
+            );
+            const altData = await altResponse.json();
+            if (!altData.error) {
+                return altData;
+            }
+        }
+
+        // Se ainda falhar com erro de parâmetro de template, tenta alternar entre pt_BR e pt
+        if (data.error && data.error.code === 100) {
+            const altLang = targetLanguage === 'pt_BR' ? 'pt' : 'pt_BR';
+            console.log(`[WhatsApp API] Tentando com idioma alternativo: ${altLang}`);
+            const altPayloadLang = {
+                ...payload,
+                template: {
+                    ...payload.template,
+                    language: { code: altLang }
+                }
+            };
+            const altResponseLang = await fetch(
+                `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
+                {
+                    method: 'POST',
+                    headers: whatsappGraphService.getHeaders(),
+                    body: JSON.stringify(altPayloadLang)
+                }
+            );
+            const altDataLang = await altResponseLang.json();
+            if (!altDataLang.error) {
+                return altDataLang;
+            }
+        }
+
         if (data.error) {
             console.error("[WhatsApp API] Erro retornado pela Meta:", JSON.stringify(data.error, null, 2));
             const details = data.error.error_data?.details || '';
