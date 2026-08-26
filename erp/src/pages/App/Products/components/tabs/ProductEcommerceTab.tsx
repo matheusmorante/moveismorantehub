@@ -74,10 +74,10 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     <span><strong>Dica prática:</strong> Você pode arrastar/soltar imagens, colar fotos (Ctrl+V) ou clicar em Adicionar (Máximo de 15 fotos). Passe o mouse sobre qualquer foto para ver os botões de substituir (câmera) ou excluir (lixeira).</span>
                 </p>
 
-                <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-6 bg-slate-50/50 dark:bg-slate-955/10">
-                    <div className="flex flex-wrap pb-4 gap-4 select-none min-w-0 w-full items-center">
+                <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
                         {currentCount < maxPhotos && (
-                            <label className="h-36 w-36 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shrink-0 shadow-sm">
+                            <label className="aspect-square w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shadow-sm">
                                 <i className="bi bi-plus text-2xl text-purple-600 dark:text-purple-400 group-hover:scale-125 transition-transform"></i>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adicionar</span>
                                 <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
@@ -101,7 +101,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         setFormData({ ...formData, images: newImages });
                                     }}
                                     onDragEnd={() => setDraggedIndex(null)}
-                                    className={`group relative h-36 w-36 rounded-3xl overflow-hidden border-2 cursor-move shrink-0 transition-all shadow-sm ${borderClass}`}
+                                    className={`group relative aspect-square w-full rounded-3xl overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
                                     title="Arraste para reordenar ou passe o mouse para obter opções"
                                 >
                                     <img src={url} alt={`Foto ${index + 1}`} className="object-cover w-full h-full pointer-events-none" />

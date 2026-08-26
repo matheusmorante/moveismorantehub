@@ -933,7 +933,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     Nenhuma imagem cadastrada no produto principal. Adicione fotos na aba principal primeiro!
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                     {parentImages.map((url, imgIndex) => {
                                         const isSelected = formData.images?.includes(url);
                                         const selectIndex = formData.images?.indexOf(url) ?? -1;
