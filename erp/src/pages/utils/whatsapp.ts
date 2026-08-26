@@ -156,9 +156,9 @@ const safeSendWhatsAppOrFallback = async ({
     const config = settings.whatsappConfig;
     const sendMode = config?.sendMode || 'wame';
 
-    // Se o modo for 'wame' (WhatsApp Web / App), abre a aba wa.me diretamente sem chamar a API
-    if (sendMode === 'wame') {
-        console.log("[WhatsApp] Modo WA.ME (WhatsApp Web) ativo. Abrindo link:", fallbackUrl);
+    // Se o modo NÃO for explicitamente 'graph_api' (ou seja, for 'wame' ou padrão), abre a aba wa.me diretamente sem chamar a Cloud API
+    if (sendMode !== 'graph_api') {
+        console.log("[WhatsApp] Modo WA.ME (WhatsApp Web / App) ativo. Abrindo link:", fallbackUrl);
         window.open(fallbackUrl, "_blank");
         return;
     }
@@ -224,6 +224,8 @@ export const sendDirectCustomerMessage = async (order: Order) => {
         return;
     }
 
+    const settings = getSettings();
+    const config = settings.whatsappConfig;
     const url = customerOrderWhatsappUrl(order);
     const message = buildCustomerOrderMessage(order);
 
@@ -250,6 +252,7 @@ export const sendDirectCustomerMessage = async (order: Order) => {
         : stringifyFullAddressWithObservation(customer.fullAddress);
 
     const cleanTotalVal = (order.paymentsSummary?.totalOrderValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const paymentsStr = stringifyPayments(order.paymentsSummary?.payments || []);
 
     const allParams = [
         customer.fullName || "Cliente",
