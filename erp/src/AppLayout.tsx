@@ -178,7 +178,8 @@ export default function AppLayout() {
                         </Link>
                         
                         <a
-                            href="https://expo.dev/accounts/morante/projects/mobile/builds/72187df0-b576-4195-a094-c4b875fc35e9"
+                            href="https://expo.dev/artifacts/eas/uHw2grrkolivlKdRZZQPo6On6bFHDPsnfGnMkfhCGn8.apk"
+                            download="morante-hub.apk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"

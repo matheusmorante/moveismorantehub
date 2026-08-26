@@ -225,6 +225,10 @@ export default function MarketingPosts() {
 
   const [installmentImageUrl, setInstallmentImageUrl] = useState('/images/installment-badge-10x-transparent.png');
   const [installmentImageLibrary, setInstallmentImageLibrary] = useState<string[]>(['/images/installment-badge-10x-transparent.png', '/images/installment-badge-10x-juros.png']);
+  const [installmentImageNames, setInstallmentImageNames] = useState<Record<string, string>>({
+    '/images/installment-badge-10x-transparent.png': 'Até 10x sem juros',
+    '/images/installment-badge-10x-juros.png': 'Até 10x com juros',
+  });
   const [installmentImageScale, setInstallmentImageScale] = useState(100);
   const [uploadingInstallmentImage, setUploadingInstallmentImage] = useState(false);
   const [showSecondaryImage, setShowSecondaryImage] = useState(true);
@@ -395,7 +399,7 @@ export default function MarketingPosts() {
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
+    installmentImageUrl, installmentImageLibrary, installmentImageNames, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
     showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
@@ -419,7 +423,7 @@ export default function MarketingPosts() {
     avatarUrl, avatarScale, avatarOffsetX, avatarOffsetY,
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
-    installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
+    installmentImageUrl, installmentImageLibrary, installmentImageNames, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
     showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
@@ -485,6 +489,7 @@ export default function MarketingPosts() {
     if (s.footerAddressTextOffsetY !== undefined) setFooterAddressTextOffsetY(s.footerAddressTextOffsetY);
     if (s.installmentImageUrl !== undefined) setInstallmentImageUrl(s.installmentImageUrl);
     if (s.installmentImageLibrary !== undefined) setInstallmentImageLibrary(s.installmentImageLibrary);
+    if (s.installmentImageNames !== undefined) setInstallmentImageNames(s.installmentImageNames);
     if (s.installmentImageScale !== undefined) setInstallmentImageScale(Math.max(20, Math.min(300, Number(s.installmentImageScale) || 100)));
     if (s.installmentsFontSize !== undefined) setInstallmentsFontSize(s.installmentsFontSize);
     if (s.installmentsOffsetX !== undefined) setInstallmentsOffsetX(canvasCoordinate(s.installmentsOffsetX, 600, 1080));
@@ -537,8 +542,8 @@ export default function MarketingPosts() {
     if (s.priceOffsetY !== undefined) setPriceOffsetY(canvasCoordinate(s.priceOffsetY, 920, 1350));
     if (s.priceRotation !== undefined) setPriceRotation(s.priceRotation);
     if (s.priceScale !== undefined) setPriceScale(s.priceScale);
-    if (s.priceDeOffsetX !== undefined) setPriceDeOffsetX(s.priceDeOffsetX);
-    if (s.priceDeOffsetY !== undefined) setPriceDeOffsetY(s.priceDeOffsetY);
+    if (s.priceDeOffsetX !== undefined) setPriceDeOffsetX(canvasCoordinate(s.priceDeOffsetX, 600, 1080));
+    if (s.priceDeOffsetY !== undefined) setPriceDeOffsetY(canvasCoordinate(s.priceDeOffsetY, 780, 1350));
     if (s.priceDeRotation !== undefined) setPriceDeRotation(s.priceDeRotation);
     if (s.priceDeScale !== undefined) setPriceDeScale(s.priceDeScale);
     if (s.porApenasText !== undefined) setPorApenasText(s.porApenasText);
@@ -598,6 +603,7 @@ export default function MarketingPosts() {
       const url = await uploadFile(file, `marketing/installments/${Date.now()}.${extension}`);
       setInstallmentImageUrl(url);
       setInstallmentImageLibrary(current => current.includes(url) ? current : [...current, url]);
+      setInstallmentImageNames(current => ({ ...current, [url]: file.name.replace(/\.[^.]+$/, '') || 'Imagem de parcelamento' }));
     } catch {
       toast.error('Não foi possível enviar a imagem do parcelamento.');
     } finally {
@@ -1156,7 +1162,9 @@ export default function MarketingPosts() {
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
     // O nome exibido é sempre o do produto em uso. No editor de template,
     // o produto-modelo serve para testar a área e regular as quebras de linha.
-    const titleWords = (renderProduct.name || productTitle || 'PRODUTO').split(/\s+/);
+    // O título do post contém somente o nome do produto. Informações de
+    // oportunidade pertencem exclusivamente ao selo, nunca ao título.
+    const titleWords = (renderProduct.name || 'PRODUTO').split(/\s+/);
     const titleSingleLineWidth = ctx.measureText(titleWords.join(' ')).width / S;
     const titleLines: string[] = [];
     let titleLine = '';
@@ -1203,8 +1211,11 @@ export default function MarketingPosts() {
       const deStr = `R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       const deSize = priceDeFontSize || 20;
       const isPriceDeDetached = false;
-      const deX = isPriceDeDetached ? (priceDeOffsetX ?? 600) : contentLeft + ((priceDeOffsetX ?? 600) - 600);
-      const deY = priceDeOffsetY ?? 780;
+      // Templates antigos podem ter salvo o preço antigo fora da arte. A
+      // posição continua editável, porém a prévia nunca o deixa invisível.
+      const requestedDeX = isPriceDeDetached ? (priceDeOffsetX ?? 600) : contentLeft + ((priceDeOffsetX ?? 600) - 600);
+      const deX = Math.max(20, Math.min(requestedDeX, 850));
+      const deY = Math.max(deSize + 8, Math.min(priceDeOffsetY ?? 780, 1170));
       const drawPriceDeLayer = () => {
         ctx.save();
         if (!isPriceDeDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
@@ -2576,7 +2587,7 @@ export default function MarketingPosts() {
                     <input type="number" min="20" value={textSelectionHeights.pricePor || Math.ceil(priceFontSize * 1.45)} onChange={event => setTextSelectionHeights(current => ({ ...current, pricePor: Math.max(20, Number(event.target.value) || 20) }))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
                   </label>}
                   {selectedElement === 'installments' && <>
-                    <InstallmentImageGallery images={installmentImageLibrary} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onUpload={uploadInstallmentImage} />
+                    <InstallmentImageGallery images={installmentImageLibrary} names={installmentImageNames} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onNameChange={(url, name) => setInstallmentImageNames(current => ({ ...current, [url]: name }))} onUpload={uploadInstallmentImage} />
                     <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Escala da imagem (%)
                       <input type="number" min="20" max="300" value={installmentImageScale} onChange={event => setInstallmentImageScale(Math.max(20, Math.min(300, Number(event.target.value) || 20)))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
                     </label>
@@ -2670,7 +2681,7 @@ export default function MarketingPosts() {
                       </div>
                     </div>
 
-                    <InstallmentImageGallery images={installmentImageLibrary} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onUpload={uploadInstallmentImage} />
+                    <InstallmentImageGallery images={installmentImageLibrary} names={installmentImageNames} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onNameChange={(url, name) => setInstallmentImageNames(current => ({ ...current, [url]: name }))} onUpload={uploadInstallmentImage} />
 
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Medidas Técnicas</label>
