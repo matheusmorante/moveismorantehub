@@ -31,7 +31,8 @@ export default function FloatingActionsHub() {
         {/* Download App (Integrated here as well for clean UI) */}
         <div className="relative group">
           <a 
-            href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/dc9cfe4a-ffcb-413d-896d-4f8d92c909f4"
+            href="https://expo.dev/artifacts/eas/Ci4KDsaNm2sv44uPT1hR49jRglVQmszxip4obegx9V0.apk"
+            download="morante-hub.apk"
             target="_blank"
             rel="noopener noreferrer"
             className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"

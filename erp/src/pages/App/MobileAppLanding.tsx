@@ -49,13 +49,14 @@ export default function MobileAppLanding() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
              <a 
-                href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/dc9cfe4a-ffcb-413d-896d-4f8d92c909f4"
+                href="https://expo.dev/artifacts/eas/Ci4KDsaNm2sv44uPT1hR49jRglVQmszxip4obegx9V0.apk"
+                download="morante-hub.apk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
              >
-                <i className="bi bi-google-play text-xl"></i>
-                Download Android APK (v1.0)
+                <i className="bi bi-download text-xl"></i>
+                Baixar APK Oficial (v1.0)
              </a>
 
              <button 
