@@ -95,10 +95,16 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
 
         setIsTestingTemplate(true);
         try {
-            toast.info("Enviando mensagem de teste via Meta API...");
-            
             const varCount = typeof config.templateVariableCount === 'number' ? config.templateVariableCount : 7;
-            const mockParams = ["Cliente Teste", "26/08/2026", "Manhã", "Rua Teste, 123", "1x Guarda-Roupa", "R$ 949,00", "Pix"];
+            const mockParams = [
+                "Cliente Teste", 
+                "26/08/2026", 
+                "Manhã", 
+                "Rua Cascavel, 306, Guaraituba - Colombo/PR", 
+                "1x Guarda Roupa Casal 6 Portas", 
+                "949,00", 
+                "Pix"
+            ];
             const finalParams = varCount === 0 ? [] : mockParams.slice(0, varCount);
 
             await whatsappGraphService.sendTemplateMessage(
