@@ -212,8 +212,8 @@ export default function MarketingPosts() {
   const [textBackgrounds, setTextBackgrounds] = useState<Record<string, TextBackground>>({ pricePor: { color: '#ffe600', paddingX: 18, paddingY: 17, opacity: 1 } });
   const [textHorizontalAlignments, setTextHorizontalAlignments] = useState<Record<string, HorizontalTextAlignment>>({});
   const [textVerticalAlignments, setTextVerticalAlignments] = useState<Record<string, VerticalTextAlignment>>({});
-  const [textSelectionWidths, setTextSelectionWidths] = useState<Record<string, number>>({});
-  const [textSelectionHeights, setTextSelectionHeights] = useState<Record<string, number>>({});
+  const [textSelectionWidths, setTextSelectionWidths] = useState<Record<string, number>>({ pricePor: 320 });
+  const [textSelectionHeights, setTextSelectionHeights] = useState<Record<string, number>>({ pricePor: 100 });
   const [colorHistory, setColorHistory] = useState(INITIAL_COLOR_HISTORY);
   const [brandFontSize, setBrandFontSize] = useState<number>(42);
   const [brandOffsetX, setBrandOffsetX] = useState<number>(120);
@@ -273,6 +273,8 @@ export default function MarketingPosts() {
   const [productTitleScale, setProductTitleScale] = useState<number>(100);
 
   const [priceFontSize, setPriceFontSize] = useState<number>(48);
+  const [priceFontSizesByMagnitude, setPriceFontSizesByMagnitude] = useState({ tens: 48, hundreds: 48, thousands: 48 });
+  const [selectedPriceFontMagnitude, setSelectedPriceFontMagnitude] = useState<'tens' | 'hundreds' | 'thousands'>('hundreds');
   const [priceHighlightBackgroundColor, setPriceHighlightBackgroundColor] = useState('#ffe600');
   const [priceHighlightOffsetX, setPriceHighlightOffsetX] = useState(0);
   const [priceHighlightOffsetY, setPriceHighlightOffsetY] = useState(0);
@@ -410,7 +412,7 @@ export default function MarketingPosts() {
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
     productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
-    priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
+    priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
     priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
     porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY,
@@ -434,7 +436,7 @@ export default function MarketingPosts() {
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
     productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
-    priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
+    priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
     priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
     porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY,
@@ -490,7 +492,7 @@ export default function MarketingPosts() {
     if (s.installmentImageUrl !== undefined) setInstallmentImageUrl(s.installmentImageUrl);
     if (s.installmentImageLibrary !== undefined) setInstallmentImageLibrary(s.installmentImageLibrary);
     if (s.installmentImageNames !== undefined) setInstallmentImageNames(s.installmentImageNames);
-    if (s.installmentImageScale !== undefined) setInstallmentImageScale(Math.max(20, Math.min(300, Number(s.installmentImageScale) || 100)));
+    if (s.installmentImageScale !== undefined) setInstallmentImageScale(Math.max(20, Number(s.installmentImageScale) || 100));
     if (s.installmentsFontSize !== undefined) setInstallmentsFontSize(s.installmentsFontSize);
     if (s.installmentsOffsetX !== undefined) setInstallmentsOffsetX(canvasCoordinate(s.installmentsOffsetX, 600, 1080));
     if (s.installmentsOffsetY !== undefined) setInstallmentsOffsetY(canvasCoordinate(s.installmentsOffsetY, 1140, 1350));
@@ -530,7 +532,12 @@ export default function MarketingPosts() {
     if (s.isTitleWidthFixed !== undefined) setIsTitleWidthFixed(Boolean(s.isTitleWidthFixed));
     if (s.productTitleRotation !== undefined) setProductTitleRotation(s.productTitleRotation);
     if (s.productTitleScale !== undefined) setProductTitleScale(s.productTitleScale);
-    if (s.priceFontSize !== undefined) setPriceFontSize(s.priceFontSize);
+    if (s.priceFontSize !== undefined) {
+      setPriceFontSize(s.priceFontSize);
+      if (s.priceFontSizesByMagnitude === undefined) setPriceFontSizesByMagnitude({ tens: s.priceFontSize, hundreds: s.priceFontSize, thousands: s.priceFontSize });
+    }
+    if (s.priceFontSizesByMagnitude !== undefined) setPriceFontSizesByMagnitude(current => ({ ...current, ...s.priceFontSizesByMagnitude }));
+    if (s.selectedPriceFontMagnitude !== undefined) setSelectedPriceFontMagnitude(s.selectedPriceFontMagnitude);
     if (s.priceHighlightBackgroundColor !== undefined) setPriceHighlightBackgroundColor(s.priceHighlightBackgroundColor);
     if (s.priceHighlightOffsetX !== undefined) setPriceHighlightOffsetX(s.priceHighlightOffsetX);
     if (s.priceHighlightOffsetY !== undefined) setPriceHighlightOffsetY(s.priceHighlightOffsetY);
@@ -975,15 +982,15 @@ export default function MarketingPosts() {
 
     const S = canvas.width / 1080;
     const reg: Record<string, { key: string; label: string; x: number; y: number; w: number; h: number }> = {};
-    const getTextAreaAlignment = (key: string, width: number, height: number) => {
+    const getTextAreaAlignment = (key: string, width: number, height: number, fixedArea?: { width: number; height: number }) => {
       const background = textBackgrounds[key] || EMPTY_TEXT_BACKGROUND;
       const hasBackground = background.opacity > 0;
       const paddingLeft = hasBackground ? background.paddingLeft ?? background.paddingX ?? 0 : 0;
       const paddingRight = hasBackground ? background.paddingRight ?? background.paddingX ?? 0 : 0;
       const paddingTop = hasBackground ? background.paddingTop ?? background.paddingY ?? 0 : 0;
       const paddingBottom = hasBackground ? background.paddingBottom ?? background.paddingY ?? 0 : 0;
-      const areaWidth = Math.max(width + paddingLeft + paddingRight, textSelectionWidths[key] || 0);
-      const areaHeight = Math.max(height + paddingTop + paddingBottom, textSelectionHeights[key] || 0);
+      const areaWidth = fixedArea ? fixedArea.width : Math.max(width + paddingLeft + paddingRight, textSelectionWidths[key] || 0);
+      const areaHeight = fixedArea ? fixedArea.height : Math.max(height + paddingTop + paddingBottom, textSelectionHeights[key] || 0);
       const horizontal = textHorizontalAlignments[key] || (hasBackground ? 'center' : 'left');
       const vertical = textVerticalAlignments[key] || 'middle';
       // O espaço configurado pertence à área do fundo. Os controles de
@@ -1136,24 +1143,32 @@ export default function MarketingPosts() {
     }
 
     // 5. Bloco de descrição e preço, abaixo da foto secundária à direita.
-    const effectivePrice = customPrice ? parseFloat(customPrice) : renderProduct.price;
-    const effectivePromo = customPromoPrice ? parseFloat(customPromoPrice) : renderProduct.promo_price;
+    const parsedCustomPrice = Number.parseFloat(customPrice);
+    const parsedCustomPromo = Number.parseFloat(customPromoPrice);
+    const effectivePrice = Number.isFinite(parsedCustomPrice) && parsedCustomPrice > 0 ? parsedCustomPrice : Number(renderProduct.price) || 0;
+    const effectivePromo = Number.isFinite(parsedCustomPromo) && parsedCustomPromo > 0 ? parsedCustomPromo : renderProduct.promo_price;
     const finalPriceVal = effectivePromo || effectivePrice;
     const priceStr = `R$ ${finalPriceVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    const prSize = priceFontSize || 48;
+    const priceMagnitude = finalPriceVal < 100 ? 'tens' : finalPriceVal < 1000 ? 'hundreds' : 'thousands';
+    const prSize = priceFontSizesByMagnitude[priceMagnitude] || priceFontSize || 48;
     const prX = priceOffsetX ?? 600;
     const prY = priceOffsetY ?? 920;
     const priceContainerX = priceContainerOffsetX ?? 0;
     const priceContainerY = priceContainerOffsetY ?? 0;
-    // O preço principal sempre pertence ao container: ao movê-lo ou aumentar a
-    // fonte, o container expande em vez de deixar o conteúdo vazar.
+    // O preço principal pertence ao seu próprio container visual.
     const isPricePorDetached = false;
-    ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
+    const priceBackground = textBackgrounds.pricePor || { color: '#ffe600', paddingLeft: 18, paddingRight: 18, paddingTop: 17, paddingBottom: 17, opacity: 1 };
+    // O container tem tamanho próprio: mudar a fonte não altera suas bordas.
+    const priceAreaWidth = Math.max(40, textSelectionWidths.pricePor || 320);
+    const priceAreaHeight = Math.max(24, textSelectionHeights.pricePor || 100);
+    const renderedPriceSize = prSize;
+    ctx.font = `bold ${renderedPriceSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
     const priceTextWidth = ctx.measureText(priceStr).width / S;
     const rawPriceRowStartX = 580 + ((priceOffsetX ?? 600) - 600);
     const priceRowStartX = Math.max(18 - priceContainerX, Math.min(rawPriceRowStartX, 1080 - priceContainerX - priceTextWidth - 38));
     const priceRequiredWidth = Math.ceil(priceRowStartX - 560 + priceTextWidth + 54);
-    // Enquanto o preço estiver no container, o fundo nunca pode ficar menor que ele.
+    // O container visual do preço é fixo; se o valor crescer, a fonte reduz
+    // para caber em uma única linha dentro dele.
     const effectiveContainerWidth = isPricePorDetached ? priceContainerWidth : Math.max(priceContainerWidth, priceRequiredWidth);
     const pTitleSize = productTitleFontSize || 30;
     // A largura salva é o limite máximo. A caixa de seleção fica flexível e
@@ -1164,7 +1179,11 @@ export default function MarketingPosts() {
     // o produto-modelo serve para testar a área e regular as quebras de linha.
     // O título do post contém somente o nome do produto. Informações de
     // oportunidade pertencem exclusivamente ao selo, nunca ao título.
-    const titleWords = (renderProduct.name || 'PRODUTO').split(/\s+/);
+    const titleText = (renderProduct.name || 'PRODUTO')
+      .replace(/\boportunidade\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim() || 'PRODUTO';
+    const titleWords = titleText.split(/\s+/);
     const titleSingleLineWidth = ctx.measureText(titleWords.join(' ')).width / S;
     const titleLines: string[] = [];
     let titleLine = '';
@@ -1186,10 +1205,23 @@ export default function MarketingPosts() {
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
     const pTitleY = productTitleOffsetY ?? 720;
     ctx.fillStyle = textColors.title || DEFAULT_TEXT_COLORS.title;
-    const titleContentWidth = Math.max(...titleLines.map(line => ctx.measureText(line).width / S), 0);
-    const titleContentHeight = titleLines.length * (pTitleSize + 6);
-    const titleAreaWidth = isTitleWidthFixed ? pTitleLimit : Math.min(pTitleLimit, Math.max(120, titleSingleLineWidth, titleContentWidth));
-    const titleAlignment = getTextAreaAlignment('title', titleContentWidth, titleContentHeight);
+    const fullTitleContentWidth = Math.max(...titleLines.map(line => ctx.measureText(line).width / S), 0);
+    const titleAreaWidth = isTitleWidthFixed ? pTitleLimit : Math.min(pTitleLimit, Math.max(120, titleSingleLineWidth, fullTitleContentWidth));
+    const titleLineHeight = pTitleSize + 6;
+    const titleAreaHeight = Math.max(20, textSelectionHeights.title || titleLines.length * titleLineHeight);
+    const visibleTitleLineCount = Math.max(1, Math.floor((titleAreaHeight + 6) / titleLineHeight));
+    const titleNeedsEllipsis = titleLines.length > visibleTitleLineCount;
+    const truncateTitleLine = (line: string) => {
+      if (!titleNeedsEllipsis) return line;
+      let text = line;
+      while (text.length > 0 && ctx.measureText(`${text}...`).width / S > titleAreaWidth) text = text.slice(0, -1).trimEnd();
+      return `${text || ''}...`;
+    };
+    const visibleTitleLines = titleLines.slice(0, visibleTitleLineCount);
+    if (titleNeedsEllipsis) visibleTitleLines[visibleTitleLines.length - 1] = truncateTitleLine(visibleTitleLines[visibleTitleLines.length - 1]);
+    const titleContentWidth = Math.max(...visibleTitleLines.map(line => ctx.measureText(line).width / S), 0);
+    const titleContentHeight = visibleTitleLines.length * titleLineHeight;
+    const titleAlignment = getTextAreaAlignment('title', titleContentWidth, titleContentHeight, { width: titleAreaWidth, height: titleAreaHeight });
     const drawTitleLayer = () => {
       ctx.save();
       if (!isTitleDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
@@ -1199,14 +1231,22 @@ export default function MarketingPosts() {
       // a sua própria fonte aqui para o tamanho visual e o espaçamento coincidirem.
       ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
       ctx.fillStyle = textColors.title || DEFAULT_TEXT_COLORS.title;
+      ctx.beginPath();
+      ctx.rect(-titleAlignment.x * S, (-pTitleSize - titleAlignment.y) * S, titleAreaWidth * S, titleAreaHeight * S);
+      ctx.clip();
       drawTextBackground(ctx, S, titleContentWidth, titleContentHeight, textBackgrounds.title || EMPTY_TEXT_BACKGROUND, 0, titleContentHeight - pTitleSize, { ...titleAlignment, offsetX: titleAlignment.x, offsetY: titleAlignment.y });
-      titleLines.forEach((line, index) => ctx.fillText(line, 0, index * (pTitleSize + 6) * S));
+      visibleTitleLines.forEach((line, index) => ctx.fillText(line, 0, index * titleLineHeight * S));
       ctx.restore();
       // A região usa a largura de seleção, e não apenas a largura das letras,
       // para que os puxadores laterais controlem a área de quebra do título.
       reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX, y: pTitleY - pTitleSize, w: titleAreaWidth, h: titleAlignment.height };
     };
-    if (shouldShowPreviousPrice(effectivePrice, effectivePromo, isEditingTemplate)) {
+    let drawPriceDeLayer: (() => void) | undefined;
+    let drawPriceDeValueLayer: (() => void) | undefined;
+    // A tela de template sempre precisa exibir esta camada para que ela possa
+    // ser posicionada. No resultado final, ela continua condicionada a uma
+    // promoção real, conforme a regra de catálogo.
+    if (shouldShowPreviousPrice(effectivePrice, effectivePromo, isEditingTemplate || isTemplateRoute)) {
       const deLabel = priceDeText || 'De';
       const deStr = `R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       const deSize = priceDeFontSize || 20;
@@ -1216,7 +1256,7 @@ export default function MarketingPosts() {
       const requestedDeX = isPriceDeDetached ? (priceDeOffsetX ?? 600) : contentLeft + ((priceDeOffsetX ?? 600) - 600);
       const deX = Math.max(20, Math.min(requestedDeX, 850));
       const deY = Math.max(deSize + 8, Math.min(priceDeOffsetY ?? 780, 1170));
-      const drawPriceDeLayer = () => {
+      drawPriceDeLayer = () => {
         ctx.save();
         if (!isPriceDeDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
         ctx.translate(deX * S, deY * S);
@@ -1230,7 +1270,7 @@ export default function MarketingPosts() {
         ctx.restore();
         reg['priceDeLabel'] = { key: 'priceDeLabel', label: 'Texto De', x: deX, y: deY - deSize, w: deLabelAlignment.width, h: deLabelAlignment.height };
       };
-      const drawPriceDeValueLayer = () => {
+      drawPriceDeValueLayer = () => {
         ctx.save();
         if (!isPriceDeDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
         ctx.translate(deX * S, deY * S);
@@ -1278,34 +1318,35 @@ export default function MarketingPosts() {
       reg['porApenas'] = { key: 'porApenas', label: 'Texto Por Apenas', x: porApX, y: porApY - porApSize, w: porAlignment.width, h: porAlignment.height };
     };
 
-    ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
+    ctx.font = `bold ${renderedPriceSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
     const flowPriceX = isPricePorDetached ? (priceOffsetX ?? 600) : priceRowX;
     const flowPriceY = isPricePorDetached ? (priceOffsetY ?? 920) : priceRowY;
     const priceMetrics = ctx.measureText(priceStr);
     const priceContentWidth = priceMetrics.width / S;
-    const priceAscent = Math.max(1, priceMetrics.actualBoundingBoxAscent / S || prSize * 0.72);
-    const priceDescent = Math.max(0, priceMetrics.actualBoundingBoxDescent / S || prSize * 0.12);
+    const priceAscent = Math.max(1, priceMetrics.actualBoundingBoxAscent / S || renderedPriceSize * 0.72);
+    const priceDescent = Math.max(0, priceMetrics.actualBoundingBoxDescent / S || renderedPriceSize * 0.12);
     const priceContentHeight = priceAscent + priceDescent;
-    const priceAlignment = getTextAreaAlignment('pricePor', priceContentWidth, priceContentHeight);
+    const priceAlignment = getTextAreaAlignment('pricePor', priceContentWidth, priceContentHeight, { width: priceAreaWidth, height: priceAreaHeight });
     // O Canvas posiciona texto pela linha de base. A área de seleção é medida
     // pelo topo e pela base visíveis do desenho; por isso descontamos a
     // descendente ao posicionar o preço dentro do fundo.
     const priceBaselineOffsetY = priceAlignment.y - priceDescent;
+    // A posição do container é independente da altura da fonte. O texto é
+    // alinhado dentro dele a partir de um topo fixo.
+    const priceContainerTop = flowPriceY - priceAreaHeight;
+    const priceTextBaselineY = priceContainerTop + priceAlignment.y + priceAscent;
     const drawPricePorLayer = () => {
       ctx.save();
       if (!isPricePorDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
-      ctx.translate((flowPriceX + priceAlignment.x) * S, (flowPriceY + priceBaselineOffsetY) * S);
+      ctx.translate((flowPriceX + priceAlignment.x) * S, priceTextBaselineY * S);
       ctx.rotate((priceRotation * Math.PI) / 180);
       // O preço não pode herdar a fonte da camada desenhada antes dele.
-      ctx.font = `bold ${prSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
-      // Aqui usamos o textBackgrounds.pricePor como estava
-      let defaultBg = { color: '#ffe600', paddingLeft: 18, paddingRight: 18, paddingTop: 17, paddingBottom: 17, opacity: 1 };
-      // Mas com fallbacks corretos caso não seja esse. Se não for vazio:
-      drawTextBackground(ctx, S, priceContentWidth, priceContentHeight, textBackgrounds.pricePor || defaultBg, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceBaselineOffsetY });
+      ctx.font = `bold ${renderedPriceSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
+      drawTextBackground(ctx, S, priceContentWidth, priceContentHeight, priceBackground, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceBaselineOffsetY });
       ctx.fillStyle = textColors.pricePor || DEFAULT_TEXT_COLORS.pricePor;
       ctx.fillText(priceStr, 0, 0);
       ctx.restore();
-      reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: flowPriceY - priceContentHeight, w: priceAlignment.width, h: priceAlignment.height };
+      reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: priceContainerTop, w: priceAlignment.width, h: priceAlignment.height };
     };
     // Medidas
     if (measuresText) {
@@ -1485,7 +1526,19 @@ export default function MarketingPosts() {
               ctx.fillRect((handleX - 9) * S, (handleY - 9) * S, 18 * S, 18 * S);
               ctx.strokeRect((handleX - 9) * S, (handleY - 9) * S, 18 * S, 18 * S);
             });
+            const bottomHandleX = region.x + region.w / 2;
+            const bottomHandleY = region.y + region.h;
+            ctx.fillRect((bottomHandleX - 9) * S, (bottomHandleY - 9) * S, 18 * S, 18 * S);
+            ctx.strokeRect((bottomHandleX - 9) * S, (bottomHandleY - 9) * S, 18 * S, 18 * S);
             // O canto inferior direito continua exclusivo para o tamanho da fonte.
+            ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+            ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
+          } else if (selectedElement === 'pricePor') {
+            // Puxadores ajustam apenas o container do preço, não a fonte.
+            [[region.x, region.y + region.h / 2], [region.x + region.w, region.y + region.h / 2], [region.x + region.w / 2, region.y], [region.x + region.w / 2, region.y + region.h]].forEach(([handleX, handleY]) => {
+              ctx.fillRect((handleX - 7) * S, (handleY - 7) * S, 14 * S, 14 * S);
+              ctx.strokeRect((handleX - 7) * S, (handleY - 7) * S, 14 * S, 14 * S);
+            });
             ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
             ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
           } else {
@@ -1583,7 +1636,7 @@ export default function MarketingPosts() {
     installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource, imageGridSettings,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceFontSizesByMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
     priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
     porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, isGridHovered, gridImages, gridExtraImageUrls
   ]);
@@ -1716,7 +1769,7 @@ export default function MarketingPosts() {
     else if (key === 'priceDeLabel' || key === 'priceDe') resizeFont(setPriceDeFontSize);
     else if (key === 'pricePor') resizeFont(setPriceFontSize);
     else if (key === 'porApenas') resizeFont(setPorApenasFontSize);
-    else if (key === 'installments') setInstallmentImageScale(value => Math.max(20, Math.min(300, value + amount)));
+    else if (key === 'installments') setInstallmentImageScale(value => Math.max(20, value + amount));
     else if (key === 'measures') resizeFont(setMeasuresFontSize);
     else if (key === 'brand') resizeFont(setBrandFontSize);
     else if (key === 'slogan') resizeFont(setSloganFontSize);
@@ -1784,14 +1837,29 @@ export default function MarketingPosts() {
       const rotateX = activeRegion.x + activeRegion.w + 42;
       const rotateY = activeRegion.y + activeRegion.h + 42;
       if (selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement)) {
-        if (selectedElement === 'title') {
+        if (selectedElement === 'pricePor') {
+          if (Math.hypot(x - handleX, y - handleY) <= 22) {
+            postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
+            return;
+          }
+          const centerX = activeRegion.x + activeRegion.w / 2;
+          const centerY = activeRegion.y + activeRegion.h / 2;
+          const side = Math.abs(x - activeRegion.x) <= 18 && Math.abs(y - centerY) <= 34 ? 'left'
+            : Math.abs(x - (activeRegion.x + activeRegion.w)) <= 18 && Math.abs(y - centerY) <= 34 ? 'right'
+            : Math.abs(x - centerX) <= 34 && Math.abs(y - activeRegion.y) <= 18 ? 'top'
+            : Math.abs(x - centerX) <= 34 && Math.abs(y - (activeRegion.y + activeRegion.h)) <= 18 ? 'bottom'
+            : null;
+          if (side) { postDragRef.current = { key: selectedElement, x, y, mode: 'resize-text', side }; return; }
+        } else if (selectedElement === 'title') {
           if (Math.hypot(x - handleX, y - handleY) <= 22) {
             postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
             return;
           }
           const centerY = activeRegion.y + activeRegion.h / 2;
+          const centerX = activeRegion.x + activeRegion.w / 2;
           const side = Math.abs(x - activeRegion.x) <= 28 && Math.abs(y - centerY) <= Math.max(36, activeRegion.h / 2 + 12) ? 'left'
             : Math.abs(x - (activeRegion.x + activeRegion.w)) <= 28 && Math.abs(y - centerY) <= Math.max(36, activeRegion.h / 2 + 12) ? 'right'
+            : Math.abs(x - centerX) <= 28 && Math.abs(y - (activeRegion.y + activeRegion.h)) <= 28 ? 'bottom'
             : null;
           if (side) {
             postDragRef.current = { key: selectedElement, x, y, mode: 'resize-text', side };
@@ -1809,7 +1877,7 @@ export default function MarketingPosts() {
           : null;
         if (side) { postDragRef.current = { key: selectedElement, x, y, mode: 'resize-side', side }; return; }
       }
-      if (Math.hypot(x - handleX, y - handleY) <= 22) {
+      if (selectedElement !== 'pricePor' && Math.hypot(x - handleX, y - handleY) <= 22) {
         postDragRef.current = { key: selectedElement, x, y, mode: 'resize' };
         return;
       }
@@ -1852,7 +1920,11 @@ export default function MarketingPosts() {
     if (drag.mode === 'resize') {
       const amount = Math.round((dx + dy) / (drag.key === 'title' || drag.key === 'installments' ? 2 : 8));
       if (amount) {
-        if (drag.key === 'priceContainer') {
+        if (drag.key === 'pricePor') {
+          const region = renderedRegionsRef.current.pricePor;
+          setTextSelectionWidths(current => ({ ...current, pricePor: Math.max(40, (current.pricePor || region?.w || 40) + amount) }));
+          setTextSelectionHeights(current => ({ ...current, pricePor: Math.max(24, (current.pricePor || region?.h || 24) + amount) }));
+        } else if (drag.key === 'priceContainer') {
           setPriceContainerWidth(value => Math.max(180, value + amount));
           setPriceContainerHeight(value => Math.max(80, value + amount));
         } else resizeSelectedElement(drag.key, amount);
@@ -2583,13 +2655,18 @@ export default function MarketingPosts() {
                   {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “De”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'porApenas' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “Por apenas”<input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'pricePor' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Altura da área de texto
-                    <input type="number" min="20" value={textSelectionHeights.pricePor || Math.ceil(priceFontSize * 1.45)} onChange={event => setTextSelectionHeights(current => ({ ...current, pricePor: Math.max(20, Number(event.target.value) || 20) }))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
-                  </label>}
+                  {selectedElement === 'pricePor' && <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <div className="grid grid-cols-3 gap-1">
+                      {([['tens', 'Dezenas'], ['hundreds', 'Centenas'], ['thousands', 'Milhares']] as const).map(([magnitude, label]) => <button key={magnitude} type="button" onClick={() => setSelectedPriceFontMagnitude(magnitude)} className={`rounded-lg border py-1.5 text-[10px] font-black hover:border-pink-400 hover:text-pink-600 ${selectedPriceFontMagnitude === magnitude ? 'border-pink-500 bg-pink-50 text-pink-600 dark:bg-pink-950/30' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-200'}`}>{label}</button>)}
+                    </div>
+                    <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Tamanho para {selectedPriceFontMagnitude === 'tens' ? 'dezenas' : selectedPriceFontMagnitude === 'hundreds' ? 'centenas' : 'milhares'} (px)
+                      <input type="number" min="1" value={priceFontSizesByMagnitude[selectedPriceFontMagnitude]} onChange={event => setPriceFontSizesByMagnitude(current => ({ ...current, [selectedPriceFontMagnitude]: Math.max(1, Number(event.target.value) || 1) }))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
+                    </label>
+                  </div>}
                   {selectedElement === 'installments' && <>
                     <InstallmentImageGallery images={installmentImageLibrary} names={installmentImageNames} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onNameChange={(url, name) => setInstallmentImageNames(current => ({ ...current, [url]: name }))} onUpload={uploadInstallmentImage} />
                     <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Escala da imagem (%)
-                      <input type="number" min="20" max="300" value={installmentImageScale} onChange={event => setInstallmentImageScale(Math.max(20, Math.min(300, Number(event.target.value) || 20)))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
+                      <input type="number" min="20" value={installmentImageScale} onChange={event => setInstallmentImageScale(Math.max(20, Number(event.target.value) || 20))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
                     </label>
                   </>}
                   {selectedElement === 'brand' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Marca<input value={brandName} onChange={event => setBrandName(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
@@ -2602,7 +2679,7 @@ export default function MarketingPosts() {
                     <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Altura</span><div className="flex items-center gap-1"><button type="button" onClick={() => setPriceContainerHeight(value => Math.max(80, value - 20))} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir altura">−</button><output className="w-10 text-center">{priceContainerHeight}</output><button type="button" onClick={() => setPriceContainerHeight(value => value + 20)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar altura">+</button></div></div>
                     <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Escala</span><div className="flex items-center gap-1"><button type="button" onClick={() => { setPriceContainerWidth(value => Math.max(180, value - 20)); setPriceContainerHeight(value => Math.max(80, value - 20)); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir escala">−</button><button type="button" onClick={() => { setPriceContainerWidth(value => value + 20); setPriceContainerHeight(value => value + 20); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar escala">+</button></div></div>
                   </div>}
-                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <>
+                  {(['title', 'priceDeLabel', 'priceDe', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <>
                     <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Tamanho da fonte (px)
                       <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDeLabel' || selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDeLabel' || selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
                     </label>
@@ -2613,7 +2690,7 @@ export default function MarketingPosts() {
                     </label>
                   </>}
                   {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />}
-                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextBackgroundControls value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />}
+                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextBackgroundControls title={selectedElement === 'pricePor' ? 'Container do preço principal' : undefined} hideSpacing={selectedElement === 'pricePor'} value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />}
                   {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'middle'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />}
                   {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20"><i className="bi bi-trash3-fill" /> Remover container</button>}
                 </div>
