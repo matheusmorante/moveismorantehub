@@ -5,6 +5,7 @@ interface ProductFiltersData {
     search: string;
     category: string;
     activeOnly: boolean | undefined;
+    status?: string;
     sortBy: "description" | "unitPrice" | "stock" | "code" | "createdAt" | "category";
     sortOrder: "asc" | "desc";
     showTrash?: boolean;
@@ -75,7 +76,7 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Situação no ERP</label>
                         <select
                             name="activeOnly"
                             value={filters.activeOnly === undefined ? "" : String(filters.activeOnly)}
@@ -85,9 +86,26 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
                             }}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
                         >
-                            <option value="" className="dark:bg-slate-900">Todos Status</option>
-                            <option value="true" className="dark:bg-slate-900">Ativos</option>
-                            <option value="false" className="dark:bg-slate-900">Inativos</option>
+                            <option value="" className="dark:bg-slate-900">Todos</option>
+                            <option value="true" className="dark:bg-slate-900">Produtos Ativos</option>
+                            <option value="false" className="dark:bg-slate-900">Produtos Desativados</option>
+                        </select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Catálogo Digital</label>
+                        <select
+                            name="status"
+                            value={filters.status || ""}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setFilters(prev => ({ ...prev, status: val === "" ? undefined : val }));
+                            }}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
+                        >
+                            <option value="" className="dark:bg-slate-900">Todos</option>
+                            <option value="published" className="dark:bg-slate-900">Publicado no Catálogo</option>
+                            <option value="hidden" className="dark:bg-slate-900">Ocultado do Catálogo</option>
                         </select>
                     </div>
                 </div>

@@ -24,3 +24,13 @@ Este documento registra regras específicas e lógicas de funcionamento do Moran
 - **Regra de Ouro de Modularização e Responsabilidade unica**:
   - Sempre que criar ou editar um arquivo de código no projeto, se o arquivo ultrapassar **500 linhas ou ter mais de uma responsabilidade**, ele deve ser modularizado (dividido em arquivos menores, sub-componentes ou helpers em pastas dedicadas).
   - Após concluir qualquer tarefa, verifique os arquivos modificados e aplique a refatoração necessária para manter o código limpo, legível, com responsabilidade unica, fácil de depurar e bem organizado.
+
+## 5. Terminologia de Produtos: ERP vs Catálogo Digital
+
+- **No ERP (Gestão de Produtos, Listagens e Pedidos)**:
+  - Os termos corretos para o ciclo de vida do produto no sistema são **"Produtos Ativos"** (`active: true`) e **"Produtos Desativados"** (`active: false`).
+  - As ações no ERP são **"Desativar Produto"** e **"Ativar / Reativar Produto"**.
+- **No Catálogo Digital (E-commerce / Catálogo Online)**:
+  - O status para o catálogo público é **"Publicado no Catálogo"** (`status: 'published'`) e **"Ocultado do Catálogo"** (`status: 'hidden'`).
+  - As ações e badges relacionadas à visibilidade na loja são **"Publicar no Catálogo"** e **"Ocultar do Catálogo"**.
+

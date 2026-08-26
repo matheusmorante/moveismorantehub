@@ -19,10 +19,13 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
 
 ---
 
-## 📱 Regras de Negócio: WhatsApp Anti-Bloqueio
+## 🏷️ Terminologia e Status de Produtos
 
-Para garantir a segurança da conta comercial da Móveis Morante:
-- **Interação Primeiro**: Priorizar o envio de mensagens para clientes que já iniciaram uma conversa ativa.
-- **Templates Oficiais**: Usar apenas templates pré-aprovados pela Meta Graph API para iniciar conversas frias.
-- **Opção de Descadastro (Opt-Out)**: Sempre oferecer instruções claras para parar de receber mensagens (ex: "Digite SAIR para não receber mais avisos").
-- **Controle de Volume**: Respeitar limites de envio para evitar detecção automatizada de spam por volume.
+1. **No ERP (Gestão, Listagem e Pedidos)**:
+   - **"Produtos Ativos"** (`active: true`): Produtos operacionais no sistema para movimentações, pedidos e controle.
+   - **"Produtos Desativados"** (`active: false`): Produtos desativados no sistema que não devem aparecer nas pesquisas de novos pedidos.
+   - Ações: **"Desativar Produto"** e **"Ativar / Reativar Produto"**.
+2. **No Catálogo Digital (E-commerce / Catálogo Online)**:
+   - **"Publicado no Catálogo"** (`status: 'published'`): Visível e disponível no catálogo digital público.
+   - **"Ocultado do Catálogo"** (`status: 'hidden'`): Oculto da vitrine do catálogo digital público.
+   - Ações: **"Publicar no Catálogo"** e **"Ocultar do Catálogo"**.
