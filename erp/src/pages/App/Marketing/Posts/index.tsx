@@ -1152,7 +1152,7 @@ export default function MarketingPosts() {
     const pTitleSize = productTitleFontSize || 30;
     // A largura salva é o limite máximo. A caixa de seleção fica flexível e
     // acompanha o conteúdo enquanto ele couber em uma única linha.
-    const pTitleLimit = Math.min(1040, Math.max(120, productTitleMaxContainerWidth || 0, textSelectionWidths.title || 0, 390));
+    const pTitleLimit = Math.max(120, productTitleMaxContainerWidth || 0, textSelectionWidths.title || 0, 390);
     ctx.font = `bold ${pTitleSize * S}px ${textFontFamilies.title || DEFAULT_FONT_FAMILY}`;
     // O nome exibido é sempre o do produto em uso. No editor de template,
     // o produto-modelo serve para testar a área e regular as quebras de linha.
@@ -1869,7 +1869,7 @@ export default function MarketingPosts() {
       if (drag.side === 'left' || drag.side === 'right') {
         if (drag.key && region && distance) {
           const minimum = drag.key === 'title' ? 120 : 30;
-          const nextWidth = Math.min(900, Math.max(minimum, drag.key === 'title' ? region.w + distance : (textSelectionWidths[drag.key as string] || region.w) + distance));
+          const nextWidth = Math.max(minimum, drag.key === 'title' ? region.w + distance : (textSelectionWidths[drag.key as string] || region.w) + distance);
           if (drag.key === 'title') { setProductTitleMaxContainerWidth(nextWidth); setIsTitleWidthFixed(true); }
           setTextSelectionWidths(current => ({ ...current, [drag.key as string]: nextWidth }));
         }
