@@ -12,6 +12,8 @@ interface WhatsAppConfigSectionProps {
 export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppConfigSectionProps) {
     const [isTesting, setIsTesting] = useState(false);
     const [isTestingTemplate, setIsTestingTemplate] = useState(false);
+    const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+    const [fetchedTemplates, setFetchedTemplates] = useState<any[]>([]);
     const [testPhone, setTestPhone] = useState('');
 
     const config = settings.whatsappConfig || {
@@ -41,6 +43,33 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         }
     };
 
+    const handleFetchTemplates = async () => {
+        if (!config.wabaId) {
+            toast.warning("Preencha o WABA ID para consultar os modelos cadastrados no Meta.");
+            return;
+        }
+        if (!config.accessToken) {
+            toast.warning("Preencha o Token de Acesso antes de consultar os modelos.");
+            return;
+        }
+
+        setIsLoadingTemplates(true);
+        try {
+            const list = await whatsappGraphService.fetchMessageTemplates();
+            setFetchedTemplates(list);
+            if (list.length === 0) {
+                toast.info("Nenhum modelo encontrado no WABA informado.");
+            } else {
+                toast.success(`${list.length} modelo(s) encontrado(s) na sua conta Meta! 🎉`);
+            }
+        } catch (err: any) {
+            console.error(err);
+            toast.error(`Erro ao buscar modelos: ${err.message}`);
+        } finally {
+            setIsLoadingTemplates(false);
+        }
+    };
+
     const handleTestTemplateSend = async () => {
         const cleanPhone = testPhone.trim();
         if (!cleanPhone) {
@@ -55,16 +84,32 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         setIsTestingTemplate(true);
         try {
             toast.info("Enviando mensagem de teste via Meta API...");
+            
+            // Verifica se encontramos o modelo na lista para saber a quantidade exata de variáveis
+            const matchedTemplate = fetchedTemplates.find(t => t.name === config.templateNameOrderConfirmation?.trim());
+            let paramCount = 0;
+            if (matchedTemplate) {
+                const bodyComp = matchedTemplate.components?.find((c: any) => c.type === 'BODY');
+                if (bodyComp?.text) {
+                    const matches = bodyComp.text.match(/\{\{\d+\}\}/g);
+                    paramCount = matches ? new Set(matches).size : 0;
+                }
+            }
+
+            // Monta lista de parâmetros adaptada à quantidade de variáveis do modelo
+            const mockParams = ["Cliente Teste", "26/08/2026", "Manhã", "Rua Teste, 123", "1x Guarda-Roupa", "R$ 949,00", "Pix"];
+            const finalParams = paramCount > 0 ? mockParams.slice(0, paramCount) : (matchedTemplate ? [] : mockParams);
+
             await whatsappGraphService.sendTemplateMessage(
                 cleanPhone,
                 config.templateNameOrderConfirmation,
-                ["Cliente Teste", "26/08/2026", "Manhã", "Rua Teste, 123", "1x Guarda-Roupa", "R$ 949,00", "Pix"],
+                finalParams,
                 config.templateLanguage || 'pt_BR'
             );
             toast.success("✅ Mensagem de teste enviada com sucesso! Verifique seu WhatsApp.");
         } catch (err: any) {
             console.error(err);
-            toast.error(`❌ Erro no envio do modelo: ${err.message}`);
+            toast.error(`❌ ${err.message}`);
         } finally {
             setIsTestingTemplate(false);
         }
@@ -191,7 +236,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex-1 max-w-lg">
                         <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">WABA ID</h4>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">WhatsApp Business Account ID.</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">WhatsApp Business Account ID (usado para sincronizar modelos de mensagem).</p>
                     </div>
                     <input
                         type="text"
@@ -215,6 +260,16 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
                                 Nome do modelo aprovado no <b>Meta Business Suite</b> para envio do resumo do pedido (produtos, valores e prazos) ao cliente quando o pedido é gerado.
                             </p>
+
+                            <button
+                                type="button"
+                                disabled={isLoadingTemplates}
+                                onClick={handleFetchTemplates}
+                                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+                            >
+                                <i className={`bi ${isLoadingTemplates ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-clockwise'}`} />
+                                {isLoadingTemplates ? 'Consultando Meta...' : 'Consultar Modelos na Conta Meta (WABA)'}
+                            </button>
                         </div>
                         <div className="flex flex-col gap-3 w-full md:w-80">
                             <div>
@@ -240,6 +295,55 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                             </div>
                         </div>
                     </div>
+
+                    {/* Lista de Modelos Encontrados na Meta */}
+                    {fetchedTemplates.length > 0 && (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                <i className="bi bi-list-check text-blue-500" />
+                                Modelos cadastrados na sua conta Meta (clique para selecionar):
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                                {fetchedTemplates.map((tpl, i) => {
+                                    const bodyComp = tpl.components?.find((c: any) => c.type === 'BODY');
+                                    const matches = bodyComp?.text?.match(/\{\{\d+\}\}/g);
+                                    const varCount = matches ? new Set(matches).size : 0;
+                                    const isSelected = config.templateNameOrderConfirmation === tpl.name;
+
+                                    return (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => {
+                                                handleFieldChange('templateNameOrderConfirmation', tpl.name);
+                                                handleFieldChange('templateLanguage', tpl.language || 'pt_BR');
+                                                toast.info(`Modelo "${tpl.name}" selecionado!`);
+                                            }}
+                                            className={`text-left p-3 rounded-xl border transition-all ${
+                                                isSelected 
+                                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 ring-2 ring-blue-500/20' 
+                                                    : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-blue-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-black text-slate-800 dark:text-slate-200 font-mono truncate">{tpl.name}</span>
+                                                <span className={`px-1.5 py-0.5 text-[8px] font-black rounded uppercase ${
+                                                    tpl.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-amber-100 text-amber-700'
+                                                }`}>
+                                                    {tpl.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                                                <span>Idioma: <b>{tpl.language}</b></span>
+                                                <span>•</span>
+                                                <span>Variáveis: <b>{varCount}</b></span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Teste de Envio do Modelo */}
                     <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">

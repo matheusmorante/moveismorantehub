@@ -502,6 +502,27 @@ ____________________________________
     },
 
     /**
+     * Lista todos os modelos de mensagem aprovados no WhatsApp Business Account (WABA)
+     */
+    fetchMessageTemplates: async (): Promise<any[]> => {
+        const { whatsappConfig } = getSettings();
+        if (!whatsappConfig?.wabaId) throw new Error("WABA ID (WhatsApp Business Account ID) não configurado.");
+        if (!whatsappConfig?.accessToken) throw new Error("Token de Acesso não configurado.");
+
+        const response = await fetch(
+            `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.wabaId}/message_templates?fields=name,status,language,category,components`,
+            { headers: whatsappGraphService.getHeaders() }
+        );
+
+        const data = await response.json();
+        if (data.error) {
+            console.error("Erro ao listar modelos de mensagem do WhatsApp:", data.error);
+            throw new Error(`Meta API: ${data.error.message} (Código ${data.error.code})`);
+        }
+        return data.data || [];
+    },
+
+    /**
      * Sends an approved message template via Meta Cloud API
      */
     sendTemplateMessage: async (to: string, templateName: string, parameters: string[] = [], languageCode?: string) => {
@@ -544,9 +565,9 @@ ____________________________________
 
         const data = await response.json();
         if (data.error) {
-            console.error("Erro API Meta Template WhatsApp:", data.error);
-            const msg = data.error.error_user_msg || data.error.message || "Erro desconhecido na Meta API";
-            throw new Error(`Meta API: ${msg} (Código ${data.error.code})`);
+            console.error("Erro detalhado da API Meta Template WhatsApp:", data.error);
+            const detailMsg = data.error.error_user_msg || data.error.error_data?.details || data.error.message || "Parâmetro inválido na Meta API";
+            throw new Error(`Meta API: ${detailMsg} (Código ${data.error.code})`);
         }
         return data;
     }
