@@ -230,7 +230,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                             {isBudget ? 'Resumo da Proposta' : 'Confirmação do Pedido'}
                                         </h2>
                                         <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">
-                                            {isBudget ? 'ORÇAMENTO' : `#{state.currentOrderId?.slice(-6).toUpperCase() || 'NOVO-PEDIDO'}`}
+                                            {isBudget ? 'ORÇAMENTO' : 'PEDIDO DE VENDA'}
                                         </span>
                                      </div>
                                 </div>

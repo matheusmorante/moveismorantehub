@@ -235,41 +235,34 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
             onClick={(e) => e.stopPropagation()}
         >
             {/* Header */}
-            <div className="px-3 py-2 sm:px-6 sm:py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col xl:flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300 shrink-0 gap-3">
-                <div className="flex w-full xl:w-auto justify-between items-center">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="bg-blue-600 p-1.5 sm:p-2 rounded-lg sm:rounded-xl shadow-lg shadow-blue-100 dark:shadow-blue-900/20">
-                            <i className="bi bi-pencil-square text-white text-xs sm:text-base" />
+            <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors duration-300 shrink-0 gap-3 md:gap-6">
+                {/* Esquerda: Identificação */}
+                <div className="flex w-full md:w-auto justify-between items-center shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-600 p-2 sm:p-2.5 rounded-xl shadow-md shadow-blue-500/20 text-white flex items-center justify-center">
+                            <i className="bi bi-pencil-square text-sm sm:text-base" />
                         </div>
                         <div>
-                            <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">Editar Pedido</h2>
-                            <p className="text-[7px] sm:text-[8px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-0.5">
-                                #{effectiveOrder.id} • {(() => {
-                                    try {
-                                        const date = new Date(effectiveOrder.date);
-                                        return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                    } catch {
-                                        return effectiveOrder.date;
-                                    }
-                                })()}
+                            <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">Editar Pedido</h2>
+                            <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
+                                Pedido de Venda
                             </p>
                         </div>
                     </div>
 
-                    {/* Close button - Mobile/Tablet */}
-                    <div className="flex xl:hidden items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9"
-                        >
-                            <i className="bi bi-x-lg text-xs sm:text-sm" />
-                        </button>
-                    </div>
+                    {/* Botão Fechar no Mobile */}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="md:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
+                        title="Fechar"
+                    >
+                        <i className="bi bi-x-lg text-xs" />
+                    </button>
                 </div>
 
-                {/* Stepper */}
-                <div className="transition-all duration-500 w-full xl:w-auto xl:flex-1 max-w-xl mx-2 sm:mx-4 lg:mx-8">
+                {/* Centro: Stepper de Etapas (Largo, Responsivo e Sem Sobreposição) */}
+                <div className="w-full md:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center">
                     <OrderStepper
                         currentStep={form.state.currentStep}
                         jumpToStep={form.actions.jumpToStep}
@@ -277,66 +270,15 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                     />
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full xl:w-auto justify-center xl:justify-end">
-                    {/* Compact seller pill (scrolled) */}
-                    <div className={`flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 ${isScrolled ? 'opacity-100' : 'hidden'}`}>
-                        <button
-                            ref={sellerRef}
-                            onClick={() => setIsSellerSearchOpen(true)}
-                            className="flex items-center gap-2 px-2 py-1 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
-                        >
-                            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600">
-                                <i className="bi bi-person-badge-fill text-[10px]" />
-                            </div>
-                            <span className="text-[9px] font-black uppercase text-slate-700 dark:text-slate-200 truncate max-w-[100px]">
-                                {form.state.seller || "Vendedor"}
-                            </span>
-                        </button>
-                    </div>
-
-                    {/* Full seller + date (expanded) */}
-                    <div className={`flex items-center bg-white/50 dark:bg-slate-800/50 rounded-3xl p-0.5 sm:p-1 gap-1 sm:gap-2 border border-slate-100 dark:border-slate-800/50 shadow-sm transition-all duration-300 ${isScrolled ? 'hidden' : 'flex'}`}>
-                        <button
-                            ref={sellerRef}
-                            onClick={() => setIsSellerSearchOpen(true)}
-                            className="group flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-4 sm:py-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all duration-300"
-                        >
-                            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
-                                <i className="bi bi-person-badge-fill text-xs sm:text-base" />
-                            </div>
-                            <div className="flex flex-col text-left">
-                                <span className="text-[7px] sm:text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-0.5 group-hover:text-blue-500 transition-colors">Vendedor</span>
-                                <span className={`text-[9px] sm:text-xs font-black uppercase tracking-wider ${form.state.seller ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 italic'}`}>
-                                    {form.state.seller || "Selecionar..."}
-                                </span>
-                            </div>
-                        </button>
-
-                        <div className="w-[1px] h-6 sm:h-8 bg-slate-100 dark:bg-slate-800 mx-0.5 sm:mx-1" />
-
-                        <div className="group flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-4 sm:py-1.5">
-                            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
-                                <i className="bi bi-calendar-event-fill text-xs sm:text-base" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[7px] sm:text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-0.5">Data</span>
-                                <input
-                                    type="datetime-local"
-                                    value={form.state.orderDate}
-                                    onChange={(e) => form.actions.setOrderDate?.(e.target.value)}
-                                    className="bg-transparent border-0 p-0 focus:ring-0 text-[9px] sm:text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 [color-scheme:light] dark:[color-scheme:dark]"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Close button - Desktop */}
+                {/* Direita: Botão Fechar no Desktop */}
+                <div className="hidden md:flex items-center shrink-0">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="hidden xl:flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-10 sm:h-10"
+                        className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-sm border border-slate-200/60 dark:border-slate-700/60 active:scale-90 w-9 h-9"
+                        title="Fechar"
                     >
-                        <i className="bi bi-x-lg text-xs sm:text-base" />
+                        <i className="bi bi-x-lg text-xs" />
                     </button>
                 </div>
             </div>

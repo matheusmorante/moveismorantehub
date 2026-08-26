@@ -205,34 +205,36 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
             className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"}
             onClick={(e) => e.stopPropagation()}
         >
-            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col lg:flex-row justify-between items-center gap-3 p-4 shrink-0 ${isScrolled ? 'px-3 py-1.5 sm:px-6 sm:py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/30 border-indigo-100/50 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/30 border-amber-100/50 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/30 border-purple-100/50 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/30 border-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
-                <div className="flex w-full lg:w-auto justify-between items-center shrink-0">
-                    <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer" onClick={() => setIsScrolled(false)}>
-                        <div className={`flex items-center justify-center rounded-xl sm:rounded-2xl shadow-premium transition-all duration-500 overflow-hidden ${isScrolled ? 'w-8 h-8 sm:w-9 sm:h-9' : 'w-8 h-8 sm:w-10 sm:h-10 lg:w-11 lg:h-11'} ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
-                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white ${isScrolled ? 'text-xs sm:text-base' : 'text-sm sm:text-lg lg:text-xl'}`} />
+            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col md:flex-row justify-between items-center gap-3 md:gap-6 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0 ${isScrolled ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/40 border-indigo-100/60 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/40 border-amber-100/60 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/40 border-purple-100/60 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/40 border-emerald-100/60 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
+                {/* Esquerda: Identificação */}
+                <div className="flex w-full md:w-auto justify-between items-center shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-md transition-all ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
+                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-sm sm:text-base`} />
                         </div>
-                        <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 w-0 scale-95 overflow-hidden' : 'opacity-100 scale-100'}`}>
-                            <h2 className={`text-sm sm:text-base md:text-lg lg:text-xl font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
+                        <div>
+                            <h2 className={`text-sm sm:text-base font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
                                 {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova Devolução' : 'Novo Pedido'}
                             </h2>
-                            <p className="text-[7px] sm:text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 group-hover:text-blue-500 transition-colors">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                 {isBudget ? 'Simulação de Venda' : isReturn ? 'Devolução de Itens' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex lg:hidden items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9"
-                        >
-                            <i className="bi bi-x-lg text-xs sm:text-sm" />
-                        </button>
-                    </div>
+                    {/* Botão Fechar no Mobile */}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="md:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
+                        title="Fechar"
+                    >
+                        <i className="bi bi-x-lg text-xs" />
+                    </button>
                 </div>
 
-                <div className={`transition-all duration-500 w-full lg:w-auto lg:flex-1 max-w-2xl px-2`}>
+                {/* Centro: Stepper */}
+                <div className="w-full md:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center">
                     <OrderStepper 
                         currentStep={form.state.currentStep} 
                         jumpToStep={form.actions.jumpToStep} 
@@ -241,13 +243,15 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                     />
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full lg:w-auto justify-center lg:justify-end shrink-0">
+                {/* Direita: Botão Fechar no Desktop */}
+                <div className="hidden md:flex items-center shrink-0">
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`hidden lg:flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-premium-sm border border-slate-100 dark:border-slate-700 active:scale-90 w-8 h-8 sm:w-9 sm:h-9`}
+                        className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-sm border border-slate-200/60 dark:border-slate-700/60 active:scale-90 w-9 h-9"
+                        title="Fechar"
                     >
-                        <i className="bi bi-x-lg text-xs sm:text-base" />
+                        <i className="bi bi-x-lg text-xs" />
                     </button>
                 </div>
             </div>
