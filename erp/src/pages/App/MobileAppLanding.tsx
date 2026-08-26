@@ -49,8 +49,9 @@ export default function MobileAppLanding() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
              <a 
-                href="/app-release.apk"
-                download="morantehub-v1.0.apk"
+                href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/289aa1ff-006d-4e9c-bf99-f8e6f36f22e5"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
              >
                 <i className="bi bi-google-play text-xl"></i>

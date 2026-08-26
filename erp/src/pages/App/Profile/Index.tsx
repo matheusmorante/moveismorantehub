@@ -182,8 +182,9 @@ const Profile = () => {
 
                         <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
                             <a
-                                href="/app-release.apk"
-                                download="morantehub-v1.0.apk"
+                                href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/289aa1ff-006d-4e9c-bf99-f8e6f36f22e5"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="w-full px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 active:scale-98 transition-all"
                             >
                                 <i className="bi bi-android2 text-base"></i>
