@@ -209,21 +209,21 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                         <div className="flex-1 max-w-lg">
                             <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-emerald-600 dark:text-emerald-400 text-sm uppercase tracking-wider">Modelo de Mensagem (Template Meta)</h4>
-                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-[9px] font-black rounded text-emerald-500">OBRIGATÓRIO P/ ENVIO DIRETO</span>
+                                <h4 className="font-bold text-emerald-600 dark:text-emerald-400 text-sm uppercase tracking-wider">Modelo: Mensagem do Pedido ao Cliente</h4>
+                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-[9px] font-black rounded text-emerald-500">FECHAMENTO DE VENDA</span>
                             </div>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-                                Nome do modelo aprovado no <b>Meta Business Suite / Gerenciador de WhatsApp</b>. A Meta exige modelos aprovados para iniciar conversas com clientes.
+                                Nome do modelo aprovado no <b>Meta Business Suite</b> para envio do resumo do pedido (produtos, valores e prazos) ao cliente quando o pedido é gerado.
                             </p>
                         </div>
                         <div className="flex flex-col gap-3 w-full md:w-80">
                             <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Nome do Modelo (Template Name)</label>
+                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Nome do Modelo no Meta (Template Name)</label>
                                 <input
                                     type="text"
                                     value={config.templateNameOrderConfirmation || ''}
                                     onChange={(e) => handleFieldChange('templateNameOrderConfirmation', e.target.value)}
-                                    placeholder="Ex: confirmacao_pedido"
+                                    placeholder="Ex: confirmacao_pedido ou pedido_cliente"
                                     className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-mono font-medium"
                                 />
                             </div>
