@@ -83,6 +83,18 @@ function HomeContent() {
   const handleFilterChange = useCallback((newFilters: any) => {
     const params = new URLSearchParams(searchParams.toString())
 
+    if (newFilters.search !== undefined) {
+      if (newFilters.search) {
+        params.set("search", newFilters.search)
+        // Se estiver iniciando uma nova pesquisa sem selecionar categoria/ambiente, limpa para busca ampla
+        if (newFilters.envs === undefined && newFilters.cats === undefined) {
+          params.delete("envs")
+          params.delete("cats")
+        }
+      } else {
+        params.delete("search")
+      }
+    }
     if (newFilters.envs !== undefined) {
       if (newFilters.envs.length > 0) params.set("envs", newFilters.envs.join(","))
       else params.delete("envs")
@@ -91,10 +103,6 @@ function HomeContent() {
     if (newFilters.cats !== undefined) {
       if (newFilters.cats.length > 0) params.set("cats", newFilters.cats.join(","))
       else params.delete("cats")
-    }
-    if (newFilters.search !== undefined) {
-      if (newFilters.search) params.set("search", newFilters.search)
-      else params.delete("search")
     }
     if (newFilters.type !== undefined) {
       if (newFilters.type && newFilters.type !== "all") params.set("type", newFilters.type)
@@ -378,4 +386,3 @@ export default function Home() {
     </Suspense>
   )
 }
-
