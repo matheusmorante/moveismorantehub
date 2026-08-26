@@ -5,11 +5,10 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Speech from 'expo-speech';
 
 import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supabaseClient';
-import { registerPushToken } from './src/services/notificationService';
+import { registerPushToken, triggerLocalNotification } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
 import { isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
-
 import { DashboardHeader } from './src/features/dashboard/components/DashboardHeader';
 import { AISummaryCard } from './src/features/dashboard/components/AISummaryCard';
 import { OperationalStatsGrid } from './src/features/dashboard/components/OperationalStatsGrid';
@@ -102,63 +101,92 @@ export default function App() {
     }
   };
 
-  const startSpeechTimer = (durationSecs: number) => {
-    stopSpeechTimer();
-    const interval = setInterval(() => {
-      setSpeechCurrentTime(prev => {
-        if (prev >= durationSecs) {
-          stopSpeechTimer();
-          setIsSpeakingSummary(false);
-          setSpeechIsPaused(false);
-          return 0;
-        }
-        return prev + 0.5;
-      });
-    }, 500);
-    speechIntervalRef.current = interval;
-  };
+  const handleToggleSpeech = (text: string) => {
+    if (!text) return;
 
-  const finishSeekToPosition = (targetSecs: number) => {
-    setSpeechCurrentTime(targetSecs);
     if (isSpeakingSummary) {
       Speech.stop();
+      stopSpeechTimer();
+      setIsSpeakingSummary(false);
       setSpeechIsPaused(false);
-      startSpeechTimer(speechTotalDuration);
-    }
-  };
-
-  const handleToggleSpeech = async (text: string) => {
-    if (!text || !text.trim()) return;
-
-    if (isSpeakingSummary) {
-      if (speechIsPaused) {
-        Speech.resume();
-        setSpeechIsPaused(false);
-        startSpeechTimer(speechTotalDuration);
-      } else {
-        Speech.pause();
-        setSpeechIsPaused(true);
-        stopSpeechTimer();
-      }
+      setSpeechCurrentTime(0);
       return;
     }
 
-    const estimatedDuration = Math.max(5, Math.ceil(text.length / 14));
-    setSpeechTotalDuration(estimatedDuration);
+    const words = text.split(/\s+/).length;
+    const estimatedSecs = Math.max(5, Math.ceil(words / 2.3));
+    setSpeechTotalDuration(estimatedSecs);
     setSpeechCurrentTime(0);
     setIsSpeakingSummary(true);
     setSpeechIsPaused(false);
 
-    startSpeechTimer(estimatedDuration);
-
     Speech.speak(text, {
       language: 'pt-BR',
-      rate: 1.0,
       pitch: 1.0,
+      rate: 0.95,
       onDone: () => {
         setIsSpeakingSummary(false);
         setSpeechIsPaused(false);
+        stopSpeechTimer();
         setSpeechCurrentTime(0);
+      },
+      onStopped: () => {
+        setIsSpeakingSummary(false);
+        setSpeechIsPaused(false);
+        stopSpeechTimer();
+        setSpeechCurrentTime(0);
+      },
+      onError: () => {
+        setIsSpeakingSummary(false);
+        setSpeechIsPaused(false);
+        stopSpeechTimer();
+        setSpeechCurrentTime(0);
+      }
+    });
+
+    stopSpeechTimer();
+    speechIntervalRef.current = setInterval(() => {
+      setSpeechCurrentTime(prev => {
+        if (prev >= estimatedSecs) {
+          stopSpeechTimer();
+          return estimatedSecs;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+  };
+
+  const finishSeekToPosition = (targetSecs: number, fullText: string) => {
+    Speech.stop();
+    stopSpeechTimer();
+    setSpeechCurrentTime(targetSecs);
+
+    const words = fullText.split(/\s+/);
+    const fraction = targetSecs / (speechTotalDuration || 1);
+    const startWordIndex = Math.floor(fraction * words.length);
+    const remainingText = words.slice(startWordIndex).join(' ');
+
+    if (!remainingText.trim()) {
+      setIsSpeakingSummary(false);
+      return;
+    }
+
+    setIsSpeakingSummary(true);
+    setSpeechIsPaused(false);
+
+    Speech.speak(remainingText, {
+      language: 'pt-BR',
+      pitch: 1.0,
+      rate: 0.95,
+      onDone: () => {
+        setIsSpeakingSummary(false);
+        setSpeechIsPaused(false);
+        stopSpeechTimer();
+        setSpeechCurrentTime(0);
+      },
+      onStopped: () => {
+        setIsSpeakingSummary(false);
+        setSpeechIsPaused(false);
         stopSpeechTimer();
       },
       onError: () => {
@@ -167,6 +195,16 @@ export default function App() {
         stopSpeechTimer();
       }
     });
+
+    speechIntervalRef.current = setInterval(() => {
+      setSpeechCurrentTime(prev => {
+        if (prev >= speechTotalDuration) {
+          stopSpeechTimer();
+          return speechTotalDuration;
+        }
+        return prev + 1;
+      });
+    }, 1000);
   };
 
   const fetchDashboardStats = async (periodId: string = selectedPeriod) => {
@@ -248,9 +286,6 @@ export default function App() {
           ''
         ).toString();
 
-        const isOrderAssemblyOutside = isAssemblyOutsideType(orderHandling, allHandlingOptions);
-        const isOrderAssemblyInternal = isAssemblyInternalType(orderHandling, allHandlingOptions);
-
         if (Array.isArray(items) && items.length > 0) {
           items.forEach((item: any) => {
             const itemHandling = (
@@ -271,8 +306,8 @@ export default function App() {
             }
           });
         } else {
-          if (isOrderAssemblyOutside) aOutCount += 1;
-          else if (isOrderAssemblyInternal) aIntCount += 1;
+          if (isAssemblyOutsideType(orderHandling, allHandlingOptions)) aOutCount += 1;
+          else if (isAssemblyInternalType(orderHandling, allHandlingOptions)) aIntCount += 1;
         }
       });
 
@@ -291,7 +326,7 @@ export default function App() {
         const shipping = oData.shipping || {};
         const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
         
-        const isExplicitlyPending = !!(
+        const isExplicitlyPending = Boolean(
           sched.pendingScheduling ||
           oData.pendingScheduling ||
           o.pending_scheduling ||
@@ -306,8 +341,6 @@ export default function App() {
         const cleanDate = parseOrderDateStr(rawSchedDate);
         return cleanDate === todayStr;
       });
-
-      console.log(`[Dashboard] Pedidos encontrados para hoje (${todayStr}):`, todayOrders.map(o => ({ id: o.id, code: o.code, sched: o.order_data?.shipping?.scheduling?.date || o.scheduled_date })));
 
       const hasToday = todayOrders.length > 0;
       setHasTodayDeliveries(hasToday);
@@ -357,7 +390,7 @@ export default function App() {
     generateDeliveryAISummary('today', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
     generateDeliveryAISummary('tomorrow', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
 
-    // 2. Realtime Listener + Polling de Fallback de 15 segundos
+    // 2. Realtime Listener + Disparo de Notificação Nativa na Barra do Celular
     const notifChannel = supabase
       .channel('realtime-app-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_notifications' }, async (payload) => {
@@ -376,6 +409,13 @@ export default function App() {
           read: false
         }, ...prev]);
         setUnreadCount(prev => prev + 1);
+
+        // Dispara banner com som e vibração na barra de status do celular
+        triggerLocalNotification(
+          newNotif.title || 'Móveis Morante',
+          newNotif.message || 'Nova notificação de pedido',
+          newNotif
+        );
 
         fetchDashboardStats();
         generateDeliveryAISummary('today', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);

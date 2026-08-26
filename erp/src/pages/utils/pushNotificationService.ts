@@ -46,6 +46,8 @@ export async function dispatchAppNotification(payload: AppNotificationPayload): 
             sound: 'default',
             title: payload.title,
             body: payload.message,
+            channelId: 'default',
+            priority: 'high',
             data: {
                 orderId: payload.orderId,
                 type: payload.type,
