@@ -178,7 +178,7 @@ export default function AppLayout() {
                         </Link>
                         
                         <a 
-                          href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/289aa1ff-006d-4e9c-bf99-f8e6f36f22e5"
+                          href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/6cc2e98d-c079-4f08-b21a-2d6a43ab658c"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
