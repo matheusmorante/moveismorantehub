@@ -10,6 +10,10 @@ import {
     notifyNewAssemblies,
     notifyNewSaleAndAssemblies,
 } from '@/pages/utils/orderEventNotificationService';
+import {
+    detectOrderChangedAreas,
+    formatOrderChangeNotification
+} from '@/pages/utils/orderChangeDetector';
 
 export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
     const sched = shipping?.scheduling || {};
@@ -565,39 +569,19 @@ export const updateOrder = async (
             }
         }
 
-        // 2. Alteração de agendamento (data, período, dia)
-        const oldSched = previousOrderData?.shipping?.scheduling || {};
-        const newSched = merged?.shipping?.scheduling || {};
+        // 2. Detecção e Notificação inteligente das áreas alteradas do pedido
+        const changedAreas = detectOrderChangedAreas(previousOrderData, merged);
 
-        const dateChanged = (oldSched.date || '') !== (newSched.date || '') || 
-                            (oldSched.endDate || '') !== (newSched.endDate || '') || 
-                            (oldSched.dateType || '') !== (newSched.dateType || '');
-        const timeChanged = (oldSched.time || '') !== (newSched.time || '') || 
-                            (oldSched.startTime || '') !== (newSched.startTime || '') || 
-                            (oldSched.endTime || '') !== (newSched.endTime || '') || 
-                            (oldSched.type || '') !== (newSched.type || '');
-        
-        const isScheduleEdit = (oldSched.date || newSched.date) && (dateChanged || timeChanged);
-
-        if (isScheduleEdit) {
+        if (changedAreas.length > 0 && oldStatus !== 'draft') {
+            const notifData = formatOrderChangeNotification(customerName, changedAreas);
             dispatchAppNotification({
                 orderId: String(id),
-                title: `📅 Agendamento Alterado - ${customerName}`,
-                message: `O agendamento do pedido de ${customerName} foi alterado.`,
-                type: 'order_schedule_changed',
+                title: notifData.title,
+                message: notifData.message,
+                type: notifData.type,
                 scheduleText: schedText,
                 orderData: merged
-            }).catch(err => console.error("[OrderUpdate] Erro ao notificar alteração de agendamento:", err));
-        } else if (oldStatus && oldStatus !== 'draft' && newStatus !== 'draft' && oldStatus === newStatus) {
-            // Edição geral do pedido (que não é rascunho)
-            dispatchAppNotification({
-                orderId: String(id),
-                title: `✏️ Pedido Alterado - ${customerName}`,
-                message: `O pedido de ${customerName} foi alterado no sistema.`,
-                type: 'order_edited',
-                scheduleText: schedText,
-                orderData: merged
-            }).catch(err => console.error("[OrderUpdate] Erro ao notificar alteração geral:", err));
+            }).catch(err => console.error("[OrderUpdate] Erro ao notificar alteração do pedido:", err));
         }
 
         // Log status change
