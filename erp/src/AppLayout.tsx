@@ -177,13 +177,12 @@ export default function AppLayout() {
                           Financeiro e Rede
                         </Link>
                         
-                        <a 
-                          href="https://expo.dev/artifacts/eas/Ci4KDsaNm2sv44uPT1hR49jRglVQmszxip4obegx9V0.apk"
-                          download="morante-hub.apk"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
-                        >
+                        <a
+                            href="https://expo.dev/accounts/morante/projects/mobile/builds/72187df0-b576-4195-a094-c4b875fc35e9"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
+                          >
                           <i className="bi bi-android2 text-blue-400"></i>
                           <span>Baixar App Android</span>
                         </a>

@@ -181,12 +181,11 @@ const Profile = () => {
                         <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mt-1">{profile?.role}</p>
 
                         <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
-                            <a
-                                href="https://expo.dev/artifacts/eas/Ci4KDsaNm2sv44uPT1hR49jRglVQmszxip4obegx9V0.apk"
-                                download="morante-hub.apk"
+                            <a 
+                                href="https://expo.dev/accounts/morante/projects/mobile/builds/72187df0-b576-4195-a094-c4b875fc35e9"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 active:scale-98 transition-all"
+                                className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-500/20 transition-all text-xs"
                             >
                                 <i className="bi bi-android2 text-base"></i>
                                 Baixar App Android (v1.0)
