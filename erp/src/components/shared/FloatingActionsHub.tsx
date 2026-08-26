@@ -31,7 +31,7 @@ export default function FloatingActionsHub() {
         {/* Download App (Integrated here as well for clean UI) */}
         <div className="relative group">
           <a 
-            href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/6cc2e98d-c079-4f08-b21a-2d6a43ab658c"
+            href="https://expo.dev/accounts/matheusmorante/projects/mobile/builds/dc9cfe4a-ffcb-413d-896d-4f8d92c909f4"
             target="_blank"
             rel="noopener noreferrer"
             className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
