@@ -554,6 +554,8 @@ ____________________________________
             }
         };
 
+        console.log("[WhatsApp API] Enviando Template Payload:", JSON.stringify(payload, null, 2));
+
         const response = await fetch(
             `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
             {
@@ -565,9 +567,13 @@ ____________________________________
 
         const data = await response.json();
         if (data.error) {
-            console.error("Erro detalhado da API Meta Template WhatsApp:", data.error);
-            const detailMsg = data.error.error_user_msg || data.error.error_data?.details || data.error.message || "Parâmetro inválido na Meta API";
-            throw new Error(`Meta API: ${detailMsg} (Código ${data.error.code})`);
+            console.error("[WhatsApp API] Erro retornado pela Meta:", JSON.stringify(data.error, null, 2));
+            const details = data.error.error_data?.details || '';
+            const userTitle = data.error.error_user_title ? ` (${data.error.error_user_title})` : '';
+            const userMsg = data.error.error_user_msg ? ` - ${data.error.error_user_msg}` : '';
+            const baseMsg = data.error.message || "Parâmetro inválido na Meta API";
+            const fullMsg = details ? `${baseMsg}: ${details}` : `${baseMsg}${userTitle}${userMsg}`;
+            throw new Error(`Meta API (Código ${data.error.code}): ${fullMsg}`);
         }
         return data;
     }
