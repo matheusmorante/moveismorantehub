@@ -296,7 +296,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Quantidade de Variáveis do Modelo ({{1}}, {{2}}...)</label>
+                                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-1 block">Quantidade de Variáveis do Modelo (Variáveis 1 a 7)</label>
                                 <select
                                     value={config.templateVariableCount ?? 7}
                                     onChange={(e) => handleFieldChange('templateVariableCount', Number(e.target.value))}
