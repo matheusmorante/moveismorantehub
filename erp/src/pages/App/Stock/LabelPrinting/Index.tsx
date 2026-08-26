@@ -15,7 +15,6 @@ import LabelQueue from './LabelQueue';
 import ProductSearchInput from './components/ProductSearchInput';
 import LabelImageModal from './LabelImageModal';
 import PriceLabelArtEditorModal from './PriceLabelArtEditorModal';
-import DigitalMarketingPostModal from './DigitalMarketingPostModal';
 import { 
     LabelType, LabelPreset, LabelLayout, LabelConfig, CustomLabel, DEFAULT_LAYOUT_MODELS 
 } from './LabelConstants';
@@ -103,7 +102,7 @@ const LabelPrinting: React.FC = () => {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
-    const [previewZoom, setPreviewZoom] = useState(0.7);
+    const [previewZoom, setPreviewZoom] = useState(0.6);
     const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
     const previewContainerRef = useRef<HTMLDivElement>(null);
     const previewScaleRef = useRef<HTMLDivElement>(null);
@@ -115,7 +114,6 @@ const LabelPrinting: React.FC = () => {
     const [gridModalOpen, setGridModalOpen] = useState(false); 
     const [isModelManagerModalOpen, setIsModelManagerModalOpen] = useState(false);
     const [isPriceLabelArtEditorOpen, setIsPriceLabelArtEditorOpen] = useState(false);
-    const [isDigitalMarketingPostOpen, setIsDigitalMarketingPostOpen] = useState(false);
 
     useEffect(() => {
         if (location.pathname === '/templates/price-label') setIsPriceLabelArtEditorOpen(true);
@@ -302,7 +300,7 @@ const LabelPrinting: React.FC = () => {
             dePricePorGroupPos: model.dePricePorGroupPos,
             dePricePorGroupRotation: model.dePricePorGroupRotation,
             dePricePorGroupGap: model.dePricePorGroupGap,
-            artConfig: model.artConfig || prefConfig.artConfig,
+            artConfig: savedArtConfigs[model.id] || model.artConfig || prefConfig.artConfig,
 
             // Estilos Promocionais (Novo Preço)
             promoPriceFontSize: model.promoPriceFontSize || 24,
@@ -586,7 +584,7 @@ const LabelPrinting: React.FC = () => {
                 showStoreLogo: cat !== 'precos',
             });
         }
-    }, [catFromUrl, selectedCategory, defaultLayoutIds]);
+    }, [catFromUrl, selectedCategory, defaultLayoutIds, savedArtConfigs]);
 
     const layoutModels = (() => {
         // 1. Coletar modelos padrão (originais)
@@ -822,6 +820,16 @@ const LabelPrinting: React.FC = () => {
             (productOpportunity?.slug) ||
             ((product as any).condition === 'salvado' ? 'salvado' : 'none');
 
+        const productImages = (product.images || product.product_images || []) as { image_url: string; is_main: boolean }[];
+        const parentImages = ((product as any).parentImages || []) as { image_url: string; is_main: boolean }[];
+        
+        let initialImage = '';
+        const allImages = [...productImages, ...parentImages];
+        if (allImages.length > 0) {
+            const mainImg = allImages.find(img => img.is_main);
+            initialImage = mainImg ? mainImg.image_url : allImages[0].image_url;
+        }
+
         const newItem: LabelItemConfig = {
             name: fullName,
             price: product.unitPrice ? formatCurrency(product.unitPrice) : 
@@ -832,7 +840,11 @@ const LabelPrinting: React.FC = () => {
             sku: product.sku || '', 
             quantity: Math.max(1, quantity),
             extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
-            opportunityId
+            opportunityId,
+            productImages,
+            parentImages,
+            currentImageIndex: 0,
+            image: initialImage
         };
 
         setLabelItems(prev => [...prev, newItem]);
@@ -1083,7 +1095,7 @@ const LabelPrinting: React.FC = () => {
     };
 
     const handleCellClick = (index: number) => {
-        if (config.preset === 'custom') {
+        if (config.preset === 'custom' && selectedCategory !== 'posts') {
             setActiveCellIndex(index);
             cellInputRef.current?.click();
         }
@@ -1255,18 +1267,6 @@ const LabelPrinting: React.FC = () => {
                             })()}
                         </div>
                     </div>
-                    {selectedCategory === 'posts' && (
-                        <div className="ml-14 mt-3 flex">
-                            <button
-                                type="button"
-                                onClick={() => setIsDigitalMarketingPostOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white shadow-md shadow-pink-500/20 transition-all hover:from-pink-700 hover:to-blue-700 active:scale-95 cursor-pointer"
-                            >
-                                <i className="bi bi-layout-text-window-reverse text-xs" />
-                                Template para os Posts
-                            </button>
-                        </div>
-                    )}
                 </header>
 
                 {!selectedCategory ? (
@@ -1294,10 +1294,10 @@ const LabelPrinting: React.FC = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-10 animate-fade-in">
+                    <div className="flex flex-col gap-8 animate-fade-in xl:flex-row xl:items-start">
                         {/* SEÇÃO DA FILA (PRODUTOS OU LOGOS) */}
-                                    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col transition-all">
-                                         <div className="flex flex-col xl:flex-row xl:items-center justify-between shrink-0 gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                                    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col transition-all xl:basis-[34%] xl:shrink-0">
+                                         <div className="flex flex-col 2xl:flex-row 2xl:items-center justify-between shrink-0 gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                                              {/* ESQUERDA: TÍTULO DA SEÇÃO */}
                                              <div className="flex flex-col gap-1 shrink-0">
                                                  <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
@@ -1310,7 +1310,7 @@ const LabelPrinting: React.FC = () => {
 
                                              {/* CENTRO / MEIO: FORMULÁRIO DE BUSCA E ADIÇÃO DE PRODUTOS */}
                                              {((selectedCategory === 'precos' && printingMode === 'advanced') || selectedCategory === 'identificacao') && (
-                                                 <div className="flex flex-1 max-w-2xl items-center gap-2 mx-0 xl:mx-4">
+                                                 <div className="flex w-full flex-1 items-center gap-2 2xl:mx-4">
                                                      <ProductSearchInput 
                                                          products={products}
                                                          selectedProduct={selectedProductToAdd}
@@ -1442,12 +1442,12 @@ const LabelPrinting: React.FC = () => {
                                         </div>
                                     </section>
 
-                                    {/* SEÇÃO DO RESULTADO FINAL (Abaixo da Fila, Full Width) */}
-                                    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 lg:p-10 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col items-center animate-fade-in transition-all">
-                                        <div className="flex items-center justify-between mb-6 w-full">
+                                    {/* PREVIEW: sidebar em desktop; abaixo da fila em telas menores. */}
+                                    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg shadow-slate-200/40 dark:shadow-none flex flex-col items-center animate-fade-in transition-all xl:min-w-0 xl:flex-1">
+                                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 w-full shrink-0">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-2 h-8 bg-blue-600 rounded-full" />
-                                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">Resultado Final</h3>
+                                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">Preview</h3>
                                             </div>
                                             <div className="flex gap-2">
                                                 <button 
@@ -1468,8 +1468,8 @@ const LabelPrinting: React.FC = () => {
 
                                      <div 
                                          ref={previewContainerRef}
-                                         className={`w-full bg-slate-50 dark:bg-slate-950 rounded-[2rem] flex flex-col items-center border border-slate-100 dark:border-slate-800 relative transition-all duration-500 overflow-auto custom-scrollbar group/preview ${
-                                             isPreviewFullscreen ? 'fixed inset-0 z-[200] rounded-none bg-white dark:bg-black p-10' : 'p-6'
+                                         className={`w-full bg-slate-50 dark:bg-slate-950 rounded-2xl flex flex-col items-center border border-slate-100 dark:border-slate-800 relative transition-all duration-500 overflow-auto custom-scrollbar group/preview ${
+                                             isPreviewFullscreen ? 'fixed inset-0 z-[200] rounded-none bg-white dark:bg-black p-10' : 'p-3 sm:p-4'
                                          }`}
                                      >
                                          {/* Toolbar Flutuante */}
@@ -1544,6 +1544,7 @@ const LabelPrinting: React.FC = () => {
                                                              labelItems={labelItems}
                                                              logoItems={logoItems}
                                                              currentPage={currentPage}
+                                                             previewMode
                                                          />
                                                      );
                                                  })()}
@@ -2281,16 +2282,6 @@ const LabelPrinting: React.FC = () => {
                 } : undefined}
              />
 
-             <DigitalMarketingPostModal
-                isOpen={isDigitalMarketingPostOpen}
-                onClose={() => setIsDigitalMarketingPostOpen(false)}
-                product={selectedProductToAdd ? {
-                    name: selectedProductToAdd.description,
-                    price: selectedProductToAdd.unitPrice || (selectedProductToAdd as any).price,
-                    promoPrice: (selectedProductToAdd as any).promoPrice,
-                    sku: selectedProductToAdd.sku || selectedProductToAdd.code
-                } : null}
-             />
         </>
     );
 };

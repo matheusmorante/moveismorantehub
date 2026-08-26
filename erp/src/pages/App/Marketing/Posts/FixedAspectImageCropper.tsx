@@ -3,7 +3,7 @@ import { compressImageToFile } from '@/pages/utils/imageUtils';
 
 type Props = {
   file: File;
-  kind: 'header' | 'footer';
+  kind: 'header' | 'footer' | 'seal';
   onCancel: () => void;
   onConfirm: (file: File) => void;
 };
@@ -18,7 +18,7 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
   const [selection, setSelection] = useState<Selection | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const target = { width: 1080, height: 170 };
+  const target = kind === 'seal' ? { width: 580, height: 100 } : { width: 1080, height: 170 };
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
@@ -110,7 +110,7 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
   return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4">
     <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
       <div className="flex items-center justify-between">
-        <div><h4 className="text-sm font-black text-slate-800 dark:text-slate-100">Recortar {kind === 'header' ? 'cabeçalho' : 'rodapé'}</h4><p className="text-[10px] text-slate-400">Arraste a área de seleção · saída {target.width} × {target.height} px</p></div>
+        <div><h4 className="text-sm font-black text-slate-800 dark:text-slate-100">Recortar {kind === 'header' ? 'cabeçalho' : kind === 'footer' ? 'rodapé' : 'selo'}</h4><p className="text-[10px] text-slate-400">Arraste a área de seleção · saída {target.width} × {target.height} px</p></div>
         <button type="button" onClick={onCancel}><i className="bi bi-x-lg" /></button>
       </div>
       <div className="mt-4 flex max-h-[65vh] items-center justify-center overflow-auto rounded-xl bg-slate-950 p-3">

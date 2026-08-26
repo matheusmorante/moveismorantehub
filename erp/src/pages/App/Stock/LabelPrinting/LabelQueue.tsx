@@ -113,40 +113,75 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     
                     {/* Miniatura Interativa */}
                     {selectedCategory !== 'precos' && (
-                        <div className="relative w-20 h-20 shrink-0 rounded-[1.5rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-2 group/thumb shadow-inner">
-                            {item.isBlank ? (
-                                <div className="w-full h-full border border-dashed border-slate-300 dark:border-slate-700 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900">
-                                    <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter text-center">EM BRANCO</span>
-                                </div>
-                            ) : (
-                                <img 
-                                    src={item.image || labelMdf} 
-                                    style={{ 
-                                        transform: `scale(${item.scale || 1}) rotate(${item.rotation || 0}deg)`,
-                                        objectFit: item.imageFit || 'contain'
-                                    }} 
-                                    className="max-w-full max-h-full transition-all duration-500" 
-                                    alt="" 
-                                />
-                            )}
-                            {!item.isBlank && (
-                                <div className="absolute inset-0 bg-blue-600/90 backdrop-blur-sm opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center gap-2 transition-all p-2">
-                                    <label className="w-full text-center py-1.5 bg-white text-blue-600 rounded-xl text-[8px] font-black uppercase cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg">
-                                        Trocar Imagem
-                                        <input 
-                                            type="file" accept="image/*" className="hidden" 
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    const reader = new FileReader();
-                                                    reader.onload = (ev) => updateItem(idx, { image: ev.target?.result as string });
-                                                    reader.readAsDataURL(file);
-                                                }
-                                            }} 
-                                        />
-                                    </label>
-                                </div>
-                            )}
+                        <div className="flex flex-col gap-2 items-center">
+                            <div className="relative w-20 h-20 shrink-0 rounded-[1.5rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-2 group/thumb shadow-inner">
+                                {item.isBlank ? (
+                                    <div className="w-full h-full border border-dashed border-slate-300 dark:border-slate-700 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900">
+                                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter text-center">EM BRANCO</span>
+                                    </div>
+                                ) : (
+                                    <img 
+                                        src={item.image || labelMdf} 
+                                        style={{ 
+                                            transform: `scale(${item.scale || 1}) rotate(${item.rotation || 0}deg)`,
+                                            objectFit: item.imageFit || 'contain'
+                                        }} 
+                                        className="max-w-full max-h-full transition-all duration-500" 
+                                        alt="" 
+                                    />
+                                )}
+                                {!item.isBlank && (
+                                    <div className="absolute inset-0 bg-blue-600/90 backdrop-blur-sm opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center gap-2 transition-all p-2">
+                                        <label className="w-full text-center py-1.5 bg-white text-blue-600 rounded-xl text-[8px] font-black uppercase cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg">
+                                            Trocar Imagem
+                                            <input 
+                                                type="file" accept="image/*" className="hidden" 
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (ev) => updateItem(idx, { image: ev.target?.result as string });
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }} 
+                                            />
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {!item.isBlank && (item.productImages?.length > 0 || item.parentImages?.length > 0) && (() => {
+                                const allImages = [...(item.productImages || []), ...(item.parentImages || [])];
+                                if (allImages.length <= 1) return null;
+                                const currentIndex = item.currentImageIndex || 0;
+                                return (
+                                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-1 py-0.5 shadow-sm mt-[-4px]">
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newIndex = (currentIndex - 1 + allImages.length) % allImages.length;
+                                                updateItem(idx, { currentImageIndex: newIndex, image: allImages[newIndex].image_url });
+                                            }}
+                                            className="text-slate-400 hover:text-blue-500 p-0.5"
+                                        >
+                                            <i className="bi bi-chevron-left text-[10px]" />
+                                        </button>
+                                        <span className="text-[9px] font-bold text-slate-500 select-none min-w-[20px] text-center">
+                                            {currentIndex + 1}/{allImages.length}
+                                        </span>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newIndex = (currentIndex + 1) % allImages.length;
+                                                updateItem(idx, { currentImageIndex: newIndex, image: allImages[newIndex].image_url });
+                                            }}
+                                            className="text-slate-400 hover:text-blue-500 p-0.5"
+                                        >
+                                            <i className="bi bi-chevron-right text-[10px]" />
+                                        </button>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
 

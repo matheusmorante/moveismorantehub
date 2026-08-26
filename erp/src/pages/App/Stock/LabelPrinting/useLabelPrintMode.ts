@@ -8,10 +8,13 @@ export const useLabelPrintMode = () => {
         return () => document.body.classList.remove(PRINT_PAGE_CLASS);
     }, []);
 
-    return useCallback(() => {
+    return useCallback(async () => {
         document.body.classList.add(PRINT_PAGE_CLASS);
+        await document.fonts?.ready;
         requestAnimationFrame(() => {
-            requestAnimationFrame(() => window.print());
+            requestAnimationFrame(() => {
+                window.setTimeout(() => window.print(), 100);
+            });
         });
     }, []);
 };

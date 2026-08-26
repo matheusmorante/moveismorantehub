@@ -28,12 +28,11 @@ function source(variation: ProductVariationImages | undefined, imageIndex: numbe
 export function getVariationGridImages(variations: ProductVariationImages[]) {
   if (!variations.length) return null;
   const main = source(variations[0], 0);
-  const secondary = source(variations[0], 1)
-    || source(variations[1], 1)
-    || source(variations[1], 0)
-    || main;
-  const extra = [source(variations[1], 0), source(variations[2], 0)]
+  // Ordem fixa do grid: V1/Imagem 1, V1/Imagem 2, depois Imagem 1 de
+  // cada variação seguinte. Nenhuma imagem é repetida como fallback de slot.
+  const secondary = source(variations[0], 1);
+  const extra = variations.slice(1)
+    .map(variation => source(variation, 0))
     .filter((item): item is GridImageSource => Boolean(item));
-  const hasMoreColors = variations.slice(3).some(variation => parseVariationImageUrls(variation.image_url).length > 0);
-  return { main, secondary, extra, hasMoreColors };
+  return { main, secondary, extra, hasMoreColors: false };
 }

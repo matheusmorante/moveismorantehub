@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { renderFabricTemplateToDataUrl } from './FabricLabelEngine';
+import { flushSync } from 'react-dom';
 import { usePriceLabelFonts } from './usePriceLabelFonts';
 
 export interface PriceLabelArtData {
@@ -110,6 +110,7 @@ export interface PriceLabelArtRendererProps {
 export const BASE_ART_WIDTH = 840;
 export const BASE_ART_HEIGHT = 480;
 export const RENDER_DPI = 300;
+const CSS_DPI = 96;
 const SAFETY_MARGIN_PX = 16;
 const MM_PER_INCH = 25.4;
 
@@ -172,55 +173,13 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         : BASE_ART_HEIGHT;
 
     const [scale, setScale] = useState<number>(1);
-    const [fabricDataUrlState, setFabricDataUrlState] = useState<string | null>(data.fabricDataUrl || null);
-
-    useEffect(() => {
-        if (!isEdit && data.fabricTemplateJson) {
-            let isMounted = true;
-            renderFabricTemplateToDataUrl(
-                data.fabricTemplateJson,
-                {
-                    title,
-                    normalPrice,
-                    promoPrice,
-                    deText,
-                    porText,
-                    currencySymbol,
-                    centsText,
-                    installments,
-                    bgColor,
-                    priceColor,
-                    titleColor,
-                },
-                artWidthMm || 100,
-                artHeightMm || 56
-            ).then((url) => {
-                if (isMounted) setFabricDataUrlState(url);
-            });
-            return () => {
-                isMounted = false;
-            };
-        } else if (data.fabricDataUrl) {
-            setFabricDataUrlState(data.fabricDataUrl);
-        }
-    }, [
-        isEdit,
-        data.fabricTemplateJson,
-        data.fabricDataUrl,
-        title,
-        normalPrice,
-        promoPrice,
-        deText,
-        porText,
-        currencySymbol,
-        centsText,
-        installments,
-        bgColor,
-        priceColor,
-        titleColor,
-        artWidthMm,
-        artHeightMm,
-    ]);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const printScale = (artWidthMm && artHeightMm)
+        ? Math.min(
+            mmToPx(artWidthMm, CSS_DPI) / canvasWidth,
+            mmToPx(artHeightMm, CSS_DPI) / canvasHeight
+        )
+        : scale;
 
     useEffect(() => {
         const el = containerRef.current;
@@ -239,9 +198,17 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         updateScale();
 
         const handleBeforePrint = () => {
-            setTimeout(updateScale, 10);
+            // O portal de impressão fica fora da tela e mede 0px antes de a
+            // mídia mudar. A escala física evita o fallback nesse intervalo.
+            flushSync(() => setIsPrinting(true));
+            requestAnimationFrame(() => {
+                requestAnimationFrame(updateScale);
+            });
+            setTimeout(updateScale, 100);
         };
+        const handleAfterPrint = () => setIsPrinting(false);
         window.addEventListener('beforeprint', handleBeforePrint);
+        window.addEventListener('afterprint', handleAfterPrint);
 
         if (typeof ResizeObserver !== 'undefined') {
             const observer = new ResizeObserver(updateScale);
@@ -249,10 +216,12 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
             return () => {
                 observer.disconnect();
                 window.removeEventListener('beforeprint', handleBeforePrint);
+                window.removeEventListener('afterprint', handleAfterPrint);
             };
         }
         return () => {
             window.removeEventListener('beforeprint', handleBeforePrint);
+            window.removeEventListener('afterprint', handleAfterPrint);
         };
     }, [containerRef, canvasWidth, canvasHeight]);
 
@@ -272,7 +241,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 position: 'absolute',
                 left: '50%',
                 top: '50%',
-                transform: `translate(-50%, -50%) scale(${scale})`,
+                transform: `translate(-50%, -50%) scale(${isPrinting ? printScale : scale})`,
                 transformOrigin: 'center center',
                 overflow: 'visible',
                 boxSizing: 'border-box',
@@ -285,7 +254,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
         >
             {/* GUIA DE MARGEM DE SEGURANÇA DA IMPRESSÃO (EDITOR) */}
             {isEdit && showSafetyMargin && (
-                <div 
+                <div
                     data-hide-export="true"
                     className="absolute inset-3 sm:inset-4 border border-dashed border-red-500/60 pointer-events-none rounded-2xl z-20"
                 />
@@ -866,7 +835,6 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
                 ...style,
                 background: effectiveBgColor,
                 backgroundColor: effectiveBgColor,
-                borderRadius: '24px',
                 position: 'absolute', 
                 inset: 0, 
                 overflow: 'hidden',
@@ -876,15 +844,7 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
             }}
             className={className}
         >
-            {fabricDataUrlState ? (
-                <img 
-                    src={fabricDataUrlState} 
-                    alt={title || 'Etiqueta de Preço'} 
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} 
-                />
-            ) : (
-                content
-            )}
+            {content}
         </div>
     );
 };

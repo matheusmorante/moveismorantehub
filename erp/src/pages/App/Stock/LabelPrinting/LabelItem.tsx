@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LabelConfig } from './LabelConstants';
 import bwipjs from 'bwip-js';
 
-const GOOGLE_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Roboto:wght@400;700;900&family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Libre+Barcode+128&display=swap";
-
 interface Props {
     config: LabelConfig;
     image: string | null;
@@ -91,26 +89,31 @@ const getCentsStr = (priceStr: string, tplCentsText: string): string => {
 import { PriceLabelArtRenderer, PriceLabelArtData } from './PriceLabelArtRenderer';
 
 export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
+    // GUARD: Sem artConfig do BD, não renderizar com fallbacks genéricos
+    if (!config.artConfig) {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-slate-100 animate-pulse">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Carregando template...</span>
+            </div>
+        );
+    }
+
     // 1. OPORTUNIDADE DO PRODUTO ATUAL
     const oppId = config.opportunityId || config.opportunity_id || (config.opportunity?.id || config.opportunity?.slug || config.opportunity) || 'none';
     const effectiveOppId = oppId || 'none';
 
     // 2. BUSCA DO TEMPLATE NO SUPABASE (artConfig)
-    const baseOppColors = config.artConfig?.oppColorsMap?.['none']
-        || config.artConfig?.oppColorsMap?.['default']
-        || {};
-    const dbOppColors = {
-        ...baseOppColors,
-        ...(config.artConfig?.oppColorsMap?.[effectiveOppId] || {}),
-    };
+    const dbOppColors = config.artConfig?.oppColorsMap?.[effectiveOppId]
+        ?? config.artConfig?.oppColorsMap?.['none']
+        ?? config.artConfig?.oppColorsMap?.['default']
+        ?? {};
 
-    // O layout é único para todas as oportunidades; apenas as cores variam.
-    const dbTemplate = config.artConfig?.opportunities?.['none']
-        || config.artConfig?.opportunities?.['default']
-        || config.artConfig?.opportunities?.['salvado']
-        || config.artConfig?.globalSnapshot
-        || Object.values(config.artConfig?.opportunities || {})[0]
-        || config;
+    // O template é escolhido somente entre snapshots persistidos no banco.
+    const dbTemplate = config.artConfig?.opportunities?.[effectiveOppId]
+        ?? config.artConfig?.opportunities?.['none']
+        ?? config.artConfig?.opportunities?.['default']
+        ?? config.artConfig?.opportunities?.['salvado']
+        ?? config.artConfig?.globalSnapshot;
 
     const template: any = dbTemplate || {};
 
@@ -118,69 +121,70 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const displayPrice = (config.showPromoPrice && config.promoPrice) ? config.promoPrice : (config.price || '0');
     const mag = getPriceMagnitude(displayPrice);
 
-    // 4. DESIGN DA MAGNITUDE ESPECÍFICA (com fallback para a magnitude salva no template)
+    // 4. DESIGN DA GRANDEZA ATUAL, salvo no banco.
     const allMags = template.magnitudeTemplates || {};
-    const magDesign = allMags[mag]
-        || (template.selectedMagnitude && allMags[template.selectedMagnitude])
-        || allMags['thousands']
-        || allMags['hundreds']
-        || allMags['tens']
-        || {};
+    const magDesign = allMags[mag] || {};
 
-    // Combinar template raiz + design de magnitude
+    // Combinar template raiz + design de magnitude (dando prioridade aos valores da magnitude ativa)
     const t = { ...template, ...magDesign };
     const oppColors = dbOppColors || {};
 
     // 5. CORES
-    const bgColor = oppColors['background'] || config.bg_color || '#ffffff';
-    const titleColor = oppColors['title'] || '#000000';
-    const deColor = oppColors['deText'] || '#000000';
-    const normalPriceColor = oppColors['normalPrice'] || '#000000';
-    const porColor = oppColors['porText'] || '#000000';
-    const currencyColor = oppColors['currencySymbol'] || '#000000';
-    const priceColor = oppColors['promoPrice'] || '#1e3a8a';
-    const centsColor = oppColors['cents'] || '#000000';
-    const installmentsColor = oppColors['installments'] || '#000000';
+    const bgColor = oppColors['background'] ?? t.bgColor;
+    const titleColor = oppColors['title'] ?? t.titleColor;
+    const deColor = oppColors['deText'] ?? t.deColor;
+    const normalPriceColor = oppColors['normalPrice'] ?? t.normalPriceColor;
+    const porColor = oppColors['porText'] ?? t.porColor;
+    const currencyColor = oppColors['currencySymbol'] ?? t.currencyColor;
+    const priceColor = oppColors['promoPrice'] ?? t.priceColor;
+    const centsColor = oppColors['cents'] ?? t.centsColor;
+    const installmentsColor = oppColors['installments'] ?? t.installmentsColor;
 
-    // 6. TAMANHOS DE FONTE POR MAGNITUDE DA ETIQUETA DO PRODUTO (IDÊNTICO AO EDITOR)
-    const titleFontSize = t.titleFontSize ?? t.titleFontSizeHundreds ?? t.titleFontSizeTens ?? t.titleFontSizeThousands ?? 36;
-    const deFontSize = t.deFontSize ?? t.deFontSizeHundreds ?? t.deFontSizeTens ?? t.deFontSizeThousands ?? 34;
-    const normalPriceFontSize = t.normalPriceFontSize ?? t.normalPriceFontSizeHundreds ?? t.normalPriceFontSizeTens ?? t.normalPriceFontSizeThousands ?? 34;
-    const porFontSize = t.porFontSize ?? t.porFontSizeHundreds ?? t.porFontSizeTens ?? t.porFontSizeThousands ?? 34;
-    const currencyFontSize = t.currencyFontSize ?? t.currencyFontSizeHundreds ?? t.currencyFontSizeTens ?? t.currencyFontSizeThousands ?? 70;
-    const centsFontSize = t.centsFontSize ?? t.centsFontSizeHundreds ?? t.centsFontSizeTens ?? t.centsFontSizeThousands ?? 70;
-    const installmentsFontSize = t.installmentsFontSize ?? t.installmentsFontSizeHundreds ?? t.installmentsFontSizeTens ?? t.installmentsFontSizeThousands ?? 14;
+    // 6. Lê exclusivamente o tamanho salvo para a grandeza atual. Os valores
+    // Não usa outra grandeza nem um estado local como fallback.
+    const magnitudeSuffix = mag === 'tens' ? 'Tens' : mag === 'hundreds' ? 'Hundreds' : 'Thousands';
+    const readFontSize = (field: string, fallback: number) => {
+        const value = t[`${field}FontSize${magnitudeSuffix}`];
+        return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback;
+    };
+    const titleFontSize = readFontSize('title', 36);
+    const deFontSize = readFontSize('de', 34);
+    const normalPriceFontSize = readFontSize('normalPrice', 34);
+    const porFontSize = readFontSize('por', 34);
+    const currencyFontSize = readFontSize('currency', 70);
+    const centsFontSize = readFontSize('cents', 70);
+    const installmentsFontSize = readFontSize('installments', 14);
     const priceScale = mag === 'tens' ? (t.scaleTens ?? 240) : mag === 'hundreds' ? (t.scaleHundreds ?? 210) : (t.scaleThousands ?? 170);
 
     // 7. POSIÇÕES E ROTAÇÕES 100% FIÉIS AO TEMPLATE
-    const titlePos = t.titlePos || config.titlePos || { x: 0, y: 0 };
-    const titleRot = t.titleRotation ?? config.titleRotation ?? 0;
+    const titlePos = t.titlePos ?? { x: 0, y: 0 };
+    const titleRot = t.titleRotation ?? 0;
 
-    const groupPos = t.dePricePorGroupPos || template.dePricePorGroupPos || config.dePricePorGroupPos || { x: 0, y: 0 };
-    const groupRot = t.dePricePorGroupRotation ?? template.dePricePorGroupRotation ?? config.dePricePorGroupRotation ?? 0;
-    const groupGap = t.dePricePorGroupGap ?? template.dePricePorGroupGap ?? config.dePricePorGroupGap ?? 10;
+    const groupPos = t.dePricePorGroupPos ?? template.dePricePorGroupPos ?? { x: 0, y: 0 };
+    const groupRot = t.dePricePorGroupRotation ?? template.dePricePorGroupRotation ?? 0;
+    const groupGap = t.dePricePorGroupGap ?? template.dePricePorGroupGap ?? 0;
 
-    const currPos = t.currencyPos || config.currencyPos || { x: 0, y: 0 };
-    const currRot = t.currencyRotation ?? config.currencyRotation ?? 0;
+    const currPos = t.currencyPos ?? { x: 0, y: 0 };
+    const currRot = t.currencyRotation ?? 0;
 
-    const pricePos = t.promoPricePos || config.promoPricePos || { x: 0, y: 0 };
-    const priceRot = t.promoPriceRotation ?? config.promoPriceRotation ?? 0;
+    const pricePos = t.promoPricePos ?? { x: 0, y: 0 };
+    const priceRot = t.promoPriceRotation ?? 0;
 
-    const centsPos = t.centsPos || config.centsPos || { x: 0, y: 0 };
-    const centsRot = t.centsRotation ?? config.centsRotation ?? 0;
+    const centsPos = t.centsPos ?? { x: 0, y: 0 };
+    const centsRot = t.centsRotation ?? 0;
 
-    const instPos = t.installmentsPos || config.installmentsPos || { x: 0, y: 0 };
-    const instRot = t.installmentsRotation ?? config.installmentsRotation ?? 0;
+    const instPos = t.installmentsPos ?? { x: 0, y: 0 };
+    const instRot = t.installmentsRotation ?? 0;
 
     // 8. VISIBILIDADE DOS COMPONENTES
-    const showTitle = t.showTitle ?? config.showTitle ?? true;
-    const showDe = t.showDe ?? config.showDe ?? true;
-    const showNormalPrice = t.showNormalPrice ?? config.showNormalPrice ?? true;
-    const showPor = t.showPor ?? config.showPor ?? true;
-    const showCurrency = t.showCurrency ?? config.showCurrency ?? true;
-    const showPromoPrice = t.showPromoPrice ?? config.showPromoPrice ?? true;
-    const showCents = t.showCents ?? config.showCents ?? true;
-    const showInstallments = t.showInstallments ?? config.showInstallments ?? false;
+    const showTitle = t.showTitle ?? false;
+    const showDe = t.showDe ?? false;
+    const showNormalPrice = t.showNormalPrice ?? false;
+    const showPor = t.showPor ?? false;
+    const showCurrency = t.showCurrency ?? false;
+    const showPromoPrice = t.showPromoPrice ?? false;
+    const showCents = t.showCents ?? false;
+    const showInstallments = t.showInstallments ?? false;
 
     // 9. VALORES DOS TEXTOS DO PRODUTO SELECIONADO
     const titleText = config.text || config.name || t.title || 'NOME DO PRODUTO';
@@ -197,40 +201,40 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         showTitle,
         titleFontSize,
         titleColor,
-        titleFontFamily: t.titleFontFamily || config.titleFontFamily || 'Inter, system-ui, sans-serif',
+        titleFontFamily: t.titleFontFamily,
         titlePos,
         titleRotation: titleRot,
 
-        deText: t.deText || config.deText || 'De',
+        deText: t.deText,
         showDe,
         deFontSize,
         deColor,
-        deFontFamily: t.deFontFamily || config.deFontFamily || 'Inter, system-ui, sans-serif',
-        deRotation: t.deRotation ?? config.deRotation ?? 0,
+        deFontFamily: t.deFontFamily,
+        deRotation: t.deRotation ?? 0,
 
         normalPrice: fmtBRL(rawNormal),
         showNormalPrice,
         normalPriceFontSize,
         normalPriceColor,
-        normalPriceFontFamily: t.normalPriceFontFamily || config.normalPriceFontFamily || 'Inter, system-ui, sans-serif',
-        normalPriceRotation: t.normalPriceRotation ?? config.normalPriceRotation ?? 0,
+        normalPriceFontFamily: t.normalPriceFontFamily,
+        normalPriceRotation: t.normalPriceRotation ?? 0,
 
-        porText: t.porText || config.porText || 'Por:',
+        porText: t.porText,
         showPor,
         porFontSize,
         porColor,
-        porFontFamily: t.porFontFamily || config.porFontFamily || 'Inter, system-ui, sans-serif',
-        porRotation: t.porRotation ?? config.porRotation ?? 0,
+        porFontFamily: t.porFontFamily,
+        porRotation: t.porRotation ?? 0,
 
         dePricePorGroupPos: groupPos,
         dePricePorGroupRotation: groupRot,
         dePricePorGroupGap: groupGap,
 
-        currencySymbol: t.currencySymbol || config.currencySymbol || 'R$',
+        currencySymbol: t.currencySymbol,
         showCurrency,
         currencyFontSize,
         currencyColor,
-        currencyFontFamily: t.currencyFontFamily || config.currencyFontFamily || 'Inter, system-ui, sans-serif',
+        currencyFontFamily: t.currencyFontFamily,
         currencyPos: currPos,
         currencyRotation: currRot,
 
@@ -238,7 +242,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         showPromoPrice,
         priceScale,
         priceColor,
-        promoPriceFontFamily: t.promoPriceFontFamily || config.promoPriceFontFamily || 'Inter, system-ui, sans-serif',
+        promoPriceFontFamily: t.promoPriceFontFamily,
         promoPricePos: pricePos,
         promoPriceRotation: priceRot,
 
@@ -246,15 +250,15 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
         showCents,
         centsFontSize,
         centsColor,
-        centsFontFamily: t.centsFontFamily || config.centsFontFamily || 'Inter, system-ui, sans-serif',
+        centsFontFamily: t.centsFontFamily,
         centsPos,
         centsRotation: centsRot,
 
-        installments: t.installments || config.installments || 'Em até 10x sem juros',
+        installments: t.installments,
         showInstallments,
         installmentsFontSize,
         installmentsColor,
-        installmentsFontFamily: t.installmentsFontFamily || config.installmentsFontFamily || 'Inter, system-ui, sans-serif',
+        installmentsFontFamily: t.installmentsFontFamily,
         installmentsPos: instPos,
         installmentsRotation: instRot,
 
@@ -358,7 +362,6 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
 
     return (
         <div className="label-item-bleed-container" style={{ ...bleedStyle, border: hideBleedBorder ? 'none' : undefined }}>
-            <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
             {image && !isBlank && config.category !== 'precos' && (
                 <img src={image} alt="" style={{ position: 'absolute', top: '50%', left: '50%', width: '100%', height: '100%', objectFit: (config.imageFit as any) || 'cover', zIndex: 1, transform: `translate(-50%, -50%) scale(${activeScale})`, transition: 'transform 0.2s ease-out', opacity: 1 }} />
             )}

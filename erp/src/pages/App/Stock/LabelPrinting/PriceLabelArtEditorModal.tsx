@@ -687,7 +687,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         if (s.installmentsPos) setInstallmentsPos(s.installmentsPos);
         if (s.installmentsRotation !== undefined) setInstallmentsRotation(s.installmentsRotation);
 
-        if (s.dePricePorGroupPos && (s.dePricePorGroupPos.x !== 0 || s.dePricePorGroupPos.y !== 0)) setDePricePorGroupPos(s.dePricePorGroupPos); else setDePricePorGroupPos({ x: -40, y: -80 });
+        // { x: 0, y: 0 } é uma posição válida do template, não ausência de
+        // configuração. O editor deve refletir exatamente o snapshot do BD.
+        setDePricePorGroupPos(s.dePricePorGroupPos ?? { x: 0, y: 0 });
         if (s.dePricePorGroupRotation !== undefined) setDePricePorGroupRotation(s.dePricePorGroupRotation);
         if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
 
@@ -2515,13 +2517,13 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         </div>
                     );
                 }
-                const activeTitleFontSize = titleFontSizeHundreds || titleFontSizeTens || titleFontSizeThousands || 36;
-                const activeDeFontSize = deFontSizeHundreds || deFontSizeTens || deFontSizeThousands || 34;
-                const activeNormalPriceFontSize = normalPriceFontSizeHundreds || normalPriceFontSizeTens || normalPriceFontSizeThousands || 34;
-                const activePorFontSize = porFontSizeHundreds || porFontSizeTens || porFontSizeThousands || 34;
-                const activeCurrencyFontSize = currencyFontSizeHundreds || currencyFontSizeTens || currencyFontSizeThousands || 70;
-                const activeCentsFontSize = centsFontSizeHundreds || centsFontSizeTens || centsFontSizeThousands || 70;
-                const activeInstallmentsFontSize = installmentsFontSizeHundreds || installmentsFontSizeTens || installmentsFontSizeThousands || 14;
+                const activeTitleFontSize = selectedMagnitude === 'tens' ? titleFontSizeTens : selectedMagnitude === 'hundreds' ? titleFontSizeHundreds : titleFontSizeThousands;
+                const activeDeFontSize = selectedMagnitude === 'tens' ? deFontSizeTens : selectedMagnitude === 'hundreds' ? deFontSizeHundreds : deFontSizeThousands;
+                const activeNormalPriceFontSize = selectedMagnitude === 'tens' ? normalPriceFontSizeTens : selectedMagnitude === 'hundreds' ? normalPriceFontSizeHundreds : normalPriceFontSizeThousands;
+                const activePorFontSize = selectedMagnitude === 'tens' ? porFontSizeTens : selectedMagnitude === 'hundreds' ? porFontSizeHundreds : porFontSizeThousands;
+                const activeCurrencyFontSize = selectedMagnitude === 'tens' ? currencyFontSizeTens : selectedMagnitude === 'hundreds' ? currencyFontSizeHundreds : currencyFontSizeThousands;
+                const activeCentsFontSize = selectedMagnitude === 'tens' ? centsFontSizeTens : selectedMagnitude === 'hundreds' ? centsFontSizeHundreds : centsFontSizeThousands;
+                const activeInstallmentsFontSize = selectedMagnitude === 'tens' ? installmentsFontSizeTens : selectedMagnitude === 'hundreds' ? installmentsFontSizeHundreds : installmentsFontSizeThousands;
                 const activePromoPriceScale = selectedMagnitude === 'tens' ? scaleTens : selectedMagnitude === 'hundreds' ? scaleHundreds : scaleThousands;
 
                 return (

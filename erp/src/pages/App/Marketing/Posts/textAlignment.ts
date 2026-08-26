@@ -14,13 +14,16 @@ export function getTextAlignmentOffset(contentWidth: number, contentHeight: numb
   };
 }
 
-export function getTextBackgroundAlignment(contentWidth: number, contentHeight: number, paddingX: number, paddingY: number, horizontal: HorizontalTextAlignment = 'left', vertical: VerticalTextAlignment = 'middle') {
-  return getTextAlignmentOffset(
-    contentWidth,
-    contentHeight,
-    contentWidth + Math.max(0, paddingX) * 2,
-    contentHeight + Math.max(0, paddingY) * 2,
-    horizontal,
-    vertical,
-  );
+export function getTextBackgroundAlignment(contentWidth: number, contentHeight: number, paddingLeft: number, paddingRight: number, paddingTop: number, paddingBottom: number, horizontal: HorizontalTextAlignment = 'left', vertical: VerticalTextAlignment = 'middle') {
+  const left = Math.max(0, paddingLeft);
+  const right = Math.max(0, paddingRight);
+  const top = Math.max(0, paddingTop);
+  const bottom = Math.max(0, paddingBottom);
+
+  return {
+    x: horizontal === 'left' ? left : horizontal === 'right' ? right : (left + right) / 2,
+    y: vertical === 'top' ? top : vertical === 'bottom' ? bottom : (top + bottom) / 2,
+    width: contentWidth + left + right,
+    height: contentHeight + top + bottom,
+  };
 }

@@ -20,6 +20,9 @@ export interface LabelItemConfig {
     showName?: boolean;
     showPromoPrice?: boolean;
     isLogoOnly?: boolean;
+    productImages?: { image_url: string; is_main: boolean }[];
+    parentImages?: { image_url: string; is_main: boolean }[];
+    currentImageIndex?: number;
 }
 
 export interface LogoItemConfig {
@@ -154,6 +157,10 @@ const LabelGrid: React.FC<Props> = ({
                 }
                 .label-item-container {
                      border: none !important;
+                     overflow: visible !important;
+                }
+                .label-item-bleed-container {
+                     overflow: visible !important;
                 }
             }
             @media screen {
@@ -230,7 +237,10 @@ const LabelGrid: React.FC<Props> = ({
                                 width: '100%', 
                                 height: '100%', 
                                 position: 'relative', 
-                                overflow: 'visible'
+                                overflow: 'visible',
+                                border: previewMode ? '1px solid #cbd5e1' : 'none',
+                                borderRadius: previewMode ? '4px' : 0,
+                                boxSizing: 'border-box'
                             }}
                         >
                             {item ? (
@@ -255,119 +265,10 @@ const LabelGrid: React.FC<Props> = ({
                                     };
 
                                     if (config.category === 'precos' && !item.isBlank) {
-                                        let parsedTemplate: any = null;
-
-                                        if (config.artConfig) {
-                                            const artConfig = config.artConfig as any;
-                                            parsedTemplate = artConfig.opportunities?.['none']
-                                                || artConfig.opportunities?.['default']
-                                                || artConfig.opportunities?.['salvado']
-                                                || artConfig.globalSnapshot
-                                                || Object.values(artConfig.opportunities || {})[0];
-                                        }
-
-                                        if (parsedTemplate) {
-                                            try {
-                                                // Identifica a grandeza do produto atual
-                                                const finalDisplayPrice = itemConfig.showPromoPrice ? itemConfig.promoPrice : itemConfig.price;
-                                                const currentMag = getMagnitudeForPrice(finalDisplayPrice);
-                                                
-                                                // Localiza as configurações visuais específicas para essa grandeza
-                                                // Fallback: usa a magnitude do template salvo ou qualquer magnitude disponível
-                                                const allMagsGrid = parsedTemplate.magnitudeTemplates || {};
-                                                let magnitudeDesign: any = allMagsGrid[currentMag]
-                                                    || (parsedTemplate.selectedMagnitude && allMagsGrid[parsedTemplate.selectedMagnitude])
-                                                    || allMagsGrid['thousands']
-                                                    || allMagsGrid['hundreds']
-                                                    || allMagsGrid['tens']
-                                                    || {};
-                                                
-                                                const mergedDesign: any = {
-                                                    ...parsedTemplate,
-                                                    ...magnitudeDesign,
-                                                };
-
-                                                // Tradução explícita das propriedades salvas no editor visual para as propriedades consumidas pelo LabelItem
-                                                const translatedDesign: any = {};
-
-                                                if (mergedDesign.titlePos) {
-                                                    translatedDesign.namePosX = mergedDesign.titlePos.x;
-                                                    translatedDesign.namePosY = mergedDesign.titlePos.y;
-                                                    translatedDesign.promoNamePosX = mergedDesign.titlePos.x;
-                                                    translatedDesign.promoNamePosY = mergedDesign.titlePos.y;
-                                                }
-
-                                                if (mergedDesign.titleFontSize !== undefined) {
-                                                    translatedDesign.nameFontSize = mergedDesign.titleFontSize;
-                                                    translatedDesign.promoNameFontSize = mergedDesign.titleFontSize;
-                                                }
-
-                                                if (mergedDesign.titleColor) {
-                                                    translatedDesign.nameColor = mergedDesign.titleColor;
-                                                    translatedDesign.promoNameColor = mergedDesign.titleColor;
-                                                }
-
-                                                const pricePos = mergedDesign.promoPricePos || mergedDesign.normalPricePos;
-                                                if (pricePos) {
-                                                    translatedDesign.pricePosX = pricePos.x;
-                                                    translatedDesign.pricePosY = pricePos.y;
-                                                    translatedDesign.promoPosX = pricePos.x;
-                                                    translatedDesign.promoPosY = pricePos.y;
-                                                }
-
-                                                if (mergedDesign.priceColor) {
-                                                    translatedDesign.priceColor = mergedDesign.priceColor;
-                                                    translatedDesign.promoPriceColor = mergedDesign.priceColor;
-                                                }
-
-                                                if (mergedDesign.bgColor) {
-                                                    translatedDesign.bg_color = mergedDesign.bgColor;
-                                                }
-
-                                                if (mergedDesign.titleFontFamily) {
-                                                    translatedDesign.nameFontFamily = mergedDesign.titleFontFamily;
-                                                    translatedDesign.promoNameFontFamily = mergedDesign.titleFontFamily;
-                                                    translatedDesign.fontFamily = mergedDesign.titleFontFamily;
-                                                }
-
-                                                if (mergedDesign.promoPriceFontFamily) {
-                                                    translatedDesign.priceFontFamily = mergedDesign.promoPriceFontFamily;
-                                                }
-
-                                                if (mergedDesign.showTitle !== undefined) {
-                                                    translatedDesign.showName = mergedDesign.showTitle;
-                                                }
-
-                                                // Mescla propriedades de design do template geral, grandeza específica e tradução de chaves
-                                                itemConfig = {
-                                                    ...itemConfig,
-                                                    artConfig: config.artConfig,
-                                                    ...mergedDesign,
-                                                    ...translatedDesign,
-                                                    // Preserva os dados do produto atual e configurações físicas da folha
-                                                    columns: config.columns,
-                                                    rows: config.rows,
-                                                    marginT: config.marginT,
-                                                    marginR: config.marginR,
-                                                    marginB: config.marginB,
-                                                    marginL: config.marginL,
-                                                    gapH: config.gapH,
-                                                    gapV: config.gapV,
-                                                    paperSize: config.paperSize,
-                                                    paperWidth: config.paperWidth,
-                                                    paperHeight: config.paperHeight,
-                                                    isBlank: item.isBlank,
-                                                    text: itemConfig.text,
-                                                    price: itemConfig.price,
-                                                    promoPrice: itemConfig.promoPrice,
-                                                    showPromoPrice: itemConfig.showPromoPrice,
-                                                    sku: itemConfig.sku,
-                                                    extraFields: itemConfig.extraFields,
-                                                };
-                                            } catch (e) {
-                                                console.error('Erro ao mesclar template de arte:', e);
-                                            }
-                                        }
+                                        itemConfig = {
+                                            ...itemConfig,
+                                            artConfig: config.artConfig,
+                                        };
                                     }
 
                                     return (
@@ -377,7 +278,7 @@ const LabelGrid: React.FC<Props> = ({
                                             index={i} 
                                             scale={item.scale ?? config.imageScale}
                                             rotation={item.rotation || 0}
-                                            hideBleedBorder={true} // Oculta a borda aqui para ela não ser cortada pela folha
+                                            hideBleedBorder={!previewMode}
                                         />
                                     );
                                 })()
