@@ -311,12 +311,12 @@ export default function MarketingPosts() {
   const [headerTemplateImage, setHeaderTemplateImage] = useState('/images/banner-header-standard.svg');
   const [footerTemplateImage, setFooterTemplateImage] = useState('/images/banner-footer-bg.svg');
   const [uploadingTemplateImage, setUploadingTemplateImage] = useState(false);
-  const [layerOrder, setLayerOrder] = useState<string[]>(['mainImage', 'secondaryImage', 'opportunityBadge', 'priceContainer', 'title', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures']);
+  const [layerOrder, setLayerOrder] = useState<string[]>(['imageGrid', 'opportunityBadge', 'priceContainer', 'title', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures']);
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const [modelProductQuery, setModelProductQuery] = useState('');
   const [isModelProductPickerOpen, setIsModelProductPickerOpen] = useState(false);
   const [defaultModelProductId, setDefaultModelProductId] = useState('');
-  const postLayerLabels: Record<string, string> = { mainImage: 'Imagem principal', secondaryImage: 'Imagem secundária', opportunityBadge: 'Selo oportunidade', priceContainer: 'Container de preços', title: 'Título do produto', priceDe: 'Preço de', porApenas: 'Texto por', pricePor: 'Preço por', installments: 'Parcelamento', measures: 'Descrição' };
+  const postLayerLabels: Record<string, string> = { imageGrid: 'Grid de fotos', opportunityBadge: 'Selo oportunidade', priceContainer: 'Container de preços', title: 'Título do produto', priceDe: 'Preço de', porApenas: 'Texto por', pricePor: 'Preço por', installments: 'Parcelamento', measures: 'Descrição' };
   const uploadTemplateImage = async (kind: 'header' | 'footer', file: File) => {
     setUploadingTemplateImage(true);
     try {
@@ -909,6 +909,10 @@ export default function MarketingPosts() {
       });
     };
 
+    // O grid é a base da arte. Desenhá-lo antes dos demais elementos impede
+    // que ele encubra título, preços e textos quando estes forem centralizados.
+    drawImageGridLayer();
+
     // 3. Cabeçalho (Marca e Slogan)
     ctx.fillStyle = "#0d1b2a";
     ctx.fillRect(0, 0, 1080 * S, 170 * S);
@@ -1018,7 +1022,7 @@ export default function MarketingPosts() {
 
     if (showPriceContainer) {
       ctx.beginPath();
-      ctx.roundRect(560 * S, expandedTop * S, effectiveContainerWidth * S, expandedContainerHeight * S, 26 * S);
+      ctx.roundRect((560 + priceContainerX) * S, (expandedTop + priceContainerY) * S, effectiveContainerWidth * S, expandedContainerHeight * S, 26 * S);
       ctx.fillStyle = priceContainerBackgroundColor;
       ctx.fill();
       reg['priceContainer'] = { key: 'priceContainer', label: 'Container de preços', x: 560 + priceContainerX, y: expandedTop + priceContainerY, w: effectiveContainerWidth, h: expandedContainerHeight };
@@ -1044,7 +1048,10 @@ export default function MarketingPosts() {
       ctx.restore();
       reg['title'] = { key: 'title', label: 'Título Produto', x: pTitleX, y: pTitleY - pTitleSize, w: titleAlignment.width, h: titleAlignment.height };
     };
-    if (!isTitleDetached) contentCursorY = pTitleY + titleHeight + 16;
+    // Usa a altura já calculada das linhas do título. A referência anterior a
+    // `titleHeight` lançava um ReferenceError e interrompia toda a renderização
+    // das camadas do template (fotos, título, preços e demais elementos).
+    if (!isTitleDetached) contentCursorY = pTitleY + titleContentHeight + 16;
 
     if (shouldShowPreviousPrice(effectivePrice, effectivePromo, isEditingTemplate)) {
       const deLabel = priceDeText || 'De';
@@ -1154,13 +1161,6 @@ export default function MarketingPosts() {
         reg['measures'] = { key: 'measures', label: 'Medidas', x: mX, y: mY - mSize, w: measuresAlignment.width, h: measuresAlignment.height };
       };
     }
-    for (const key of [...CONTAINER_CHILD_KEYS, 'priceHighlight']) {
-      if (reg[key] && !detachedContainerElements[key]) {
-        reg[key].x += priceContainerX;
-        reg[key].y += priceContainerY;
-      }
-    }
-
     // Parcelamento é um elemento independente do Container de preços.
     const instText = installmentsText || "Em até 10x sem juros no cartão";
     const instSize = installmentsFontSize || 26;
@@ -1241,7 +1241,7 @@ export default function MarketingPosts() {
 
 
     const layerDrawFns: Record<string, () => void> = {
-      imageGrid: typeof drawImageGridLayer !== 'undefined' ? drawImageGridLayer : undefined,
+      imageGrid: undefined,
       title: typeof drawTitleLayer !== 'undefined' ? drawTitleLayer : undefined,
       priceDeLabel: typeof drawPriceDeLayer !== 'undefined' ? drawPriceDeLayer : undefined,
       priceDe: typeof drawPriceDeValueLayer !== 'undefined' ? drawPriceDeValueLayer : undefined,
@@ -1256,6 +1256,13 @@ export default function MarketingPosts() {
     drawOrder.forEach(key => {
       if (layerDrawFns[key]) layerDrawFns[key]();
     });
+
+    for (const key of [...CONTAINER_CHILD_KEYS, 'priceHighlight']) {
+      if (reg[key] && !detachedContainerElements[key]) {
+        reg[key].x += priceContainerX;
+        reg[key].y += priceContainerY;
+      }
+    }
 
     if (!isExport) {
       if (imageGridSettings.showGuides) drawImageGrid(ctx, S, imageGrid);
@@ -1449,6 +1456,23 @@ export default function MarketingPosts() {
     else if (key === 'secondaryImage') move(setSecondaryImageOffsetX, setSecondaryImageOffsetY);
   };
 
+  const centerLayerElement = (key: SelectedElement) => {
+    const element = key ? renderedRegionsRef.current[key] : null;
+    if (!element) {
+      toast.info('Esta camada ainda não possui conteúdo para centralizar.');
+      return;
+    }
+    const targetX = (1080 - element.w) / 2;
+    const targetY = (1350 - element.h) / 2;
+    const containerKey = key === 'priceDeLabel' ? 'priceDe' : key;
+    templateUserDirtyRef.current = true;
+    setSelectedElement(key);
+    if (containerKey && CONTAINER_CHILD_KEYS.includes(containerKey)) {
+      setDetachedContainerElements(current => ({ ...current, [containerKey]: true }));
+    }
+    moveSelectedElement(key, targetX - element.x, targetY - element.y);
+  };
+
   useEffect(() => {
     if (!isModalOpen || !selectedElement || selectedElement === 'headerFooter') return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1523,20 +1547,12 @@ export default function MarketingPosts() {
       return;
     }
     const gridRegion = renderedRegionsRef.current.imageGrid;
-    if (selectedElement !== 'imageGrid' && gridRegion) {
-      const onVerticalBorder = (Math.abs(x - gridRegion.x) <= 12 || Math.abs(x - (gridRegion.x + gridRegion.w)) <= 12) && y >= gridRegion.y && y <= gridRegion.y + gridRegion.h;
-      const onHorizontalBorder = (Math.abs(y - gridRegion.y) <= 12 || Math.abs(y - (gridRegion.y + gridRegion.h)) <= 12) && x >= gridRegion.x && x <= gridRegion.x + gridRegion.w;
-      if (onVerticalBorder || onHorizontalBorder) {
-        setSelectedElement('imageGrid');
-        postDragRef.current = null;
-        return;
-      }
-    }
-    const selectedRegion = selectedElement ? renderedRegionsRef.current[selectedElement] : null;
-    if (selectedElement && IMAGE_CELL_KEYS.includes(selectedElement) && selectedRegion && x >= selectedRegion.x && x <= selectedRegion.x + selectedRegion.w && y >= selectedRegion.y && y <= selectedRegion.y + selectedRegion.h) {
-      postDragRef.current = null;
+    if (gridRegion && x >= gridRegion.x && x <= gridRegion.x + gridRegion.w && y >= gridRegion.y && y <= gridRegion.y + gridRegion.h) {
+      setSelectedElement('imageGrid');
+      postDragRef.current = { key: 'imageGrid', x, y, mode: 'move' };
       return;
     }
+    const selectedRegion = selectedElement ? renderedRegionsRef.current[selectedElement] : null;
     const activeRegion = selectedElement && !IMAGE_CELL_KEYS.includes(selectedElement) ? selectedRegion : null;
     if (activeRegion) {
       if (selectedElement === 'priceContainer') {
@@ -2226,9 +2242,14 @@ export default function MarketingPosts() {
                     <p className="px-2 pb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Arraste para organizar</p>
                     <div className="max-h-72 overflow-y-auto">
                       {layerOrder.map(key => (
-                        <button key={key} type="button" draggable onDragStart={event => event.dataTransfer.setData('text/plain', key)} onDragOver={event => event.preventDefault()} onDrop={event => { const dragged = event.dataTransfer.getData('text/plain'); if (dragged && dragged !== key) setLayerOrder(items => { const next = items.filter(item => item !== dragged); next.splice(next.indexOf(key), 0, dragged); return next; }); }} onClick={() => { setSelectedElement(key as SelectedElement); setIsLayersPanelOpen(false); }} className={`mb-1 flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-2 text-left text-[10px] font-bold active:cursor-grabbing ${selectedElement === key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}>
-                          <i className="bi bi-grip-vertical text-slate-400" />{postLayerLabels[key]}
-                        </button>
+                        <div key={key} draggable onDragStart={event => event.dataTransfer.setData('text/plain', key)} onDragOver={event => event.preventDefault()} onDrop={event => { const dragged = event.dataTransfer.getData('text/plain'); if (dragged && dragged !== key) setLayerOrder(items => { const next = items.filter(item => item !== dragged); next.splice(next.indexOf(key), 0, dragged); return next; }); }} className={`mb-1 flex w-full cursor-grab items-center gap-1 rounded-lg p-1 text-left text-[10px] font-bold active:cursor-grabbing ${selectedElement === key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}>
+                          <button type="button" onClick={() => { setSelectedElement(key as SelectedElement); setIsLayersPanelOpen(false); }} className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1">
+                            <i className="bi bi-grip-vertical shrink-0 text-slate-400" /><span className="truncate">{postLayerLabels[key]}</span>
+                          </button>
+                          <button type="button" onClick={event => { event.stopPropagation(); centerLayerElement(key as SelectedElement); }} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/80 text-blue-600 shadow-sm hover:bg-white dark:bg-slate-800 dark:hover:bg-slate-700" title={`Trazer ${postLayerLabels[key]} para o centro`} aria-label={`Centralizar ${postLayerLabels[key]}`}>
+                            <i className="bi bi-bullseye" />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -2318,7 +2339,7 @@ export default function MarketingPosts() {
                     <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="flex items-center justify-between rounded-lg bg-white/80 px-2 py-2 text-left text-[10px] font-bold text-slate-700 dark:bg-slate-900/70 dark:text-slate-200"><span className="truncate">{headerFooterModelName || 'Padrão'}</span><i className="bi bi-chevron-right" /></button>
                   </label>}
                   {selectedElement ? <div className="rounded-xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-900/50 dark:bg-pink-950/20"><p className="text-[9px] font-black uppercase tracking-wider text-pink-500">Elemento selecionado</p><p className="mt-1 text-xs font-black text-slate-700 dark:text-slate-200">{selectedElement === 'headerFooter' ? 'Cabeçalho e rodapé' : selectedElement === 'imageGrid' ? 'Grid de fotos' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Fundo do preço principal' : selectedElement}</p></div> : <p className="rounded-xl border border-dashed border-slate-200 p-3 text-center text-[10px] font-bold text-slate-400 dark:border-slate-700">Selecione um elemento no preview.</p>}
-                  {(selectedElement === 'mainImage' || selectedElement === 'secondaryImage') && <PostImageSourcePicker activeSlot={selectedElement === 'mainImage' ? 'main' : 'secondary'} mainImageSource={mainImageSource} secondaryImageSource={secondaryImageSource} options={postImageOptions} onMainImageSourceChange={setMainImageSource} onSecondaryImageSourceChange={setSecondaryImageSource} />}
+                  {(selectedElement === 'mainImage' || selectedElement === 'secondaryImage' || selectedElement === 'imageGrid') && <PostImageSourcePicker activeSlot={selectedElement === 'mainImage' ? 'main' : selectedElement === 'secondaryImage' ? 'secondary' : undefined} mainImageSource={mainImageSource} secondaryImageSource={secondaryImageSource} options={postImageOptions} onMainImageSourceChange={setMainImageSource} onSecondaryImageSourceChange={setSecondaryImageSource} />}
                   {selectedElement === 'imageGrid' && <ImageGridControls settings={imageGridSettings} additionalImageCount={gridExtraImageUrls.length} onChange={setImageGridSettings} />}
                   {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “De”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
