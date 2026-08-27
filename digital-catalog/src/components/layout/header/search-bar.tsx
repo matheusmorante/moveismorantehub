@@ -1,6 +1,7 @@
 import { Search, X, Loader2, Compass, Tag, ChevronRight, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SEARCH_PLACEHOLDER } from "./constants"
+import { slugifyCategory } from "@/lib/slug-utils"
 import { formatCurrency } from "@/lib/utils"
 import Image from "next/image"
 import Link from "next/link"
@@ -93,7 +94,7 @@ export function DesktopSearchBar({
                     {suggestions.environments.map(env => (
                       <Link
                         key={env.id}
-                        href={`/?envs=${env.id}#produtos`}
+                        href={`/?envs=${env.slug || slugifyCategory(env) || env.id}#produtos`}
                         onClick={() => setShowSuggestions(false)}
                         className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-primary/5 flex items-center justify-between group transition-colors text-xs font-bold text-gray-700 capitalize"
                       >
@@ -116,7 +117,7 @@ export function DesktopSearchBar({
                     {suggestions.categories.map(cat => (
                       <Link
                         key={cat.id}
-                        href={`/?cats=${cat.id}#produtos`}
+                        href={`/?cats=${cat.slug || slugifyCategory(cat) || cat.id}#produtos`}
                         onClick={() => setShowSuggestions(false)}
                         className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-accent/5 flex items-center justify-between group transition-colors text-xs font-bold text-gray-700 capitalize"
                       >
@@ -245,7 +246,7 @@ export function MobileSearchOverlay({
               {suggestions.environments.map(env => (
                 <Link
                   key={env.id}
-                  href={`/?envs=${env.id}#produtos`}
+                  href={`/?envs=${env.slug || slugifyCategory(env) || env.id}#produtos`}
                   onClick={() => {
                     setShowSuggestions(false)
                     onClose()
@@ -260,7 +261,7 @@ export function MobileSearchOverlay({
               {suggestions.categories.map(cat => (
                 <Link
                   key={cat.id}
-                  href={`/?cats=${cat.id}#produtos`}
+                  href={`/?cats=${cat.slug || slugifyCategory(cat) || cat.id}#produtos`}
                   onClick={() => {
                     setShowSuggestions(false)
                     onClose()

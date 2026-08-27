@@ -91,7 +91,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, idx)}
-                    className={`group relative bg-white dark:bg-slate-900 rounded-[2.5rem] border p-4 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 flex items-center gap-4 ${
+                    className={`group relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[1.75rem] border p-3 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 flex items-center gap-3 ${
                         (selectedCategory !== 'precos' || printingMode === 'simple') ? 'cursor-grab active:cursor-grabbing' : ''
                     } ${
                         dragOverIdx === idx 
@@ -101,15 +101,15 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                 >
                     {/* Drag Grip Handle */}
                     {(selectedCategory !== 'precos' || printingMode === 'simple') && (
-                        <div className="text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-4 flex items-center justify-center pointer-events-none select-none">
-                            <i className="bi bi-grip-vertical text-lg opacity-60" />
+                        <div className="text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-2 flex items-center justify-center pointer-events-none select-none">
+                            <i className="bi bi-grip-vertical text-base opacity-60" />
                         </div>
                     )}
                     
                     {/* Miniatura Interativa */}
                     {(selectedCategory !== 'precos' || printingMode === 'simple') && (
                         <div className="flex flex-col gap-2 items-center">
-                            <div className="relative w-20 h-20 shrink-0 rounded-[1.5rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-2 group/thumb shadow-inner">
+                            <div className="relative w-16 h-16 shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner">
                                 {item.isBlank ? (
                                     <div className="w-full h-full border border-dashed border-slate-300 dark:border-slate-700 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900">
                                         <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter text-center">EM BRANCO</span>
@@ -255,11 +255,11 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                 </div>
 
                                 {/* Grade de Controles */}
-                                <div className={`grid grid-cols-1 ${item.isBlank ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} gap-3`}>
+                                <div className={`grid grid-cols-1 ${item.isBlank ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} gap-2 max-w-[380px]`}>
                                     {/* Quantidade */}
                                     <div>
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block px-1">QTD</label>
-                                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-2 py-1.5 group-focus-within:border-blue-500/30 transition-all">
+                                        <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1 block px-1">QTD</label>
+                                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-1.5 py-1 group-focus-within:border-blue-500/30 transition-all">
                                             <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-400 hover:text-blue-500"><i className="bi bi-dash" /></button>
                                             <input 
                                                 type="number" 
@@ -273,23 +273,24 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
 
                                     {!item.isBlank && (
                                         <div>
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block px-1">Escala</label>
-                                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-2 py-1.5">
+                                            <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1 block px-1">Escala (%)</label>
+                                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-1.5 py-1">
                                                 <button 
                                                     onClick={() => updateItem(idx, { scale: Math.max(0.1, parseFloat(((item.scale || 1) - 0.05).toFixed(2))) })}
-                                                    className="w-6 h-6 rounded-lg bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
+                                                    className="w-5 h-5 rounded-md bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
                                                 >
                                                     <i className="bi bi-dash text-xs" />
                                                 </button>
                                                 <input 
-                                                    type="number" step="0.01" min="0.1" max="20"
-                                                    value={item.scale || 1}
-                                                    onChange={e => updateItem(idx, { scale: parseFloat(e.target.value) || 1 })}
+                                                    type="number" step="5" min="10" max="2000"
+                                                    value={Math.round((item.scale || 1) * 100)}
+                                                    onChange={e => updateItem(idx, { scale: Math.max(0.1, Math.min(20, (parseFloat(e.target.value) || 100) / 100)) })}
                                                     className="w-full bg-transparent text-[10px] font-black outline-none text-center"
                                                 />
+                                                <span className="text-[9px] font-black text-slate-400">%</span>
                                                 <button 
                                                     onClick={() => updateItem(idx, { scale: Math.min(20, parseFloat(((item.scale || 1) + 0.05).toFixed(2))) })}
-                                                    className="w-6 h-6 rounded-lg bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
+                                                    className="w-5 h-5 rounded-md bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
                                                 >
                                                     <i className="bi bi-plus text-xs" />
                                                 </button>

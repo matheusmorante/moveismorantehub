@@ -189,7 +189,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         }}
                         onFocus={() => setShowSuggestions(true)}
                         placeholder={placeholder}
-                        className={`w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium transition-all ${isSelected ? 'border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/10' : ''}`}
+                        className={`w-full px-3 py-2 bg-transparent border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm transition-all ${isSelected ? 'border-blue-600' : ''} ${className}`}
                     />
                     {isLoading && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">

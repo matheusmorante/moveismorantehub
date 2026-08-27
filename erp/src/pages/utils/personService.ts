@@ -143,9 +143,9 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
         if (collectionName === 'employees') {
             peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},and(position.not.is.null,position.neq."")`);
         } else if (collectionName === 'customers') {
-            peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.suppliers`);
+            peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.customer`);
         } else {
-            peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},person_type.ilike.supplier`);
+            peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
         }
 
         const { data: peopleData } = await peopleQuery.order('full_name', { ascending: true });
@@ -319,7 +319,10 @@ export const isPersonRegisteredAs = async (type: string, identifiers: { cpfCnpj?
     return person?.type === type;
 };
 
-export const getPersonByIdentifiers = async (identifiers: { cpfCnpj?: string, email?: string, phone?: string }): Promise<Person | null> => {
+export const getPersonByIdentifiers = async (
+    identifiers: { cpfCnpj?: string, email?: string, phone?: string },
+    collectionName?: string
+): Promise<Person | null> => {
     const { cpfCnpj, email, phone } = identifiers;
     const conditions = [];
     
@@ -335,7 +338,13 @@ export const getPersonByIdentifiers = async (identifiers: { cpfCnpj?: string, em
 
     if (conditions.length === 0) return null;
 
-    const { data, error } = await supabase.from(TABLE_NAME).select('*').or(conditions.join(','));
+    let query = supabase.from(TABLE_NAME).select('*').or(conditions.join(','));
+
+    if (collectionName) {
+        query = query.ilike('person_type', `${collectionName.slice(0, -1)}%`);
+    }
+
+    const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
         return null;

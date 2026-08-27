@@ -24,26 +24,26 @@ export const DeliveryHeader: React.FC<Props> = ({
   return (
     <View style={[styles.header, isDarkMode && styles.headerDark]}>
       <View style={styles.leftContainer}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ArrowLeft size={20} color="#2563eb" />
         </TouchableOpacity>
-        <View>
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>{title}</Text>
+        <View style={{ flexShrink: 1 }}>
+          <Text numberOfLines={1} style={[styles.title, isDarkMode && styles.textLight]}>{title}</Text>
           <Text style={styles.subtitle}>Pedido #{String(orderId).slice(-6).toUpperCase()}</Text>
         </View>
       </View>
 
-      {isInProgress && (
-        <TouchableOpacity
-          onPress={onCancelDelivery}
-          disabled={cancelling}
-          style={styles.cancelTextButton}
-        >
-          <Text style={styles.cancelText}>
-            {cancelling ? 'Cancelando...' : 'Cancelar Entrega'}
-          </Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        onPress={onCancelDelivery}
+        disabled={cancelling}
+        activeOpacity={0.6}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={styles.cancelTextButton}
+      >
+        <Text style={[styles.cancelText, cancelling && { opacity: 0.5 }]}>
+          {cancelling ? 'Cancelando...' : 'Cancelar Entrega'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };

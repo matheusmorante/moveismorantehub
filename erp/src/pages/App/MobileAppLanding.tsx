@@ -49,15 +49,15 @@ export default function MobileAppLanding() {
 
           <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start animate-slide-up">
              <div className="flex flex-col gap-3">
-               <a 
-                  href="https://expo.dev/accounts/morante/projects/mobile/builds/d70a8c93-05f2-4277-9dea-2280bc39513f"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
-               >
-                  <i className="bi bi-download text-xl"></i>
-                  Baixar APK Oficial (v1.0.2)
-               </a>
+                <a 
+                   href="https://expo.dev/artifacts/eas/5nd30aIY79ycwA27j6c93vkxSc02_p5Rsmx6Z_ENB4I.apk"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
+                >
+                   <i className="bi bi-download text-xl"></i>
+                   Baixar APK Oficial (Android)
+                </a>
 
                <button 
                  onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}

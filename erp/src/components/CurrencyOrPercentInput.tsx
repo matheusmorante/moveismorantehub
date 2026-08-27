@@ -37,15 +37,15 @@ const CurrencyOrPercentInput = ({
     if (showBadge) {
         const isLeftBadge = displayBadge.includes("R$") || displayBadge.includes("$");
         return (
-            <div className="flex items-center overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-blue-500 dark:focus-within:border-blue-500 transition-all shadow-sm">
+            <div className="flex items-center bg-transparent border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 shadow-sm transition-all w-full">
                 {isLeftBadge && (
-                    <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-1.5 border-r border-blue-100 dark:border-blue-800/50 flex items-center justify-center shrink-0 self-stretch">
+                    <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-2 border-r border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shrink-0 self-stretch">
                         {displayBadge}
                     </div>
                 )}
                 <NumericFormat
                     id={id}
-                    className={className || "w-full min-w-[60px] text-right bg-transparent px-2.5 py-1.5 outline-none transition-all text-xs font-bold text-slate-800 dark:text-slate-100"}
+                    className="w-full min-w-[50px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0"
                     style={style}
                     value={value === null || value === undefined || isNaN(Number(value)) ? "" : value}
                     disabled={disabled}
@@ -72,7 +72,7 @@ const CurrencyOrPercentInput = ({
                     }}
                 />
                 {!isLeftBadge && (
-                    <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-1.5 border-l border-blue-100 dark:border-blue-800/50 flex items-center justify-center shrink-0 self-stretch">
+                    <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-2 border-l border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shrink-0 self-stretch">
                         {displayBadge}
                     </div>
                 )}

@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Calendar, Clock, DollarSign, FileText, Hammer, MapPin, Navigation, Package, Truck, User, Wrench } from 'lucide-react-native';
-import { formatFullAddress, formatItemNameExact, formatOrderDate } from '../../utils/orderUtils';
+import { StyleSheet, Text, View, TouchableOpacity, Linking } from 'react-native';
+import { Calendar, Clock, DollarSign, FileText, Hammer, MapPin, Navigation, Package, Truck, User, Wrench, ExternalLink } from 'lucide-react-native';
+import { formatFullAddress, formatItemNameExact, formatOrderDate, getLocationMapsUrl } from '../../utils/orderUtils';
 
 export function OrderTypeBadges({ assistance, pickup, internal, outside }: any) {
   return <View style={styles.badges}><View style={[styles.badge, assistance ? styles.orange : pickup ? styles.purple : styles.green]}>{assistance ? <Wrench size={14} color="#fff" /> : pickup ? <Package size={14} color="#fff" /> : <Truck size={14} color="#fff" />}<Text style={styles.badgeText}>{assistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}</Text></View>{internal && <View style={[styles.badge, styles.orange]}><Hammer size={14} color="#fff" /><Text style={styles.badgeText}>MONTAGEM DEPÓSITO</Text></View>}{outside && <View style={[styles.badge, styles.red]}><Hammer size={14} color="#fff" /><Text style={styles.badgeText}>MONTAGEM FORA</Text></View>}</View>;
@@ -18,10 +18,39 @@ export function CustomerSection({ customer, dark }: any) {
 export function AddressSection({ shipping, customer, schedule, order, dark }: any) {
   const distance = shipping.distance != null ? Number(shipping.distance).toFixed(1) : null;
   const duration = shipping.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
-  return <Card dark={dark}><Header dark={dark} icon={<MapPin size={18} color="#ef4444" />} title="ENDEREÇO E AGENDAMENTO" /><Text style={[styles.addressText, dark && styles.light]}>{formatFullAddress(shipping, customer)}</Text>{(distance || duration) && <View style={styles.route}>{distance && <View style={styles.inline}><Navigation size={14} color="#2563eb" /><Text style={styles.routeText}>Distância: {distance} KM</Text></View>}{duration && <Text style={styles.detail}>Tempo estimado: ~ {duration} MIN</Text>}</View>}<View style={styles.schedule}><View style={styles.inline}><Calendar size={14} color="#64748b" /><Text style={styles.detail}>Data: {formatOrderDate(schedule.date || order.created_at)}</Text></View><View style={styles.inline}><Clock size={14} color="#64748b" /><Text style={styles.detail}>Horário: {schedule.startTime ? `${schedule.startTime}${schedule.endTime ? ` - ${schedule.endTime}` : ''}` : 'Não definido'}</Text></View></View></Card>;
+  const mapsUrl = getLocationMapsUrl(order) || getLocationMapsUrl(customer);
+
+  const openMapsLink = () => {
+    if (mapsUrl) {
+      Linking.openURL(mapsUrl).catch(() => {});
+    }
+  };
+
+  return (
+    <Card dark={dark}>
+      <Header dark={dark} icon={<MapPin size={18} color="#ef4444" />} title="ENDEREÇO E AGENDAMENTO" />
+      <Text style={[styles.addressText, dark && styles.light]}>{formatFullAddress(shipping, customer)}</Text>
+      {Boolean(mapsUrl) && (
+        <TouchableOpacity onPress={openMapsLink} style={styles.mapsLinkButton} activeOpacity={0.8}>
+          <ExternalLink size={14} color="#dc2626" />
+          <Text style={styles.mapsLinkButtonText}>Abrir Localização no Google Maps</Text>
+        </TouchableOpacity>
+      )}
+      {(distance || duration) && (
+        <View style={styles.route}>
+          {distance && <View style={styles.inline}><Navigation size={14} color="#2563eb" /><Text style={styles.routeText}>Distância: {distance} KM</Text></View>}
+          {duration && <Text style={styles.detail}>Tempo estimado: ~ {duration} MIN</Text>}
+        </View>
+      )}
+      <View style={styles.schedule}>
+        <View style={styles.inline}><Calendar size={14} color="#64748b" /><Text style={styles.detail}>Data: {formatOrderDate(schedule.date || order?.created_at)}</Text></View>
+        <View style={styles.inline}><Clock size={14} color="#64748b" /><Text style={styles.detail}>Horário: {schedule.startTime ? `${schedule.startTime}${schedule.endTime ? ` - ${schedule.endTime}` : ''}` : 'Não definido'}</Text></View>
+      </View>
+    </Card>
+  );
 }
 
-export function ItemsSection({ items, total, pendingTotal, dark }: any) {
+export function ItemsSection({ items, handlingOptions, total, pendingTotal, dark }: any) {
   return (
     <>
       <Card dark={dark}>
@@ -42,20 +71,37 @@ export function ItemsSection({ items, total, pendingTotal, dark }: any) {
 
           const hasDiscount = discountValue > 0 || (unitPrice > 0 && unitPrice > finalUnitPrice + 0.01);
 
+          const handlingText = String(item.handlingType || item.handling || item.manuseio || item.handling_type || '').trim();
           const displayFinalPrice = finalTotalPrice;
           const displayOriginalPrice = hasDiscount ? (unitPrice * qty) : finalTotalPrice;
 
+          // Busca a cor configurada no ERP para este tipo de manuseio
+          const opt = (handlingOptions || []).find((o: any) => 
+            String(o.label || '').trim().toLowerCase() === handlingText.toLowerCase()
+          );
+          const handlingColor = opt?.color || (dark ? '#94a3b8' : '#64748b');
+          const handlingBg = opt?.color ? `${opt.color}18` : (dark ? '#0f172a' : '#f1f5f9');
+          const handlingBorder = opt?.color ? `${opt.color}45` : (dark ? '#334155' : '#e2e8f0');
+
           return (
             <View key={index} style={styles.item}>
-              <Text style={[styles.itemName, dark && styles.light]}>
-                <Text style={styles.qty}>{qty}x</Text> {formatItemNameExact(item)}
-              </Text>
+              <View style={styles.itemInfo}>
+                <Text style={[styles.itemName, dark && styles.light]}>
+                  <Text style={styles.qty}>{qty}x</Text> {formatItemNameExact(item)}
+                </Text>
+                {Boolean(handlingText) && (
+                  <View style={[styles.handlingBadge, { backgroundColor: handlingBg, borderColor: handlingBorder }]}>
+                    <Text style={[styles.itemHandling, { color: handlingColor }]}>
+                      🔧 {handlingText}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {hasDiscount && displayOriginalPrice > displayFinalPrice ? (
                 <View style={styles.priceContainer}>
                   <Text style={[styles.originalPrice, dark && styles.originalPriceDark]}>
                     R$ {displayOriginalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Text>
-                  <Text style={[styles.arrow, dark && styles.light]}>→</Text>
                   <Text style={styles.price}>
                     R$ {displayFinalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Text>
@@ -89,5 +135,62 @@ export function ItemsSection({ items, total, pendingTotal, dark }: any) {
 }
 
 const styles = StyleSheet.create({
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }, green: { backgroundColor: '#10b981' }, purple: { backgroundColor: '#a855f7' }, orange: { backgroundColor: '#f59e0b' }, red: { backgroundColor: '#ef4444' }, badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' }, card: { backgroundColor: '#fff', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0', gap: 10 }, cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' }, header: { flexDirection: 'row', alignItems: 'center', gap: 8 }, title: { fontSize: 12, fontWeight: '900', color: '#0f172a' }, light: { color: '#f8fafc' }, strong: { fontSize: 16, fontWeight: '900', color: '#0f172a' }, detail: { fontSize: 12, fontWeight: '700', color: '#64748b' }, contact: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 11, padding: 10, gap: 3 }, contactDark: { backgroundColor: '#0f172a', borderColor: '#334155' }, contactName: { fontSize: 10, fontWeight: '900', color: '#2563eb', textTransform: 'uppercase' }, contactPhone: { fontSize: 13, fontWeight: '800', color: '#334155' }, addressText: { fontSize: 13, fontWeight: '700', color: '#334155', lineHeight: 19 }, route: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: '#eff6ff', padding: 9, borderRadius: 11 }, routeText: { fontSize: 12, fontWeight: '800', color: '#2563eb' }, inline: { flexDirection: 'row', alignItems: 'center', gap: 5 }, schedule: { gap: 7 }, item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }, itemName: { flex: 1, fontSize: 13, fontWeight: '700', color: '#1e3a8a' }, qty: { color: '#7c3aed', fontWeight: '900' }, price: { fontSize: 12, fontWeight: '800', color: '#16a34a' }, totalCard: { backgroundColor: '#f0fdf4', padding: 17, borderRadius: 20, borderWidth: 1, borderColor: '#bbf7d0', gap: 10 }, totalDark: { backgroundColor: '#064e3b', borderColor: '#047857' }, pendingBox: { borderBottomWidth: 1, borderBottomColor: '#bfdbfe', paddingBottom: 9 }, pendingLabel: { fontSize: 10, fontWeight: '900', color: '#2563eb' }, pendingValue: { fontSize: 18, fontWeight: '900', color: '#2563eb' }, totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, totalTitle: { fontSize: 12, fontWeight: '900', color: '#065f46' }, total: { fontSize: 17, fontWeight: '900', color: '#16a34a' }, priceContainer: { flexDirection: 'row', alignItems: 'center', gap: 5 }, originalPrice: { fontSize: 11, fontWeight: '700', color: '#94a3b8', opacity: 0.7, textDecorationLine: 'line-through' }, originalPriceDark: { color: '#64748b' }, arrow: { fontSize: 12, fontWeight: '800', color: '#64748b', marginHorizontal: 2 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  green: { backgroundColor: '#10b981' },
+  purple: { backgroundColor: '#a855f7' },
+  orange: { backgroundColor: '#f59e0b' },
+  red: { backgroundColor: '#ef4444' },
+  badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' },
+  card: { backgroundColor: '#fff', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0', gap: 10 },
+  cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 12, fontWeight: '900', color: '#0f172a' },
+  light: { color: '#f8fafc' },
+  strong: { fontSize: 16, fontWeight: '900', color: '#0f172a' },
+  detail: { fontSize: 12, fontWeight: '700', color: '#64748b' },
+  contact: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 11, padding: 10, gap: 3 },
+  contactDark: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  contactName: { fontSize: 10, fontWeight: '900', color: '#2563eb', textTransform: 'uppercase' },
+  contactPhone: { fontSize: 13, fontWeight: '800', color: '#334155' },
+  addressText: { fontSize: 13, fontWeight: '700', color: '#334155', lineHeight: 19 },
+  route: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: '#eff6ff', padding: 9, borderRadius: 11 },
+  routeText: { fontSize: 12, fontWeight: '800', color: '#2563eb' },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  itemInfo: { flex: 1, gap: 4 },
+  itemName: { fontSize: 13, fontWeight: '700', color: '#1e3a8a', lineHeight: 18 },
+  handlingBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, marginTop: 2 },
+  itemHandling: { fontSize: 10, fontWeight: '800' },
+  qty: { color: '#7c3aed', fontWeight: '900' },
+  priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
+  price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
+  totalCard: { backgroundColor: '#f0fdf4', padding: 17, borderRadius: 20, borderWidth: 1, borderColor: '#bbf7d0', gap: 10 },
+  totalDark: { backgroundColor: '#064e3b', borderColor: '#047857' },
+  pendingBox: { borderBottomWidth: 1, borderBottomColor: '#bfdbfe', paddingBottom: 9 },
+  pendingLabel: { fontSize: 10, fontWeight: '900', color: '#2563eb' },
+  pendingValue: { fontSize: 18, fontWeight: '900', color: '#2563eb' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalTitle: { fontSize: 12, fontWeight: '900', color: '#065f46' },
+  total: { fontSize: 17, fontWeight: '900', color: '#16a34a' },
+  originalPrice: { fontSize: 11, fontWeight: '700', color: '#94a3b8', textDecorationLine: 'line-through' },
+  originalPriceDark: { color: '#64748b' },
+  mapsLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fef2f2',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    marginTop: 4,
+  },
+  mapsLinkButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#dc2626',
+  },
 });

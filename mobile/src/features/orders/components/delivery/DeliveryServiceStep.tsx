@@ -1,26 +1,50 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Clock, AlertTriangle, PackageCheck } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Linking, Platform } from 'react-native';
+import { Clock, AlertTriangle, PackageCheck, MapPin, Navigation, User } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
 
 interface Props {
   order: any;
   items: any[];
+  customer?: any;
+  fullAddress?: string;
   isDarkMode: boolean;
   arrivedAt: string;
   onOpenUnattendedModal: () => void;
   onFinishDelivery: () => void;
+  onStepBackToRoute: () => void;
   finishing: boolean;
 }
 
 export const DeliveryServiceStep: React.FC<Props> = ({
+  order,
   items,
+  customer: customCustomer,
+  fullAddress: customAddress,
   isDarkMode,
   arrivedAt,
   onOpenUnattendedModal,
   onFinishDelivery,
+  onStepBackToRoute,
   finishing,
 }) => {
+  const data = order.order_data || order;
+  const customer = customCustomer || data.customerData || {};
+  const fullAddress = customAddress || data.shipping?.address || '';
+
+  const openGPS = () => {
+    if (!fullAddress) return;
+    const encoded = encodeURIComponent(fullAddress);
+    const url = Platform.select({
+      ios: `maps:0,0?q=${encoded}`,
+      android: `geo:0,0?q=${encoded}`,
+    }) || `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
+    });
+  };
+
   const formattedArrivalTime = arrivedAt
     ? new Date(arrivedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : '--:--';
@@ -40,6 +64,28 @@ export const DeliveryServiceStep: React.FC<Props> = ({
           </View>
         </View>
       </View>
+
+      {/* Cartão do Cliente, Endereço e Botão GPS */}
+      {Boolean(fullAddress) && (
+        <View style={[styles.infoCard, isDarkMode && styles.infoCardDark]}>
+          <View style={styles.infoRow}>
+            <User size={18} color="#2563eb" />
+            <Text style={[styles.customerName, isDarkMode && styles.textLight]}>
+              {customer.fullName || 'Cliente'}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MapPin size={18} color="#ef4444" style={{ marginTop: 2 }} />
+            <Text style={[styles.addressText, isDarkMode && styles.textLight]}>{fullAddress}</Text>
+          </View>
+
+          {/* Botão de abrir GPS */}
+          <TouchableOpacity onPress={openGPS} style={styles.gpsButton} activeOpacity={0.8}>
+            <Navigation size={16} color="#2563eb" />
+            <Text style={styles.gpsButtonText}>Abrir no GPS / Navegador</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Lista de Itens a Entregar */}
       {items.length > 0 && (
@@ -69,18 +115,35 @@ export const DeliveryServiceStep: React.FC<Props> = ({
         <Text style={styles.unattendedButtonText}>Cliente Não Atendeu / Insucesso</Text>
       </TouchableOpacity>
 
-      {/* Finalizar Entrega (Slide 2x) */}
+      {/* Finalizar Entrega (Slide 2x - Direita para Esquerda) */}
       <View style={{ marginTop: 8 }}>
         <Text style={styles.safetyText}>
-          Para confirmar a entrega realizada com sucesso, deslize 2 vezes:
+          Para confirmar a entrega realizada com sucesso, deslize 2 vezes da direita para a esquerda:
         </Text>
         <SlideHoldToStart
           disabled={finishing}
           onComplete={onFinishDelivery}
-          actionText="Deslize para FINALIZAR"
+          actionText="« Deslize para FINALIZAR"
           trackColor="#16a34a"
           knobColor="#14532d"
           iconType="check"
+          direction="left"
+        />
+      </View>
+
+      {/* Retroceder Etapa (Slide 2x Cinza - Esquerda para Direita) */}
+      <View style={{ marginTop: 6, gap: 6 }}>
+        <Text style={[styles.safetyText, { color: '#64748b' }]}>
+          Para retroceder para a Etapa 2 (Em Rota), deslize 2 vezes da esquerda para a direita:
+        </Text>
+        <SlideHoldToStart
+          disabled={finishing}
+          onComplete={onStepBackToRoute}
+          actionText="Deslize para VOLTAR PARA EM ROTA »"
+          trackColor="#64748b"
+          knobColor="#334155"
+          iconType="back"
+          direction="right"
         />
       </View>
     </View>
@@ -143,6 +206,52 @@ const styles = StyleSheet.create({
   itemsCardDark: {
     backgroundColor: '#1e293b',
     borderColor: '#334155',
+  },
+  infoCard: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  infoCardDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  customerName: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    lineHeight: 18,
+  },
+  gpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#eff6ff',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    marginTop: 4,
+  },
+  gpsButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2563eb',
   },
   itemsTitle: {
     fontSize: 13,

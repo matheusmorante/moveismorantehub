@@ -84,6 +84,31 @@ export const formatFullAddress = (shipping: any, customerData: any): string => {
   return parts.join(' - ');
 };
 
+// Extrai o link do Google Maps cadastrado na localização do cliente
+export const getLocationMapsUrl = (orderOrData: any): string | null => {
+  if (!orderOrData) return null;
+  const data = orderOrData.order_data || orderOrData;
+  const customer = data.customerData || orderOrData.customerData || {};
+  const custAddr = customer.fullAddress || customer.address || {};
+  const shippingAddr = data.shipping?.deliveryAddress || data.shipping?.address || {};
+
+  const url = (
+    custAddr.mapsUrl ||
+    custAddr.googleMapsUrl ||
+    custAddr.mapsLink ||
+    shippingAddr.mapsUrl ||
+    shippingAddr.googleMapsUrl ||
+    shippingAddr.mapsLink ||
+    customer.mapsUrl ||
+    customer.googleMapsUrl ||
+    customer.mapsLink ||
+    data.mapsUrl ||
+    ''
+  );
+
+  return url && typeof url === 'string' && url.trim().length > 5 ? url.trim() : null;
+};
+
 const getLocalDateString = (d: Date): string => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');

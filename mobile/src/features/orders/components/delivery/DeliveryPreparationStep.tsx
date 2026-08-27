@@ -1,11 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Check, ClipboardCheck, MapPin, User } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
+import { Check, ClipboardCheck, MapPin, User, Navigation, ExternalLink } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
+import { getLocationMapsUrl } from '../../../../utils/orderUtils';
 
 interface Props {
   customer: any;
   fullAddress: string;
+  order?: any;
   checklist: any[];
   checked: Record<string, boolean>;
   onToggleChecklist: (id: string) => void;
@@ -17,6 +19,7 @@ interface Props {
 export const DeliveryPreparationStep: React.FC<Props> = ({
   customer,
   fullAddress,
+  order,
   checklist,
   checked,
   onToggleChecklist,
@@ -24,6 +27,14 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
   saving,
   isDarkMode,
 }) => {
+  const mapsUrl = getLocationMapsUrl(order) || getLocationMapsUrl(customer);
+
+  const openMapsLink = () => {
+    if (mapsUrl) {
+      Linking.openURL(mapsUrl).catch(() => {});
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Informações Iniciais do Cliente */}
@@ -38,6 +49,13 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
           <MapPin size={18} color="#ef4444" />
           <Text style={[styles.address, isDarkMode && styles.textLight]}>{fullAddress}</Text>
         </View>
+
+        {Boolean(mapsUrl) && (
+          <TouchableOpacity onPress={openMapsLink} style={styles.mapsButton} activeOpacity={0.8}>
+            <ExternalLink size={15} color="#dc2626" />
+            <Text style={styles.mapsButtonText}>Abrir Localização no Google Maps</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Checklist */}
@@ -66,10 +84,11 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
       <SlideHoldToStart
         disabled={saving}
         onComplete={onStartDelivery}
-        actionText="Deslize para INICIAR rota"
+        actionText="« Deslize para INICIAR rota"
         trackColor="#16a34a"
         knobColor="#14532d"
         iconType="truck"
+        direction="left"
       />
     </View>
   );
@@ -122,4 +141,21 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '800', color: '#334155' },
   safety: { fontSize: 11, lineHeight: 16, textAlign: 'center', color: '#64748b', marginTop: 8 },
   textLight: { color: '#f8fafc' },
+  mapsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fef2f2',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    marginTop: 4,
+  },
+  mapsButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#dc2626',
+  },
 });

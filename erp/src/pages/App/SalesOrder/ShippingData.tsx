@@ -92,7 +92,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
         updateDeliveryAddress('street', val);
         lastStreetSearchRef.current = val;
 
-        if (val.length >= 3) {
+        if (val.length >= 2) {
             setIsSearchingStreet(true);
             try {
                 const suggestions = await searchAddressSuggestions(val);
@@ -120,14 +120,25 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
 
     const handleSelectAddressSuggestion = (suggestion: any) => {
         const addr = suggestion.address;
+        const streetName = addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0];
+        const neighborhood = addr.neighbourhood || addr.suburb || shipping.deliveryAddress?.neighborhood || "";
+        const city = addr.city || addr.town || addr.village || shipping.deliveryAddress?.city || "";
+        const state = addr.state || shipping.deliveryAddress?.state || "PR";
+        const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : shipping.deliveryAddress?.cep || "";
+
+        const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
+        const generatedMapsUrl = shipping.deliveryAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+
         setShipping(prev => ({
             ...prev,
             deliveryAddress: {
                 ...prev.deliveryAddress!,
-                street: addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0],
-                neighborhood: addr.neighbourhood || addr.suburb || "",
-                city: addr.city || addr.town || addr.village || "",
-                cep: addr.postcode ? addr.postcode.replace(/\D/g, '') : prev.deliveryAddress?.cep || ""
+                street: streetName,
+                neighborhood: neighborhood,
+                city: city,
+                state: state,
+                cep: cep,
+                mapsUrl: generatedMapsUrl
             }
         }));
         setIsStreetSuggestionsOpen(false);

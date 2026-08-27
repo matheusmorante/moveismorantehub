@@ -205,9 +205,9 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
             className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"}
             onClick={(e) => e.stopPropagation()}
         >
-            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col md:flex-row justify-between items-center gap-3 md:gap-6 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0 ${isScrolled ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/40 border-indigo-100/60 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/40 border-amber-100/60 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/40 border-purple-100/60 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/40 border-emerald-100/60 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
+            <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col lg:flex-row justify-between items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0 ${isScrolled ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/40 border-indigo-100/60 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/40 border-amber-100/60 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/40 border-purple-100/60 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/40 border-emerald-100/60 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
                 {/* Esquerda: Identificação */}
-                <div className="flex w-full md:w-auto justify-between items-center shrink-0">
+                <div className="flex w-full lg:w-auto justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-md transition-all ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
                             <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-sm sm:text-base`} />
@@ -226,7 +226,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="md:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
+                        className="lg:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
                         title="Fechar"
                     >
                         <i className="bi bi-x-lg text-xs" />
@@ -234,7 +234,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                 </div>
 
                 {/* Centro: Stepper */}
-                <div className="w-full md:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center">
+                <div className="w-full lg:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center min-w-0">
                     <OrderStepper 
                         currentStep={form.state.currentStep} 
                         jumpToStep={form.actions.jumpToStep} 
@@ -244,7 +244,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                 </div>
 
                 {/* Direita: Botão Fechar no Desktop */}
-                <div className="hidden md:flex items-center shrink-0">
+                <div className="hidden lg:flex items-center shrink-0">
                     <button
                         type="button"
                         onClick={onClose}

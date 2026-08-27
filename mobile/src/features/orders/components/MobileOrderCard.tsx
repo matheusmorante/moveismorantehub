@@ -3,13 +3,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar, Clock, Package, Truck } from 'lucide-react-native';
 import { formatOrderDate, formatOrderTotal } from '../../../utils/orderUtils';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../utils/aiSummaryHelper';
+import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 type Props = { order: any; dark: boolean; handlingOptions: any[]; onDetails: () => void };
 const statusLabel = (value: string) => {
   const status = String(value || '').toLowerCase();
   if (/draft|rascunh/.test(status)) return 'RASCUNHO';
   if (/sched|agendad/.test(status)) return 'AGENDADO';
-  if (/fulfill|concluid|finaliz|entreg/.test(status)) return 'CONCLUÍDO';
+  if (/fulfill|atendid|concluid|finaliz|entreg/.test(status)) return 'ATENDIDO';
   if (status.includes('cancel')) return 'CANCELADO';
   return status.toUpperCase();
 };
@@ -35,6 +36,7 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
       <View style={styles.dates}><View style={styles.column}><Text style={styles.label}>PEDIDO</Text><View style={styles.inline}><Calendar size={13} color="#64748b" /><Text style={[styles.date, dark && styles.light]}>{formatOrderDate(order.created_at)}</Text></View></View><View style={styles.column}><Text style={styles.label}>{pickup ? 'RETIRADA' : 'ENTREGA'}</Text><Text style={[styles.date, dark && styles.light]}>{scheduleDate ? formatOrderDate(scheduleDate) : 'Não informada'}</Text></View></View>
       {!!schedule.startTime && <View style={styles.time}><Clock size={12} color="#2563eb" /><Text style={styles.timeText}>{schedule.startTime}{schedule.endTime ? ` ÀS ${schedule.endTime}` : ''}</Text></View>}
       <View style={styles.footer}><View><Text style={styles.label}>TOTAL</Text><Text style={styles.total}>{formatOrderTotal(order)}</Text></View></View>
+      <OrderCardDeliveryFooter order={order} dark={dark} onPress={onDetails} />
     </View>
   </TouchableOpacity>;
 }

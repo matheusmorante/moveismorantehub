@@ -10,22 +10,27 @@ interface Props {
 
 const UnitInput = ({ value, onChange, disabled, className }: Props) => {
     return (
-        <NumericFormat
-            className={className || `w-full text-center bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-1 py-1.5 rounded-xl outline-none transition-all text-xs font-bold ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            value={value}
-            allowNegative={false}
-            disabled={disabled}
-            thousandSeparator="."
-            suffix={" UN"}
-            decimalScale={0}
-            decimalSeparator=","
-            fixedDecimalScale
-            onFocus={(e: any) => e.target.select()}
-            onValueChange={
-                (values: NumberFormatValues) => onChange(values.floatValue ?? 1)
-            }
-        />
-    )
-}
+        <div className={`flex items-center bg-transparent border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 shadow-sm transition-all w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <NumericFormat
+                className="w-full min-w-[30px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0"
+                value={value}
+                allowNegative={false}
+                disabled={disabled}
+                thousandSeparator="."
+                suffix=""
+                decimalScale={0}
+                decimalSeparator=","
+                fixedDecimalScale
+                onFocus={(e: any) => e.target.select()}
+                onValueChange={
+                    (values: NumberFormatValues) => onChange(values.floatValue ?? 1)
+                }
+            />
+            <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-2 border-l border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shrink-0 self-stretch">
+                UN
+            </div>
+        </div>
+    );
+};
 
-export default UnitInput
+export default UnitInput;

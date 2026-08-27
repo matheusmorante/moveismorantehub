@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 
 import { Flame } from "lucide-react"
 import { useSubHeaderData } from "./use-sub-header-data"
+import { slugifyCategory } from "@/lib/slug-utils"
 
 export function SubHeader() {
   const { environments } = useSubHeaderData()
@@ -46,8 +47,9 @@ export function SubHeader() {
           {environments.map((env) => {
             const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
             const isSalvadosActive = activeType === "salvados" || activeType === SALVADOS_OPP_ID
+            const envSlug = env.slug || slugifyCategory(env) || env.id
             const activeEnvsList = activeEnvId ? activeEnvId.split(",") : []
-            const isActive = activeEnvsList.includes(env.id) && !isSalvadosActive
+            const isActive = (activeEnvsList.includes(env.id) || activeEnvsList.includes(envSlug)) && !isSalvadosActive
             const buttonClass = [
               "flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5",
               "text-xs sm:text-sm font-bold uppercase tracking-wide whitespace-nowrap",
@@ -58,7 +60,7 @@ export function SubHeader() {
             ].join(" ")
 
             return (
-              <Link key={env.id} href={`/?envs=${env.id}#produtos`} className={buttonClass}>
+              <Link key={env.id} href={`/?envs=${envSlug}#produtos`} className={buttonClass}>
                 {env.name}
               </Link>
             )

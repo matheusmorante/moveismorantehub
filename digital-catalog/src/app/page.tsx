@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase/client"
 import { ProductFilter } from "@/features/products/components/product-filter"
 
 import { useSearchParams, useRouter } from "next/navigation"
+import { resolveCategoryIdsFromSlugsOrIds, resolveSlugsFromCategoryIds } from "@/lib/slug-utils"
 
 const INITIAL_FILTERS = {
   envs: [] as string[],
@@ -57,8 +58,12 @@ function HomeContent() {
     const minPriceParam = searchParams.get("minPrice")
     const maxPriceParam = searchParams.get("maxPrice")
 
-    const envs = envsParam ? envsParam.split(",") : []
-    const cats = catsParam ? catsParam.split(",") : []
+    const rawEnvs = envsParam ? envsParam.split(",") : []
+    const rawCats = catsParam ? catsParam.split(",") : []
+
+    // Converte slugs legíveis da URL para os IDs das categorias (ou mantém retrocompatibilidade de UUID)
+    const envs = categories.length > 0 ? resolveCategoryIdsFromSlugsOrIds(rawEnvs, categories) : rawEnvs
+    const cats = categories.length > 0 ? resolveCategoryIdsFromSlugsOrIds(rawCats, categories) : rawCats
 
     setFilters({
       envs,
@@ -78,7 +83,7 @@ function HomeContent() {
         if (elem) elem.scrollIntoView({ behavior: "smooth" })
       }, 150)
     }
-  }, [searchParams])
+  }, [searchParams, categories])
 
   const handleFilterChange = useCallback((newFilters: any) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -96,13 +101,21 @@ function HomeContent() {
       }
     }
     if (newFilters.envs !== undefined) {
-      if (newFilters.envs.length > 0) params.set("envs", newFilters.envs.join(","))
-      else params.delete("envs")
+      if (newFilters.envs.length > 0) {
+        const envSlugs = resolveSlugsFromCategoryIds(newFilters.envs, categories)
+        params.set("envs", envSlugs.join(","))
+      } else {
+        params.delete("envs")
+      }
       if (newFilters.cats === undefined) params.delete("cats")
     }
     if (newFilters.cats !== undefined) {
-      if (newFilters.cats.length > 0) params.set("cats", newFilters.cats.join(","))
-      else params.delete("cats")
+      if (newFilters.cats.length > 0) {
+        const catSlugs = resolveSlugsFromCategoryIds(newFilters.cats, categories)
+        params.set("cats", catSlugs.join(","))
+      } else {
+        params.delete("cats")
+      }
     }
     if (newFilters.type !== undefined) {
       if (newFilters.type && newFilters.type !== "all") params.set("type", newFilters.type)
@@ -122,7 +135,7 @@ function HomeContent() {
     }
 
     router.push(`/?${params.toString()}`, { scroll: false })
-  }, [searchParams, router])
+  }, [searchParams, router, categories])
 
   const clearFilters = useCallback(() => {
     setFilters(INITIAL_FILTERS)

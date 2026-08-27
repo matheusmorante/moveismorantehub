@@ -104,7 +104,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
         updateAddress('street', val);
         lastStreetSearchRef.current = val;
 
-        if (val.length >= 3) {
+        if (val.length >= 2) {
             setIsSearchingStreet(true);
             try {
                 const suggestions = await searchAddressSuggestions(val, customerData.fullAddress?.city);
@@ -132,14 +132,25 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
 
     const handleSelectAddressSuggestion = (suggestion: any) => {
         const addr = suggestion.address;
+        const streetName = addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0];
+        const neighborhood = addr.neighbourhood || addr.suburb || customerData.fullAddress?.neighborhood || "";
+        const city = addr.city || addr.town || addr.village || customerData.fullAddress?.city || "";
+        const state = addr.state || customerData.fullAddress?.state || "PR";
+        const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : customerData.fullAddress.cep;
+
+        const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
+        const generatedMapsUrl = customerData.fullAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+
         setCustomerData(prev => ({
             ...prev,
             fullAddress: {
                 ...prev.fullAddress,
-                street: addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0],
-                neighborhood: addr.neighbourhood || addr.suburb || "",
-                city: addr.city || addr.town || addr.village || "",
-                cep: addr.postcode ? addr.postcode.replace(/\D/g, '') : prev.fullAddress.cep
+                street: streetName,
+                neighborhood: neighborhood,
+                city: city,
+                state: state,
+                cep: cep,
+                mapsUrl: generatedMapsUrl
             }
         }));
         setIsStreetSuggestionsOpen(false);

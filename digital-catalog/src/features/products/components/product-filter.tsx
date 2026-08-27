@@ -73,17 +73,61 @@ export function ProductFilter({ filters, categories, relationships, onFilterChan
       setShowSuggestions(true)
 
       try {
+        const normalizeText = (str: string) => str
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[-_/]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        const cleanTerm = normalizeText(trimmed);
+        const searchTokens = cleanTerm.split(" ").filter(t => t.length >= 2);
+
+        const getSynonyms = (token: string): string[] => {
+          if (/^(roupa|roupas|guarda|roupeiro|roupeiros)$/.test(token)) {
+            return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros"]
+          }
+          if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
+            return ["sofa", "sofas", "estofado", "estofados"]
+          }
+          if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
+            return ["colchao", "colchoes"]
+          }
+          if (/^(cama|camas|box|sommier)$/.test(token)) {
+            return ["cama", "camas", "box"]
+          }
+          if (/^(mesa|mesas)$/.test(token)) {
+            return ["mesa", "mesas"]
+          }
+          if (/^(painel|paineis|rack|racks)$/.test(token)) {
+            return ["painel", "paineis", "rack", "racks"]
+          }
+          return [token]
+        };
+
         // 1. Filtrar ambientes localmente
-        const matchedEnvs = categories.filter(
-          c => c.type === "environment" && c.name.toLowerCase().includes(trimmed.toLowerCase())
-        )
+        const matchedEnvs = categories.filter(c => {
+          if (c.type !== "environment") return false;
+          const cleanName = normalizeText(c.name);
+          return searchTokens.every(token => {
+            const synonyms = getSynonyms(token);
+            return synonyms.some(syn => cleanName.includes(syn));
+          });
+        });
 
         // 2. Filtrar categorias localmente
-        const matchedCats = categories.filter(
-          c => c.type === "category" && c.name.toLowerCase().includes(trimmed.toLowerCase())
-        )
+        const matchedCats = categories.filter(c => {
+          if (c.type !== "category") return false;
+          const cleanName = normalizeText(c.name);
+          return searchTokens.every(token => {
+            const synonyms = getSynonyms(token);
+            return synonyms.some(syn => cleanName.includes(syn));
+          });
+        });
 
-        // 3. Buscar produtos no Supabase (limite de 5)
+        // 3. Buscar produtos no Supabase
+        const mainToken = searchTokens[0] || cleanTerm;
         const { data, error } = await supabase
           .from("products")
           .select(`
@@ -95,10 +139,18 @@ export function ProductFilter({ filters, categories, relationships, onFilterChan
             product_images(image_url, is_main)
           `)
           .eq("status", "published")
-          .ilike("name", `%${trimmed}%`)
-          .limit(5)
+          .or(`name.ilike.%${mainToken}%,description.ilike.%${mainToken}%`)
+          .limit(10);
 
-        if (error) throw error
+        if (error) throw error;
+
+        const filtered = (data || []).filter((p: any) => {
+          const cleanProdName = normalizeText(p.name);
+          return searchTokens.every(token => {
+            const synonyms = getSynonyms(token);
+            return synonyms.some(syn => cleanProdName.includes(syn));
+          });
+        }).slice(0, 5);
 
         const formattedProducts = (data || []).map(p => {
           const mainImg = p.product_images?.find((img: any) => img.is_main)?.image_url || 

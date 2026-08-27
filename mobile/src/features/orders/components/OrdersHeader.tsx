@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import { RefreshCw, Search } from 'lucide-react-native';
 
 type Props = { dark: boolean; search: string; status: string; onSearch: (value: string) => void; onStatus: (value: string) => void; onRefresh: () => void };
-const filters = [{ id: 'all', label: 'Todos' }, { id: 'agendados', label: 'Agendados' }, { id: 'concluidos', label: 'Concluídos' }, { id: 'rascunhos', label: 'Rascunhos' }];
+const filters = [{ id: 'all', label: 'Todos' }, { id: 'agendados', label: 'Agendados' }, { id: 'concluidos', label: 'Atendidos' }, { id: 'rascunhos', label: 'Rascunhos' }];
 
 export function OrdersHeader({ dark, search, status, onSearch, onStatus, onRefresh }: Props) {
   return <View style={styles.container}>

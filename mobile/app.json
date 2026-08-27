@@ -3,8 +3,8 @@
     "name": "Equipe Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.0.5",
-    "runtimeVersion": "1.0.3",
+    "version": "1.2.2",
+    "runtimeVersion": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -35,7 +35,8 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 6,
+      "versionCode": 21,
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",

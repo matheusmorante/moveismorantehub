@@ -8,6 +8,9 @@ import { DeliveryPreparationStep } from '../components/delivery/DeliveryPreparat
 import { DeliveryRouteStep } from '../components/delivery/DeliveryRouteStep';
 import { DeliveryServiceStep } from '../components/delivery/DeliveryServiceStep';
 import { UnattendedModal } from '../components/delivery/UnattendedModal';
+import { DeliveryQuickContactBar } from '../components/delivery/DeliveryQuickContactBar';
+import { CancelDeliveryConfirmModal } from '../components/delivery/CancelDeliveryConfirmModal';
+import { DeliveryStepProgressIndicator } from '../components/delivery/DeliveryStepProgressIndicator';
 
 type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void };
 
@@ -16,6 +19,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showUnattendedModal, setShowUnattendedModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
 
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
@@ -97,6 +101,8 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     }).eq('id', order.id);
     setSaving(false);
     if (error) return Alert.alert('Erro', error.message);
+    order.status = 'fulfilled';
+    order.order_data = updatedData;
     Alert.alert(
       '🎉 Entrega Finalizada!',
       'O pedido foi marcado como ATENDIDO com sucesso.',
@@ -112,7 +118,6 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       deliveryStatus: 'unattended',
       unattendedReason: reason,
       unattendedNotes: notes,
-      // Mantém o campo anterior para leituras legadas e registra todas as fotos novas.
       unattendedProofUrl: proofUrls[0] || '',
       unattendedProofUrls: proofUrls,
       unattendedAt: now,
@@ -130,42 +135,95 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     );
   };
 
-  // 5. Cancelar Entrega
-  const handleCancelDelivery = () => {
-    Alert.alert(
-      'Cancelar Entrega',
-      'Tem certeza que deseja cancelar a entrega em andamento? O pedido voltará ao estado de agendado.',
-      [
-        { text: 'Não', style: 'cancel' },
-        {
-          text: 'Sim, Cancelar',
-          style: 'destructive',
-          onPress: async () => {
-            setCancelling(true);
-            const now = new Date().toISOString();
-            const updatedData = { ...data };
-            delete updatedData.deliveryStatus;
-            delete updatedData.deliveryStartedAt;
-            delete updatedData.deliveryArrivedAt;
-            delete updatedData.deliveryFinishedAt;
-            delete updatedData.deliveryChecklist;
-            delete updatedData.unattendedReason;
-            delete updatedData.unattendedNotes;
-            delete updatedData.unattendedProofUrl;
-            delete updatedData.unattendedProofUrls;
+  // Retroceder da Etapa 2 (Em Rota) para a Etapa 1 (Preparação)
+  const handleStepBackToPreparation = async () => {
+    if (saving) return;
+    setSaving(true);
+    const now = new Date().toISOString();
+    const updatedData = { ...data };
+    delete updatedData.deliveryStatus;
+    delete updatedData.deliveryStartedAt;
 
-            const { error } = await supabase.from('orders').update({
-              order_data: updatedData,
-              updated_at: now,
-            }).eq('id', order.id);
-            setCancelling(false);
-            if (error) return Alert.alert('Erro', error.message);
-            Alert.alert('Entrega Cancelada', 'O pedido voltou ao estado de agendado.', [{ text: 'OK', onPress: () => onBack(true) }]);
-          },
-        },
-      ]
-    );
+    const { error } = await supabase.from('orders').update({
+      order_data: updatedData,
+      updated_at: now,
+    }).eq('id', order.id);
+
+    setSaving(false);
+    if (error) return Alert.alert('Erro', error.message);
+
+    order.order_data = updatedData;
+    setDeliveryData(updatedData);
+    Alert.alert('Etapa Retrocedida', 'O pedido voltou para a etapa de Preparação e Conferência.');
   };
+
+  // Retroceder da Etapa 3 (Em Atendimento) para a Etapa 2 (Em Rota)
+  const handleStepBackToRoute = async () => {
+    if (saving) return;
+    setSaving(true);
+    const now = new Date().toISOString();
+    const updatedData = {
+      ...data,
+      deliveryStatus: 'in_progress',
+    };
+    delete updatedData.deliveryArrivedAt;
+
+    const { error } = await supabase.from('orders').update({
+      order_data: updatedData,
+      updated_at: now,
+    }).eq('id', order.id);
+
+    setSaving(false);
+    if (error) return Alert.alert('Erro', error.message);
+
+    order.order_data = updatedData;
+    setDeliveryData(updatedData);
+    Alert.alert('Etapa Retrocedida', 'O status voltou para Em Rota.');
+  };
+
+  // 5. Cancelar Entrega (Execução com confirmação)
+  const handleConfirmCancelDelivery = async () => {
+    setCancelling(true);
+    try {
+      const now = new Date().toISOString();
+      const updatedData = { ...data };
+      delete updatedData.deliveryStatus;
+      delete updatedData.deliveryStartedAt;
+      delete updatedData.deliveryArrivedAt;
+      delete updatedData.deliveryFinishedAt;
+      delete updatedData.deliveryChecklist;
+      delete updatedData.unattendedReason;
+      delete updatedData.unattendedNotes;
+      delete updatedData.unattendedProofUrl;
+      delete updatedData.unattendedProofUrls;
+
+      const { error } = await supabase.from('orders').update({
+        status: 'scheduled',
+        order_data: updatedData,
+        updated_at: now,
+      }).eq('id', order.id);
+
+      setCancelling(false);
+      setShowCancelModal(false);
+
+      if (error) {
+        Alert.alert('Erro ao Cancelar', error.message);
+        return;
+      }
+
+      order.status = 'scheduled';
+      order.order_data = updatedData;
+      setDeliveryData(updatedData);
+
+      onBack(true);
+    } catch (err: any) {
+      setCancelling(false);
+      setShowCancelModal(false);
+      Alert.alert('Erro', err?.message || 'Falha ao cancelar entrega');
+    }
+  };
+
+  const currentStep = isInService ? 3 : isInTransit ? 2 : 1;
 
   return (
     <View style={[styles.container, isDarkMode && styles.dark]}>
@@ -175,19 +233,28 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
         isDarkMode={isDarkMode}
         isInProgress={isInProgress}
         onBack={() => onBack()}
-        onCancelDelivery={handleCancelDelivery}
+        onCancelDelivery={() => setShowCancelModal(true)}
         cancelling={cancelling}
       />
+
+      {/* Barra de Contato Rápido (Cliente e Vendedor) em todas as etapas */}
+      <DeliveryQuickContactBar order={order} isDarkMode={isDarkMode} />
+
+      {/* Indicador Informativo da Etapa Atual (1. Preparação -> 2. Em Rota -> 3. Em Atendimento) */}
+      <DeliveryStepProgressIndicator currentStep={currentStep} isDarkMode={isDarkMode} />
 
       <ScrollView contentContainerStyle={styles.content}>
         {isInService ? (
           <DeliveryServiceStep
             order={order}
             items={items}
+            customer={customer}
+            fullAddress={fullAddress}
             isDarkMode={isDarkMode}
             arrivedAt={data.deliveryArrivedAt || data.deliveryStartedAt}
             onOpenUnattendedModal={() => setShowUnattendedModal(true)}
             onFinishDelivery={handleFinishDelivery}
+            onStepBackToRoute={handleStepBackToRoute}
             finishing={saving}
           />
         ) : isInTransit ? (
@@ -198,10 +265,12 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
             isDarkMode={isDarkMode}
             startedAt={data.deliveryStartedAt}
             onArriveAtDestination={handleArriveAtDestination}
+            onStepBackToPreparation={handleStepBackToPreparation}
             loading={saving}
           />
         ) : (
           <DeliveryPreparationStep
+            order={order}
             customer={customer}
             fullAddress={fullAddress}
             checklist={checklist}
@@ -220,6 +289,15 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
         onConfirm={handleConfirmUnattended}
         isDarkMode={isDarkMode}
         customerName={customer.fullName || 'Cliente'}
+      />
+
+      <CancelDeliveryConfirmModal
+        visible={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancelDelivery}
+        loading={cancelling}
+        isDarkMode={isDarkMode}
+        orderNumber={String(order.id || '').slice(-6).toUpperCase()}
       />
     </View>
   );

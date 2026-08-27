@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
-import { Truck, CheckCircle2 } from 'lucide-react-native';
+import { Truck, CheckCircle2, RotateCcw } from 'lucide-react-native';
 
 type Props = {
   disabled: boolean;
@@ -8,7 +8,8 @@ type Props = {
   actionText?: string;
   trackColor?: string;
   knobColor?: string;
-  iconType?: 'truck' | 'check';
+  iconType?: 'truck' | 'check' | 'back';
+  direction?: 'left' | 'right';
 };
 
 export function SlideHoldToStart({
@@ -18,6 +19,7 @@ export function SlideHoldToStart({
   trackColor = '#16a34a',
   knobColor = '#14532d',
   iconType = 'truck',
+  direction = 'left',
 }: Props) {
   const x = useRef(new Animated.Value(0)).current;
   const [trackWidth, setTrackWidth] = useState(0);
@@ -41,15 +43,17 @@ export function SlideHoldToStart({
     onStartShouldSetPanResponder: () => !disabled,
     onMoveShouldSetPanResponder: () => !disabled,
     onPanResponderMove: (_, gesture) => {
-      x.setValue(Math.max(0, Math.min(maxX, gesture.dx)));
+      const distance = direction === 'left' ? -gesture.dx : gesture.dx;
+      x.setValue(Math.max(0, Math.min(maxX, distance)));
     },
     onPanResponderRelease: (_, gesture) => {
-      const reachedEnd = maxX > 0 && gesture.dx >= maxX * 0.88;
+      const distance = direction === 'left' ? -gesture.dx : gesture.dx;
+      const reachedEnd = maxX > 0 && distance >= maxX * 0.88;
       if (reachedEnd) finishSlide();
       else returnToStart();
     },
     onPanResponderTerminate: () => returnToStart(),
-  }), [disabled, completedSlides, maxX]);
+  }), [disabled, completedSlides, maxX, direction]);
 
   const label = disabled
     ? 'Aguarde...'
@@ -66,16 +70,22 @@ export function SlideHoldToStart({
       ]}
       onLayout={event => setTrackWidth(event.nativeEvent.layout.width)}
     >
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, direction === 'left' ? styles.labelLeft : styles.labelRight]}>{label}</Text>
       <Animated.View
         style={[
           styles.knob,
-          { backgroundColor: knobColor, transform: [{ translateX: x }] },
+          {
+            backgroundColor: knobColor,
+            ...(direction === 'left' ? { right: 4 } : { left: 4 }),
+            transform: [{ translateX: direction === 'left' ? Animated.multiply(x, -1) : x }],
+          },
         ]}
         {...responder.panHandlers}
       >
         {iconType === 'check' ? (
           <CheckCircle2 size={24} color="#ffffff" />
+        ) : iconType === 'back' ? (
+          <RotateCcw size={22} color="#ffffff" />
         ) : (
           <Truck size={22} color="#ffffff" />
         )}
@@ -100,11 +110,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  labelLeft: {
+    paddingRight: 48,
+  },
+  labelRight: {
     paddingLeft: 48,
   },
   knob: {
     position: 'absolute',
-    left: 4,
     width: 50,
     height: 50,
     borderRadius: 25,

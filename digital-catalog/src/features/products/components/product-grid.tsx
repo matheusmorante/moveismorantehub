@@ -232,10 +232,30 @@ export function ProductGrid({ filters }: ProductGridProps) {
           }
 
           const rawSearch = normalizeSearch(filters.search)
-          const searchTokens = rawSearch.split(" ").filter(Boolean)
+          const searchTokens = rawSearch.split(" ").filter(token => token.length >= 2)
 
-          // Expansão de sinônimos comuns do setor moveleiro
-          const isWardrobeSearch = rawSearch.includes("guarda") || rawSearch.includes("roupa") || rawSearch.includes("roupeiro")
+          // Mapa de sinônimos/variações do setor de móveis
+          const getSynonyms = (token: string): string[] => {
+            if (/^(roupa|roupas|guarda|roupeiro|roupeiros)$/.test(token)) {
+              return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros"]
+            }
+            if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
+              return ["sofa", "sofas", "estofado", "estofados"]
+            }
+            if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
+              return ["colchao", "colchoes"]
+            }
+            if (/^(cama|camas|box|sommier)$/.test(token)) {
+              return ["cama", "camas", "box"]
+            }
+            if (/^(mesa|mesas)$/.test(token)) {
+              return ["mesa", "mesas"]
+            }
+            if (/^(painel|paineis|rack|racks)$/.test(token)) {
+              return ["painel", "paineis", "rack", "racks"]
+            }
+            return [token]
+          }
 
           results = results.filter(p => {
             const cleanName = normalizeSearch(p.name || "")
@@ -246,22 +266,11 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
             const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats}`
 
-            // 1. Caso seja busca por guarda-roupa / roupeiro
-            if (isWardrobeSearch) {
-              const hasWardrobeKeyword = fullSearchableText.includes("guarda") || 
-                                         fullSearchableText.includes("roupa") || 
-                                         fullSearchableText.includes("roupeiro")
-              if (hasWardrobeKeyword) {
-                // Checa outros modificadores como "casal", "solteiro", "espelho", etc.
-                const otherTokens = searchTokens.filter(t => t !== "guarda" && t !== "roupa" && t !== "roupeiro")
-                if (otherTokens.length === 0 || otherTokens.every(t => fullSearchableText.includes(t))) {
-                  return true
-                }
-              }
-            }
-
-            // 2. Busca padrão: todos os tokens digitados precisam estar no texto do produto
-            return searchTokens.every(token => fullSearchableText.includes(token))
+            // Cada palavra pesquisada deve bater diretamente ou via sinônimo no texto do produto
+            return searchTokens.every(token => {
+              const synonyms = getSynonyms(token)
+              return synonyms.some(syn => fullSearchableText.includes(syn))
+            })
           })
         }
 
