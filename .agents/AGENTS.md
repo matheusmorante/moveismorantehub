@@ -32,5 +32,17 @@ Este documento registra regras específicas e lógicas de funcionamento do Moran
   - As ações no ERP são **"Desativar Produto"** e **"Ativar / Reativar Produto"**.
 - **No Catálogo Digital (E-commerce / Catálogo Online)**:
   - O status para o catálogo público é **"Publicado no Catálogo"** (`status: 'published'`) e **"Ocultado do Catálogo"** (`status: 'hidden'`).
-  - As ações e badges relacionadas à visibilidade na loja são **"Publicar no Catálogo"** e **"Ocultar do Catálogo"**.
+
+## 6. Versionamento Semântico do Aplicativo Mobile (Expo / EAS)
+
+- **Regra de Versionamento Automático (`MAJOR.MINOR.PATCH`)**:
+  - Sempre que uma nova atualização, build ou modificação for efetuada no projeto `mobile`:
+    - **PATCH (`x.x.+1`)**: Incrementar para correções de bugs, ajustes de layout, refinamentos de UI/UX ou pequenas melhorias de estabilidade.
+    - **MINOR (`x.+1.0`)**: Incrementar para adição de novas telas, novos módulos, novas integrações de destaque ou novas funcionalidades.
+    - **MAJOR (`+1.0.0`)**: Incrementar para grandes reestruturações do app ou breaking changes de arquitetura.
+  - Ao incrementar a versão no arquivo `mobile/app.json`, o agente deve sincronizar automaticamente:
+    - `"version"` (ex: `"1.0.1"`, `"1.0.2"`...)
+    - `"runtimeVersion"` (ex: `"1.0.1"`, `"1.0.2"`...)
+    - `"versionCode"` em `android` (incrementar número inteiro de versão: `1`, `2`, `3`...)
+
 

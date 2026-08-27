@@ -3,13 +3,15 @@ import { stringifyFullAddressWithObservation, formatToBRDate } from "../../../ut
 import { getSettings } from '@/pages/utils/settingsService';
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 
-export const CustomerSection = ({ fullName, phone, noPhone }: { fullName?: string, phone?: string, noPhone?: boolean }) => (
+type AdditionalContact = { name?: string; phone?: string };
+
+export const CustomerSection = ({ fullName, phone, noPhone, additionalContacts = [] }: { fullName?: string, phone?: string, noPhone?: boolean, additionalContacts?: AdditionalContact[] }) => (
     <section>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
             <i className="bi bi-person-badge-fill" /> Cliente
         </h3>
         <div className="bg-slate-50/50 dark:bg-slate-800/20 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 transition-colors duration-300 flex items-center justify-between">
-            <div>
+            <div className="flex-1">
                 <p className="text-lg font-black text-slate-800 dark:text-slate-100 lowercase first-letter:uppercase mb-1">
                     {fullName || "Consumidor Não Identificado"}
                 </p>
@@ -17,6 +19,16 @@ export const CustomerSection = ({ fullName, phone, noPhone }: { fullName?: strin
                     <i className="bi bi-telephone-fill text-blue-400" />
                     {noPhone ? "Sem Telefone" : (phone || "Telefone não informado")}
                 </p>
+                {additionalContacts.filter(contact => contact.name || contact.phone).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        {additionalContacts.filter(contact => contact.name || contact.phone).map((contact, index) => (
+                            <div key={index} className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-blue-500">{contact.name || 'Contato adicional'}</p>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{contact.phone || 'Telefone não informado'}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
             {phone && !noPhone && (
                 <button type="button"

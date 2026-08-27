@@ -18,7 +18,7 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
   const [selection, setSelection] = useState<Selection | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const target = kind === 'seal' ? { width: 580, height: 100 } : { width: 1080, height: 170 };
+  const target = kind === 'seal' ? { width: 800, height: 200 } : { width: 1080, height: 170 };
 
   useEffect(() => {
     const url = URL.createObjectURL(file);

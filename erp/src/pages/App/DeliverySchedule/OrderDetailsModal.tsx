@@ -78,6 +78,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                             <CustomerSection
                                 fullName={order.customerData?.fullName}
                                 phone={order.customerData?.phone}
+                                additionalContacts={order.customerData?.additionalContacts}
                             />
 
 

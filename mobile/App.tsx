@@ -3,6 +3,7 @@ import { View, ScrollView, SafeAreaView, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Speech from 'expo-speech';
+import * as Updates from 'expo-updates';
 
 import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supabaseClient';
 import { registerPushToken, triggerLocalNotification } from './src/services/notificationService';
@@ -64,6 +65,22 @@ export default function App() {
   const [speechCurrentTime, setSpeechCurrentTime] = useState(0);
   const [speechTotalDuration, setSpeechTotalDuration] = useState(0);
   const speechIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    async function checkOTAUpdates() {
+      try {
+        if (__DEV__) return;
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (e) {
+        console.log('OTA Check:', e);
+      }
+    }
+    void checkOTAUpdates();
+  }, []);
 
   const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'master';
   const isAssemblerDriver = userProfile?.role === 'assembler' || userProfile?.role === 'driver' || userProfile?.role === 'entregador';

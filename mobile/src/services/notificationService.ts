@@ -1,4 +1,4 @@
-import { Platform, Vibration } from 'react-native';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
 import { supabase, NOTIFICATION_SOUND_URL } from './supabaseClient';
@@ -87,24 +87,9 @@ export const registerPushToken = async () => {
  * Dispara notificação nativa com banner na barra de status do celular
  */
 export const triggerLocalNotification = async (title: string, body: string, dataPayload: any = {}) => {
-  playNotificationSound();
-  Vibration.vibrate([0, 250, 250, 250]);
-
-  try {
-    if (Platform.OS !== 'web') {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: true,
-          channelId: 'default', // Canal de alta prioridade para o Android exibir na barra!
-          priority: Notifications.AndroidNotificationPriority.MAX,
-          data: dataPayload,
-        },
-        trigger: null, // Imediato
-      });
-    }
-  } catch (e) {
-    console.warn('[LocalNotif] Erro ao agendar notificação local:', e);
-  }
+  // O push remoto também é exibido em primeiro plano pelo handler acima.
+  // O listener Realtime chama esta função, mas não deve agendar uma segunda cópia.
+  void title;
+  void body;
+  void dataPayload;
 };

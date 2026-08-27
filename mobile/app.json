@@ -3,8 +3,8 @@
     "name": "Equipe Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.0.0",
-    "runtimeVersion": "1.0.0",
+    "version": "1.0.1",
+    "runtimeVersion": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -29,6 +29,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
+      "versionCode": 2,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
@@ -37,7 +38,9 @@
     },
     "web": {},
     "updates": {
-      "url": "https://u.expo.dev/dd556f93-9a32-4219-84a2-378b626f09ae"
+      "url": "https://u.expo.dev/dd556f93-9a32-4219-84a2-378b626f09ae",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     },
     "extra": {
       "eas": {

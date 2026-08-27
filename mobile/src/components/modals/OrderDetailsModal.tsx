@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ShoppingBag } from 'lucide-react-native';
 import { OrderDetailsBody } from '../OrderDetailsBody';
+import { DeliveryPreparationScreen } from '../../features/orders/screens/DeliveryPreparationScreen';
 
 interface Props {
   order: any;
@@ -12,7 +13,10 @@ interface Props {
 
 export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode }) => {
   const insets = useSafeAreaInsets();
+  const [preparingDelivery, setPreparingDelivery] = useState(false);
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+
+  useEffect(() => { if (!order) setPreparingDelivery(false); }, [order]);
 
   if (!order) return null;
 
@@ -27,6 +31,12 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode 
       onRequestClose={onClose}
     >
       <View style={[styles.modalContainer, { paddingTop: topInset }, isDarkMode && styles.modalContainerDark]}>
+        {preparingDelivery ? (
+          <DeliveryPreparationScreen order={order} isDarkMode={isDarkMode} onBack={started => {
+            setPreparingDelivery(false);
+            if (started) onClose();
+          }} />
+        ) : <>
         {/* Full-Screen Header */}
         <View style={[styles.headerRow, isDarkMode && styles.headerRowDark]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
@@ -50,8 +60,9 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode 
 
         {/* Full-Screen Body Content */}
         <View style={{ flex: 1 }}>
-          <OrderDetailsBody order={order} isDarkMode={isDarkMode} />
+          <OrderDetailsBody order={order} isDarkMode={isDarkMode} onStartDelivery={() => setPreparingDelivery(true)} />
         </View>
+        </>}
       </View>
     </Modal>
   );

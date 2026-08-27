@@ -12,7 +12,7 @@ import TextAlignmentControls from './TextAlignmentControls';
 import PostImageSourcePicker, { type PostImageOption } from './PostImageSourcePicker';
 import InstallmentImageGallery from './InstallmentImageGallery';
 import ImageGridControls from './ImageGridControls';
-import type { OpportunitySeal } from './opportunitySealImage';
+import { createOpportunitySealImage, type OpportunitySeal } from './opportunitySealImage';
 import { DEFAULT_IMAGE_GRID_SETTINGS, drawImageGrid, drawMoreColorsLabel, getPostImageGrid, placeImageInCell, type ImageGridSettings } from './postImageGrid';
 import { type HorizontalTextAlignment, type VerticalTextAlignment } from './textAlignment';
 import { getPostGridImages, parseVariationImageUrls } from './variationGridImages';
@@ -24,7 +24,7 @@ interface Product {
   price: number;
   promo_price: number | null;
   product_images: { image_url: string; is_main: boolean }[];
-  opportunities: { name: string; badge_color: string; border_color: string } | null;
+  opportunities: { id?: string; name: string; badge_color?: string; border_color?: string; image_url?: string } | null;
   product_variations?: { id: string; name?: string; sku?: string; image_url?: unknown }[];
   technical_specs?: any | null;
   width?: number | null;
@@ -76,7 +76,7 @@ function drawTextBackground(
   baselineY = 0,
   selection?: { width: number; height: number; offsetX: number; offsetY: number },
 ) {
-  if (background.opacity <= 0) return;
+  if (background.opacity <= 0 && !(background.borderWidth && background.borderWidth > 0)) return;
   const selectionWidth = selection?.width ?? width;
   const selectionHeight = selection?.height ?? height;
   const selectionOffsetX = selection?.offsetX ?? 0;
@@ -94,7 +94,13 @@ function drawTextBackground(
     (selectionHeight + extraPaddingY * 2) * scale,
     Math.min(18, selectionHeight / 2) * scale,
   );
-  ctx.fill();
+  if (background.opacity > 0) ctx.fill();
+  if (background.borderWidth && background.borderWidth > 0) {
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = background.borderColor || '#0f172a';
+    ctx.lineWidth = background.borderWidth * scale;
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -258,6 +264,8 @@ export default function MarketingPosts() {
 
   const [productTitle, setProductTitle] = useState("");
   const [priceContainerBackgroundColor, setPriceContainerBackgroundColor] = useState("#f8fafc");
+  const [priceContainerBorderColor, setPriceContainerBorderColor] = useState("#0f172a");
+  const [priceContainerBorderWidth, setPriceContainerBorderWidth] = useState(0);
   const [showPriceContainer, setShowPriceContainer] = useState(true);
   const [priceContainerOffsetX, setPriceContainerOffsetX] = useState(0);
   const [priceContainerOffsetY, setPriceContainerOffsetY] = useState(0);
@@ -333,7 +341,7 @@ export default function MarketingPosts() {
   const [headerTemplateImage, setHeaderTemplateImage] = useState('/images/banner-header-standard.svg');
   const [footerTemplateImage, setFooterTemplateImage] = useState('/images/banner-footer-bg.svg');
   const [uploadingTemplateImage, setUploadingTemplateImage] = useState(false);
-  const [layerOrder, setLayerOrder] = useState<string[]>(['imageGrid', 'opportunityBadge', 'title', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures']);
+  const [layerOrder, setLayerOrder] = useState<string[]>(['imageGrid', 'opportunityBadge', 'title', 'priceDe', 'porApenas', 'priceHighlight', 'pricePor', 'installments', 'measures']);
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const [modelProductQuery, setModelProductQuery] = useState('');
   const [isModelProductPickerOpen, setIsModelProductPickerOpen] = useState(false);
@@ -402,7 +410,7 @@ export default function MarketingPosts() {
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
     installmentImageUrl, installmentImageLibrary, installmentImageNames, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
-    showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
+    showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
     mainImageScale, secondaryImageScale,
@@ -410,7 +418,7 @@ export default function MarketingPosts() {
     secondaryImageOffsetX, secondaryImageOffsetY,
     imageGridSettings,
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
     priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
@@ -426,7 +434,7 @@ export default function MarketingPosts() {
     footerAddressTitle, footerAddressTitleFontSize, footerAddressTitleOffsetX, footerAddressTitleOffsetY,
     footerAddressText, footerAddressTextFontSize, footerAddressTextOffsetX, footerAddressTextOffsetY,
     installmentImageUrl, installmentImageLibrary, installmentImageNames, installmentImageScale, installmentsOffsetX, installmentsOffsetY,
-    showSecondaryImage, showOpportunityBadge, selectedOpportunitySeal,
+    showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY,
     customPrice, customPromoPrice,
     mainImageScale, secondaryImageScale,
@@ -434,7 +442,7 @@ export default function MarketingPosts() {
     secondaryImageOffsetX, secondaryImageOffsetY,
     imageGridSettings,
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
     priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
@@ -498,7 +506,6 @@ export default function MarketingPosts() {
     if (s.installmentsOffsetY !== undefined) setInstallmentsOffsetY(canvasCoordinate(s.installmentsOffsetY, 1140, 1350));
     if (s.showSecondaryImage !== undefined) setShowSecondaryImage(s.showSecondaryImage);
     if (s.showOpportunityBadge !== undefined) setShowOpportunityBadge(s.showOpportunityBadge);
-    if (s.selectedOpportunitySeal !== undefined) setSelectedOpportunitySeal(s.selectedOpportunitySeal);
     if (s.oppRotation !== undefined) setOppRotation(s.oppRotation);
     if (s.oppScale !== undefined) setOppScale(s.oppScale);
     if (s.oppOffsetX !== undefined) setOppOffsetX(s.oppOffsetX);
@@ -519,6 +526,8 @@ export default function MarketingPosts() {
     
     if (s.productTitle !== undefined) setProductTitle(s.productTitle);
     if (s.priceContainerBackgroundColor !== undefined) setPriceContainerBackgroundColor(s.priceContainerBackgroundColor);
+    if (s.priceContainerBorderColor !== undefined) setPriceContainerBorderColor(s.priceContainerBorderColor);
+    if (s.priceContainerBorderWidth !== undefined) setPriceContainerBorderWidth(Math.max(0, Number(s.priceContainerBorderWidth) || 0));
     if (s.showPriceContainer !== undefined) setShowPriceContainer(s.showPriceContainer);
     if (s.priceContainerOffsetX !== undefined) setPriceContainerOffsetX(s.priceContainerOffsetX);
     if (s.priceContainerOffsetY !== undefined) setPriceContainerOffsetY(s.priceContainerOffsetY);
@@ -729,11 +738,6 @@ export default function MarketingPosts() {
         e.preventDefault();
         if (e.shiftKey) {
           handleRedo();
-        } else if (selectedElement === 'installments') {
-          // Parcelamento é uma imagem: apenas o canto altera a escala proporcionalmente.
-          ctx.lineWidth = 3 * S;
-          ctx.fillRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
-          ctx.strokeRect((region.x + region.w - 9) * S, (region.y + region.h - 9) * S, 18 * S, 18 * S);
         } else {
           handleUndo();
         }
@@ -751,7 +755,7 @@ export default function MarketingPosts() {
     async function loadData() {
       try {
         setLoading(true);
-        const { data: prodData, error } = await supabase
+        let { data: prodData, error } = await supabase
           .from("products")
           .select(`
             id,
@@ -767,12 +771,27 @@ export default function MarketingPosts() {
               is_main
             ),
             opportunities (
+              id,
               name,
               badge_color,
-              border_color
+              border_color,
+              image_url
             )
           `)
           .order("name");
+
+        if (error && (error.code === '42703' || error.message?.includes('image_url'))) {
+          const fallback = await supabase
+            .from('products')
+            .select(`
+              id, name, price, promo_price, technical_specs, width, depth, height,
+              product_images (image_url, is_main),
+              opportunities (id, name, badge_color, border_color)
+            `)
+            .order('name');
+          prodData = fallback.data as typeof prodData;
+          error = fallback.error;
+        }
 
         if (error) throw error;
         const productRows = (prodData as unknown as Product[]) || [];
@@ -841,6 +860,11 @@ export default function MarketingPosts() {
     return products.find(p => p.id === selectedProductId) || (isEditingTemplate ? TEMPLATE_PREVIEW_PRODUCT : null);
   }, [products, selectedProductId, isEditingTemplate]);
   const renderProduct = activeProduct || TEMPLATE_PREVIEW_PRODUCT;
+  const renderedOpportunity = isEditingTemplate
+    ? selectedOpportunitySeal || renderProduct.opportunities
+    : selectedOpportunitySeal?.id === renderProduct.opportunities?.id
+      ? selectedOpportunitySeal
+      : renderProduct.opportunities || selectedOpportunitySeal;
   const gridImages = useMemo(() => getPostGridImages(renderProduct.product_images || [], renderProduct.product_variations || []), [renderProduct]);
 
   useEffect(() => {
@@ -850,6 +874,7 @@ export default function MarketingPosts() {
     setSecondaryImageIndex(1);
     setMainImageSource(gridImages.main?.key || 'product:0');
     setSecondaryImageSource(gridImages.secondary?.key || 'product:1');
+    setSelectedOpportunitySeal(activeProduct.opportunities || null);
   }, [activeProduct, gridImages]);
 
   const postImageOptions = useMemo<PostImageOption[]>(() => {
@@ -973,7 +998,7 @@ export default function MarketingPosts() {
   // Motor de Desenho Síncrono no Canvas 2D
   const drawBannerSync = (
     canvas: HTMLCanvasElement,
-    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null; installmentImg: HTMLImageElement | null; variationImgs: (HTMLImageElement | null)[] },
+    images: { headerBg: HTMLImageElement | null; footerBg: HTMLImageElement | null; logo: HTMLImageElement | null; mainImg: HTMLImageElement | null; secImg: HTMLImageElement | null; installmentImg: HTMLImageElement | null; opportunityImg: HTMLImageElement | null; variationImgs: (HTMLImageElement | null)[] },
     isExport = false
   ) => {
     if (!activeProduct && !isEditingTemplate) return;
@@ -1159,8 +1184,8 @@ export default function MarketingPosts() {
     const isPricePorDetached = false;
     const priceBackground = textBackgrounds.pricePor || { color: '#ffe600', paddingLeft: 18, paddingRight: 18, paddingTop: 17, paddingBottom: 17, opacity: 1 };
     // O container tem tamanho próprio: mudar a fonte não altera suas bordas.
-    const priceAreaWidth = Math.max(40, textSelectionWidths.pricePor || 320);
-    const priceAreaHeight = Math.max(24, textSelectionHeights.pricePor || 100);
+    const priceAreaWidth = Math.max(40, (textSelectionWidths.pricePor || 320) + priceHighlightExtraWidth);
+    const priceAreaHeight = Math.max(24, (textSelectionHeights.pricePor || 100) + priceHighlightExtraHeight);
     const renderedPriceSize = prSize;
     ctx.font = `bold ${renderedPriceSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
     const priceTextWidth = ctx.measureText(priceStr).width / S;
@@ -1169,7 +1194,9 @@ export default function MarketingPosts() {
     const priceRequiredWidth = Math.ceil(priceRowStartX - 560 + priceTextWidth + 54);
     // O container visual do preço é fixo; se o valor crescer, a fonte reduz
     // para caber em uma única linha dentro dele.
-    const effectiveContainerWidth = isPricePorDetached ? priceContainerWidth : Math.max(priceContainerWidth, priceRequiredWidth);
+    // O container tem dimensões exclusivamente manuais: textos, fonte e
+    // produto não podem expandi-lo nem reduzi-lo automaticamente.
+    const effectiveContainerWidth = priceContainerWidth;
     const pTitleSize = productTitleFontSize || 30;
     // A largura salva é o limite máximo. A caixa de seleção fica flexível e
     // acompanha o conteúdo enquanto ele couber em uma única linha.
@@ -1195,8 +1222,15 @@ export default function MarketingPosts() {
     const expandedContainerHeight = Math.max(80, priceContainerHeight);
     const expandedTop = 650;
 
-    // O bloco de preço não usa mais uma caixa visual: título e preços ficam
-    // diretamente sobre a arte, preservando apenas a área interna de cálculo.
+    if (showPriceContainer) {
+      ctx.beginPath();
+      ctx.roundRect((560 + priceContainerX) * S, (expandedTop + priceContainerY) * S, effectiveContainerWidth * S, expandedContainerHeight * S, 26 * S);
+      if (priceContainerBorderWidth > 0) {
+        ctx.strokeStyle = priceContainerBorderColor;
+        ctx.lineWidth = priceContainerBorderWidth * S;
+        ctx.stroke();
+      }
+    }
     reg['priceContainer'] = { key: 'priceContainer', label: 'Área de preços', x: 560 + priceContainerX, y: expandedTop + priceContainerY, w: effectiveContainerWidth, h: expandedContainerHeight };
 
     const contentLeft = 580;
@@ -1335,6 +1369,13 @@ export default function MarketingPosts() {
     // alinhado dentro dele a partir de um topo fixo.
     const priceContainerTop = flowPriceY - priceAreaHeight;
     const priceTextBaselineY = priceContainerTop + priceAlignment.y + priceAscent;
+    const drawPriceHighlightLayer = () => {
+      ctx.save();
+      ctx.translate((flowPriceX + priceHighlightOffsetX) * S, (priceTextBaselineY + priceHighlightOffsetY) * S);
+      drawTextBackground(ctx, S, priceContentWidth, priceContentHeight, priceBackground, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceBaselineOffsetY });
+      ctx.restore();
+      reg['priceHighlight'] = { key: 'priceHighlight', label: 'Container do preço principal', x: flowPriceX + priceHighlightOffsetX - priceAlignment.x, y: priceContainerTop + priceHighlightOffsetY, w: priceAlignment.width, h: priceAlignment.height };
+    };
     const drawPricePorLayer = () => {
       ctx.save();
       if (!isPricePorDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
@@ -1342,114 +1383,76 @@ export default function MarketingPosts() {
       ctx.rotate((priceRotation * Math.PI) / 180);
       // O preço não pode herdar a fonte da camada desenhada antes dele.
       ctx.font = `bold ${renderedPriceSize * S}px ${textFontFamilies.pricePor || DEFAULT_FONT_FAMILY}`;
-      drawTextBackground(ctx, S, priceContentWidth, priceContentHeight, priceBackground, 0, 0, { ...priceAlignment, offsetX: priceAlignment.x, offsetY: priceBaselineOffsetY });
       ctx.fillStyle = textColors.pricePor || DEFAULT_TEXT_COLORS.pricePor;
       ctx.fillText(priceStr, 0, 0);
       ctx.restore();
-      reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX, y: priceContainerTop, w: priceAlignment.width, h: priceAlignment.height };
+      reg['pricePor'] = { key: 'pricePor', label: 'Preço POR', x: flowPriceX + priceAlignment.x, y: priceTextBaselineY - priceAscent, w: priceContentWidth, h: priceContentHeight };
     };
-    // Medidas
+
+    let drawMeasuresLayer: (() => void) | undefined;
     if (measuresText) {
-      const mSize = measuresFontSize || 20;
-      const mX = measuresOffsetX ?? 785;
-      const mY = measuresOffsetY ?? 1035;
-      ctx.fillStyle = textColors.measures || DEFAULT_TEXT_COLORS.measures;
-      ctx.font = `bold ${mSize * S}px ${textFontFamilies.measures || DEFAULT_FONT_FAMILY}`;
-      const measuresWidth = ctx.measureText(measuresText).width / S;
-      const measuresAlignment = getTextAreaAlignment('measures', measuresWidth, mSize);
-      const drawMeasuresLayer = () => {
+      const size = measuresFontSize || 20;
+      const x = measuresOffsetX ?? 785;
+      const y = measuresOffsetY ?? 1035;
+      ctx.font = `bold ${size * S}px ${textFontFamilies.measures || DEFAULT_FONT_FAMILY}`;
+      const width = ctx.measureText(measuresText).width / S;
+      const alignment = getTextAreaAlignment('measures', width, size);
+      drawMeasuresLayer = () => {
         ctx.save();
-        drawTextBackground(ctx, S, measuresWidth, mSize, textBackgrounds.measures || EMPTY_TEXT_BACKGROUND, mX + measuresAlignment.x, mY + measuresAlignment.y, { ...measuresAlignment, offsetX: measuresAlignment.x, offsetY: measuresAlignment.y });
-        ctx.fillText(measuresText, (mX + measuresAlignment.x) * S, (mY + measuresAlignment.y) * S);
+        ctx.font = `bold ${size * S}px ${textFontFamilies.measures || DEFAULT_FONT_FAMILY}`;
+        ctx.fillStyle = textColors.measures || DEFAULT_TEXT_COLORS.measures;
+        drawTextBackground(ctx, S, width, size, textBackgrounds.measures || EMPTY_TEXT_BACKGROUND, x + alignment.x, y + alignment.y, { ...alignment, offsetX: alignment.x, offsetY: alignment.y });
+        ctx.fillText(measuresText, (x + alignment.x) * S, (y + alignment.y) * S);
         ctx.restore();
-        reg['measures'] = { key: 'measures', label: 'Medidas', x: mX, y: mY - mSize, w: measuresAlignment.width, h: measuresAlignment.height };
+        reg.measures = { key: 'measures', label: 'Medidas', x, y: y - size, w: alignment.width, h: alignment.height };
       };
     }
-    // Parcelamento é uma imagem livre, sem texto gerado pelo template.
-    const instX = installmentsOffsetX ?? 540;
-    const instY = installmentsOffsetY ?? 1140;
+
+    let drawInstallmentsLayer: (() => void) | undefined;
     if (images.installmentImg) {
+      const x = installmentsOffsetX ?? 540;
+      const y = installmentsOffsetY ?? 1140;
       const bounds = getCachedBoundingBox(images.installmentImg);
-      const maxWidth = 380;
-      const maxHeight = 120;
-      const scale = Math.min(maxWidth / bounds.w, maxHeight / bounds.h, 1) * (installmentImageScale / 100);
+      const scale = Math.min(380 / bounds.w, 120 / bounds.h, 1) * (installmentImageScale / 100);
       const width = bounds.w * scale;
       const height = bounds.h * scale;
-      ctx.drawImage(images.installmentImg, bounds.x, bounds.y, bounds.w, bounds.h, instX * S, (instY - height) * S, width * S, height * S);
-      reg['installments'] = { key: 'installments', label: 'Imagem do parcelamento', x: instX, y: instY - height, w: width, h: height };
+      drawInstallmentsLayer = () => {
+        ctx.drawImage(images.installmentImg!, bounds.x, bounds.y, bounds.w, bounds.h, x * S, (y - height) * S, width * S, height * S);
+        reg.installments = { key: 'installments', label: 'Imagem do parcelamento', x, y: y - height, w: width, h: height };
+      };
     }
 
-    // 7. Oportunidade
-    if (showOpportunityBadge && (selectedOpportunitySeal || renderProduct.opportunities)) {
-      const opp = selectedOpportunitySeal || renderProduct.opportunities!;
-      const labelText = opp.name.toUpperCase();
-      ctx.save();
-      const bx = oppOffsetX * S;
-      const by = oppOffsetY * S;
-      ctx.translate(bx, by);
-      ctx.rotate((oppRotation * Math.PI) / 180);
-      const currentScale = (oppScale / 100) * S;
-      ctx.scale(currentScale, currentScale);
-
-      ctx.font = `bold 20px 'Segoe UI', Arial, sans-serif`;
-      const textW = ctx.measureText(labelText).width;
-      const isSalvados = opp.name.toLowerCase().includes("salvado");
-      const iconSpace = isSalvados ? 28 : 0;
-      const badgeW = textW + 30 + iconSpace;
-      const badgeH = 44;
-
-      ctx.fillStyle = isSalvados ? "#f97316" : resolveBadgeColor(opp.badge_color || '');
-      const rx = -badgeW / 2;
-      const ry = -badgeH / 2;
-      const radius = 8;
-
-      ctx.beginPath();
-      ctx.moveTo(rx + radius, ry);
-      ctx.lineTo(rx + badgeW - radius, ry);
-      ctx.quadraticCurveTo(rx + badgeW, ry, rx + badgeW, ry + radius);
-      ctx.lineTo(rx + badgeW, ry + badgeH - radius);
-      ctx.quadraticCurveTo(rx + badgeW, ry + badgeH, rx + badgeW - radius, ry + badgeH);
-      ctx.lineTo(rx + radius, ry + badgeH);
-      ctx.quadraticCurveTo(rx, ry + badgeH, rx, ry + badgeH - radius);
-      ctx.lineTo(rx, ry + radius);
-      ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
-      ctx.closePath();
-      ctx.fill();
-
-      if (opp.border_color) {
-        ctx.strokeStyle = opp.border_color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      if (isSalvados) {
-        drawFlameIcon(ctx, rx + 15, ry + 12, 20, "#000000");
-      }
-
-      ctx.fillStyle = isSalvados ? "#000000" : "#ffffff";
-      ctx.font = `bold 16px 'Segoe UI', Arial, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(labelText, isSalvados ? iconSpace / 2 : 0, 0);
-      ctx.restore();
-
-      const scaleFactor = (oppScale / 100);
-      reg['opportunityBadge'] = {
-        key: 'opportunityBadge',
-        label: 'Selo de oportunidade',
-        x: oppOffsetX - (badgeW * scaleFactor) / 2 - 6,
-        y: oppOffsetY - (badgeH * scaleFactor) / 2 - 6,
-        w: badgeW * scaleFactor + 12,
-        h: badgeH * scaleFactor + 12
+    let drawOpportunityLayer: (() => void) | undefined;
+    const opportunity = renderedOpportunity;
+    if (showOpportunityBadge && opportunity && images.opportunityImg) {
+      const width = 360;
+      const height = 90;
+      const scale = oppScale / 100;
+      drawOpportunityLayer = () => {
+        ctx.save();
+        ctx.translate(oppOffsetX * S, oppOffsetY * S);
+        ctx.rotate((oppRotation * Math.PI) / 180);
+        ctx.scale(scale, scale);
+        ctx.drawImage(images.opportunityImg!, -width * S / 2, -height * S / 2, width * S, height * S);
+        ctx.restore();
+        reg.opportunityBadge = {
+          key: 'opportunityBadge',
+          label: `Selo ${opportunity.name}`,
+          x: oppOffsetX - width * scale / 2,
+          y: oppOffsetY - height * scale / 2,
+          w: width * scale,
+          h: height * scale,
+        };
       };
     }
 
 
-    const layerDrawFns: Record<string, () => void> = {
+    const layerDrawFns: Record<string, (() => void) | undefined> = {
       imageGrid: undefined,
       title: typeof drawTitleLayer !== 'undefined' ? drawTitleLayer : undefined,
       priceDeLabel: typeof drawPriceDeLayer !== 'undefined' ? drawPriceDeLayer : undefined,
       priceDe: typeof drawPriceDeValueLayer !== 'undefined' ? drawPriceDeValueLayer : undefined,
+      priceHighlight: typeof drawPriceHighlightLayer !== 'undefined' ? drawPriceHighlightLayer : undefined,
       porApenas: typeof drawPorApenasLayer !== 'undefined' ? drawPorApenasLayer : undefined,
       pricePor: typeof drawPricePorLayer !== 'undefined' ? drawPricePorLayer : undefined,
       measures: typeof drawMeasuresLayer !== 'undefined' ? drawMeasuresLayer : undefined,
@@ -1460,14 +1463,14 @@ export default function MarketingPosts() {
     // Uma ordem salva incompleta não pode fazer o conteúdo do post sumir.
     // Mantemos a personalização da pilha, mas garantimos as camadas essenciais
     // e as desenhamos depois do grid e do container de preço.
-    const requiredPostLayers = ['title', 'priceDeLabel', 'priceDe', 'porApenas', 'pricePor', 'installments', 'measures', 'opportunityBadge'];
+    const requiredPostLayers = ['title', 'priceDeLabel', 'priceDe', 'porApenas', 'pricePor', 'priceHighlight', 'installments', 'measures', 'opportunityBadge'];
     const drawOrder = [...new Set([...requiredPostLayers, ...layerOrder])].reverse();
     renderedLayerOrderRef.current = drawOrder;
     drawOrder.forEach(key => {
       if (layerDrawFns[key]) layerDrawFns[key]();
     });
 
-    for (const key of [...CONTAINER_CHILD_KEYS, 'priceHighlight']) {
+    for (const key of CONTAINER_CHILD_KEYS) {
       // As camadas do bloco de preço são desenhadas sempre em relação ao
       // container; a região clicável precisa usar a mesma referência.
       if (reg[key]) {
@@ -1580,7 +1583,7 @@ export default function MarketingPosts() {
     // Desenha a estrutura imediatamente; imagens lentas ou inválidas não podem
     // deixar o editor inteiro em branco enquanto carregam.
     try {
-      drawBannerSync(canvas, { headerBg: null, footerBg: null, logo: null, mainImg: null, secImg: null, installmentImg: null, variationImgs: [] }, isExport);
+      drawBannerSync(canvas, { headerBg: null, footerBg: null, logo: null, mainImg: null, secImg: null, installmentImg: null, opportunityImg: null, variationImgs: [] }, isExport);
     } catch (error) {
       console.error('Falha ao desenhar a estrutura do post:', error);
     }
@@ -1592,13 +1595,15 @@ export default function MarketingPosts() {
     const secImageUrl = gridImages.secondary?.url || getPostImageUrl(secondaryImageSource, secondaryImageIndex) || images.find(image => !image.is_main)?.image_url || images[1]?.image_url || "";
     const shouldRenderSecondaryImage = showSecondaryImage && Boolean(secImageUrl) && secImageUrl !== mainImageUrl;
 
-    const [headerBg, footerBg, logo, mainImg, secImg, installmentImg, variationImgs] = await Promise.all([
+    const opportunity = renderedOpportunity;
+    const [headerBg, footerBg, logo, mainImg, secImg, installmentImg, opportunityImg, variationImgs] = await Promise.all([
       loadImg(headerTemplateImage || "/images/banner-header-bg.png"),
       footerTemplateImage ? loadImg(footerTemplateImage) : Promise.resolve(null),
       avatarUrl ? loadImg(avatarUrl) : loadImg("/images/avatar-morante.png"),
       loadFirstAvailableImage(mainImageUrl, productMainImageUrl),
       shouldRenderSecondaryImage ? loadImg(secImageUrl) : Promise.resolve(null),
       loadImg(installmentImageUrl),
+      opportunity ? loadImg(createOpportunitySealImage(opportunity)) : Promise.resolve(null),
       Promise.all(gridExtraImageUrls.map(url => loadImg(url))),
     ]);
 
@@ -1607,7 +1612,7 @@ export default function MarketingPosts() {
       const renderedCanvas = document.createElement('canvas');
       renderedCanvas.width = canvas.width;
       renderedCanvas.height = canvas.height;
-      drawBannerSync(renderedCanvas, { headerBg, footerBg, logo, mainImg, secImg, installmentImg, variationImgs }, isExport);
+      drawBannerSync(renderedCanvas, { headerBg, footerBg, logo, mainImg, secImg, installmentImg, opportunityImg, variationImgs }, isExport);
       const visibleContext = canvas.getContext('2d');
       if (visibleContext) {
         visibleContext.clearRect(0, 0, canvas.width, canvas.height);
@@ -1636,7 +1641,7 @@ export default function MarketingPosts() {
     installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource, imageGridSettings,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceFontSizesByMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceFontSizesByMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
     priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
     porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, isGridHovered, gridImages, gridExtraImageUrls
   ]);
@@ -1679,10 +1684,6 @@ export default function MarketingPosts() {
     }
   }, [isEditingTemplate, defaultModelProductId, products]);
 
-  useEffect(() => {
-    if (selectedElement === 'priceHighlight') setSelectedElement('pricePor');
-  }, [selectedElement]);
-
   // Handlers de Ações
   const handleNewPost = () => {
     setIsEditingTemplate(false);
@@ -1698,7 +1699,13 @@ export default function MarketingPosts() {
     else if (key === 'priceContainer') move(setPriceContainerOffsetX, setPriceContainerOffsetY);
     else if (key === 'priceDeLabel') move(setPriceDeOffsetX, setPriceDeOffsetY);
     else if (key === 'priceDe') move(setPriceDeOffsetX, setPriceDeOffsetY);
-    else if (key === 'pricePor') move(setPriceOffsetX, setPriceOffsetY);
+    else if (key === 'pricePor') {
+      move(setPriceOffsetX, setPriceOffsetY);
+      // O fundo azul possui referência visual própria: compensamos o delta
+      // do preço para ele não acompanhar o texto quando este for arrastado.
+      setPriceHighlightOffsetX(value => value - dx);
+      setPriceHighlightOffsetY(value => value - dy);
+    }
     else if (key === 'priceHighlight') move(setPriceHighlightOffsetX, setPriceHighlightOffsetY);
     else if (key === 'porApenas') move(setPorApenasOffsetX, setPorApenasOffsetY);
     else if (key === 'installments') move(setInstallmentsOffsetX, setInstallmentsOffsetY);
@@ -1786,11 +1793,12 @@ export default function MarketingPosts() {
   };
 
   const rotateSelectedElement = (key: SelectedElement, angle: number) => {
-    if (key === 'title') setProductTitleRotation(angle);
-    else if (key === 'priceDe') setPriceDeRotation(angle);
-    else if (key === 'pricePor') setPriceRotation(angle);
-    else if (key === 'porApenas') setPorApenasRotation(angle);
-    else if (key === 'opportunityBadge') setOppRotation(angle);
+    const soften = (setAngle: React.Dispatch<React.SetStateAction<number>>) => setAngle(current => Math.round(current + (angle - current) * 0.18));
+    if (key === 'title') soften(setProductTitleRotation);
+    else if (key === 'priceDe') soften(setPriceDeRotation);
+    else if (key === 'pricePor') soften(setPriceRotation);
+    else if (key === 'porApenas') soften(setPorApenasRotation);
+    else if (key === 'opportunityBadge') soften(setOppRotation);
   };
 
   const startPostDrag = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1887,6 +1895,12 @@ export default function MarketingPosts() {
       }
     }
     const priceHighlightRegion = renderedRegionsRef.current.priceHighlight;
+    const pricePorRegion = renderedRegionsRef.current.pricePor;
+    if (pricePorRegion && x >= pricePorRegion.x && x <= pricePorRegion.x + pricePorRegion.w && y >= pricePorRegion.y && y <= pricePorRegion.y + pricePorRegion.h) {
+      setSelectedElement('pricePor');
+      postDragRef.current = { key: 'pricePor', x, y, mode: 'move' };
+      return;
+    }
     if (selectedElement !== 'priceHighlight' && priceHighlightRegion && x >= priceHighlightRegion.x && x <= priceHighlightRegion.x + priceHighlightRegion.w && y >= priceHighlightRegion.y && y <= priceHighlightRegion.y + priceHighlightRegion.h) {
       setSelectedElement('priceHighlight');
       postDragRef.current = null;
@@ -2521,8 +2535,7 @@ export default function MarketingPosts() {
                   type="button"
                   onClick={() => {
                     setIsModalOpen(false);
-                    if (isTemplateRoute && window.opener) window.close();
-                    else if (isTemplateRoute) window.history.back();
+                    if (isTemplateRoute) window.location.assign('/marketing/posts');
                   }}
                   className="px-3 py-2 text-xs font-black text-slate-500 hover:text-rose-500 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20"
                 >
@@ -2599,12 +2612,15 @@ export default function MarketingPosts() {
               <button type="button" onClick={() => setEditorZoom(v => Math.min(1.4, v + 0.1))} className="rounded-lg px-2 py-1 text-xs font-black text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800" title="Aumentar zoom"><i className="bi bi-zoom-in" /></button>
             </div>
 
-            <div className="hidden min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
               {!selectedElement && <span className="text-xs font-medium text-slate-400">Selecione um elemento no preview.</span>}
               {selectedElement && <>
-                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Fundo do preço principal' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Container' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
                 {selectedElement === 'priceContainer' && <>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceContainerBackgroundColor} onChange={event => setPriceContainerBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceContainerBackgroundColor}</output></label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200"><input type="checkbox" checked={priceContainerBorderWidth > 0} onChange={event => setPriceContainerBorderWidth(event.target.checked ? Math.max(1, priceContainerBorderWidth || 1) : 0)} className="h-4 w-4 accent-blue-600" />Borda</label>
+                  <label className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-200">Cor <input type="color" value={priceContainerBorderColor} disabled={priceContainerBorderWidth === 0} onChange={event => setPriceContainerBorderColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800" /></label>
+                  <label className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-200">Espessura <input type="number" min="0" max="40" value={priceContainerBorderWidth} onChange={event => setPriceContainerBorderWidth(Math.min(40, Math.max(0, Number(event.target.value) || 0)))} className="w-14 rounded border border-slate-200 px-1 py-1 dark:border-slate-700 dark:bg-slate-800" /> px</label>
                   <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
                     <span className="px-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Altura</span>
                     <button type="button" onClick={() => setPriceContainerHeight(value => Math.max(80, value - 20))} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700" title="Diminuir altura"><i className="bi bi-dash-lg" /></button>
@@ -2612,7 +2628,7 @@ export default function MarketingPosts() {
                     <button type="button" onClick={() => setPriceContainerHeight(value => value + 20)} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700" title="Aumentar altura"><i className="bi bi-plus-lg" /></button>
                   </div>
                 </>}
-                {selectedElement === 'priceHighlight' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceHighlightBackgroundColor} onChange={event => setPriceHighlightBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceHighlightBackgroundColor}</output></label>}
+                {selectedElement === 'priceHighlight' && <><label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do contorno <input type="color" value={textBackgrounds.pricePor?.borderColor || '#0f172a'} onChange={event => setTextBackgrounds(current => ({ ...current, pricePor: { ...(current.pricePor || { color: '#2563eb', opacity: 1 }), borderColor: event.target.value } }))} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /></label><label className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-200">Espessura do contorno <input type="number" min="0" max="40" value={textBackgrounds.pricePor?.borderWidth || 0} onChange={event => setTextBackgrounds(current => ({ ...current, pricePor: { ...(current.pricePor || { color: '#2563eb', opacity: 1 }), borderWidth: Math.max(0, Math.min(40, Number(event.target.value) || 0)) } }))} className="w-14 rounded border border-slate-200 px-1 py-1 dark:border-slate-700 dark:bg-slate-800" /> px</label></>}
                 {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30" title="Remover container" aria-label="Remover container"><i className="bi bi-trash3-fill" /></button>}
                 {selectedElement === 'title' && <span className="text-xs font-bold text-slate-500">Nome dinâmico do produto selecionado</span>}
                 {selectedElement === 'priceDe' && <input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} placeholder="Preço antigo" className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
@@ -2646,10 +2662,10 @@ export default function MarketingPosts() {
             <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-6 grid grid-cols-[minmax(132px,30vw)_minmax(0,1fr)] lg:grid-cols-12 gap-3 sm:gap-6">
               <aside className="lg:col-span-2 -mb-4 -ml-4 -mt-4 min-h-0 self-stretch overflow-y-auto border-b border-r border-slate-200 bg-slate-50 p-3 custom-scrollbar sm:-mb-6 sm:-ml-6 sm:-mt-6 dark:border-slate-800 dark:bg-slate-950">
                 <div className="flex flex-col gap-3">
-                  {selectedElement === 'headerFooter' && <label className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-black text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">Cabeçalho e rodapé
+                  {selectedElement === 'headerFooter' && <label className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-black text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">Modelos de cabeçalho e rodapé
                     <button type="button" onClick={() => setIsHeaderFooterEditorOpen(true)} className="flex items-center justify-between rounded-lg bg-white/80 px-2 py-2 text-left text-[10px] font-bold text-slate-700 dark:bg-slate-900/70 dark:text-slate-200"><span className="truncate">{headerFooterModelName || 'Padrão'}</span><i className="bi bi-chevron-right" /></button>
                   </label>}
-                  {selectedElement ? <div className="rounded-xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-900/50 dark:bg-pink-950/20"><p className="text-[9px] font-black uppercase tracking-wider text-pink-500">Elemento selecionado</p><p className="mt-1 text-xs font-black text-slate-700 dark:text-slate-200">{selectedElement === 'headerFooter' ? 'Cabeçalho e rodapé' : selectedElement === 'imageGrid' ? 'Grid de fotos' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Fundo do preço principal' : selectedElement}</p></div> : <p className="rounded-xl border border-dashed border-slate-200 p-3 text-center text-[10px] font-bold text-slate-400 dark:border-slate-700">Selecione um elemento no preview.</p>}
+                  {selectedElement ? <div className="rounded-xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-900/50 dark:bg-pink-950/20"><p className="text-[9px] font-black uppercase tracking-wider text-pink-500">Elemento selecionado</p><p className="mt-1 text-xs font-black text-slate-700 dark:text-slate-200">{selectedElement === 'headerFooter' ? 'Cabeçalho e rodapé' : selectedElement === 'imageGrid' ? 'Grid de fotos' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Container' : selectedElement}</p></div> : <p className="rounded-xl border border-dashed border-slate-200 p-3 text-center text-[10px] font-bold text-slate-400 dark:border-slate-700">Selecione um elemento no preview.</p>}
                   {(selectedElement === 'mainImage' || selectedElement === 'secondaryImage' || selectedElement === 'imageGrid') && <PostImageSourcePicker activeSlot={selectedElement === 'mainImage' ? 'main' : selectedElement === 'secondaryImage' ? 'secondary' : undefined} mainImageSource={mainImageSource} secondaryImageSource={secondaryImageSource} options={postImageOptions} onMainImageSourceChange={setMainImageSource} onSecondaryImageSourceChange={setSecondaryImageSource} />}
                   {selectedElement === 'imageGrid' && <ImageGridControls settings={imageGridSettings} additionalImageCount={gridExtraImageUrls.length} onChange={setImageGridSettings} />}
                   {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
@@ -2669,235 +2685,72 @@ export default function MarketingPosts() {
                       <input type="number" min="20" value={installmentImageScale} onChange={event => setInstallmentImageScale(Math.max(20, Number(event.target.value) || 20))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
                     </label>
                   </>}
-                  {selectedElement === 'brand' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Marca<input value={brandName} onChange={event => setBrandName(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'slogan' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Slogan<input value={slogan} onChange={event => setSlogan(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'footerTitle' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Título do rodapé<input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'footerAddress' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Endereço<input value={footerAddressText} onChange={event => setFooterAddressText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'opportunityBadge' && (
+                    <OpportunitySealLibrary
+                      open={isOpportunityLibraryOpen}
+                      onToggle={() => setIsOpportunityLibraryOpen(value => !value)}
+                      onSelect={setSelectedOpportunitySeal}
+                    />
+                  )}
                   {selectedElement === 'priceContainer' && <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
                     <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Tamanho do container</p>
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Laterais</span><div className="flex items-center gap-1"><button type="button" onClick={() => setPriceContainerWidth(value => Math.max(180, value - 20))} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir largura">−</button><output className="w-10 text-center">{priceContainerWidth}</output><button type="button" onClick={() => setPriceContainerWidth(value => value + 20)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar largura">+</button></div></div>
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Altura</span><div className="flex items-center gap-1"><button type="button" onClick={() => setPriceContainerHeight(value => Math.max(80, value - 20))} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir altura">−</button><output className="w-10 text-center">{priceContainerHeight}</output><button type="button" onClick={() => setPriceContainerHeight(value => value + 20)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar altura">+</button></div></div>
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-black text-slate-500"><span>Escala</span><div className="flex items-center gap-1"><button type="button" onClick={() => { setPriceContainerWidth(value => Math.max(180, value - 20)); setPriceContainerHeight(value => Math.max(80, value - 20)); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Diminuir escala">−</button><button type="button" onClick={() => { setPriceContainerWidth(value => value + 20); setPriceContainerHeight(value => value + 20); }} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Aumentar escala">+</button></div></div>
+                    <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Largura<input type="number" min="180" value={priceContainerWidth} onChange={event => setPriceContainerWidth(Math.max(180, Number(event.target.value) || 180))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black dark:border-slate-700 dark:bg-slate-900" /></label>
+                    <label className="flex flex-col gap-1 text-[10px] font-black text-slate-500">Altura<input type="number" min="80" value={priceContainerHeight} onChange={event => setPriceContainerHeight(Math.max(80, Number(event.target.value) || 80))} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black dark:border-slate-700 dark:bg-slate-900" /></label>
                   </div>}
-                  {(['title', 'priceDeLabel', 'priceDe', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <>
-                    <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Tamanho da fonte (px)
-                      <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDeLabel' || selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDeLabel' || selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-black outline-none dark:border-slate-700 dark:bg-slate-900" />
-                    </label>
-                    <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Fonte
-                      <select value={textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY} onChange={event => setTextFontFamilies(current => ({ ...current, [selectedElement as string]: event.target.value }))} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" style={{ fontFamily: textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY }}>
-                        {FONT_OPTIONS.map(font => <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>{font.label}</option>)}
-                      </select>
-                    </label>
+                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <>
+                    <TextColorPicker color={textColors[selectedElement] || DEFAULT_TEXT_COLORS[selectedElement] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />
+                    <TextBackgroundControls value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />
+                    <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'middle'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />
                   </>}
-                  {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />}
-                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextBackgroundControls title={selectedElement === 'pricePor' ? 'Container do preço principal' : undefined} hideSpacing={selectedElement === 'pricePor'} value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />}
-                  {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'middle'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />}
-                  {selectedElement === 'priceContainer' && <button type="button" onClick={() => { setShowPriceContainer(false); setSelectedElement(null); }} className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20"><i className="bi bi-trash3-fill" /> Remover container</button>}
                 </div>
               </aside>
-              
-              {/* Coluna Esquerda: Canvas Preview Interativo (6 cols) */}
-              <div className="lg:col-span-10 flex min-h-0 flex-col items-center justify-center">
-                <div className="relative aspect-[4/5] h-[min(100%,calc(100vh-13rem))] max-h-full w-auto max-w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl bg-white" style={{ transform: `scale(${editorZoom})`, transformOrigin: 'center center' }}>
-                  <canvas
-                    ref={previewCanvasRef}
-                    width={1080}
-                    height={1350}
-                    className="w-full h-full object-contain cursor-crosshair"
-                    onPointerDown={startPostDrag}
-                    onPointerMove={handlePostPointerMove}
-                    onPointerUp={event => { postDragRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
-                    onPointerCancel={() => { postDragRef.current = null; }}
-                    onPointerLeave={() => setIsGridHovered(false)}
-                  />
-                </div>
 
-              </div>
-
-              {/* Coluna Direita: Controles de Customização (6 cols) */}
-              {selectedElement && <div className="hidden">
-                
-                {/* Seção 1: Textos & Preços */}
-                <div className={`${selectedElement ? '' : 'hidden'} bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4`}>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                    <i className="bi bi-type text-blue-500" />
-                    Informações do Produto
-                  </h4>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Título no Post</label>
-                      <input
-                        type="text"
-                        value={productTitle}
-                        onChange={(e) => setProductTitle(e.target.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Preço Normal (DE:)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={customPrice}
-                          onChange={(e) => setCustomPrice(e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Preço Promo (POR:)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={customPromoPrice}
-                          onChange={(e) => setCustomPromoPrice(e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-                    </div>
-
-                    <InstallmentImageGallery images={installmentImageLibrary} names={installmentImageNames} selected={installmentImageUrl} uploading={uploadingInstallmentImage} onSelect={setInstallmentImageUrl} onNameChange={(url, name) => setInstallmentImageNames(current => ({ ...current, [url]: name }))} onUpload={uploadInstallmentImage} />
-
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Medidas Técnicas</label>
-                      <input
-                        type="text"
-                        value={measuresText}
-                        onChange={(e) => setMeasuresText(e.target.value)}
-                        placeholder="Ex: L 180cm · A 210cm · P 50cm"
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção 2: Marca & Rodapé */}
-                <div className={`${selectedElement ? '' : 'hidden'} bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4`}>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                    <i className="bi bi-shop text-amber-500" />
-                    Identidade da Loja
-                  </h4>
-
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Nome da Marca</label>
-                        <input
-                          type="text"
-                          value={brandName}
-                          onChange={(e) => setBrandName(e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Slogan</label>
-                        <input
-                          type="text"
-                          value={slogan}
-                          onChange={(e) => setSlogan(e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Endereço no Rodapé</label>
-                      <input
-                        type="text"
-                        value={footerAddressText}
-                        onChange={(e) => setFooterAddressText(e.target.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção 3: Imagens & Oportunidade */}
-                <div className={`${selectedElement ? '' : 'hidden'} bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4`}>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                    <i className="bi bi-sliders text-purple-500" />
-                    Ajustes Visuais
-                  </h4>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showSecondaryImage}
-                        onChange={(e) => setShowSecondaryImage(e.target.checked)}
-                        className="rounded text-pink-600 focus:ring-0"
-                      />
-                      Foto Secundária
-                    </label>
-
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showOpportunityBadge}
-                        onChange={(e) => setShowOpportunityBadge(e.target.checked)}
-                        className="rounded text-pink-600 focus:ring-0"
-                      />
-                      Selo Oportunidade
-                    </label>
-                  </div>
-
-                  {/* Escala da Imagem Principal */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      <span>Tamanho da Foto Principal</span>
-                      <span>{mainImageScale}%</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="40"
-                      max="180"
-                      value={mainImageScale}
-                      onChange={(e) => setMainImageScale(Math.min(180, Math.max(40, Number(e.target.value) || 40)))}
-                      className="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                </div>
-
-              </div>}
+          {/* Coluna Esquerda: Canvas Preview Interativo (10 cols) */}
+          <div className="lg:col-span-10 flex min-h-0 flex-col items-center justify-center">
+            <div className="relative aspect-[4/5] h-[min(100%,calc(100vh-13rem))] max-h-full w-auto max-w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl bg-white" style={{ transform: `scale(${editorZoom})`, transformOrigin: 'center center' }}>
+              <canvas
+                ref={previewCanvasRef}
+                width={1080}
+                height={1350}
+                className="w-full h-full object-contain cursor-crosshair"
+                onPointerDown={startPostDrag}
+                onPointerMove={handlePostPointerMove}
+                onPointerUp={event => { postDragRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+                onPointerCancel={() => { postDragRef.current = null; }}
+                onPointerLeave={() => setIsGridHovered(false)}
+              />
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-center justify-between shrink-0">
-              {isEditingTemplate ? <div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><span>Salvamento automático</span>{isAutoSaving && <span className="h-3.5 w-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" aria-label="Salvando alterações" />}</div> : <div />}
-
-              {!isEditingTemplate && <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={downloading || isAutoSaving}
-                  onClick={isEditingTemplate ? async () => {
-                    const saved = await saveTemplateDefaults();
-                    if (!saved) return;
-                    setIsModalOpen(false);
-                    setIsEditingTemplate(false);
-                    if (isTemplateRoute && window.opener) window.close();
-                    else if (isTemplateRoute) window.history.back();
-                  } : handleSavePost}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50"
-                >
-                  {downloading || isAutoSaving ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <i className="bi bi-cloud-arrow-up-fill" />
-                  )}
-                  <span>Salvar & Publicar Arte</span>
-                </button>
-              </div>}
-            </div>
-
           </div>
         </div>
-      )}
 
-      {isHeaderFooterInfoOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h4 className="text-sm font-black text-slate-800 dark:text-slate-100">Tamanhos para o Canva</h4><button type="button" onClick={() => setIsHeaderFooterInfoOpen(false)}><i className="bi bi-x-lg" /></button></div><div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"><p><strong>Cabeçalho:</strong> 1080 × 170 px</p><p><strong>Rodapé:</strong> 1080 × 170 px</p><p className="text-xs text-slate-400">Exporte cada arte em PNG para preservar transparência e qualidade.</p></div></div></div>}
-      {isHeaderFooterEditorOpen && <HeaderFooterModelEditor name={headerFooterModelName} headerImage={headerTemplateImage} footerImage={footerTemplateImage} uploading={uploadingTemplateImage} onNameChange={setHeaderFooterModelName} onImageChange={uploadTemplateImage} onRemoveImage={kind => kind === 'header' ? setHeaderTemplateImage('') : setFooterTemplateImage('')} onClose={() => setIsHeaderFooterEditorOpen(false)} />}
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-center justify-between shrink-0">
+          {isEditingTemplate ? <div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><span>Salvamento automático</span>{isAutoSaving && <span className="h-3.5 w-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" aria-label="Salvando alterações" />}</div> : <div />}
 
+          {!isEditingTemplate && <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={downloading || isAutoSaving}
+              onClick={handleSavePost}
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50"
+            >
+              {downloading || isAutoSaving ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <i className="bi bi-cloud-arrow-up-fill" />
+              )}
+              <span>Salvar & Publicar Arte</span>
+            </button>
+          </div>}
+        </div>
+
+      </div>
     </div>
+  )}
+
+  {isHeaderFooterInfoOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h4 className="text-sm font-black text-slate-800 dark:text-slate-100">Tamanhos para o Canva</h4><button type="button" onClick={() => setIsHeaderFooterInfoOpen(false)}><i className="bi bi-x-lg" /></button></div><div className="mt-4 space-y-3 text-sm text-slate-600 dark:bg-slate-300"><p><strong>Cabeçalho:</strong> 1080 × 170 px</p><p><strong>Rodapé:</strong> 1080 × 170 px</p><p className="text-xs text-slate-400">Exporte cada arte em PNG para preservar transparência e qualidade.</p></div></div></div>}
+  {isHeaderFooterEditorOpen && <HeaderFooterModelEditor name={headerFooterModelName} headerImage={headerTemplateImage} footerImage={footerTemplateImage} uploading={uploadingTemplateImage} onNameChange={setHeaderFooterModelName} onImageChange={uploadTemplateImage} onRemoveImage={kind => kind === 'header' ? setHeaderTemplateImage('') : setFooterTemplateImage('')} onClose={() => setIsHeaderFooterEditorOpen(false)} />}
+
+</div>
   );
 }
