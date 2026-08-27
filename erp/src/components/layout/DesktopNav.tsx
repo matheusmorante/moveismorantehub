@@ -154,7 +154,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
                         <a 
-                            href="https://expo.dev/artifacts/eas/uHw2grrkolivlKdRZZQPo6On6bFHDPsnfGnMkfhCGn8.apk"
+                            href="https://expo.dev/artifacts/eas/gocpOfVhge5yLma5PoOpvPw0Uctw4RkZ0GadFwwS7wQ.apk"
                             download="morante-hub.apk"
                             target="_blank"
                             rel="noopener noreferrer"

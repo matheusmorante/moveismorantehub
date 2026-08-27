@@ -33,11 +33,11 @@ export function buildOrderObservations(order: any): Observation[] {
 export function OrderObservationLabels({ observations, dark }: { observations: Observation[]; dark: boolean }) {
   if (!observations.length) return null;
   return <View style={[styles.container, dark && styles.dark]}>
-    <View style={styles.heading}><AlertCircle size={16} color="#b45309" /><Text style={styles.title}>Observações do pedido</Text></View>
+    <View style={styles.heading}><AlertCircle size={16} color={dark ? "#fca5a5" : "#dc2626"} /><Text style={[styles.title, dark && styles.titleDark]}>Observações do pedido</Text></View>
     <View style={styles.labels}>{observations.map((item, index) => <View key={`${item.type}-${index}`} style={[styles.label, dark && styles.labelDark]}><Text style={[styles.text, dark && styles.textDark]}>{item.text}</Text></View>)}</View>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 14, borderRadius: 18, borderWidth: 1, gap: 10, backgroundColor: '#fef3c7', borderColor: '#fde68a' }, dark: { backgroundColor: '#1e293b', borderColor: '#334155' }, heading: { flexDirection: 'row', alignItems: 'center', gap: 7 }, title: { fontSize: 11, fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }, labels: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, label: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#fde68a', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 }, labelDark: { backgroundColor: '#0f172a', borderColor: '#475569' }, text: { fontSize: 12, fontWeight: '800', color: '#92400e' }, textDark: { color: '#f8fafc' },
+  container: { padding: 14, borderRadius: 18, borderWidth: 1, gap: 10, backgroundColor: '#fef2f2', borderColor: '#fecaca' }, dark: { backgroundColor: '#1e293b', borderColor: '#ef4444' }, heading: { flexDirection: 'row', alignItems: 'center', gap: 7 }, title: { fontSize: 11, fontWeight: '900', color: '#dc2626', textTransform: 'uppercase' }, titleDark: { color: '#fca5a5' }, labels: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, label: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#fecaca', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 }, labelDark: { backgroundColor: '#0f172a', borderColor: '#7f1d1d' }, text: { fontSize: 12, fontWeight: '800', color: '#991b1b' }, textDark: { color: '#f8fafc' },
 });

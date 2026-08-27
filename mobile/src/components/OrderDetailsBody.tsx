@@ -33,13 +33,13 @@ export function OrderDetailsBody({ order, isDarkMode, onStartDelivery }: Props) 
   const outside = isAssemblyOutsideType(handling, handlingOptions) || items.some((item: any) => isAssemblyOutsideType(String(item.handlingType || item.handling || ''), handlingOptions));
   const internal = isAssemblyInternalType(handling, handlingOptions) || items.some((item: any) => isAssemblyInternalType(String(item.handlingType || item.handling || ''), handlingOptions));
 
-  return <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ gap: 16, paddingBottom: 48 }}>
+  return <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ gap: 16, paddingBottom: 160 }}>
     <OrderTypeBadges assistance={assistance} pickup={pickup} internal={internal} outside={outside} />
     <OrderObservationLabels observations={buildOrderObservations(order)} dark={isDarkMode} />
     <CustomerSection customer={customer} dark={isDarkMode} />
     <AddressSection shipping={shipping} customer={customer} schedule={schedule} order={order} dark={isDarkMode} />
-    <OrderPaymentSection payments={payments} fallbackMethod={data.paymentMethod || data.payment_method} dark={isDarkMode} />
     <ItemsSection items={items} total={getOrderTotalValue(order)} pendingTotal={getPendingPaymentTotal(payments)} dark={isDarkMode} />
+    <OrderPaymentSection payments={payments} fallbackMethod={data.paymentMethod || data.payment_method} dark={isDarkMode} />
     <OrderDeliveryStartFooter order={order} onStart={onStartDelivery} />
   </ScrollView>;
 }

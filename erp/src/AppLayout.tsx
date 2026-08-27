@@ -178,7 +178,7 @@ export default function AppLayout() {
                         </Link>
                         
                         <a
-                            href="https://expo.dev/artifacts/eas/uHw2grrkolivlKdRZZQPo6On6bFHDPsnfGnMkfhCGn8.apk"
+                            href="https://expo.dev/artifacts/eas/gocpOfVhge5yLma5PoOpvPw0Uctw4RkZ0GadFwwS7wQ.apk"
                             download="morante-hub.apk"
                             target="_blank"
                             rel="noopener noreferrer"

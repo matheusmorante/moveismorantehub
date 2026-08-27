@@ -182,7 +182,7 @@ const Profile = () => {
 
                         <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
                             <a 
-                                href="https://expo.dev/accounts/morante/projects/mobile/builds/9bba56a8-1ab4-46b5-ac41-637fbb6cab2d"
+                                href="https://expo.dev/accounts/morante/projects/mobile/builds/d70a8c93-05f2-4277-9dea-2280bc39513f"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-500/20 transition-all text-xs"

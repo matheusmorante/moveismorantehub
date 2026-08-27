@@ -22,9 +22,72 @@ export function AddressSection({ shipping, customer, schedule, order, dark }: an
 }
 
 export function ItemsSection({ items, total, pendingTotal, dark }: any) {
-  return <><Card dark={dark}><Header dark={dark} icon={<FileText size={18} color="#7c3aed" />} title={`ITENS DO PEDIDO (${items.length})`} />{items.map((item: any, index: number) => { const qty = Number(item.quantity || item.qty || 1); const price = Number(item.total || item.price || item.unitPrice || 0); return <View key={index} style={styles.item}><Text style={[styles.itemName, dark && styles.light]}><Text style={styles.qty}>{qty}x</Text> {formatItemNameExact(item)}</Text>{price > 0 && <Text style={styles.price}>R$ {price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>}</View>; })}</Card><View style={[styles.totalCard, dark && styles.totalDark]}>{pendingTotal > 0 && <View style={styles.pendingBox}><Text style={styles.pendingLabel}>VALOR A PAGAR</Text><Text style={styles.pendingValue}>R$ {pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text></View>}<View style={styles.totalRow}><View style={styles.inline}><DollarSign size={21} color="#16a34a" /><Text style={[styles.totalTitle, dark && styles.light]}>VALOR TOTAL</Text></View><Text style={styles.total}>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text></View></View></>;
+  return (
+    <>
+      <Card dark={dark}>
+        <Header dark={dark} icon={<FileText size={18} color="#7c3aed" />} title={`ITENS DO PEDIDO (${items.length})`} />
+        {items.map((item: any, index: number) => {
+          const qty = Number(item.quantity || item.qty || 1);
+          const unitPrice = Number(item.unitPrice || 0);
+          const unitDiscount = Number(item.unitDiscount || 0);
+          const discountType = item.discountType || 'fixed';
+
+          let discountValue = 0;
+          if (unitDiscount > 0 && unitPrice > 0) {
+            discountValue = discountType === 'fixed' ? unitDiscount : (unitPrice * unitDiscount) / 100;
+          }
+
+          const finalTotalPrice = Number(item.total || item.price || item.unitPrice || 0);
+          const finalUnitPrice = finalTotalPrice / qty;
+
+          const hasDiscount = discountValue > 0 || (unitPrice > 0 && unitPrice > finalUnitPrice + 0.01);
+
+          const displayFinalPrice = finalTotalPrice;
+          const displayOriginalPrice = hasDiscount ? (unitPrice * qty) : finalTotalPrice;
+
+          return (
+            <View key={index} style={styles.item}>
+              <Text style={[styles.itemName, dark && styles.light]}>
+                <Text style={styles.qty}>{qty}x</Text> {formatItemNameExact(item)}
+              </Text>
+              {hasDiscount && displayOriginalPrice > displayFinalPrice ? (
+                <View style={styles.priceContainer}>
+                  <Text style={[styles.originalPrice, dark && styles.originalPriceDark]}>
+                    R$ {displayOriginalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Text>
+                  <Text style={[styles.arrow, dark && styles.light]}>→</Text>
+                  <Text style={styles.price}>
+                    R$ {displayFinalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+              ) : displayFinalPrice > 0 ? (
+                <Text style={styles.price}>
+                  R$ {displayFinalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })}
+      </Card>
+      <View style={[styles.totalCard, dark && styles.totalDark]}>
+        {pendingTotal > 0 && (
+          <View style={styles.pendingBox}>
+            <Text style={styles.pendingLabel}>VALOR A PAGAR</Text>
+            <Text style={styles.pendingValue}>R$ {pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+          </View>
+        )}
+        <View style={styles.totalRow}>
+          <View style={styles.inline}>
+            <DollarSign size={21} color="#16a34a" />
+            <Text style={[styles.totalTitle, dark && styles.light]}>VALOR TOTAL</Text>
+          </View>
+          <Text style={styles.total}>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+        </View>
+      </View>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }, green: { backgroundColor: '#10b981' }, purple: { backgroundColor: '#a855f7' }, orange: { backgroundColor: '#f59e0b' }, red: { backgroundColor: '#ef4444' }, badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' }, card: { backgroundColor: '#fff', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0', gap: 10 }, cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' }, header: { flexDirection: 'row', alignItems: 'center', gap: 8 }, title: { fontSize: 12, fontWeight: '900', color: '#0f172a' }, light: { color: '#f8fafc' }, strong: { fontSize: 16, fontWeight: '900', color: '#0f172a' }, detail: { fontSize: 12, fontWeight: '700', color: '#64748b' }, contact: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 11, padding: 10, gap: 3 }, contactDark: { backgroundColor: '#0f172a', borderColor: '#334155' }, contactName: { fontSize: 10, fontWeight: '900', color: '#2563eb', textTransform: 'uppercase' }, contactPhone: { fontSize: 13, fontWeight: '800', color: '#334155' }, addressText: { fontSize: 13, fontWeight: '700', color: '#334155', lineHeight: 19 }, route: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: '#eff6ff', padding: 9, borderRadius: 11 }, routeText: { fontSize: 12, fontWeight: '800', color: '#2563eb' }, inline: { flexDirection: 'row', alignItems: 'center', gap: 5 }, schedule: { gap: 7 }, item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }, itemName: { flex: 1, fontSize: 13, fontWeight: '700', color: '#1e3a8a' }, qty: { color: '#7c3aed', fontWeight: '900' }, price: { fontSize: 12, fontWeight: '800', color: '#16a34a' }, totalCard: { backgroundColor: '#f0fdf4', padding: 17, borderRadius: 20, borderWidth: 1, borderColor: '#bbf7d0', gap: 10 }, totalDark: { backgroundColor: '#064e3b', borderColor: '#047857' }, pendingBox: { borderBottomWidth: 1, borderBottomColor: '#bfdbfe', paddingBottom: 9 }, pendingLabel: { fontSize: 10, fontWeight: '900', color: '#2563eb' }, pendingValue: { fontSize: 18, fontWeight: '900', color: '#2563eb' }, totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, totalTitle: { fontSize: 12, fontWeight: '900', color: '#065f46' }, total: { fontSize: 17, fontWeight: '900', color: '#16a34a' },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }, green: { backgroundColor: '#10b981' }, purple: { backgroundColor: '#a855f7' }, orange: { backgroundColor: '#f59e0b' }, red: { backgroundColor: '#ef4444' }, badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' }, card: { backgroundColor: '#fff', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0', gap: 10 }, cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' }, header: { flexDirection: 'row', alignItems: 'center', gap: 8 }, title: { fontSize: 12, fontWeight: '900', color: '#0f172a' }, light: { color: '#f8fafc' }, strong: { fontSize: 16, fontWeight: '900', color: '#0f172a' }, detail: { fontSize: 12, fontWeight: '700', color: '#64748b' }, contact: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 11, padding: 10, gap: 3 }, contactDark: { backgroundColor: '#0f172a', borderColor: '#334155' }, contactName: { fontSize: 10, fontWeight: '900', color: '#2563eb', textTransform: 'uppercase' }, contactPhone: { fontSize: 13, fontWeight: '800', color: '#334155' }, addressText: { fontSize: 13, fontWeight: '700', color: '#334155', lineHeight: 19 }, route: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: '#eff6ff', padding: 9, borderRadius: 11 }, routeText: { fontSize: 12, fontWeight: '800', color: '#2563eb' }, inline: { flexDirection: 'row', alignItems: 'center', gap: 5 }, schedule: { gap: 7 }, item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }, itemName: { flex: 1, fontSize: 13, fontWeight: '700', color: '#1e3a8a' }, qty: { color: '#7c3aed', fontWeight: '900' }, price: { fontSize: 12, fontWeight: '800', color: '#16a34a' }, totalCard: { backgroundColor: '#f0fdf4', padding: 17, borderRadius: 20, borderWidth: 1, borderColor: '#bbf7d0', gap: 10 }, totalDark: { backgroundColor: '#064e3b', borderColor: '#047857' }, pendingBox: { borderBottomWidth: 1, borderBottomColor: '#bfdbfe', paddingBottom: 9 }, pendingLabel: { fontSize: 10, fontWeight: '900', color: '#2563eb' }, pendingValue: { fontSize: 18, fontWeight: '900', color: '#2563eb' }, totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, totalTitle: { fontSize: 12, fontWeight: '900', color: '#065f46' }, total: { fontSize: 17, fontWeight: '900', color: '#16a34a' }, priceContainer: { flexDirection: 'row', alignItems: 'center', gap: 5 }, originalPrice: { fontSize: 11, fontWeight: '700', color: '#94a3b8', opacity: 0.7, textDecorationLine: 'line-through' }, originalPriceDark: { color: '#64748b' }, arrow: { fontSize: 12, fontWeight: '800', color: '#64748b', marginHorizontal: 2 },
 });

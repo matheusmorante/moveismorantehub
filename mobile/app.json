@@ -3,8 +3,8 @@
     "name": "Equipe Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.0.2",
-    "runtimeVersion": "1.0.1",
+    "version": "1.0.3",
+    "runtimeVersion": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,11 +25,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.morante.mobile"
+      "bundleIdentifier": "com.morante.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
