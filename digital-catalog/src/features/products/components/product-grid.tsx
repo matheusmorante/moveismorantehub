@@ -205,57 +205,96 @@ export function ProductGrid({ filters }: ProductGridProps) {
         const { data: styleData, error: styleError } = await stylePromise
         if (!styleError && styleData) setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings)
 
+        // Carrega a lista completa de categorias do banco para resolução de nomes em filtros por ID
+        const { data: dbCategoriesList } = await supabase.from("categories").select("id, name, type")
+
+        const normalizeSearch = (str: string) => {
+          if (!str) return ""
+          return str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[-_/]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+        }
+
+        const getSynonyms = (token: string): string[] => {
+          if (/^(roupa|roupas|guarda|roupeiro|roupeiros|guardaroupa|guarda-roupa)$/.test(token)) {
+            return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros", "guarda-roupa", "guarda roupa"]
+          }
+          if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
+            return ["sofa", "sofas", "estofado", "estofados"]
+          }
+          if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
+            return ["colchao", "colchoes"]
+          }
+          if (/^(cama|camas|box|sommier)$/.test(token)) {
+            return ["cama", "camas", "box"]
+          }
+          if (/^(mesa|mesas)$/.test(token)) {
+            return ["mesa", "mesas"]
+          }
+          if (/^(painel|paineis|rack|racks)$/.test(token)) {
+            return ["painel", "paineis", "rack", "racks"]
+          }
+          return [token]
+        }
+
         if (filters?.envs && filters.envs.length > 0) {
+          const envCategoryNames = (dbCategoriesList || [])
+            .filter(c => filters.envs.includes(c.id))
+            .map(c => normalizeSearch(c.name))
+
           results = results.filter(p => {
             const prodCatIds = p.product_categories?.map((pc: any) => pc.category_id) || []
-            return prodCatIds.some((catId: string) => allowedCategoryIds.includes(catId))
+            if (prodCatIds.some((catId: string) => allowedCategoryIds.includes(catId))) {
+              return true
+            }
+
+            const cleanName = normalizeSearch(p.name || "")
+            const cleanDesc = normalizeSearch(p.description || "")
+            const fullText = `${cleanName} ${cleanDesc}`
+
+            return envCategoryNames.some(envName => {
+              const tokens = envName.split(" ").filter(t => t.length >= 2)
+              return tokens.every(token => {
+                const syns = getSynonyms(token)
+                return syns.some(syn => fullText.includes(syn))
+              })
+            })
           })
         }
 
         if (filters?.cats && filters.cats.length > 0) {
+          const selectedCatNames = (dbCategoriesList || [])
+            .filter(c => filters.cats.includes(c.id))
+            .map(c => normalizeSearch(c.name))
+
           results = results.filter(p => {
             const prodCatIds = p.product_categories?.map((pc: any) => pc.category_id) || []
-            return prodCatIds.some((catId: string) => filters.cats.includes(catId))
+            if (prodCatIds.some((catId: string) => filters.cats.includes(catId))) {
+              return true
+            }
+
+            // Fallback por texto para produtos sem o id na tabela associativa product_categories
+            const cleanName = normalizeSearch(p.name || "")
+            const cleanDesc = normalizeSearch(p.description || "")
+            const fullText = `${cleanName} ${cleanDesc}`
+
+            return selectedCatNames.some(catName => {
+              const tokens = catName.split(" ").filter(t => t.length >= 2)
+              return tokens.every(token => {
+                const syns = getSynonyms(token)
+                return syns.some(syn => fullText.includes(syn))
+              })
+            })
           })
         }
 
         if (filters?.search) {
-          const normalizeSearch = (str: string) => {
-            if (!str) return ""
-            return str
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-              .toLowerCase()
-              .replace(/[-_/]/g, " ")
-              .replace(/\s+/g, " ")
-              .trim()
-          }
-
           const rawSearch = normalizeSearch(filters.search)
           const searchTokens = rawSearch.split(" ").filter(token => token.length >= 2)
-
-          // Mapa de sinônimos/variações do setor de móveis
-          const getSynonyms = (token: string): string[] => {
-            if (/^(roupa|roupas|guarda|roupeiro|roupeiros)$/.test(token)) {
-              return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros"]
-            }
-            if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
-              return ["sofa", "sofas", "estofado", "estofados"]
-            }
-            if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
-              return ["colchao", "colchoes"]
-            }
-            if (/^(cama|camas|box|sommier)$/.test(token)) {
-              return ["cama", "camas", "box"]
-            }
-            if (/^(mesa|mesas)$/.test(token)) {
-              return ["mesa", "mesas"]
-            }
-            if (/^(painel|paineis|rack|racks)$/.test(token)) {
-              return ["painel", "paineis", "rack", "racks"]
-            }
-            return [token]
-          }
 
           results = results.filter(p => {
             const cleanName = normalizeSearch(p.name || "")
@@ -266,7 +305,6 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
             const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats}`
 
-            // Cada palavra pesquisada deve bater diretamente ou via sinônimo no texto do produto
             return searchTokens.every(token => {
               const synonyms = getSynonyms(token)
               return synonyms.some(syn => fullSearchableText.includes(syn))
