@@ -34,12 +34,6 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
         }
     };
 
-    const rotateItem = (idx: number) => {
-        const currentRotation = labelItems[idx].rotation || 0;
-        const nextRotation = (currentRotation + 90) % 360;
-        updateItem(idx, { rotation: nextRotation });
-    };
-
     const removeItem = (idx: number) => {
         setLabelItems(prev => prev.filter((_, i) => i !== idx));
     };
@@ -88,16 +82,17 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
     }
 
     return (
-        <div className="flex flex-col gap-3">             {labelItems.map((item, idx) => (
+        <div className="flex flex-col gap-3">
+            {labelItems.map((item, idx) => (
                 <div 
                     key={idx} 
-                    draggable={selectedCategory !== 'precos'}
+                    draggable={selectedCategory !== 'precos' || printingMode === 'simple'}
                     onDragStart={(e) => handleDragStart(e, idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, idx)}
                     className={`group relative bg-white dark:bg-slate-900 rounded-[2.5rem] border p-4 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 flex items-center gap-4 ${
-                        selectedCategory !== 'precos' ? 'cursor-grab active:cursor-grabbing' : ''
+                        (selectedCategory !== 'precos' || printingMode === 'simple') ? 'cursor-grab active:cursor-grabbing' : ''
                     } ${
                         dragOverIdx === idx 
                             ? 'border-2 border-dashed border-blue-500 bg-blue-500/5 scale-[1.01] z-10' 
@@ -105,14 +100,14 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     }`}
                 >
                     {/* Drag Grip Handle */}
-                    {selectedCategory !== 'precos' && (
+                    {(selectedCategory !== 'precos' || printingMode === 'simple') && (
                         <div className="text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-4 flex items-center justify-center pointer-events-none select-none">
                             <i className="bi bi-grip-vertical text-lg opacity-60" />
                         </div>
                     )}
                     
                     {/* Miniatura Interativa */}
-                    {selectedCategory !== 'precos' && (
+                    {(selectedCategory !== 'precos' || printingMode === 'simple') && (
                         <div className="flex flex-col gap-2 items-center">
                             <div className="relative w-20 h-20 shrink-0 rounded-[1.5rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-2 group/thumb shadow-inner">
                                 {item.isBlank ? (
@@ -186,8 +181,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     )}
 
                     <div className="flex-1 flex flex-col gap-4 min-w-0">
-                        {/* Layout compacto para etiquetas de preço */}
-                        {selectedCategory === 'precos' && !item.isBlank && (
+                        {/* Layout compacto para etiquetas de preço no modo avançado */}
+                        {selectedCategory === 'precos' && printingMode === 'advanced' && !item.isBlank && (
                             <div className="flex items-center gap-3">
                                 {/* Título editável */}
                                 <div className="flex-1 min-w-0">
@@ -238,8 +233,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                             </div>
                         )}
 
-                        {/* Layout original para outras categorias */}
-                        {(selectedCategory !== 'precos' || item.isBlank) && (
+                        {/* Layout para modo por imagem ou outras categorias */}
+                        {(selectedCategory !== 'precos' || printingMode === 'simple' || item.isBlank) && (
                             <>
                                 {/* Header do Item */}
                                 <div className="flex items-center justify-between">
@@ -248,7 +243,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                             {item.isBlank ? 'Espaçador em Branco' : `Item #${idx + 1}`}
                                         </label>
                                         <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase truncate tracking-tighter">
-                                            {item.isBlank ? 'Etiqueta Em Branco (Vazia)' : (item.name || 'Logotipo / Rótulo Sem Título')}
+                                            {item.isBlank ? 'Etiqueta Em Branco (Vazia)' : (item.name || 'Etiqueta Personalizada')}
                                         </h4>
                                     </div>
                                     <button 
@@ -276,7 +271,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                         </div>
                                     </div>
 
-                                    {!item.isBlank && selectedCategory !== 'precos' && (
+                                    {!item.isBlank && (
                                         <div>
                                             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block px-1">Escala</label>
                                             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-2 py-1.5">

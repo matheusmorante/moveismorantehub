@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getSettings } from '@/pages/utils/settingsService';
+import { getSettings } from '../pages/utils/settingsService';
 
 type Theme = 'light' | 'dark';
 

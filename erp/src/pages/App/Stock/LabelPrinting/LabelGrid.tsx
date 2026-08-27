@@ -274,7 +274,7 @@ const LabelGrid: React.FC<Props> = ({
                                     return (
                                         <LabelItem 
                                             config={itemConfig} 
-                                            image={item.isBlank ? null : (item.image || (item.type === 'logo' ? item.image : (cellImages[i] || (config.category === 'precos' ? null : image))))} 
+                                            image={item.isBlank ? null : (item.image || (item.type === 'logo' ? item.image : (cellImages[i] || image)))} 
                                             index={i} 
                                             scale={item.scale ?? config.imageScale}
                                             rotation={item.rotation || 0}

@@ -19,7 +19,10 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#2563EB"
+          "color": "#2563EB",
+          "sounds": [
+            "./assets/levelup.mp3"
+          ]
         }
       ]
     ],

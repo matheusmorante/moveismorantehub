@@ -1,6 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
-import { X, ShieldCheck, Settings, LogOut } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing } from 'lucide-react-native';
+import * as Updates from 'expo-updates';
+import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
+import { testRemotePushNotification } from '../../services/notificationService';
 
 interface Props {
   visible: boolean;
@@ -25,6 +28,23 @@ export const ProfileModal: React.FC<Props> = ({
   handleLogout,
   WEB_URL,
 }) => {
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [testingNotif, setTestingNotif] = useState(false);
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    await checkAndUpdateManually();
+    setCheckingUpdate(false);
+  };
+
+  const handleTestNotif = async () => {
+    setTestingNotif(true);
+    await testRemotePushNotification();
+    setTestingNotif(false);
+  };
+
+  const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 7)}` : 'v1.0.3';
+
   return (
     <Modal
       visible={visible}
@@ -74,6 +94,52 @@ export const ProfileModal: React.FC<Props> = ({
 
           {/* Menu de Ações */}
           <View style={styles.profileMenuItems}>
+            {/* Botão Testar Notificação na Barra */}
+            <TouchableOpacity
+              style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
+              onPress={handleTestNotif}
+              disabled={testingNotif}
+            >
+              <View style={[styles.profileMenuIconWrapper, { backgroundColor: '#eff6ff' }]}>
+                {testingNotif ? (
+                  <ActivityIndicator size="small" color="#2563eb" />
+                ) : (
+                  <BellRing size={18} color="#2563eb" />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileMenuLabel, isDarkMode && styles.textPrimaryDark]}>
+                  Testar Notificação na Barra
+                </Text>
+                <Text style={styles.profileMenuSubtext}>
+                  Dispara um teste com banner e som no aparelho
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Botão Verificar Atualizações */}
+            <TouchableOpacity
+              style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
+              onPress={handleCheckUpdate}
+              disabled={checkingUpdate}
+            >
+              <View style={[styles.profileMenuIconWrapper, { backgroundColor: '#f0fdf4' }]}>
+                {checkingUpdate ? (
+                  <ActivityIndicator size="small" color="#16a34a" />
+                ) : (
+                  <RefreshCw size={18} color="#16a34a" />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileMenuLabel, isDarkMode && styles.textPrimaryDark]}>
+                  {checkingUpdate ? 'Buscando atualizações...' : 'Verificar Atualizações'}
+                </Text>
+                <Text style={styles.profileMenuSubtext}>
+                  Versão: {currentUpdateId} • Canal: production
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Botão Configurações */}
             <TouchableOpacity
               style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
