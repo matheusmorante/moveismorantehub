@@ -191,6 +191,18 @@ const Profile = () => {
                                 Baixar App Android (v1.0.2)
                             </a>
 
+                            {/* QR Code Container */}
+                            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                                <div className="w-20 h-20 bg-white p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 shrink-0">
+                                    <img src="/mobile-qrcode.png" alt="QR Code Instalação Mobile" className="w-full h-full object-contain rounded-md" />
+                                </div>
+                                <div className="flex flex-col text-left">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Instale no Celular</span>
+                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight">Aponte a Câmera</span>
+                                    <span className="text-[9px] text-slate-400 mt-1">QR Code direto para o APK v1.0.2</span>
+                                </div>
+                            </div>
+
                             <button
                                 onClick={logout}
                                 className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"

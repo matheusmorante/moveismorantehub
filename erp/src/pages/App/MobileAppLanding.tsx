@@ -47,24 +47,38 @@ export default function MobileAppLanding() {
             Mais velocidade para sua equipe de campo.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
-             <a 
-                href="https://expo.dev/accounts/morante/projects/mobile/builds/9bba56a8-1ab4-46b5-ac41-637fbb6cab2d"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
-             >
-                <i className="bi bi-download text-xl"></i>
-                Baixar APK Oficial (v1.0.2)
-             </a>
+          <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start animate-slide-up">
+             <div className="flex flex-col gap-3">
+               <a 
+                  href="https://expo.dev/accounts/morante/projects/mobile/builds/9bba56a8-1ab4-46b5-ac41-637fbb6cab2d"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
+               >
+                  <i className="bi bi-download text-xl"></i>
+                  Baixar APK Oficial (v1.0.2)
+               </a>
 
-             <button 
-               onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}
-               className="px-8 py-5 bg-slate-800 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all border border-slate-700 active:scale-95"
-             >
-                <i className="bi bi-apple text-xl"></i>
-                App Store (iOS)
-             </button>
+               <button 
+                 onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}
+                 className="px-8 py-4 bg-slate-800 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all border border-slate-700 active:scale-95"
+               >
+                  <i className="bi bi-apple text-xl"></i>
+                  App Store (iOS)
+               </button>
+             </div>
+
+             {/* QR Code Container */}
+             <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center gap-4 shadow-2xl">
+               <div className="w-24 h-24 bg-white p-1.5 rounded-xl shadow-md">
+                 <img src="/mobile-qrcode.png" alt="QR Code Instalação Mobile" className="w-full h-full object-contain rounded-lg" />
+               </div>
+               <div className="flex flex-col text-left pr-2">
+                 <span className="text-xs font-black uppercase tracking-wider text-blue-400">Instalação Rápida</span>
+                 <span className="text-sm font-bold text-white leading-tight">Escaneie o QR Code</span>
+                 <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v1.0.2</span>
+               </div>
+             </div>
           </div>
 
           <div className="mt-12 flex items-center gap-6 justify-center lg:justify-start opacity-50">
