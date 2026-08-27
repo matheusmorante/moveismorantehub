@@ -4,6 +4,7 @@ import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing } from 'lucide-re
 import * as Updates from 'expo-updates';
 import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
 import { testRemotePushNotification } from '../../services/notificationService';
+import { APP_VERSION, APP_BUILD } from '../../constants/appVersion';
 
 interface Props {
   visible: boolean;
@@ -43,8 +44,7 @@ export const ProfileModal: React.FC<Props> = ({
     setTestingNotif(false);
   };
 
-  const appVersion = Updates.runtimeVersion ? `v${Updates.runtimeVersion}` : 'v1.0.4';
-  const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 8)}` : 'Mais recente';
+  const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 8)}` : 'OTA Ativa';
 
   return (
     <Modal
@@ -64,7 +64,7 @@ export const ProfileModal: React.FC<Props> = ({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={[styles.profileModalTitle, isDarkMode && styles.textPrimaryDark]}>Perfil</Text>
               <View style={[styles.versionBadge, isDarkMode && styles.versionBadgeDark]}>
-                <Text style={styles.versionBadgeText}>{appVersion}</Text>
+                <Text style={styles.versionBadgeText}>v{APP_VERSION}</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -141,7 +141,7 @@ export const ProfileModal: React.FC<Props> = ({
                   {checkingUpdate ? 'Buscando atualizações...' : 'Verificar Atualizações'}
                 </Text>
                 <Text style={styles.profileMenuSubtext}>
-                  Versão: {appVersion} • Update: {currentUpdateId} • Canal: production
+                  Versão: v{APP_VERSION} (Build {APP_BUILD}) • Update: {currentUpdateId}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -184,7 +184,7 @@ export const ProfileModal: React.FC<Props> = ({
           {/* Rodapé Informativo de Versão */}
           <View style={{ marginTop: 18, alignItems: 'center' }}>
             <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Equipe Morante • {appVersion} • Morante Móveis
+              Equipe Morante • v{APP_VERSION} • Morante Móveis
             </Text>
           </View>
         </View>

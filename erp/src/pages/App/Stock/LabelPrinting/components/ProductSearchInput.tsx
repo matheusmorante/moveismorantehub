@@ -7,8 +7,6 @@ interface ProductSearchInputProps {
     products: Product[];
     selectedProduct?: Product | null;
     onSelectProduct: (product: Product | null) => void;
-    onLoadMore?: () => void;
-    hasMore?: boolean;
     placeholder?: string;
     className?: string;
 }
@@ -17,8 +15,6 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     products,
     selectedProduct = null,
     onSelectProduct,
-    onLoadMore,
-    hasMore = false,
     placeholder = "Digite para buscar produto...",
     className = ""
 }) => {
@@ -47,6 +43,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     const [filterText, setFilterText] = useState(getProductTitle(selectedProduct));
     const [dbSearchResults, setDbSearchResults] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [dropdownMaxHeight, setDropdownMaxHeight] = useState(288);
     const containerRef = useRef<HTMLDivElement>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -67,6 +64,26 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // O painel de resultados ocupa todo o espaço livre abaixo da busca. Assim,
+    // listas grandes rolam dentro dele sem ficar escondidas pela tela.
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const updateDropdownHeight = () => {
+            const bottom = containerRef.current?.getBoundingClientRect().bottom;
+            if (bottom === undefined) return;
+            setDropdownMaxHeight(Math.max(0, window.innerHeight - bottom - 16));
+        };
+
+        updateDropdownHeight();
+        window.addEventListener('resize', updateDropdownHeight);
+        window.addEventListener('scroll', updateDropdownHeight, true);
+        return () => {
+            window.removeEventListener('resize', updateDropdownHeight);
+            window.removeEventListener('scroll', updateDropdownHeight, true);
+        };
+    }, [isOpen]);
 
     // BUSCA AO VIVO NO SUPABASE POR TÍTULO, NOME, CÓDIGO, SKU OU DESCRIÇÃO
     useEffect(() => {
@@ -240,7 +257,10 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
             {/* Dropdown Popover Modal filtrado */}
             {isOpen && (
-                <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar p-1.5 animate-slide-up">
+                <div
+                    className="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar p-1.5 animate-slide-up"
+                    style={{ maxHeight: dropdownMaxHeight }}
+                >
                     {isLoading && combinedProducts.length === 0 ? (
                         <div className="p-4 text-center text-slate-400 text-xs font-bold flex items-center justify-center gap-2">
                             <i className="bi bi-arrow-repeat animate-spin text-sm text-blue-500" />
@@ -314,17 +334,6 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                         <div className="p-4 text-center">
                             <span className="text-xs font-medium text-slate-400 block mb-1">Nenhum produto encontrado com "{filterText}"</span>
                         </div>
-                    )}
-
-                    {hasMore && onLoadMore && (
-                        <button
-                            type="button"
-                            onClick={() => onLoadMore()}
-                            className="flex items-center justify-center gap-2 w-full p-2.5 mt-1 border-t border-slate-100 dark:border-slate-800 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-xl transition-all cursor-pointer"
-                        >
-                            <i className="bi bi-arrow-down-circle-fill text-sm" />
-                            <span>Carregar Mais Produtos</span>
-                        </button>
                     )}
                 </div>
             )}
