@@ -1,15 +1,21 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
 export function useSearch() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentSearchParam = searchParams.get("search") || ""
+
   const [isOpen, setIsOpen] = useState(false)
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(currentSearchParam)
   const inputRef = useRef<HTMLInputElement>(null)
   const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setQuery(currentSearchParam)
+  }, [currentSearchParam])
   
   // Sugestões
   const [showSuggestions, setShowSuggestions] = useState(false)

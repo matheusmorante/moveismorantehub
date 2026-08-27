@@ -76,15 +76,26 @@ export function Header() {
               </div>
             ) : (
               <div className="overflow-y-auto divide-y divide-gray-100">
+                {search.query.trim().length >= 2 && (
+                  <Link
+                    href={`/?search=${encodeURIComponent(search.query.trim())}#produtos`}
+                    onClick={() => search.setShowSuggestions(false)}
+                    className="w-full text-left px-4 py-2.5 flex items-center justify-start gap-2 text-xs font-black text-red-600 border-b border-gray-100 bg-red-50/40"
+                  >
+                    <Search className="h-4 w-4 text-red-600 shrink-0" />
+                    <span>Buscar por &quot;{search.query.trim()}&quot; em todo o catálogo</span>
+                  </Link>
+                )}
+
                 {search.suggestions.environments.map(env => (
                   <Link
                     key={env.id}
                     href={`/?envs=${env.slug || slugifyCategory(env) || env.id}#produtos`}
                     onClick={() => search.setShowSuggestions(false)}
-                    className="w-full text-left px-4 py-2 flex items-center justify-between text-xs font-bold text-gray-700 capitalize hover:bg-primary/5"
+                    className="w-full text-left px-4 py-2 flex items-center justify-start gap-2 text-xs font-bold text-gray-700 capitalize hover:bg-primary/5"
                   >
-                    <span className="flex items-center gap-2"><Compass className="h-4 w-4 text-primary" />{env.name}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+                    <Compass className="h-4 w-4 text-primary shrink-0" />
+                    <span>{env.name}</span>
                   </Link>
                 ))}
 
@@ -93,10 +104,10 @@ export function Header() {
                     key={cat.id}
                     href={`/?cats=${cat.slug || slugifyCategory(cat) || cat.id}#produtos`}
                     onClick={() => search.setShowSuggestions(false)}
-                    className="w-full text-left px-4 py-2 flex items-center justify-between text-xs font-bold text-gray-700 capitalize hover:bg-accent/5"
+                    className="w-full text-left px-4 py-2 flex items-center justify-start gap-2 text-xs font-bold text-gray-700 capitalize hover:bg-red-50/60"
                   >
-                    <span className="flex items-center gap-2"><Tag className="h-4 w-4 text-accent" />{cat.name}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+                    <Tag className="h-4 w-4 text-red-600 shrink-0" />
+                    <span>{cat.name}</span>
                   </Link>
                 ))}
 
@@ -116,8 +127,17 @@ export function Header() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-xs font-bold text-gray-800 truncate">{prod.name}</h4>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {prod.promo_price ? (
+                          <>
+                            <span className="text-xs font-black text-red-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.promo_price)}</span>
+                            <span className="text-[9px] text-muted-foreground line-through">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs font-black text-red-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}</span>
+                        )}
+                      </div>
                     </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
                   </Link>
                 ))}
               </div>
