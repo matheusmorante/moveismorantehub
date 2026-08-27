@@ -14,7 +14,6 @@ import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
 const UNATTENDED_REASONS = [
   'Cliente Ausente',
   'Ninguém Atendeu no Local',
-  'Endereço Não Localizado',
   'Cliente Recusou Recebimento',
   'Outro Motivo',
 ];
@@ -22,7 +21,7 @@ const UNATTENDED_REASONS = [
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (reason: string, notes: string, proofUrl: string) => Promise<void>;
+  onConfirm: (reason: string, notes: string, proofUrls: string[]) => Promise<void>;
   isDarkMode: boolean;
   customerName: string;
 }
@@ -36,7 +35,7 @@ export const UnattendedModal: React.FC<Props> = ({
 }) => {
   const [selectedReason, setSelectedReason] = useState(UNATTENDED_REASONS[0]);
   const [notes, setNotes] = useState('');
-  const [proofUrl, setProofUrl] = useState('');
+  const [proofUrls, setProofUrls] = useState<string[]>(['']);
   const [submitting, setSubmitting] = useState(false);
 
   const handleConfirm = async () => {
@@ -45,8 +44,23 @@ export const UnattendedModal: React.FC<Props> = ({
       return;
     }
     setSubmitting(true);
-    await onConfirm(selectedReason, notes, proofUrl);
-    setSubmitting(false);
+    try {
+      await onConfirm(selectedReason, notes, proofUrls.filter(Boolean));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const updateProofUrl = (index: number, value: string) => {
+    setProofUrls(current => current.map((url, currentIndex) => currentIndex === index ? value : url));
+  };
+
+  const addProofField = () => {
+    setProofUrls(current => current.length < 5 ? [...current, ''] : current);
+  };
+
+  const removeProofField = (index: number) => {
+    setProofUrls(current => current.length === 1 ? [''] : current.filter((_, currentIndex) => currentIndex !== index));
   };
 
   return (
@@ -110,17 +124,41 @@ export const UnattendedModal: React.FC<Props> = ({
               numberOfLines={3}
             />
 
-            {/* Link/Foto de Comprovação */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>Foto de Prova / Comprovante (opcional):</Text>
-            <View style={[styles.proofBox, isDarkMode && styles.inputDark]}>
-              <Camera size={18} color="#64748b" />
-              <TextInput
-                style={[styles.proofInput, isDarkMode && styles.textLight]}
-                placeholder="Cole o link da foto ou digite a referência..."
-                placeholderTextColor="#94a3b8"
-                value={proofUrl}
-                onChangeText={setProofUrl}
-              />
+            {/* Fotos de comprovação */}
+            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
+              Fotos de Prova / Comprovante (opcional — até 5):
+            </Text>
+            <View style={styles.proofList}>
+              {proofUrls.map((proofUrl, index) => (
+                <View key={index} style={[styles.proofBox, isDarkMode && styles.inputDark]}>
+                  <Camera size={18} color="#64748b" />
+                  <TextInput
+                    style={[styles.proofInput, isDarkMode && styles.textLight]}
+                    placeholder={`Referência ou link da foto ${index + 1}`}
+                    placeholderTextColor="#94a3b8"
+                    value={proofUrl}
+                    onChangeText={(value) => updateProofUrl(index, value)}
+                  />
+                  {proofUrls.length > 1 && (
+                    <TouchableOpacity
+                      accessibilityLabel={`Remover foto ${index + 1}`}
+                      onPress={() => removeProofField(index)}
+                      style={styles.removeProofButton}
+                    >
+                      <X size={16} color="#64748b" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              {proofUrls.length < 5 && (
+                <TouchableOpacity
+                  onPress={addProofField}
+                  style={[styles.addProofButton, isDarkMode && styles.addProofButtonDark]}
+                >
+                  <Camera size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                  <Text style={[styles.addProofText, isDarkMode && styles.textLight]}>Adicionar foto ({proofUrls.length}/5)</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
 
@@ -258,11 +296,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  proofList: {
+    gap: 8,
+  },
   proofInput: {
     flex: 1,
     fontSize: 13,
     color: '#0f172a',
     paddingVertical: 4,
+  },
+  removeProofButton: {
+    padding: 4,
+  },
+  addProofButton: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
+  },
+  addProofButtonDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#475569',
+  },
+  addProofText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
   },
   confirmBtn: {
     height: 52,

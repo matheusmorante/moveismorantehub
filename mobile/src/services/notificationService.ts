@@ -107,6 +107,23 @@ export const ensureNotificationPermissions = async (): Promise<boolean> => {
 };
 
 /**
+ * Salva ou atualiza o push token na tabela do Supabase
+ */
+export const savePushTokenToSupabase = async (token: string) => {
+  try {
+    if (!token) return;
+    await supabase.from('push_tokens').upsert([{
+      token,
+      device_info: { os: Platform.OS, updatedAt: new Date().toISOString() },
+      updated_at: new Date().toISOString(),
+    }], { onConflict: 'token' });
+    console.log('[PushToken] Sincronizado no Supabase com sucesso:', token);
+  } catch (err) {
+    console.warn('[PushToken] Erro ao salvar no Supabase:', err);
+  }
+};
+
+/**
  * Obtém e registra o Push Token do aparelho no Supabase
  */
 export const registerPushToken = async (): Promise<string | null> => {
@@ -129,18 +146,35 @@ export const registerPushToken = async (): Promise<string | null> => {
     }
 
     if (token) {
-      await supabase.from('push_tokens').upsert([{
-        token,
-        device_info: { os: Platform.OS, updatedAt: new Date().toISOString() },
-        updated_at: new Date().toISOString(),
-      }], { onConflict: 'token' });
-      console.log('[PushToken] Registrado no Supabase com sucesso:', token);
+      await savePushTokenToSupabase(token);
       return token;
     }
   } catch (err) {
     console.warn('[PushToken] Erro ao registrar:', err);
   }
   return null;
+};
+
+/**
+ * Registra listener global para renovações de token do FCM
+ */
+export const initPushTokenListeners = () => {
+  try {
+    if (Platform.OS === 'web') return () => {};
+    
+    // Escuta novas emissões/renovações de token pelo Google FCM
+    const sub = Notifications.addPushTokenListener((tokenData) => {
+      if (tokenData?.data) {
+        savePushTokenToSupabase(tokenData.data);
+      }
+    });
+
+    return () => {
+      sub.remove();
+    };
+  } catch {
+    return () => {};
+  }
 };
 
 /**

@@ -43,7 +43,8 @@ export const ProfileModal: React.FC<Props> = ({
     setTestingNotif(false);
   };
 
-  const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 7)}` : 'v1.0.3';
+  const appVersion = Updates.runtimeVersion ? `v${Updates.runtimeVersion}` : 'v1.0.4';
+  const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 8)}` : 'Mais recente';
 
   return (
     <Modal
@@ -60,7 +61,12 @@ export const ProfileModal: React.FC<Props> = ({
         <View style={[styles.profileModalContent, isDarkMode && styles.modalContentDark]}>
           {/* Topo do Modal */}
           <View style={styles.profileModalTopRow}>
-            <Text style={[styles.profileModalTitle, isDarkMode && styles.textPrimaryDark]}>Perfil & Configurações</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.profileModalTitle, isDarkMode && styles.textPrimaryDark]}>Perfil</Text>
+              <View style={[styles.versionBadge, isDarkMode && styles.versionBadgeDark]}>
+                <Text style={styles.versionBadgeText}>{appVersion}</Text>
+              </View>
+            </View>
             <TouchableOpacity
               style={[styles.closeModalButton, isDarkMode && styles.iconButtonDark]}
               onPress={onClose}
@@ -135,7 +141,7 @@ export const ProfileModal: React.FC<Props> = ({
                   {checkingUpdate ? 'Buscando atualizações...' : 'Verificar Atualizações'}
                 </Text>
                 <Text style={styles.profileMenuSubtext}>
-                  Versão: {currentUpdateId} • Canal: production
+                  Versão: {appVersion} • Update: {currentUpdateId} • Canal: production
                 </Text>
               </View>
             </TouchableOpacity>
@@ -174,6 +180,13 @@ export const ProfileModal: React.FC<Props> = ({
               </View>
             </TouchableOpacity>
           </View>
+
+          {/* Rodapé Informativo de Versão */}
+          <View style={{ marginTop: 18, alignItems: 'center' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Equipe Morante • {appVersion} • Morante Móveis
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     </Modal>
@@ -206,6 +219,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: '#0f172a'
+  },
+  versionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dbeafe'
+  },
+  versionBadgeDark: {
+    backgroundColor: '#1e3a8a30',
+    borderColor: '#1e40af'
+  },
+  versionBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#2563eb',
+    letterSpacing: 0.5
   },
   textPrimaryDark: {
     color: '#f8fafc'

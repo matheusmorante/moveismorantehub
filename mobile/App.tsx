@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import { View, ScrollView, SafeAreaView, StatusBar, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Speech from 'expo-speech';
 
 import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supabaseClient';
-import { registerPushToken, triggerLocalNotification } from './src/services/notificationService';
+import { registerPushToken, triggerLocalNotification, initPushTokenListeners } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
 import { isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
@@ -385,7 +385,18 @@ export default function App() {
   };
 
   useEffect(() => {
+    // 1. Registra e sincroniza o push token do aparelho
     registerPushToken();
+    const cleanTokenListeners = initPushTokenListeners();
+
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        registerPushToken();
+        fetchNotifications();
+        fetchDashboardStats();
+      }
+    });
+
     fetchDashboardStats();
     fetchNotifications();
 
@@ -429,6 +440,8 @@ export default function App() {
     }, 15000);
 
     return () => {
+      cleanTokenListeners();
+      appStateSub.remove();
       notifChannel.unsubscribe();
       clearInterval(pollingInterval);
     };

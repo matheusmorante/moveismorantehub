@@ -22,6 +22,21 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     placeholder = "Digite para buscar produto...",
     className = ""
 }) => {
+    const normalizeSearchText = (value: unknown) => String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('pt-BR');
+
+    // A sintaxe do filtro `or` do PostgREST usa vírgulas e parênteses como
+    // separadores. Removê-los do termo evita que uma busca comum quebre a consulta.
+    const getSafeSearchTerm = (value: string) => value.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
+
+    const buildProductSearchFilter = (term: string) =>
+        `title.ilike.%${term}%,name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%,sku.ilike.%${term}%`;
+
+    const buildVariationSearchFilter = (term: string) =>
+        `name.ilike.%${term}%,description.ilike.%${term}%,sku.ilike.%${term}%`;
+
     // Retorna o Título/Nome do produto priorizando title, name e description
     const getProductTitle = (p?: Product | null) => {
         if (!p) return '';
@@ -68,31 +83,70 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
         searchTimeoutRef.current = setTimeout(async () => {
             setIsLoading(true);
             try {
-                const term = filterText.trim();
-                const words = term.split(/\s+/).filter(w => w.length > 0);
+                const term = getSafeSearchTerm(filterText);
+                if (!term) {
+                    setDbSearchResults([]);
+                    return;
+                }
 
-                let query = supabase
+                // A busca anterior incluía `variations::text` na tabela products.
+                // Em instalações onde as variações ficam na tabela própria, esse
+                // filtro invalida toda a pesquisa. Agora cada fonte é consultada
+                // com os seus campos reais, inclusive o SKU da variação.
+                const productsQuery = supabase
                     .from('products')
                     .select('*')
-                    .is('deleted_at', null);
+                    .is('deleted_at', null)
+                    .or(buildProductSearchFilter(term))
+                    .limit(50);
 
-                if (words.length === 1) {
-                    const w = words[0];
-                    query = query.or(`title.ilike.%${w}%,name.ilike.%${w}%,description.ilike.%${w}%,code.ilike.%${w}%,sku.ilike.%${w}%,variations::text.ilike.%${w}%`);
-                } else {
-                    words.forEach(w => {
-                        query = query.or(`title.ilike.%${w}%,name.ilike.%${w}%,description.ilike.%${w}%`);
-                    });
+                const variationsQuery = supabase
+                    .from('product_variations')
+                    .select('*, products(*)')
+                    .or(buildVariationSearchFilter(term))
+                    .limit(50);
+
+                const [productsResponse, variationsResponse] = await Promise.all([productsQuery, variationsQuery]);
+
+                if (productsResponse.error) {
+                    console.error('Erro no Supabase ao buscar produtos:', productsResponse.error);
+                }
+                if (variationsResponse.error) {
+                    console.error('Erro no Supabase ao buscar variações:', variationsResponse.error);
                 }
 
-                const { data, error } = await query.limit(50);
+                const productResults = processProductData(productsResponse.data || []);
+                const variationResults = (variationsResponse.data || []).flatMap((variation: any) => {
+                    const parent = variation.products;
+                    if (!parent) return [];
+                    const parentTitle = parent.title || parent.name || parent.description || '';
+                    const variationTitle = variation.name || variation.description || variation.sku || '';
+                    const title = variationTitle && !parentTitle.includes(variationTitle)
+                        ? `${parentTitle} - ${variationTitle}`
+                        : (parentTitle || variationTitle);
 
-                if (data && !error) {
-                    const processed = processProductData(data);
-                    setDbSearchResults(processed);
-                } else if (error) {
-                    console.error("Erro no Supabase ao buscar produto:", error);
-                }
+                    return [{
+                        ...parent,
+                        id: `${parent.id}_${variation.sku || variation.id}`,
+                        sku: variation.sku || parent.sku || parent.code,
+                        title,
+                        description: title,
+                        variationName: variationTitle,
+                        unitPrice: variation.price ?? variation.unit_price ?? parent.unit_price ?? parent.unitPrice ?? 0,
+                        promoPrice: variation.promo_price ?? variation.promoPrice ?? parent.promo_price ?? parent.promoPrice,
+                        stock: variation.stock ?? parent.stock,
+                        images: variation.images || variation.image_url ? (variation.images || [variation.image_url]) : parent.images,
+                        parentImages: parent.images || [],
+                        isVariation: true,
+                        parentId: parent.id,
+                    } as Product];
+                });
+
+                const resultMap = new Map<string, Product>();
+                [...productResults, ...variationResults].forEach(product => {
+                    if (product.id) resultMap.set(String(product.id), product);
+                });
+                setDbSearchResults(Array.from(resultMap.values()));
             } catch (err) {
                 console.error("Erro na busca de produtos:", err);
             } finally {
@@ -109,16 +163,16 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
     // COMBINA OS PRODUTOS DA PROP LOCAL COM OS RESULTADOS AO VIVO DO BANCO DE DADOS
     const combinedProducts = React.useMemo(() => {
-        const term = filterText.trim().toLowerCase();
+        const term = normalizeSearchText(filterText.trim());
         
         // 1. Filtrar lista local por título, nome, código ou SKU
         const localFiltered = (products || []).filter(p => {
             if (!term) return true;
-            const pTitle = getProductTitle(p).toLowerCase();
-            const pCode = (p.code || '').toLowerCase();
-            const pSku = (p.sku || '').toLowerCase();
-            const pDesc = (p.description || '').toLowerCase();
-            const pCat = (p.category || '').toLowerCase();
+            const pTitle = normalizeSearchText(getProductTitle(p));
+            const pCode = normalizeSearchText(p.code);
+            const pSku = normalizeSearchText(p.sku);
+            const pDesc = normalizeSearchText(p.description);
+            const pCat = normalizeSearchText(p.category);
             return pTitle.includes(term) || pDesc.includes(term) || pCode.includes(term) || pSku.includes(term) || pCat.includes(term);
         });
 
@@ -186,7 +240,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
             {/* Dropdown Popover Modal filtrado */}
             {isOpen && (
-                <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar p-1.5 animate-slide-up">
+                <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar p-1.5 animate-slide-up">
                     {isLoading && combinedProducts.length === 0 ? (
                         <div className="p-4 text-center text-slate-400 text-xs font-bold flex items-center justify-center gap-2">
                             <i className="bi bi-arrow-repeat animate-spin text-sm text-blue-500" />

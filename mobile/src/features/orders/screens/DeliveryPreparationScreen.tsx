@@ -16,9 +16,10 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showUnattendedModal, setShowUnattendedModal] = useState(false);
+  const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
 
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
-  const data = order.order_data || order;
+  const data = deliveryData;
   const customer = data.customerData || {};
   const fullAddress = formatFullAddress(data.shipping || {}, customer);
   const items = data.items || order.items || data.assistanceItems || order.assistance_items || [];
@@ -54,7 +55,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     if (error) return Alert.alert('Erro', error.message);
     Alert.alert('Em Rota', 'A saída para entrega foi registrada.');
     order.order_data = updatedData;
-    onBack(true);
+    setDeliveryData(updatedData);
   };
 
   // 2. Cheguei no Destino
@@ -74,6 +75,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     setSaving(false);
     if (error) return Alert.alert('Erro', error.message);
     order.order_data = updatedData;
+    setDeliveryData(updatedData);
     Alert.alert('Chegada Confirmada', 'Você está no local do cliente.');
   };
 
@@ -103,14 +105,16 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   };
 
   // 4. Registrar Não Atendido
-  const handleConfirmUnattended = async (reason: string, notes: string, proofUrl: string) => {
+  const handleConfirmUnattended = async (reason: string, notes: string, proofUrls: string[]) => {
     const now = new Date().toISOString();
     const updatedData = {
       ...data,
       deliveryStatus: 'unattended',
       unattendedReason: reason,
       unattendedNotes: notes,
-      unattendedProofUrl: proofUrl,
+      // Mantém o campo anterior para leituras legadas e registra todas as fotos novas.
+      unattendedProofUrl: proofUrls[0] || '',
+      unattendedProofUrls: proofUrls,
       unattendedAt: now,
     };
     const { error } = await supabase.from('orders').update({
@@ -148,6 +152,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
             delete updatedData.unattendedReason;
             delete updatedData.unattendedNotes;
             delete updatedData.unattendedProofUrl;
+            delete updatedData.unattendedProofUrls;
 
             const { error } = await supabase.from('orders').update({
               order_data: updatedData,
