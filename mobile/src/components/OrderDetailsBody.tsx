@@ -5,18 +5,10 @@ import { getOrderTotalValue } from '../utils/orderUtils';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../utils/aiSummaryHelper';
 import { OrderDeliveryStartFooter } from './order-details/OrderDeliveryStartFooter';
 import { buildOrderObservations, OrderObservationLabels } from './order-details/OrderObservationLabels';
-import { AddressSection, CustomerSection, ItemsSection, OrderTypeBadges, PaymentSection } from './order-details/OrderDetailsSections';
+import { AddressSection, CustomerSection, ItemsSection, OrderTypeBadges } from './order-details/OrderDetailsSections';
+import { getPendingPaymentTotal, OrderPaymentSection } from './order-details/OrderPaymentSection';
 
 interface Props { order: any; isDarkMode: boolean; onStartDelivery?: () => void }
-
-const paymentLabel = (data: any) => {
-  if (data.paymentMethod) return String(data.paymentMethod);
-  if (data.payment_method) return String(data.payment_method);
-  if (Array.isArray(data.payments) && data.payments.length) {
-    return data.payments.map((payment: any) => payment.method || payment.paymentMethod || payment.type || 'Não informado').filter(Boolean).join(', ');
-  }
-  return 'Não informada';
-};
 
 export function OrderDetailsBody({ order, isDarkMode, onStartDelivery }: Props) {
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
@@ -33,6 +25,7 @@ export function OrderDetailsBody({ order, isDarkMode, onStartDelivery }: Props) 
   const shipping = data.shipping || {};
   const items = data.items || order.items || data.assistanceItems || order.assistance_items || [];
   const schedule = shipping.scheduling || data.schedule || {};
+  const payments = Array.isArray(data.payments) ? data.payments : [];
   const deliveryMethod = String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase();
   const pickup = /pickup|retirada/.test(deliveryMethod);
   const assistance = String(order.order_type || data.orderType || '').toLowerCase() === 'assistance';
@@ -45,8 +38,8 @@ export function OrderDetailsBody({ order, isDarkMode, onStartDelivery }: Props) 
     <OrderObservationLabels observations={buildOrderObservations(order)} dark={isDarkMode} />
     <CustomerSection customer={customer} dark={isDarkMode} />
     <AddressSection shipping={shipping} customer={customer} schedule={schedule} order={order} dark={isDarkMode} />
-    <PaymentSection label={paymentLabel(data)} dark={isDarkMode} />
-    <ItemsSection items={items} total={getOrderTotalValue(order)} dark={isDarkMode} />
+    <OrderPaymentSection payments={payments} fallbackMethod={data.paymentMethod || data.payment_method} dark={isDarkMode} />
+    <ItemsSection items={items} total={getOrderTotalValue(order)} pendingTotal={getPendingPaymentTotal(payments)} dark={isDarkMode} />
     <OrderDeliveryStartFooter order={order} onStart={onStartDelivery} />
   </ScrollView>;
 }

@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
 import { supabase, NOTIFICATION_SOUND_URL } from './supabaseClient';
 
-// Configura o comportamento das notificações no aparelho (quando o app está em primeiro ou segundo plano)
+// Configura o comportamento das notificações no aparelho
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -14,6 +14,7 @@ Notifications.setNotificationHandler({
 });
 
 let soundObject: Audio.Sound | null = null;
+const LOCAL_NOTIFICATION_SOUND = require('../../assets/levelup.mp3');
 
 export const playNotificationSound = async () => {
   try {
@@ -21,13 +22,23 @@ export const playNotificationSound = async () => {
       await soundObject.replayAsync().catch(() => {});
       return;
     }
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: NOTIFICATION_SOUND_URL },
-      { shouldPlay: true, volume: 1.0 }
-    );
+    let sound: Audio.Sound;
+    try {
+      const result = await Audio.Sound.createAsync(
+        LOCAL_NOTIFICATION_SOUND,
+        { shouldPlay: true, volume: 1.0 }
+      );
+      sound = result.sound;
+    } catch {
+      const result = await Audio.Sound.createAsync(
+        { uri: NOTIFICATION_SOUND_URL },
+        { shouldPlay: true, volume: 1.0 }
+      );
+      sound = result.sound;
+    }
     soundObject = sound;
   } catch (err) {
-    console.warn('[Sound] Fallback som nativo:', err);
+    console.warn('[Sound] Erro ao reproduzir áudio levelup:', err);
   }
 };
 
@@ -87,9 +98,8 @@ export const registerPushToken = async () => {
  * Dispara notificação nativa com banner na barra de status do celular
  */
 export const triggerLocalNotification = async (title: string, body: string, dataPayload: any = {}) => {
-  // O push remoto também é exibido em primeiro plano pelo handler acima.
-  // O listener Realtime chama esta função, mas não deve agendar uma segunda cópia.
   void title;
   void body;
   void dataPayload;
+  await playNotificationSound();
 };

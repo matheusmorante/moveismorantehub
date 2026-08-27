@@ -49,14 +49,14 @@ export default function MobileAppLanding() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up">
              <a 
-                href="/morante-hub.apk"
-                download="morante-hub.apk"
+                href="/application-9bba56a8-1ab4-46b5-ac41-637fbb6cab2d.apk"
+                download="application-9bba56a8-1ab4-46b5-ac41-637fbb6cab2d.apk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-8 py-5 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
              >
                 <i className="bi bi-download text-xl"></i>
-                Baixar APK Oficial (v1.0.1)
+                Baixar APK Oficial (v1.0.2)
              </a>
 
              <button 
