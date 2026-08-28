@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
@@ -175,7 +176,7 @@ export function useSearch() {
     e.preventDefault()
     if (!query.trim()) return
     // Reseta filtros de ambiente e categoria anteriores para busca ampla
-    router.push(`/?search=${encodeURIComponent(query.trim())}#produtos`)
+    router.push(`/?search=${encodeURIComponent(query.trim())}`)
     setIsOpen(false)
     setShowSuggestions(false)
   }

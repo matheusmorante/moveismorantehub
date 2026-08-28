@@ -326,7 +326,7 @@ const ProductRow = ({
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onRestore(product.id!); }}
                                     className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center gap-1 text-xs font-bold"
-                                    title="Ativar Produto"
+                                    title="Reativar Produto"
                                 >
                                     <i className="bi bi-check-circle-fill text-sm" />
                                     <span>Ativar</span>
@@ -447,7 +447,7 @@ const ProductRow = ({
                                                             onDelete(product.id!);
                                                         }}
                                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                                        title="Desativa o produto e oculta do catálogo e das pesquisas de venda"
+                                                        title="Desativa o produto e o oculta do Catálogo Meta e das pesquisas de venda"
                                                     >
                                                         <i className="bi bi-slash-circle text-amber-500" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Desativar Produto</span>

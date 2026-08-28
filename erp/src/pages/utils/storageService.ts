@@ -1,30 +1,44 @@
-import { supabase } from '@/pages/utils/supabaseConfig';
+const getCatalogApiUrl = () => {
+    if (import.meta.env.VITE_CATALOG_API_URL) {
+        return import.meta.env.VITE_CATALOG_API_URL.replace(/\/$/, "");
+    }
+    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+        return "http://localhost:3001";
+    }
+    return "https://www.moveismorante.com.br";
+};
 
 /**
- * Uploads a file to Supabase Storage and returns its public URL.
- * @param file The file to upload.
- * @param path The path in storage (e.g., 'products/image.jpg').
- * @returns A promise that resolves to the public URL.
+ * Envia uma imagem ao Cloudflare R2 por uma URL temporária gerada pelo catálogo.
+ * @param file O arquivo da imagem.
+ * @param path A chave que será usada no R2 (ex.: products/imagem.jpg).
+ * @returns A URL pública final no R2.
  */
 export const uploadFile = async (file: File, path: string): Promise<string> => {
     try {
-        // En Supabase el bucket suele ser el primer segmento del path
-        // o se define por separado. Aquí asumimos un bucket llamado "uploads".
-        const bucket = "products";
-        
-        const { error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(path, file, { upsert: true });
+        const catalogApiUrl = getCatalogApiUrl();
+        const credentialResponse = await fetch(`${catalogApiUrl}/api/upload`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName: path.replace(/^\/+/, ""), contentType: file.type }),
+        });
 
-        if (uploadError) throw uploadError;
+        if (!credentialResponse.ok) {
+            const details = await credentialResponse.json().catch(() => ({}));
+            throw new Error(details.error || "Não foi possível preparar o envio da imagem para o R2.");
+        }
 
-        const { data } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(path);
+        const { uploadUrl, fileUrl } = await credentialResponse.json();
+        const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+        });
 
-        return data.publicUrl;
+        if (!uploadResponse.ok) throw new Error("Falha ao enviar a imagem para o R2.");
+        return fileUrl;
     } catch (error) {
-        console.error("Error uploading file to storage:", error);
+        console.error("Erro ao enviar imagem para o R2:", error);
         throw error;
     }
 };

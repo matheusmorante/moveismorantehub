@@ -35,6 +35,24 @@ export const useProducts = (filters?: any) => {
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
+    const removeRestoredProductsFromTrash = useCallback((ids: string[]) => {
+        const restoredIds = new Set(ids.map(String));
+
+        setServerProducts(previous => previous.filter(product => !restoredIds.has(String(product.id))));
+        if (filters?.showTrash) {
+            setServerTotal(previous => Math.max(0, previous - restoredIds.size));
+        }
+    }, [filters?.showTrash]);
+
+    const removeDeactivatedProductsFromActiveList = useCallback((ids: string[]) => {
+        const deactivatedIds = new Set(ids.map(String));
+
+        setServerProducts(previous => previous.filter(product => !deactivatedIds.has(String(product.id))));
+        if (!filters?.showTrash) {
+            setServerTotal(previous => Math.max(0, previous - deactivatedIds.size));
+        }
+    }, [filters?.showTrash]);
+
     // ─── Server pagination fetch ───────────────────
     const fetchPage = useCallback(async (page: number, perPage: number) => {
         setServerLoading(true);
@@ -220,10 +238,17 @@ export const useProducts = (filters?: any) => {
 
 
     const handleDelete = async (id: string) => {
+        const confirmed = window.confirm(
+            "Desativar este produto?\n\nEle será removido das pesquisas de venda e ocultado do Catálogo Meta (status: Ocultado). Você poderá reativá-lo depois na lista de produtos desativados."
+        );
+        if (!confirmed) return;
+
         const toastId = toast.loading("Desativando produto...");
         try {
             await moveToTrash(id);
-            toast.update(toastId, { render: "Produto desativado com sucesso.", type: "info", isLoading: false, autoClose: 3000 });
+            removeDeactivatedProductsFromActiveList([id]);
+            refresh();
+            toast.update(toastId, { render: "Produto desativado e ocultado do Catálogo Meta com sucesso.", type: "info", isLoading: false, autoClose: 3500 });
         } catch (error: any) {
             toast.update(toastId, { render: error.message || "Erro ao desativar produto.", type: "error", isLoading: false, autoClose: 3000 });
         }
@@ -232,6 +257,8 @@ export const useProducts = (filters?: any) => {
     const handleRestore = async (id: string) => {
         try {
             await restoreProduct(id);
+            removeRestoredProductsFromTrash([id]);
+            refresh();
             toast.success("Produto ativado com sucesso!");
         } catch (error: any) {
             toast.error("Erro ao ativar produto.");
@@ -255,15 +282,25 @@ export const useProducts = (filters?: any) => {
 
     const handleBulkTrash = async () => {
         if (selectedProducts.length === 0) return;
+        const confirmed = window.confirm(
+            `Desativar ${selectedProducts.length} produto(s)?\n\nOs itens serão removidos das pesquisas de venda e ocultados do Catálogo Meta (status: Ocultado).`
+        );
+        if (!confirmed) return;
+
         const toastId = toast.loading("Desativando itens selecionados...");
         setLoading(true);
         try {
             const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
             const result = await bulkMoveToTrash(realIds);
+            const deactivatedIds = result.deactivatedIds;
+            if (deactivatedIds.length > 0) {
+                removeDeactivatedProductsFromActiveList(deactivatedIds);
+                refresh();
+            }
             
             if (result.successCount > 0) {
                 toast.update(toastId, { 
-                    render: `${result.successCount} produto(s) desativado(s) com sucesso.`, 
+                    render: `${result.successCount} produto(s) desativado(s) e ocultado(s) do Catálogo Meta.`,
                     type: "info", 
                     isLoading: false, 
                     autoClose: 3000 
@@ -290,6 +327,8 @@ export const useProducts = (filters?: any) => {
         try {
             const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
             await bulkRestoreProducts(realIds);
+            removeRestoredProductsFromTrash(realIds);
+            refresh();
             toast.success(`${realIds.length} produto(s) ativado(s) com sucesso!`);
             setSelectedProducts([]);
         } catch (error) {

@@ -4,14 +4,14 @@ import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { parseVariationImages } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
-
+import { SquareImageCropper } from './SquareImageCropper';
 interface ProductEcommerceTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     activeEcommerceSubTab?: 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';
     setActiveEcommerceSubTab?: React.Dispatch<React.SetStateAction<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>>;
-    isDraggingPhoto?: boolean;
-    setIsDraggingPhoto?: React.Dispatch<React.SetStateAction<boolean>>;
+    isDraggingPhoto?: number;
+    setIsDraggingPhoto?: React.Dispatch<React.SetStateAction<number>>;
     handleFileChange: (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent | { files: File[] }) => void;
     removingPhoto?: string | null;
     removePhoto: (url: string) => void;
@@ -21,18 +21,18 @@ interface ProductEcommerceTabProps {
     isGeneratingTitle?: boolean;
     handleToggleActive?: () => void;
 }
-
 const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     formData,
     setFormData,
     handleFileChange,
-    removePhoto
+    removePhoto,
+    isDraggingPhoto = 0
 }) => {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
+    const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
     const maxPhotos = 15;
     const currentCount = (formData.images || []).length;
-
     const handleReplacePhoto = async (index: number, file: File) => {
         setReplacingIndex(index);
         try {
@@ -46,14 +46,23 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             updatedImages[index] = newUrl;
             setFormData(prev => ({ ...prev, images: updatedImages }));
             toast.success("Foto substituída com sucesso!");
+            return true;
         } catch (error) {
             console.error("Erro ao substituir foto:", error);
             toast.error("Erro ao substituir a imagem.");
+            return false;
         } finally {
             setReplacingIndex(null);
         }
     };
-
+    const handleCropPhoto = async (file: File) => {
+        if (croppingIndex === null) return;
+        const index = croppingIndex;
+        setCroppingIndex(null);
+        if (await handleReplacePhoto(index, file)) {
+            toast.success("Foto recortada em 1:1 e atualizada!");
+        }
+    };
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* PHOTOS SECTION */}
@@ -71,11 +80,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                 </div>
                 <p className="text-[10px] uppercase font-black tracking-widest bg-purple-50/50 dark:bg-purple-955/10 text-purple-700 dark:text-purple-400 p-3 rounded-2xl border border-purple-100 dark:border-purple-900/20 flex items-center gap-2">
                     <i className="bi bi-info-circle text-sm shrink-0"></i>
-                    <span><strong>Dica prática:</strong> Você pode arrastar/soltar imagens, colar fotos (Ctrl+V) ou clicar em Adicionar (Máximo de 15 fotos). Passe o mouse sobre qualquer foto para ver os botões de substituir (câmera) ou excluir (lixeira).</span>
+                    <span><strong>Dica prática:</strong> Você pode arrastar/soltar imagens, colar fotos (Ctrl+V) ou clicar em Adicionar. Passe o mouse sobre uma foto para substituir, recortar em 1:1 ou excluir.</span>
                 </p>
-
                 <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
+                        {Array.from({ length: isDraggingPhoto }, (_, index) => <div key={`uploading-${index}`} className="aspect-square w-full rounded-3xl border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"><i className="bi bi-arrow-repeat animate-spin text-2xl text-purple-600" /><span className="text-[9px] font-black uppercase tracking-wider text-purple-600">Enviando...</span></div>)}
                         {currentCount < maxPhotos && (
                             <label className="aspect-square w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shadow-sm">
                                 <i className="bi bi-plus text-2xl text-purple-600 dark:text-purple-400 group-hover:scale-125 transition-transform"></i>
@@ -85,7 +94,6 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                         )}
                         {(formData.images || []).map((url, index) => {
                             const borderClass = "border-slate-200 dark:border-slate-800";
-
                             return (
                                 <div 
                                     key={index} 
@@ -115,6 +123,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
 
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-10 p-2">
                                         <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCroppingIndex(index)}
+                                                className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center"
+                                                title="Recortar foto em 1:1"
+                                            >
+                                                <i className="bi bi-crop text-xs"></i>
+                                            </button>
                                             {/* Substituir foto (Câmera) */}
                                             <label 
                                                 className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-all shadow-md cursor-pointer hover:scale-110 active:scale-95 flex items-center justify-center" 
@@ -170,6 +186,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     </div>
                 </div>
             </div>
+            {croppingIndex !== null && formData.images?.[croppingIndex] && (
+                <SquareImageCropper
+                    imageUrl={formData.images[croppingIndex]}
+                    onCancel={() => setCroppingIndex(null)}
+                    onConfirm={handleCropPhoto}
+                />
+            )}
         </div>
     );
 };

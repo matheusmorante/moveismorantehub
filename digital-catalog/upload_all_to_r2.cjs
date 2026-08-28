@@ -22,7 +22,7 @@ const R2_PUBLIC_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
 async function uploadAllImagesToR2() {
   console.log('--- INICIANDO UPLOAD COMPLETO DE MÍDIAS PARA O CLOUDFLARE R2 ---');
 
-  const { data: products } = await supabase.from('products').select('id, name, images');
+  const { data: products } = await supabase.from('products').select('id, name, images, product_images(id, image_url)');
   console.log('Total de produtos para processar:', products ? products.length : 0);
 
   let totalUploaded = 0;
@@ -32,6 +32,7 @@ async function uploadAllImagesToR2() {
 
     let hasChanges = false;
     const newImages = [];
+    const imageUrlMap = new Map();
 
     for (const imgUrl of prod.images) {
       if (!imgUrl || typeof imgUrl !== 'string') continue;
@@ -44,6 +45,7 @@ async function uploadAllImagesToR2() {
         const checkRes = await fetch(r2TargetUrl, { method: 'HEAD' });
         if (checkRes.status === 200) {
           newImages.push(r2TargetUrl);
+          imageUrlMap.set(imgUrl, r2TargetUrl);
           if (imgUrl !== r2TargetUrl) hasChanges = true;
           continue;
         }
@@ -74,6 +76,7 @@ async function uploadAllImagesToR2() {
 
         console.log(`✓ [Sucesso] Gravado no R2: ${r2TargetUrl}`);
         newImages.push(r2TargetUrl);
+        imageUrlMap.set(imgUrl, r2TargetUrl);
         hasChanges = true;
         totalUploaded++;
       } catch (err) {
@@ -84,6 +87,15 @@ async function uploadAllImagesToR2() {
 
     if (hasChanges) {
       await supabase.from('products').update({ images: newImages }).eq('id', prod.id);
+
+      // O feed Meta prioriza product_images; mantenha essa tabela apontando
+      // para a mesma URL pública do R2 usada pelo produto.
+      await Promise.all((prod.product_images || []).map((image) => {
+        const r2Url = imageUrlMap.get(image.image_url);
+        return r2Url
+          ? supabase.from('product_images').update({ image_url: r2Url }).eq('id', image.id)
+          : Promise.resolve();
+      }));
     }
   }
 

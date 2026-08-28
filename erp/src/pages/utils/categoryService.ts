@@ -53,29 +53,22 @@ export const generateSlug = (name: string) => {
 
 export const createCategory = async (name: string, parentIds: string[], seoFields?: Partial<Category>) => {
     const formattedName = toTitleCase(name);
-    const uniqueSlug = await resolveUniqueSlug(
-        supabase,
-        'categories',
-        seoFields?.slug || formattedName
-    );
-    const insertData = { 
-        name: formattedName, 
-        active: true,
-        slug: uniqueSlug,
-        meta_title: seoFields?.meta_title,
-        meta_description: seoFields?.meta_description,
-        seo_description: seoFields?.seo_description
-    };
-
-    let { data, error } = await supabase.from('categories').insert([insertData]).select();
-    
-    // Fail-safe: If insert fails due to missing columns (SEO fields)
-    if (error && (error.message?.includes("column") || error.code === '42703' || error.message?.includes("schema cache"))) {
-        console.warn("[CategoryService] Schema issue on insert. Retrying with basic fields...");
-        const basicData = { name: formattedName, active: true, slug: uniqueSlug };
-        const { data: retryData, error: retryError } = await supabase.from('categories').insert([basicData]).select();
-        data = retryData;
-        error = retryError;
+    let uniqueSlug = normalizeSlug(seoFields?.slug || formattedName);
+    try { uniqueSlug = await resolveUniqueSlug(supabase, 'categories', uniqueSlug); } catch { /* Banco antigo sem coluna slug. */ }
+    const candidates = [
+        { name: formattedName, active: true, slug: uniqueSlug, meta_title: seoFields?.meta_title, meta_description: seoFields?.meta_description, seo_description: seoFields?.seo_description },
+        { name: formattedName, active: true, slug: uniqueSlug },
+        { name: formattedName, active: true },
+    ];
+    let data: any = null;
+    let error: any = null;
+    for (const insertData of candidates) {
+        const result = await supabase.from('categories').insert([insertData]).select();
+        data = result.data;
+        error = result.error;
+        if (!error) break;
+        const schemaError = error.message?.includes('column') || error.code === '42703' || error.message?.includes('schema cache');
+        if (!schemaError) break;
     }
 
     if (error) throw error;

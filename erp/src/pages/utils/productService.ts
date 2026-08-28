@@ -544,9 +544,9 @@ export const fetchProductsPage = async (
             .select('*, product_variations(*), product_images(*), product_categories(*, categories(*))', { count: 'exact' });
 
         if (showTrash) {
-            query = query.or('deleted.eq.true,active.eq.false');
+            query = query.eq('deleted', true);
         } else {
-            query = query.eq('deleted', false).eq('active', true);
+            query = query.eq('deleted', false);
         }
 
         query = query
@@ -1248,7 +1248,7 @@ const syncCodesInOrders = async (productId: string, parentCode: string, variatio
     }
 };
 
-export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[] }> => {
+export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[], deactivatedIds: string[] }> => {
     try {
         const idsWithOrders = new Set<string>();
         const orderConflicts: string[] = [];
@@ -1270,23 +1270,14 @@ export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: nu
         }
 
         if (idsToUpdate.length > 0) {
-            const products = getLocalProducts();
-            idsToUpdate.forEach(id => {
-                const idx = products.findIndex(p => String(p.id) === String(id));
-                if (idx !== -1) {
-                    products[idx].deleted = true;
-                    products[idx].active = false;
-                    products[idx].updatedAt = new Date().toISOString();
-                }
-            });
-            saveLocalProducts(products);
-            notifySubscribers();
+            await Promise.all(idsToUpdate.map(id => deactivateProduct(id)));
         }
 
         return {
             successCount: idsToUpdate.length,
-            errorCount: idsWithOrders.size,
-            errors
+            errorCount: ids.length - idsToUpdate.length,
+            errors,
+            deactivatedIds: idsToUpdate,
         };
     } catch (error) {
         console.error("Erro no bulkMoveToTrash:", error);
@@ -1354,39 +1345,19 @@ export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ succ
 };
 
 export const deactivateProduct = async (id: string): Promise<void> => {
-    // Desativa o produto e oculta do catálogo sem afetar histórico de vendas passadas
-    await updateProduct(id, { active: false, status: 'hidden' });
+    await updateProduct(id, { active: false, deleted: true, status: 'hidden' });
 };
 
 export const activateProduct = async (id: string): Promise<void> => {
-    // Reativa o produto para voltar a ficar visível nas buscas e catálogo
-    await updateProduct(id, { active: true, status: 'published' });
+    await updateProduct(id, { active: true, deleted: false, status: 'published' });
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {
-    // Redireciona para desativação
     await deactivateProduct(id);
 };
 
 export const restoreProduct = async (id: string): Promise<void> => {
     await activateProduct(id);
-};
-
-export const permanentDeleteProduct = async (id: string): Promise<void> => {
-    const linkedOrderId = await checkProductLinkedToSales(id);
-    if (linkedOrderId) {
-        throw new Error(`Este produto possui vendas vinculadas (Pedido #${linkedOrderId}) e não pode ser excluído permanentemente.`);
-    }
-
-    const hasMoves = await checkProductHasMoves(id);
-    if (hasMoves) {
-        throw new Error("Este produto possui histórico de movimentações e não pode ser excluído permanentemente.");
-    }
-
-    let products = getLocalProducts();
-    products = products.filter(p => String(p.id) !== String(id));
-    saveLocalProducts(products);
-    notifySubscribers();
 };
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
@@ -1412,7 +1383,6 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         throw error;
     }
 };
-
 export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> => {
     try {
         let existingProduct = null;

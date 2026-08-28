@@ -157,8 +157,8 @@ const ProductTable = ({
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 font-bold"
                             >
                                 <i className="bi bi-check-circle-fill" />
-                                <span className="hidden sm:inline">Ativar Selecionados</span>
-                                <span className="sm:hidden">Ativar</span>
+                                <span className="hidden sm:inline">Reativar Selecionados</span>
+                                <span className="sm:hidden">Reativar</span>
                             </button>
                         )}
                     </div>

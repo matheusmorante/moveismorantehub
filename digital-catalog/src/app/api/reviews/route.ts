@@ -5,7 +5,7 @@ export async function GET() {
   const API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
   if (!API_KEY) {
-    return NextResponse.json({ error: "API Key missing" }, { status: 500 })
+    return NextResponse.json({ isFallback: true, message: "Chave do Google Maps não configurada" }, { status: 200 })
   }
 
   try {

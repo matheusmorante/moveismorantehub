@@ -84,3 +84,62 @@ export const resolveSlugsFromCategoryIds = (
     return id;
   });
 };
+
+export const slugifyText = (text?: string | null): string => {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+};
+
+/**
+ * Converte slug legível de Oportunidade (ex: "salvados", "queima-de-estoque") para o ID real da tabela `opportunities`
+ */
+export const resolveOpportunityIdFromSlug = (
+  slugOrId: string,
+  opportunities: any[]
+): string => {
+  if (!slugOrId || slugOrId === "all") return "all";
+  const clean = slugOrId.trim().toLowerCase();
+
+  if (clean === "salvados" || clean === "salvado") return "salvados";
+  if (clean === "promotion" || clean === "promocao" || clean === "promocoes") return "promotion";
+
+  const byId = opportunities.find(o => String(o.id).toLowerCase() === clean);
+  if (byId) return byId.id;
+
+  const bySlug = opportunities.find(o => {
+    const dbSlug = (o.slug || "").toLowerCase().trim();
+    const genSlug = slugifyText(o.name);
+    return dbSlug === clean || genSlug === clean;
+  });
+  if (bySlug) return bySlug.id;
+
+  return slugOrId;
+};
+
+/**
+ * Converte ID da Oportunidade para um slug legível de URL (ex: "salvados", "queima-de-estoque")
+ */
+export const resolveSlugFromOpportunityId = (
+  idOrSlug: string,
+  opportunities: any[]
+): string => {
+  if (!idOrSlug || idOrSlug === "all") return "all";
+  const clean = idOrSlug.trim().toLowerCase();
+
+  if (clean === "salvados" || clean === "promotion") return clean;
+
+  const matched = opportunities.find(o => String(o.id).toLowerCase() === clean);
+  if (matched) {
+    if (matched.slug && matched.slug.trim()) return matched.slug.trim().toLowerCase();
+    return slugifyText(matched.name);
+  }
+
+  return slugifyText(idOrSlug);
+};

@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase/client"
 import { ProductFilter } from "@/features/products/components/product-filter"
 
 import { useSearchParams, useRouter } from "next/navigation"
-import { resolveCategoryIdsFromSlugsOrIds, resolveSlugsFromCategoryIds } from "@/lib/slug-utils"
+import { resolveCategoryIdsFromSlugsOrIds, resolveSlugsFromCategoryIds, resolveOpportunityIdFromSlug, resolveSlugFromOpportunityId, slugifyText } from "@/lib/slug-utils"
 
 const INITIAL_FILTERS = {
   envs: [] as string[],
@@ -53,7 +53,7 @@ function HomeContent() {
     const envsParam = searchParams.get("envs")
     const catsParam = searchParams.get("cats")
     const searchParam = searchParams.get("search") || ""
-    const typeParam = searchParams.get("type") || "all"
+    const rawType = searchParams.get("type") || "all"
     const sortByParam = searchParams.get("sortBy") || "newest"
     const minPriceParam = searchParams.get("minPrice")
     const maxPriceParam = searchParams.get("maxPrice")
@@ -62,28 +62,28 @@ function HomeContent() {
     const rawCats = catsParam ? catsParam.split(",") : []
 
     // Converte slugs legíveis da URL para os IDs das categorias (ou mantém retrocompatibilidade de UUID)
-    const envs = categories.length > 0 ? resolveCategoryIdsFromSlugsOrIds(rawEnvs, categories) : rawEnvs
-    const cats = categories.length > 0 ? resolveCategoryIdsFromSlugsOrIds(rawCats, categories) : rawCats
+    // Resolve cada filtro apenas dentro do seu tipo. Alguns ambientes e
+    // categorias podem ter nomes/slug parecidos; sem essa separação uma
+    // categoria poderia ser resolvida como ambiente e abrir seus itens filhos.
+    const envs = categories.length > 0
+      ? resolveCategoryIdsFromSlugsOrIds(rawEnvs, categories.filter(category => category.type === "environment"))
+      : rawEnvs
+    const cats = categories.length > 0
+      ? resolveCategoryIdsFromSlugsOrIds(rawCats, categories.filter(category => category.type === "category"))
+      : rawCats
+    const type = opportunities.length > 0 ? resolveOpportunityIdFromSlug(rawType, opportunities) : rawType
 
     setFilters({
       envs,
       cats,
       search: searchParam,
-      type: typeParam,
+      type,
       sortBy: sortByParam,
       minPrice: minPriceParam ? parseInt(minPriceParam) : 0,
       maxPrice: maxPriceParam ? parseInt(maxPriceParam) : 10000,
     })
 
-    // Se houver filtro ativo ou âncora #produtos na URL, rola suavemente até a seção limpa de produtos
-    const hasFilterParam = !!(envsParam || catsParam || searchParam || (typeParam && typeParam !== "all"))
-    if (hasFilterParam || (typeof window !== "undefined" && window.location.hash === "#produtos")) {
-      setTimeout(() => {
-        const elem = document.getElementById("produtos")
-        if (elem) elem.scrollIntoView({ behavior: "smooth" })
-      }, 150)
-    }
-  }, [searchParams, categories])
+  }, [searchParams, categories, opportunities])
 
   const handleFilterChange = useCallback((newFilters: any) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -118,8 +118,12 @@ function HomeContent() {
       }
     }
     if (newFilters.type !== undefined) {
-      if (newFilters.type && newFilters.type !== "all") params.set("type", newFilters.type)
-      else params.delete("type")
+      if (newFilters.type && newFilters.type !== "all") {
+        const oppSlug = resolveSlugFromOpportunityId(newFilters.type, opportunities)
+        params.set("type", oppSlug)
+      } else {
+        params.delete("type")
+      }
     }
     if (newFilters.sortBy !== undefined) {
       if (newFilters.sortBy && newFilters.sortBy !== "newest") params.set("sortBy", newFilters.sortBy)
@@ -134,8 +138,22 @@ function HomeContent() {
       else params.delete("maxPrice")
     }
 
-    router.push(`/?${params.toString()}`, { scroll: false })
-  }, [searchParams, router, categories])
+    const queryString = params.toString()
+    const targetUrl = queryString ? `/?${queryString}` : "/"
+
+    setFilters(prev => ({
+      ...prev,
+      ...(newFilters.envs !== undefined && { envs: newFilters.envs }),
+      ...(newFilters.cats !== undefined && { cats: newFilters.cats }),
+      ...(newFilters.search !== undefined && { search: newFilters.search }),
+      ...(newFilters.type !== undefined && { type: newFilters.type }),
+      ...(newFilters.sortBy !== undefined && { sortBy: newFilters.sortBy }),
+      ...(newFilters.minPrice !== undefined && { minPrice: newFilters.minPrice }),
+      ...(newFilters.maxPrice !== undefined && { maxPrice: newFilters.maxPrice }),
+    }))
+
+    router.push(targetUrl, { scroll: false })
+  }, [searchParams, router, categories, opportunities])
 
   const clearFilters = useCallback(() => {
     setFilters(INITIAL_FILTERS)
@@ -331,8 +349,8 @@ function HomeContent() {
 
           {/* Layout: Sidebar fixa à esquerda em telas LG+ (estilo Magazine Luiza) + Grade de produtos */}
           <div className="flex gap-8 items-start relative">
-            {/* Sidebar Fixa Desktop LG+ */}
-            <aside className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-24 self-start">
+            {/* Sidebar Desktop LG+ */}
+            <aside className="hidden lg:block w-72 xl:w-80 shrink-0 self-start">
               <FilterContent
                 filters={filters}
                 categories={categories.filter(c => c.type === "category")}

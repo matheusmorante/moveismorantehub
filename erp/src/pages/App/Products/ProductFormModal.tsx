@@ -186,7 +186,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [saveResult, setSaveResult] = useState<{ erpLegible: boolean; ecomLegible: boolean; checksErp: any; checksEcom: any; product: Product } | null>(null);
     const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
 
-    const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+    const [isDraggingPhoto, setIsDraggingPhoto] = useState(0);
     const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
     const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
     const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
@@ -720,6 +720,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
 
         setLoading(true);
+        setIsDraggingPhoto(filesToProcess.length);
         try {
             const uploadPromises = filesToProcess.map(async (file) => {
                 const compressed = await compressImageToFile(file, { maxMB: 0.1, maxWidth: 1200 });
@@ -740,6 +741,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             console.error(error);
         } finally {
             setLoading(false);
+            setIsDraggingPhoto(0);
         }
     };
 
@@ -1220,6 +1222,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (!formData.categoryIds || formData.categoryIds.length === 0) {
                 errors.categoryIds = true;
             }
+            if (!formData.mainSupplierId && !formData.supplierId) {
+                errors.mainSupplierId = true;
+            }
 
             const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some(v => !v.images || v.images.length === 0);
             if (hasVarsWithMissingPhoto) {
@@ -1230,14 +1235,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 setValidationErrors(errors);
                 if (errors.name || errors.categoryIds) {
                     setActiveTab('geral');
-                } else if (errors.unitPrice) {
+                } else if (errors.unitPrice || errors.mainSupplierId) {
                     setActiveTab('estoque');
                 } else if (errors.variationsImages) {
                     setActiveTab('variacoes');
                 }
-                toast.error(errors.variationsImages
-                    ? "Cada variação deve ter pelo menos 1 foto vinculada."
-                    : "Preencha todos os campos obrigatórios.");
+                toast.error(errors.variationsImages ? "Cada variação deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione o fornecedor principal." : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});
@@ -1450,7 +1453,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                     {formTabs.map((tab: any) => {
                                         const hasTabErrors =
                                             (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||
-                                            (tab.id === 'estoque' && validationErrors.unitPrice) ||
+                                            (tab.id === 'estoque' && (validationErrors.unitPrice || validationErrors.mainSupplierId)) ||
                                             (tab.id === 'variacoes' && validationErrors.variationsImages);
 
                                         return (

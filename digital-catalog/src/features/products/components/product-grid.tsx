@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { ProductCard } from "./product-card"
-import { Loader2, Package } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Package } from "lucide-react"
 import { useAdminMode } from "@/hooks/use-admin-mode"
 import { defaultStoreDesignSettings, productGridStyleClasses, StoreDesignSettings } from "@/lib/product-card-style"
 import { cn } from "@/lib/utils"
+
+import { slugifyText } from "@/lib/slug-utils"
 
 interface ProductGridProps {
   filters?: {
@@ -20,19 +22,15 @@ interface ProductGridProps {
   }
 }
 
-const ITEMS_PER_PAGE = 12
+const ITEMS_PER_PAGE = 20
 
 export function ProductGrid({ filters }: ProductGridProps) {
   const [allProducts, setAllProducts] = useState<any[]>([])
-  const [visibleProducts, setVisibleProducts] = useState<any[]>([])
-  const [page, setPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings)
   const { isAdminMode } = useAdminMode()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  
-  const observerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -64,6 +62,20 @@ export function ProductGrid({ filters }: ProductGridProps) {
           allowedCategoryIds = [...filters.envs, ...(rels?.map(r => r.child_id) || [])]
         }
 
+        // Se type for um slug legível de Oportunidade, resolve para o UUID real
+        let resolvedOppId = filters?.type || "all"
+        if (resolvedOppId && resolvedOppId !== "all" && resolvedOppId !== "salvados" && resolvedOppId !== "promotion") {
+          const { data: dbOpps } = await supabase.from("opportunities").select("id, name, slug")
+          if (dbOpps) {
+            const matchedOpp = dbOpps.find((o: any) => 
+              o.id === resolvedOppId || 
+              (o.slug && o.slug.toLowerCase().trim() === resolvedOppId.toLowerCase().trim()) ||
+              slugifyText(o.name) === slugifyText(resolvedOppId)
+            )
+            if (matchedOpp) resolvedOppId = matchedOpp.id
+          }
+        }
+
         function buildProductsQuery(hasDeletedAt: boolean, hasOpportunities: boolean) {
           let q = supabase.from("products")
           
@@ -90,7 +102,6 @@ export function ProductGrid({ filters }: ProductGridProps) {
             q = q.is("deleted_at", null)
           }
 
-
           if (filters?.minPrice !== undefined) {
             q = q.gte("price", filters.minPrice)
           }
@@ -99,12 +110,12 @@ export function ProductGrid({ filters }: ProductGridProps) {
           }
           const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
 
-          if (filters?.type === "salvados" || filters?.type === SALVADOS_OPP_ID) {
+          if (filters?.type === "salvados" || resolvedOppId === SALVADOS_OPP_ID) {
             q = q.eq("opportunity_id", SALVADOS_OPP_ID)
-          } else if (filters?.type === "promotion") {
+          } else if (filters?.type === "promotion" || resolvedOppId === "promotion" || resolvedOppId === "promocao") {
             q = q.not("promo_price", "is", null)
-          } else if (filters?.type && filters.type !== "all") {
-            q = q.eq("opportunity_id", filters.type)
+          } else if (resolvedOppId && resolvedOppId !== "all") {
+            q = q.eq("opportunity_id", resolvedOppId)
           }
 
           const sort = filters?.sortBy || "newest"
@@ -113,7 +124,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           if (sort === "price-desc") q = q.order("price", { ascending: false })
           if (sort === "title-asc") q = q.order("name", { ascending: true })
 
-          return q
+          return q.limit(100)
         }
 
         const stylePromise = supabase.from("store_style_settings").select("border_width, border_radius, shadow, opportunity_emphasis, button_style, product_image_fit, product_grid_columns, product_grid_gap").eq("id", true).maybeSingle()
@@ -206,7 +217,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         if (!styleError && styleData) setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings)
 
         // Carrega a lista completa de categorias do banco para resolução de nomes em filtros por ID
-        const { data: dbCategoriesList } = await supabase.from("categories").select("id, name, type")
+        const { data: dbCategoriesList } = await supabase.from("categories").select("id, name, slug, type")
 
         const normalizeSearch = (str: string) => {
           if (!str) return ""
@@ -220,34 +231,62 @@ export function ProductGrid({ filters }: ProductGridProps) {
         }
 
         const getSynonyms = (token: string): string[] => {
-          if (/^(roupa|roupas|guarda|roupeiro|roupeiros|guardaroupa|guarda-roupa)$/.test(token)) {
+          const norm = token.toLowerCase().trim().replace(/s$/, "")
+          if (norm === "roupa" || norm === "guarda" || norm === "roupeiro" || norm === "guardaroupa") {
             return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros", "guarda-roupa", "guarda roupa"]
           }
-          if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
+          if (norm === "sofa" || norm === "estofado") {
             return ["sofa", "sofas", "estofado", "estofados"]
           }
-          if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
+          if (norm === "colchao" || norm === "espuma" || norm === "mola") {
             return ["colchao", "colchoes"]
           }
-          if (/^(cama|camas|box|sommier)$/.test(token)) {
+          if (norm === "cama" || norm === "box" || norm === "sommier") {
             return ["cama", "camas", "box"]
           }
-          if (/^(mesa|mesas)$/.test(token)) {
+          if (norm === "mesa") {
             return ["mesa", "mesas"]
           }
-          if (/^(painel|paineis|rack|racks)$/.test(token)) {
-            return ["painel", "paineis", "rack", "racks"]
+          if (norm === "painel") {
+            return ["painel", "paineis"]
           }
-          if (/^(balcao|balcoes|pia|pias)$/.test(token)) {
-            return ["balcao", "balcoes", "pia", "pias"]
+          if (norm === "rack") {
+            return ["rack", "racks"]
           }
-          if (/^(armario|armarios|multiuso|multiusos)$/.test(token)) {
-            return ["armario", "armarios", "multiuso", "multiusos"]
+          if (norm === "balcao") {
+            return ["balcao", "balcoes"]
           }
-          if (/^(cadeira|cadeiras|banqueta|banquetas)$/.test(token)) {
-            return ["cadeira", "cadeiras", "banqueta", "banquetas"]
+          if (norm === "pia") {
+            return ["pia", "pias"]
           }
-          return [token]
+          if (norm === "armario") {
+            return ["armario", "armarios"]
+          }
+          if (norm === "multiuso") {
+            return ["multiuso", "multiusos"]
+          }
+          if (norm === "cadeira") {
+            return ["cadeira", "cadeiras"]
+          }
+          if (norm === "banqueta") {
+            return ["banqueta", "banquetas"]
+          }
+          if (norm === "comoda") {
+            return ["comoda", "comodas"]
+          }
+          if (norm === "cabeceira") {
+            return ["cabeceira", "cabeceiras"]
+          }
+          if (norm === "sapateira") {
+            return ["sapateira", "sapateiras"]
+          }
+          if (norm === "cristaleira") {
+            return ["cristaleira", "cristaleiras"]
+          }
+          if (norm === "escrivaninha") {
+            return ["escrivaninha", "escrivaninhas", "mesa"]
+          }
+          return [token, `${token}s`, norm]
         }
 
         if (filters?.envs && filters.envs.length > 0) {
@@ -277,36 +316,56 @@ export function ProductGrid({ filters }: ProductGridProps) {
         }
 
         if (filters?.cats && filters.cats.length > 0) {
-          const allCatTargetIds = new Set<string>(filters.cats)
-          relationships.forEach(r => {
-            if (filters.cats.includes(r.parent_id)) allCatTargetIds.add(r.child_id)
-            if (filters.cats.includes(r.child_id)) allCatTargetIds.add(r.parent_id)
-          })
-
-          const selectedCatNames = (dbCategoriesList || [])
-            .filter(c => allCatTargetIds.has(c.id))
-            .map(c => normalizeSearch(c.name))
-
-          results = results.filter(p => {
-            const prodCatIds = p.product_categories?.map((pc: any) => pc.category_id) || []
-            if (prodCatIds.some((catId: string) => allCatTargetIds.has(catId))) {
-              return true
+          const allCatTargetIds = new Set<string>()
+          
+          filters.cats.forEach((catItem: string) => {
+            if (!catItem) return
+            const itemClean = catItem.toLowerCase().trim()
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(catItem)) {
+              allCatTargetIds.add(catItem)
             }
 
-            // Fallback por texto para produtos sem o id na tabela associativa product_categories
-            const cleanName = normalizeSearch(p.name || "")
-            const cleanDesc = normalizeSearch(p.description || "")
-            const fullText = `${cleanName} ${cleanDesc}`
+            // Tenta encontrar a categoria por ID, slug, nome ou versão sem 's' final
+            const matchedCats = (dbCategoriesList || []).filter(c => {
+              if (c.type !== "category") return false
 
-            return selectedCatNames.some(catName => {
-              const tokens = catName.split(" ").filter(t => t.length >= 2 && !["de", "da", "do", "dos", "das", "para", "com", "em"].includes(t))
-              if (tokens.length === 0) return false
-              return tokens.some(token => {
-                const syns = getSynonyms(token)
-                return syns.some(syn => fullText.includes(syn))
-              })
+              const cId = String(c.id).toLowerCase().trim()
+              const cSlug = (c.slug || "").toLowerCase().trim()
+              const genSlug = slugifyText(c.name)
+              const normName = normalizeSearch(c.name)
+              const normItem = normalizeSearch(catItem)
+
+              return (
+                cId === itemClean ||
+                cSlug === itemClean ||
+                genSlug === itemClean ||
+                (cSlug && cSlug.replace(/s$/, "") === itemClean.replace(/s$/, "")) ||
+                genSlug.replace(/s$/, "") === itemClean.replace(/s$/, "") ||
+                normName === normItem ||
+                normName.replace(/s$/, "") === normItem.replace(/s$/, "")
+              )
+            })
+
+            matchedCats.forEach(matchedCat => {
+              allCatTargetIds.add(matchedCat.id)
             })
           })
+
+          // Categoria é um filtro exato: usa a tabela de vínculos em vez de
+          // inferir pelo ambiente ou pelo texto do produto.
+          if (allCatTargetIds.size === 0) {
+            results = []
+          } else {
+            const { data: categoryLinks, error: categoryLinksError } = await supabase
+              .from("product_categories")
+              .select("product_id")
+              .in("category_id", [...allCatTargetIds])
+
+            if (categoryLinksError) throw categoryLinksError
+
+            const categoryProductIds = new Set((categoryLinks || []).map(link => link.product_id))
+            results = results.filter(product => categoryProductIds.has(product.realProductId || product.id))
+          }
         }
 
         if (filters?.search) {
@@ -330,8 +389,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         }
 
         setAllProducts(results)
-        setVisibleProducts(results.slice(0, ITEMS_PER_PAGE))
-        setPage(1)
+        setCurrentPage(1)
       } catch (error) {
         console.error("Erro ao carregar produtos:", error)
       } finally {
@@ -341,37 +399,6 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
     fetchProducts()
   }, [filters, refreshTrigger])
-
-  useEffect(() => {
-    if (visibleProducts.length >= allProducts.length) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingMore) {
-          setLoadingMore(true)
-          setTimeout(() => {
-            const nextPage = page + 1
-            const nextSlice = allProducts.slice(0, nextPage * ITEMS_PER_PAGE)
-            setVisibleProducts(nextSlice)
-            setPage(nextPage)
-            setLoadingMore(false)
-          }, 300)
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    const currentObserverTarget = observerRef.current
-    if (currentObserverTarget) {
-      observer.observe(currentObserverTarget)
-    }
-
-    return () => {
-      if (currentObserverTarget) {
-        observer.unobserve(currentObserverTarget)
-      }
-    }
-  }, [allProducts, visibleProducts, page, loadingMore])
 
   if (loading) {
     return (
@@ -400,13 +427,22 @@ export function ProductGrid({ filters }: ProductGridProps) {
     )
   }
 
+  const totalPages = Math.ceil(allProducts.length / ITEMS_PER_PAGE) || 1
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const paginatedProducts = allProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+  const handlePageChange = (p: number) => {
+    if (p < 1 || p > totalPages || p === currentPage) return
+    setCurrentPage(p)
+  }
+
   const columnsClass = productGridStyleClasses.columns[cardStyle.product_grid_columns] || productGridStyleClasses.columns["compact"]
   const gapClass = productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap["tight"]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className={cn("grid animate-in fade-in slide-in-from-bottom-4 duration-700", columnsClass, gapClass)}>
-        {visibleProducts.map((product) => {
+        {paginatedProducts.map((product) => {
           const mainImg = product.image_url ||
                           product.product_images?.find((img: any) => img.is_main)?.image_url || 
                           product.product_images?.[0]?.image_url || 
@@ -438,9 +474,83 @@ export function ProductGrid({ filters }: ProductGridProps) {
         })}
       </div>
 
-      {visibleProducts.length < allProducts.length && (
-        <div ref={observerRef} className="w-full flex justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      {/* Paginação Responsiva conforme a imagem */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 pb-4 border-t border-gray-100 mt-8">
+          <span className="text-xs font-semibold text-muted-foreground order-2 sm:order-1 text-center sm:text-left">
+            Mostrando <span className="font-bold text-gray-900">{startIndex + 1}</span> a <span className="font-bold text-gray-900">{Math.min(startIndex + ITEMS_PER_PAGE, allProducts.length)}</span> de <span className="font-bold text-gray-900">{allProducts.length}</span> produtos
+          </span>
+
+          <div className="flex items-center justify-center gap-1.5 md:gap-2.5 order-1 sm:order-2 select-none">
+            {/* Botão Anterior (<) - Cápsula Cinza */}
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={cn(
+                "h-10 px-3.5 md:px-4 rounded-full flex items-center justify-center transition-all text-xs font-bold gap-1",
+                currentPage === 1
+                  ? "bg-gray-200/80 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer shadow-xs active:scale-95"
+              )}
+              title="Página Anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            {/* Números das Páginas */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .reduce((acc: (number | string)[], pageNum, index, array) => {
+                if (index > 0 && pageNum - (array[index - 1] as number) > 1) {
+                  acc.push("...")
+                }
+                acc.push(pageNum)
+                return acc
+              }, [])
+              .map((p, idx) => {
+                if (p === "...") {
+                  return (
+                    <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs font-bold text-gray-400">
+                      ...
+                    </span>
+                  )
+                }
+
+                const isCurrent = p === currentPage
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handlePageChange(p as number)}
+                    className={cn(
+                      "w-9 h-9 md:w-10 md:h-10 rounded-full font-black text-sm flex items-center justify-center transition-all cursor-pointer",
+                      isCurrent
+                        ? "bg-[#004687] text-white shadow-md scale-105"
+                        : "text-gray-700 hover:bg-gray-100 hover:text-primary font-bold"
+                    )}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+
+            {/* Botão Próximo (>) */}
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={cn(
+                "h-10 px-3.5 md:px-4 rounded-full flex items-center justify-center transition-all text-xs font-bold gap-1",
+                currentPage === totalPages
+                  ? "bg-gray-200/80 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer shadow-xs active:scale-95"
+              )}
+              title="Próxima Página"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    root: path.resolve(process.cwd()),
+  },
   allowedDevOrigins: ['192.168.100.2'],
   transpilePackages: ['@smithy/core', '@smithy/types'],
   images: {
@@ -28,12 +31,7 @@ const nextConfig: NextConfig = {
     ],
   },
   typescript: {
-    // ATENÇÃO: Ignorando erros de build para agilizar o deploy solicitado
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Ignorando lint durante build
-    ignoreDuringBuilds: true,
   },
   async rewrites() {
     return [

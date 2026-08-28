@@ -4,8 +4,13 @@
   "description": "Master Orchestrator for Morante Ecosystem",
   "private": true,
   "scripts": {
+    "dev": "npm run dev --prefix erp",
+    "dev:erp": "npm run dev --prefix erp",
+    "dev:catalog": "npm run dev --prefix digital-catalog -- -p 3001",
+    "dev:all": "concurrently \"npm run dev:erp\" \"npm run dev:catalog\"",
     "install:erp": "npm install --prefix erp",
-    "dev": "npm run dev --prefix erp"
+    "install:catalog": "npm install --prefix digital-catalog",
+    "install:all": "npm install --prefix erp && npm install --prefix digital-catalog"
   },
   "devDependencies": {
     "@types/bwip-js": "^3.2.3",

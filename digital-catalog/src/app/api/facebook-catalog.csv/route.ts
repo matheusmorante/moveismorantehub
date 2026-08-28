@@ -3,20 +3,19 @@ import { supabase } from "@/lib/supabase/client"
 
 export const dynamic = "force-dynamic"
 
-const R2_BASE_URL = "https://pub-389127050a434f568c29dc66bdce2567.r2.dev"
-const SUPABASE_STORAGE_PATTERN = /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i
-
-function mapToR2Url(urlStr: any): string {
+function normalizeMetaImageUrl(urlStr: any): string {
   if (!urlStr) return ""
-  let str = String(urlStr).trim()
-  if (SUPABASE_STORAGE_PATTERN.test(str)) {
-    const match = str.match(SUPABASE_STORAGE_PATTERN)
-    if (match && match[1]) {
-      const fileName = match[1].split("/").pop()?.split("?")[0]
-      return `${R2_BASE_URL}/${fileName}`
-    }
+  const str = String(urlStr).trim()
+  
+  // Mantém URLs públicas de origem. A antiga conversão de Supabase para R2
+  // descartava o caminho do arquivo e gerava links 404 para imagens ainda não
+  // migradas ao R2, que o Meta não consegue baixar.
+  try {
+    const decoded = decodeURI(str)
+    return encodeURI(decoded).replace(/%2520/g, '%20').replace(/\s+/g, '%20')
+  } catch (e) {
+    return str.replace(/\s+/g, '%20')
   }
-  return str
 }
 
 function stripHtml(html: string): string {
@@ -201,14 +200,14 @@ export async function GET(request: Request) {
           }
 
           // Se a variação tiver imagem própria, trata se houver lista separada por vírgula
-          let varImageLink = mapToR2Url(parentImage)
-          let varAdditionalImages = additionalImages.split(',').map(mapToR2Url).filter(Boolean).join(',')
+          let varImageLink = normalizeMetaImageUrl(parentImage)
+          let varAdditionalImages = additionalImages.split(',').map(normalizeMetaImageUrl).filter(Boolean).join(',')
 
           if (v.image_url) {
             const varImagesList = v.image_url.split(",").map((url: any) => url.trim()).filter(Boolean)
             if (varImagesList.length > 0) {
-              varImageLink = mapToR2Url(varImagesList[0])
-              varAdditionalImages = varImagesList.slice(1).map(mapToR2Url).filter(Boolean).join(",")
+              varImageLink = normalizeMetaImageUrl(varImagesList[0])
+              varAdditionalImages = varImagesList.slice(1).map(normalizeMetaImageUrl).filter(Boolean).join(",")
             }
           }
 
@@ -268,8 +267,8 @@ export async function GET(request: Request) {
           p.name, // title
           descWithPrefix, // description
           `${origin}/produto/${p.slug}`, // link
-          mapToR2Url(parentImage), // image_link
-          additionalImages.split(',').map(mapToR2Url).filter(Boolean).join(','), // additional_image_link
+          normalizeMetaImageUrl(parentImage), // image_link
+          additionalImages.split(',').map(normalizeMetaImageUrl).filter(Boolean).join(','), // additional_image_link
           "in stock", // availability
           descWithPrefix, // rich_text_description
           priceFormatted, // price
