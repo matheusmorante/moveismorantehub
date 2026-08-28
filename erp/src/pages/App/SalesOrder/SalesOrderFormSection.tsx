@@ -103,24 +103,42 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
 
                     {currentStep === 2 && (
                         <div className="flex flex-col gap-8 animate-fade-in">
-
                             <SectionCard
                                 icon="bi bi-box-seam"
                                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
                                 title="Itens do Pedido"
-                                subtitle="Produtos e serviços selecionados"
+                                action={
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            actions.setItems((prev) => [
+                                                ...prev,
+                                                {
+                                                    description: '',
+                                                    quantity: 1,
+                                                    unitPrice: 0,
+                                                    unitDiscount: 0,
+                                                    discountType: 'fixed',
+                                                    handlingType: ''
+                                                }
+                                            ]);
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                                    >
+                                        <i className="bi bi-plus-lg text-xs" />
+                                        <span>Adicionar Item</span>
+                                    </button>
+                                }
                             >
-                                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
-                                    <ItemsTable
-                                        items={state.items}
-                                        setItems={actions.setItems}
-                                        summary={state.itemsSummary}
-                                        deliveryMethod={state.shipping.deliveryMethod}
-                                        errors={state.errors}
-                                        onSelectProduct={actions.handleSelectProduct}
-                                        isBudget={isBudget}
-                                    />
-                                </div>
+                                <ItemsTable
+                                    items={state.items}
+                                    setItems={actions.setItems}
+                                    summary={state.itemsSummary}
+                                    deliveryMethod={state.shipping.deliveryMethod}
+                                    errors={state.errors}
+                                    onSelectProduct={actions.handleSelectProduct}
+                                    isBudget={isBudget}
+                                />
                             </SectionCard>
                         </div>
                     )}

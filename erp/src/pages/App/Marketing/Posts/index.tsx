@@ -8,7 +8,6 @@ import AvatarLibrary from './AvatarLibrary';
 import OpportunitySealLibrary from './OpportunitySealLibrary';
 import TextColorPicker from './TextColorPicker';
 import TextBackgroundControls, { type TextBackground } from './TextBackgroundControls';
-import TextAlignmentControls from './TextAlignmentControls';
 import PostImageSourcePicker, { type PostImageOption } from './PostImageSourcePicker';
 import InstallmentImageGallery from './InstallmentImageGallery';
 import ImageGridControls from './ImageGridControls';
@@ -59,10 +58,17 @@ const FONT_OPTIONS = [
 ];
 
 const DEFAULT_FONT_FAMILY = FONT_OPTIONS[0].value;
-const CONTAINER_CHILD_KEYS = ['title', 'priceDeLabel', 'priceDe', 'porApenas', 'pricePor'];
-const TEXT_ELEMENT_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'];
+const CONTAINER_CHILD_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor'];
+const TEXT_ELEMENT_KEYS = ['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'];
 const IMAGE_CELL_KEYS = ['mainImage', 'secondaryImage'];
 const DEFAULT_TEXT_COLORS: Record<string, string> = { brand: '#ffffff', slogan: '#0d1b2a', footerTitle: '#0d1b2a', footerAddress: '#e0a96d', title: '#111827', priceDeLabel: '#dc2626', priceDe: '#dc2626', porApenas: '#e0a96d', pricePor: '#111827', installments: '#111827', measures: '#94a3b8' };
+
+// Preços e conteúdo do item não pertencem ao template. Sem esta separação,
+// o preço do produto usado como modelo acabava sendo reutilizado em novos posts.
+const withoutProductContent = (state: Record<string, any> = {}) => {
+  const { customPrice, customPromoPrice, productTitle, measuresText, ...templateState } = state;
+  return templateState;
+};
 const INITIAL_COLOR_HISTORY = ['#000000', '#1e3a8a', '#dc2626', '#ea580c', '#ffffff', '#2563eb', '#16a34a', '#ff7900', '#7c3aed'];
 const EMPTY_TEXT_BACKGROUND: TextBackground = { color: '#ffffff', paddingX: 0, paddingY: 0, opacity: 0 };
 
@@ -289,7 +295,8 @@ export default function MarketingPosts() {
   const [priceHighlightExtraWidth, setPriceHighlightExtraWidth] = useState(0);
   const [priceHighlightExtraHeight, setPriceHighlightExtraHeight] = useState(0);
   const [priceDeFontSize, setPriceDeFontSize] = useState<number>(20);
-  const [priceDeText, setPriceDeText] = useState('De');
+  const [priceDeLabelFontSize, setPriceDeLabelFontSize] = useState<number>(20);
+  const [priceDeText, setPriceDeText] = useState('DE');
   const [priceOffsetX, setPriceOffsetX] = useState<number>(600);
   const [priceOffsetY, setPriceOffsetY] = useState<number>(920);
   const [priceRotation, setPriceRotation] = useState<number>(0);
@@ -297,6 +304,8 @@ export default function MarketingPosts() {
 
   const [priceDeOffsetX, setPriceDeOffsetX] = useState<number>(600);
   const [priceDeOffsetY, setPriceDeOffsetY] = useState<number>(780);
+  const [priceDeLabelOffsetX, setPriceDeLabelOffsetX] = useState<number>(560);
+  const [priceDeLabelOffsetY, setPriceDeLabelOffsetY] = useState<number>(780);
   const [priceDeRotation, setPriceDeRotation] = useState<number>(0);
   const [priceDeScale, setPriceDeScale] = useState<number>(100);
 
@@ -356,7 +365,7 @@ export default function MarketingPosts() {
       const extension = file.name.split('.').pop() || 'png';
       const url = await uploadFile(file, `marketing/post-templates/${kind}-${Date.now()}.${extension}`);
       if (kind === 'header') setHeaderTemplateImage(url); else setFooterTemplateImage(url);
-      const defaults = { ...getCurrentState(), [kind === 'header' ? 'headerTemplateImage' : 'footerTemplateImage']: url };
+      const defaults = { ...withoutProductContent(getCurrentState()), [kind === 'header' ? 'headerTemplateImage' : 'footerTemplateImage']: url };
       const { error } = await supabase.from('store_style_settings').upsert({ id: true, marketing_defaults: defaults });
       if (error) throw error;
       setMarketingDefaults(defaults);
@@ -420,9 +429,9 @@ export default function MarketingPosts() {
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
     productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
-    priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
+    priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeLabelFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
-    priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
+    priceDeOffsetX, priceDeOffsetY, priceDeLabelOffsetX, priceDeLabelOffsetY, priceDeRotation, priceDeScale,
     porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY,
     porApenasRotation, porApenasScale,
     measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY
@@ -444,9 +453,9 @@ export default function MarketingPosts() {
     mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource,
     productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, detachedContainerElements,
     productTitleRotation, productTitleScale,
-    priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText, priceOffsetX, priceOffsetY,
+    priceFontSize, priceFontSizesByMagnitude, selectedPriceFontMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeLabelFontSize, priceDeText, priceOffsetX, priceOffsetY,
     priceRotation, priceScale,
-    priceDeOffsetX, priceDeOffsetY, priceDeRotation, priceDeScale,
+    priceDeOffsetX, priceDeOffsetY, priceDeLabelOffsetX, priceDeLabelOffsetY, priceDeRotation, priceDeScale,
     porApenasText, porApenasFontSize, porApenasColor, porApenasOffsetX, porApenasOffsetY,
     porApenasRotation, porApenasScale,
     measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY
@@ -553,13 +562,19 @@ export default function MarketingPosts() {
     if (s.priceHighlightExtraWidth !== undefined) setPriceHighlightExtraWidth(s.priceHighlightExtraWidth);
     if (s.priceHighlightExtraHeight !== undefined) setPriceHighlightExtraHeight(s.priceHighlightExtraHeight);
     if (s.priceDeFontSize !== undefined) setPriceDeFontSize(s.priceDeFontSize);
-    if (s.priceDeText !== undefined) setPriceDeText(s.priceDeText);
+    if (s.priceDeLabelFontSize !== undefined) setPriceDeLabelFontSize(s.priceDeLabelFontSize);
+    else if (s.priceDeFontSize !== undefined) setPriceDeLabelFontSize(s.priceDeFontSize);
+    if (s.priceDeText !== undefined) setPriceDeText(String(s.priceDeText).toUpperCase());
     if (s.priceOffsetX !== undefined) setPriceOffsetX(canvasCoordinate(s.priceOffsetX, 600, 1080));
     if (s.priceOffsetY !== undefined) setPriceOffsetY(canvasCoordinate(s.priceOffsetY, 920, 1350));
     if (s.priceRotation !== undefined) setPriceRotation(s.priceRotation);
     if (s.priceScale !== undefined) setPriceScale(s.priceScale);
     if (s.priceDeOffsetX !== undefined) setPriceDeOffsetX(canvasCoordinate(s.priceDeOffsetX, 600, 1080));
     if (s.priceDeOffsetY !== undefined) setPriceDeOffsetY(canvasCoordinate(s.priceDeOffsetY, 780, 1350));
+    if (s.priceDeLabelOffsetX !== undefined) setPriceDeLabelOffsetX(canvasCoordinate(s.priceDeLabelOffsetX, 560, 1080));
+    else setPriceDeLabelOffsetX(canvasCoordinate(s.priceDeOffsetX, 600, 1080) - 40);
+    if (s.priceDeLabelOffsetY !== undefined) setPriceDeLabelOffsetY(canvasCoordinate(s.priceDeLabelOffsetY, 780, 1350));
+    else setPriceDeLabelOffsetY(canvasCoordinate(s.priceDeOffsetY, 780, 1350));
     if (s.priceDeRotation !== undefined) setPriceDeRotation(s.priceDeRotation);
     if (s.priceDeScale !== undefined) setPriceDeScale(s.priceDeScale);
     if (s.porApenasText !== undefined) setPorApenasText(s.porApenasText);
@@ -595,6 +610,8 @@ export default function MarketingPosts() {
       setPriceOffsetY(920);
       setPriceDeOffsetX(600);
       setPriceDeOffsetY(780);
+      setPriceDeLabelOffsetX(560);
+      setPriceDeLabelOffsetY(780);
       setPorApenasOffsetX(600);
       setPorApenasOffsetY(825);
       setMeasuresOffsetX(600);
@@ -650,6 +667,8 @@ export default function MarketingPosts() {
     setPriceOffsetY(920);
     setPriceDeOffsetX(600);
     setPriceDeOffsetY(780);
+    setPriceDeLabelOffsetX(560);
+    setPriceDeLabelOffsetY(780);
     setPorApenasOffsetX(600);
     setPorApenasOffsetY(825);
     setMeasuresOffsetX(600);
@@ -705,7 +724,7 @@ export default function MarketingPosts() {
 
   const saveTemplateDefaults = async (showToast = false, overrides: Record<string, unknown> = {}) => {
     setIsAutoSaving(true);
-    const defaults = { ...getCurrentState(), ...overrides };
+    const defaults = { ...withoutProductContent(getCurrentState()), ...overrides };
     const saveTask = templateSaveQueueRef.current.catch(() => false).then(async () => {
       const { data, error } = await supabase
         .from("store_style_settings")
@@ -837,7 +856,7 @@ export default function MarketingPosts() {
           await supabase.from('store_style_settings').upsert({ id: true, marketing_defaults: defaults });
         }
         setMarketingDefaults(defaults);
-        applyState(defaults);
+        applyState(withoutProductContent(defaults));
         setDefaultModelProductId(defaults.defaultModelProductId || '');
         if (isTemplateRoute && defaults.defaultModelProductId && loadedProducts.some((product: Product) => product.id === defaults.defaultModelProductId)) {
           setSelectedProductId(defaults.defaultModelProductId);
@@ -959,8 +978,9 @@ export default function MarketingPosts() {
         window.clearTimeout(timeoutId);
         resolve(image);
       };
-      const timeoutId = window.setTimeout(() => finish(null), 3000);
-      const tryLoad = (withCors: boolean) => {
+      const timeoutId = window.setTimeout(() => finish(null), 4000);
+
+      const tryLoad = (targetUrl: string, withCors: boolean) => {
         const img = new window.Image();
         if (withCors) img.crossOrigin = "anonymous";
         img.onload = () => {
@@ -968,14 +988,19 @@ export default function MarketingPosts() {
           finish(img);
         };
         img.onerror = () => {
-          // Alguns servidores de fornecedores não liberam CORS. Tentamos
-          // novamente para que a foto ainda apareça no editor.
-          if (withCors) tryLoad(false);
-          else finish(null);
+          if (withCors && !targetUrl.includes('cors=1')) {
+            const cacheBustUrl = targetUrl.includes('?') ? `${targetUrl}&cors=1` : `${targetUrl}?cors=1`;
+            tryLoad(cacheBustUrl, true);
+          } else if (withCors) {
+            tryLoad(url, false);
+          } else {
+            finish(null);
+          }
         };
-        img.src = url;
+        img.src = targetUrl;
       };
-      tryLoad(true);
+
+      tryLoad(url, true);
     });
   };
 
@@ -1281,28 +1306,32 @@ export default function MarketingPosts() {
     // ser posicionada. No resultado final, ela continua condicionada a uma
     // promoção real, conforme a regra de catálogo.
     if (shouldShowPreviousPrice(effectivePrice, effectivePromo, isEditingTemplate || isTemplateRoute)) {
-      const deLabel = priceDeText || 'De';
+      const deLabel = (priceDeText || 'DE').toUpperCase();
       const deStr = `R$ ${effectivePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       const deSize = priceDeFontSize || 20;
+      const deLabelSize = priceDeLabelFontSize || 20;
       const isPriceDeDetached = false;
       // Templates antigos podem ter salvo o preço antigo fora da arte. A
       // posição continua editável, porém a prévia nunca o deixa invisível.
       const requestedDeX = isPriceDeDetached ? (priceDeOffsetX ?? 600) : contentLeft + ((priceDeOffsetX ?? 600) - 600);
       const deX = Math.max(20, Math.min(requestedDeX, 850));
       const deY = Math.max(deSize + 8, Math.min(priceDeOffsetY ?? 780, 1170));
+      const requestedDeLabelX = contentLeft + ((priceDeLabelOffsetX ?? 560) - 600);
+      const deLabelX = Math.max(20, Math.min(requestedDeLabelX, 1000));
+      const deLabelY = Math.max(deLabelSize + 8, Math.min(priceDeLabelOffsetY ?? 780, 1170));
       drawPriceDeLayer = () => {
         ctx.save();
         if (!isPriceDeDetached) ctx.translate(priceContainerX * S, priceContainerY * S);
-        ctx.translate(deX * S, deY * S);
+        ctx.translate(deLabelX * S, deLabelY * S);
         ctx.rotate((priceDeRotation * Math.PI) / 180);
         ctx.fillStyle = textColors.priceDeLabel || DEFAULT_TEXT_COLORS.priceDeLabel;
-        ctx.font = `bold ${deSize * S}px ${textFontFamilies.priceDeLabel || DEFAULT_FONT_FAMILY}`;
+        ctx.font = `bold ${deLabelSize * S}px ${textFontFamilies.priceDeLabel || DEFAULT_FONT_FAMILY}`;
         const deLabelWidth = ctx.measureText(deLabel).width / S;
-        const deLabelAlignment = getTextAreaAlignment('priceDeLabel', deLabelWidth, deSize);
-        drawTextBackground(ctx, S, deLabelWidth, deSize, textBackgrounds.priceDeLabel || EMPTY_TEXT_BACKGROUND, deLabelAlignment.x, deLabelAlignment.y, { ...deLabelAlignment, offsetX: deLabelAlignment.x, offsetY: deLabelAlignment.y });
+        const deLabelAlignment = getTextAreaAlignment('priceDeLabel', deLabelWidth, deLabelSize);
+        drawTextBackground(ctx, S, deLabelWidth, deLabelSize, textBackgrounds.priceDeLabel || EMPTY_TEXT_BACKGROUND, deLabelAlignment.x, deLabelAlignment.y, { ...deLabelAlignment, offsetX: deLabelAlignment.x, offsetY: deLabelAlignment.y });
         ctx.fillText(deLabel, deLabelAlignment.x * S, deLabelAlignment.y * S);
         ctx.restore();
-        reg['priceDeLabel'] = { key: 'priceDeLabel', label: 'Texto De', x: deX, y: deY - deSize, w: deLabelAlignment.width, h: deLabelAlignment.height };
+        reg['priceDeLabel'] = { key: 'priceDeLabel', label: 'Texto DE', x: deLabelX, y: deLabelY - deLabelSize, w: deLabelAlignment.width, h: deLabelAlignment.height };
       };
       drawPriceDeValueLayer = () => {
         ctx.save();
@@ -1313,8 +1342,7 @@ export default function MarketingPosts() {
         ctx.font = `bold ${deSize * S}px ${textFontFamilies.priceDe || DEFAULT_FONT_FAMILY}`;
         const deWidth = ctx.measureText(deStr).width / S;
         const deAlignment = getTextAreaAlignment('priceDe', deWidth, deSize);
-        const deLabelWidth = ctx.measureText(deLabel).width / S;
-        const deBaseX = deLabelWidth + 8;
+        const deBaseX = 0;
         drawTextBackground(ctx, S, deWidth, deSize, textBackgrounds.priceDe || EMPTY_TEXT_BACKGROUND, deBaseX + deAlignment.x, deAlignment.y, { ...deAlignment, offsetX: deAlignment.x, offsetY: deAlignment.y });
         ctx.fillText(deStr, (deBaseX + deAlignment.x) * S, deAlignment.y * S);
         ctx.strokeStyle = "#ef4444";
@@ -1334,8 +1362,8 @@ export default function MarketingPosts() {
     const priceRowY = isPricePorDetached ? (priceOffsetY ?? 920) : Math.max(prSize + 18, Math.min(priceOffsetY ?? 920, 1330 - priceContainerY));
     ctx.font = `bold ${porApSize * S}px ${textFontFamilies.porApenas || DEFAULT_FONT_FAMILY}`;
     const porApWidth = ctx.measureText(porApStr).width / S;
-    // “Por apenas” é independente: mover o preço principal não pode alterar
-    // sua posição. Mantemos apenas os limites seguros da arte.
+    // “Por apenas” é uma camada independente: não herda a posição, o recorte
+    // ou os limites do container azul do preço principal.
     const porApX = Math.max(20, Math.min(porApenasOffsetX ?? 600, 1060 - porApWidth));
     const porApY = Math.max(porApSize + 8, Math.min(porApenasOffsetY ?? 825, 1330));
     const porAlignment = getTextAreaAlignment('porApenas', porApWidth, porApSize);
@@ -1343,7 +1371,6 @@ export default function MarketingPosts() {
       ctx.fillStyle = textColors.porApenas || porApenasColor || DEFAULT_TEXT_COLORS.porApenas;
       ctx.font = `bold ${porApSize * S}px ${textFontFamilies.porApenas || DEFAULT_FONT_FAMILY}`;
       ctx.save();
-      ctx.translate(priceContainerX * S, priceContainerY * S);
       ctx.translate((porApX + porAlignment.x) * S, (porApY + porAlignment.y) * S);
       ctx.rotate((porApenasRotation * Math.PI) / 180);
       drawTextBackground(ctx, S, porApWidth, porApSize, textBackgrounds.porApenas || EMPTY_TEXT_BACKGROUND, 0, 0, { ...porAlignment, offsetX: porAlignment.x, offsetY: porAlignment.y });
@@ -1641,8 +1668,8 @@ export default function MarketingPosts() {
     installmentImageUrl, installmentImageLibrary, installmentImageScale, installmentsOffsetX, installmentsOffsetY, showSecondaryImage, showOpportunityBadge,
     oppRotation, oppScale, oppOffsetX, oppOffsetY, customPrice, customPromoPrice, mainImageScale, secondaryImageScale,
     mainImageOffsetX, mainImageOffsetY, secondaryImageOffsetX, secondaryImageOffsetY, mainImageIndex, secondaryImageIndex, mainImageSource, secondaryImageSource, imageGridSettings,
-    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceFontSizesByMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeText,
-    priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
+    productTitle, productTitleFontSize, productTitleOffsetX, productTitleOffsetY, productTitleMaxContainerWidth, isTitleWidthFixed, productTitleRotation, textSelectionWidths, textSelectionHeights, priceContainerBackgroundColor, priceContainerBorderColor, priceContainerBorderWidth, showPriceContainer, priceContainerOffsetX, priceContainerOffsetY, priceContainerWidth, priceContainerHeight, priceFontSize, priceFontSizesByMagnitude, priceHighlightBackgroundColor, priceHighlightOffsetX, priceHighlightOffsetY, priceHighlightExtraWidth, priceHighlightExtraHeight, priceDeFontSize, priceDeLabelFontSize, priceDeText,
+    priceOffsetX, priceOffsetY, priceRotation, priceDeOffsetX, priceDeOffsetY, priceDeLabelOffsetX, priceDeLabelOffsetY, priceDeRotation, porApenasText, porApenasFontSize, porApenasColor,
     porApenasOffsetX, porApenasOffsetY, porApenasRotation, measuresText, measuresFontSize, measuresOffsetX, measuresOffsetY, textFontFamilies, textColors, textBackgrounds, textHorizontalAlignments, textVerticalAlignments, selectedOpportunitySeal, detachedContainerElements, selectedElement, isGridHovered, gridImages, gridExtraImageUrls
   ]);
 
@@ -1697,7 +1724,7 @@ export default function MarketingPosts() {
     if (key === 'title') move(setProductTitleOffsetX, setProductTitleOffsetY);
     else if (key === 'imageGrid') setImageGridSettings(current => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
     else if (key === 'priceContainer') move(setPriceContainerOffsetX, setPriceContainerOffsetY);
-    else if (key === 'priceDeLabel') move(setPriceDeOffsetX, setPriceDeOffsetY);
+    else if (key === 'priceDeLabel') move(setPriceDeLabelOffsetX, setPriceDeLabelOffsetY);
     else if (key === 'priceDe') move(setPriceDeOffsetX, setPriceDeOffsetY);
     else if (key === 'pricePor') {
       move(setPriceOffsetX, setPriceOffsetY);
@@ -1728,7 +1755,7 @@ export default function MarketingPosts() {
     }
     const targetX = (1080 - element.w) / 2;
     const targetY = (1350 - element.h) / 2;
-    const containerKey = key === 'priceDeLabel' ? 'priceDe' : key;
+    const containerKey = key;
     templateUserDirtyRef.current = true;
     setSelectedElement(key);
     if (containerKey && CONTAINER_CHILD_KEYS.includes(containerKey)) {
@@ -1773,7 +1800,8 @@ export default function MarketingPosts() {
     const resizeFont = (setSize: React.Dispatch<React.SetStateAction<number>>) => setSize(value => Math.max(8, Math.min(180, value + amount)));
     if (key === 'title') resizeFont(setProductTitleFontSize);
     else if (key === 'imageGrid') setImageGridSettings(current => ({ ...current, scale: Math.max(50, Math.min(120, current.scale + amount)) }));
-    else if (key === 'priceDeLabel' || key === 'priceDe') resizeFont(setPriceDeFontSize);
+    else if (key === 'priceDeLabel') resizeFont(setPriceDeLabelFontSize);
+    else if (key === 'priceDe') resizeFont(setPriceDeFontSize);
     else if (key === 'pricePor') resizeFont(setPriceFontSize);
     else if (key === 'porApenas') resizeFont(setPorApenasFontSize);
     else if (key === 'installments') setInstallmentImageScale(value => Math.max(20, value + amount));
@@ -1998,7 +2026,7 @@ export default function MarketingPosts() {
 
   const handleOpenTemplate = () => {
     setActivePostId(null);
-    if (marketingDefaults) applyState(marketingDefaults);
+    if (marketingDefaults) applyState(withoutProductContent(marketingDefaults));
     setIsEditingTemplate(true);
     setIsModalOpen(true);
   };
@@ -2045,22 +2073,51 @@ export default function MarketingPosts() {
   };
 
   const handleDownloadDirect = async () => {
-    if (!activeProduct) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = 1080;
-    canvas.height = 1350;
-    await drawBannerAsync(canvas, true);
+    const targetProduct = activeProduct || TEMPLATE_PREVIEW_PRODUCT;
+    setDownloading(true);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+      await drawBannerAsync(canvas, true);
 
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `post-${activeProduct.name.replace(/[^a-zA-Z0-9]/g, "_")}.png`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success("Download da imagem iniciado!");
-    }, "image/png");
+      const productName = (targetProduct?.name || 'arte_promocional').replace(/[^a-zA-Z0-9]/g, "_");
+
+      try {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            toast.error("Não foi possível gerar a imagem para download.");
+            setDownloading(false);
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `post-${productName}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          toast.success("Download da imagem concluído!");
+          setDownloading(false);
+        }, "image/png");
+      } catch (blobErr) {
+        console.warn("toBlob falhou, utilizando fallback toDataURL:", blobErr);
+        const dataUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `post-${productName}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Download da imagem concluído!");
+        setDownloading(false);
+      }
+    } catch (err: any) {
+      console.error("Erro ao baixar post:", err);
+      toast.error("Falha ao gerar o download do post.");
+      setDownloading(false);
+    }
   };
 
   const handleCopyDirect = async () => {
@@ -2320,98 +2377,73 @@ export default function MarketingPosts() {
         </section>
       )}
 
-      {/* Grid de Posts do Produto */}
-      {activeProduct && (
+      {/* Grid de Posts Salvos do Produto (caso existam) */}
+      {activeProduct && postsList.length > 0 && (
         <div className="space-y-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-4 border-b border-slate-100 dark:border-slate-800 gap-4">
             <div>
               <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{activeProduct.name}</h2>
-              <p className="text-xs text-slate-400">Artes promocionais cadastradas para este produto</p>
+              <p className="text-xs text-slate-400">Artes promocionais personalizadas salvas</p>
             </div>
-            <button
-              type="button"
-              onClick={handleNewPost}
-              className="flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-pink-500/20 self-start sm:self-auto"
-            >
-              <i className="bi bi-plus-lg text-sm" />
-              <span>Criar Novo Post</span>
-            </button>
           </div>
 
-          {postsList.length === 0 ? (
-            <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center max-w-xl mx-auto bg-slate-50/50 dark:bg-slate-900/50 space-y-4">
-              <i className="bi bi-images text-5xl text-slate-300 dark:text-slate-700 block animate-pulse" />
-              <div className="space-y-1">
-                <h3 className="font-bold text-slate-700 dark:text-slate-300 text-sm">Nenhum post criado ainda</h3>
-                <p className="text-xs text-slate-400">Clique em "Criar Novo Post" para montar a arte promocional deste produto!</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleNewPost}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold transition-all"
-              >
-                Criar Primeiro Post
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {postsList.map((post: any) => (
-                <div key={post.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition group flex flex-col">
-                  <div className="relative aspect-[4/5] w-full bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800 overflow-hidden">
-                    <img src={post.imageUrl} alt="Post" className="w-full h-full object-contain p-2" />
-                    <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 px-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleEditPost(post)}
-                        className="px-3 py-1.5 bg-white text-slate-900 rounded-full hover:scale-105 transition shadow-lg font-bold text-[11px] flex items-center gap-1.5"
-                      >
-                        <i className="bi bi-pencil-fill text-blue-600" />
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => window.open(post.imageUrl, "_blank")}
-                        className="px-3 py-1.5 bg-white text-slate-900 rounded-full hover:scale-105 transition shadow-lg font-bold text-[11px] flex items-center gap-1.5"
-                      >
-                        <i className="bi bi-eye-fill text-emerald-600" />
-                        Ver
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm("Deseja realmente excluir este post?")) {
-                            handleDeletePost(post.id);
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-white text-rose-600 rounded-full hover:scale-105 transition shadow-lg font-bold text-[11px] flex items-center gap-1.5"
-                      >
-                        <i className="bi bi-trash-fill" />
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
-                        Criado: {new Date(post.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedQuickActionsPost(post)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                        title="Opções de Compartilhamento e Download"
-                      >
-                        <i className="bi bi-three-dots-vertical" />
-                      </button>
-                    </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {postsList.map((post: any) => (
+              <div key={post.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition group flex flex-col">
+                <div className="relative aspect-[4/5] w-full bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800 overflow-hidden">
+                  <img src={post.imageUrl} alt="Post" className="w-full h-full object-contain p-2" />
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 px-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleEditPost(post)}
+                      className="px-3 py-1.5 bg-white text-slate-900 rounded-full hover:scale-105 transition shadow-lg font-bold text-[11px] flex items-center gap-1.5"
+                    >
+                      <i className="bi bi-pencil-fill text-blue-600" />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open(post.imageUrl, "_blank")}
+                      className="px-3 py-1.5 bg-white text-slate-900 rounded-full hover:scale-105 transition shadow-lg font-bold text-[11px] flex items-center gap-1.5"
+                    >
+                      <i className="bi bi-eye-fill text-emerald-600" />
+                      Ver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm("Deseja realmente excluir este post?")) {
+                          handleDeletePost(post.id);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white text-rose-600 rounded-full hover:scale-105 transition shadow-lg font-bold text-[11px] flex items-center gap-1.5"
+                    >
+                      <i className="bi bi-trash-fill" />
+                      Excluir
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+                      Criado: {new Date(post.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuickActionsPost(post)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      title="Opções de Compartilhamento e Download"
+                    >
+                      <i className="bi bi-three-dots-vertical" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -2450,17 +2482,28 @@ export default function MarketingPosts() {
                 type="button"
                 onClick={async () => {
                   try {
-                    const res = await fetch(selectedQuickActionsPost.imageUrl);
+                    const res = await fetch(selectedQuickActionsPost.imageUrl, { mode: 'cors' });
+                    if (!res.ok) throw new Error("HTTP error " + res.status);
                     const blob = await res.blob();
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
                     a.download = `post-${selectedQuickActionsPost.id}.png`;
+                    document.body.appendChild(a);
                     a.click();
-                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 2000);
                     toast.success("Download concluído!");
                   } catch (e) {
-                    toast.error("Falha ao baixar imagem.");
+                    console.warn("Fetch direto para download falhou, abrindo via link:", e);
+                    const a = document.createElement("a");
+                    a.href = selectedQuickActionsPost.imageUrl;
+                    a.target = "_blank";
+                    a.download = `post-${selectedQuickActionsPost.id}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    toast.success("Download iniciado!");
                   }
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-2"
@@ -2615,7 +2658,7 @@ export default function MarketingPosts() {
             <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
               {!selectedElement && <span className="text-xs font-medium text-slate-400">Selecione um elemento no preview.</span>}
               {selectedElement && <>
-                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Container' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-pink-600">{selectedElement === 'mainImage' ? 'Foto principal' : selectedElement === 'secondaryImage' ? 'Foto secundária' : selectedElement === 'opportunityBadge' ? 'Selo de oportunidade' : selectedElement === 'priceContainer' ? 'Container de preços' : selectedElement === 'priceHighlight' ? 'Container' : selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDeLabel' ? 'Texto DE' : selectedElement === 'priceDe' ? 'Preço antigo' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerAddress' ? 'Endereço' : 'Título do rodapé'}</span>
                 {selectedElement === 'priceContainer' && <>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Cor do fundo <input type="color" value={priceContainerBackgroundColor} onChange={event => setPriceContainerBackgroundColor(event.target.value)} className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" /><output className="w-20 font-mono text-[10px] uppercase text-slate-400">{priceContainerBackgroundColor}</output></label>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200"><input type="checkbox" checked={priceContainerBorderWidth > 0} onChange={event => setPriceContainerBorderWidth(event.target.checked ? Math.max(1, priceContainerBorderWidth || 1) : 0)} className="h-4 w-4 accent-blue-600" />Borda</label>
@@ -2639,20 +2682,20 @@ export default function MarketingPosts() {
                 {selectedElement === 'slogan' && <input value={slogan} onChange={event => setSlogan(event.target.value)} className="w-64 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'footerAddress' && <input value={footerAddressText} onChange={event => setFooterAddressText(event.target.value)} className="w-80 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
                 {selectedElement === 'footerTitle' && <input value={footerAddressTitle} onChange={event => setFooterAddressTitle(event.target.value)} className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" />}
-                {(['title', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Tamanho
-                    <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> px
+                    <input type="number" min="1" value={selectedElement === 'title' ? productTitleFontSize : selectedElement === 'priceDeLabel' ? priceDeLabelFontSize : selectedElement === 'priceDe' ? priceDeFontSize : selectedElement === 'pricePor' ? priceFontSize : selectedElement === 'porApenas' ? porApenasFontSize : selectedElement === 'installments' ? installmentsFontSize : selectedElement === 'measures' ? measuresFontSize : selectedElement === 'brand' ? brandFontSize : selectedElement === 'slogan' ? sloganFontSize : selectedElement === 'footerTitle' ? footerAddressTitleFontSize : footerAddressTextFontSize} onChange={event => { const value = Math.max(1, Number(event.target.value) || 1); if (selectedElement === 'title') setProductTitleFontSize(value); else if (selectedElement === 'priceDeLabel') setPriceDeLabelFontSize(value); else if (selectedElement === 'priceDe') setPriceDeFontSize(value); else if (selectedElement === 'pricePor') setPriceFontSize(value); else if (selectedElement === 'porApenas') setPorApenasFontSize(value); else if (selectedElement === 'installments') setInstallmentsFontSize(value); else if (selectedElement === 'measures') setMeasuresFontSize(value); else if (selectedElement === 'brand') setBrandFontSize(value); else if (selectedElement === 'slogan') setSloganFontSize(value); else if (selectedElement === 'footerTitle') setFooterAddressTitleFontSize(value); else setFooterAddressTextFontSize(value); }} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> px
                   </label>
                 )}
-                {(['title', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Fonte
                     <select value={textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY} onChange={event => setTextFontFamilies(current => ({ ...current, [selectedElement as string]: event.target.value }))} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" style={{ fontFamily: textFontFamilies[selectedElement as string] || DEFAULT_FONT_FAMILY }}>
                       {FONT_OPTIONS.map(font => <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>{font.label}</option>)}
                     </select>
                   </label>
                 )}
-                {(['title', 'priceDe', 'pricePor', 'porApenas', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
-                  <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label={selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDe' ? 'Preço de' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por apenas' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerTitle' ? 'Título do rodapé' : 'Endereço'} recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />
+                {(['title', 'priceDeLabel', 'priceDe', 'pricePor', 'porApenas', 'installments', 'measures', 'brand', 'slogan', 'footerTitle', 'footerAddress'] as SelectedElement[]).includes(selectedElement) && (
+                  <TextColorPicker color={textColors[selectedElement as string] || DEFAULT_TEXT_COLORS[selectedElement as string] || '#000000'} label={selectedElement === 'title' ? 'Título do produto' : selectedElement === 'priceDeLabel' ? 'Texto DE' : selectedElement === 'priceDe' ? 'Preço antigo' : selectedElement === 'pricePor' ? 'Preço por' : selectedElement === 'porApenas' ? 'Texto por apenas' : selectedElement === 'installments' ? 'Parcelamento' : selectedElement === 'measures' ? 'Descrição' : selectedElement === 'brand' ? 'Marca' : selectedElement === 'slogan' ? 'Slogan' : selectedElement === 'footerTitle' ? 'Título do rodapé' : 'Endereço'} recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement as string]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />
                 )}
                 {selectedElement === 'opportunityBadge' && <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200">Escala <input type="number" min="40" max="180" value={oppScale} onChange={event => setOppScale(Math.min(180, Math.max(40, Number(event.target.value) || 40)))} className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold dark:border-slate-700 dark:bg-slate-800" /> %</label>}
               </>}
@@ -2669,7 +2712,7 @@ export default function MarketingPosts() {
                   {(selectedElement === 'mainImage' || selectedElement === 'secondaryImage' || selectedElement === 'imageGrid') && <PostImageSourcePicker activeSlot={selectedElement === 'mainImage' ? 'main' : selectedElement === 'secondaryImage' ? 'secondary' : undefined} mainImageSource={mainImageSource} secondaryImageSource={secondaryImageSource} options={postImageOptions} onMainImageSourceChange={setMainImageSource} onSecondaryImageSourceChange={setSecondaryImageSource} />}
                   {selectedElement === 'imageGrid' && <ImageGridControls settings={imageGridSettings} additionalImageCount={gridExtraImageUrls.length} onChange={setImageGridSettings} />}
                   {selectedElement === 'priceDe' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Preço antigo<input type="number" step="0.01" value={customPrice} onChange={event => setCustomPrice(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
-                  {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “De”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
+                  {selectedElement === 'priceDeLabel' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “DE”<input value={priceDeText} onChange={event => setPriceDeText(event.target.value.toUpperCase())} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'porApenas' && <label className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-[10px] font-black text-slate-500 dark:border-slate-700 dark:bg-slate-800">Texto “Por apenas”<input value={porApenasText} onChange={event => setPorApenasText(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-900" /></label>}
                   {selectedElement === 'pricePor' && <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
                     <div className="grid grid-cols-3 gap-1">
@@ -2700,7 +2743,6 @@ export default function MarketingPosts() {
                   {selectedElement && TEXT_ELEMENT_KEYS.includes(selectedElement) && <>
                     <TextColorPicker color={textColors[selectedElement] || DEFAULT_TEXT_COLORS[selectedElement] || '#000000'} label="Cor do texto" recentColors={colorHistory} onChange={color => setTextColors(current => ({ ...current, [selectedElement]: color }))} onCommit={color => setColorHistory(current => [color, ...current.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 10))} />
                     <TextBackgroundControls value={textBackgrounds[selectedElement] || EMPTY_TEXT_BACKGROUND} onChange={background => setTextBackgrounds(current => ({ ...current, [selectedElement]: background }))} />
-                    <TextAlignmentControls horizontal={textHorizontalAlignments[selectedElement] || 'left'} vertical={textVerticalAlignments[selectedElement] || 'middle'} onHorizontalChange={alignment => setTextHorizontalAlignments(current => ({ ...current, [selectedElement]: alignment }))} onVerticalChange={alignment => setTextVerticalAlignments(current => ({ ...current, [selectedElement]: alignment }))} />
                   </>}
                 </div>
               </aside>
@@ -2727,21 +2769,37 @@ export default function MarketingPosts() {
         <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-center justify-between shrink-0">
           {isEditingTemplate ? <div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><span>Salvamento automático</span>{isAutoSaving && <span className="h-3.5 w-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" aria-label="Salvando alterações" />}</div> : <div />}
 
-          {!isEditingTemplate && <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               disabled={downloading || isAutoSaving}
-              onClick={handleSavePost}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50"
+              onClick={handleDownloadDirect}
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider transition active:scale-95 disabled:opacity-50"
+              title="Baixar imagem do post em PNG"
             >
-              {downloading || isAutoSaving ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {downloading ? (
+                <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
               ) : (
-                <i className="bi bi-cloud-arrow-up-fill" />
+                <i className="bi bi-download text-emerald-600 text-sm" />
               )}
-              <span>Salvar & Publicar Arte</span>
+              <span>Baixar Post</span>
             </button>
-          </div>}
+            {!isEditingTemplate && (
+              <button
+                type="button"
+                disabled={downloading || isAutoSaving}
+                onClick={handleSavePost}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50"
+              >
+                {downloading || isAutoSaving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <i className="bi bi-cloud-arrow-up-fill" />
+                )}
+                <span>Salvar & Publicar Arte</span>
+              </button>
+            )}
+          </div>
         </div>
 
       </div>

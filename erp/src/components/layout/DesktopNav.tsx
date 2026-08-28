@@ -80,6 +80,9 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
                         </Link>
+                        <Link to="/registrations/suppliers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-truck mr-1 text-amber-500"></i> Fornecedores
+                        </Link>
                         <Link to="/stock/label-printing?category=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-qr-code mr-1 text-blue-500"></i> Etiqueta de Identificação
                         </Link>
@@ -100,7 +103,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'registrations' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/customers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Clientes e Fornecedores</Link>
+                        <Link to="/registrations/customers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Clientes</Link>
                         <Link to="/registrations/employees" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Funcionários</Link>
                     </div>
                 )}
@@ -154,8 +157,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
                         <a 
-                            href="https://expo.dev/artifacts/eas/gocpOfVhge5yLma5PoOpvPw0Uctw4RkZ0GadFwwS7wQ.apk"
-                            download="morante-hub.apk"
+                            href="https://expo.dev/artifacts/eas/5nd30aIY79ycwA27j6c93vkxSc02_p5Rsmx6Z_ENB4I.apk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"

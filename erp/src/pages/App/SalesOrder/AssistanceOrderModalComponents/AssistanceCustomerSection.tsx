@@ -41,10 +41,10 @@ const AssistanceCustomerSection = ({
 
     const handleStreetChange = async (val: string) => {
         updateAddress('street', val);
-        if (val.length >= 3) {
-            const suggestions = await searchAddressSuggestions(val);
+        if (val.length >= 2) {
+            const suggestions = await searchAddressSuggestions(val, customerData.fullAddress?.city);
             setStreetSuggestions(suggestions);
-            setIsStreetSuggestionsOpen(true);
+            setIsStreetSuggestionsOpen(suggestions.length > 0);
         } else {
             setStreetSuggestions([]);
             setIsStreetSuggestionsOpen(false);
@@ -53,14 +53,25 @@ const AssistanceCustomerSection = ({
 
     const handleSelectAddressSuggestion = (suggestion: any) => {
         const addr = suggestion.address;
+        const streetName = addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0];
+        const neighborhood = addr.neighbourhood || addr.suburb || customerData.fullAddress?.neighborhood || "";
+        const city = addr.city || addr.town || addr.village || customerData.fullAddress?.city || "";
+        const state = addr.state || customerData.fullAddress?.state || "PR";
+        const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : customerData.fullAddress?.cep || "";
+
+        const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
+        const generatedMapsUrl = customerData.fullAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+
         setCustomerData({
             ...customerData,
             fullAddress: {
                 ...customerData.fullAddress,
-                street: addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0],
-                neighborhood: addr.neighbourhood || addr.suburb || customerData.fullAddress.neighborhood,
-                city: addr.city || addr.town || addr.village || customerData.fullAddress.city,
-                cep: addr.postcode ? addr.postcode.replace(/\D/g, '') : customerData.fullAddress.cep
+                street: streetName,
+                neighborhood: neighborhood,
+                city: city,
+                state: state,
+                cep: cep,
+                mapsUrl: generatedMapsUrl
             }
         });
         setIsStreetSuggestionsOpen(false);

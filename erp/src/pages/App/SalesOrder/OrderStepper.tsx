@@ -43,60 +43,64 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
     const visibleSteps = isBudget ? steps.filter(s => s.step !== 5) : steps;
 
     return (
-        <div className="w-full flex flex-nowrap items-center justify-center lg:justify-between gap-1.5 md:gap-4 lg:gap-2 2xl:gap-4 transition-all duration-500 py-1">
-            {visibleSteps.map((s, idx) => {
-                const status = getStepStatus(s.step);
-                return (
-                    <React.Fragment key={s.step}>
-                        <div 
-                            onClick={() => jumpToStep(s.step)}
-                            className={`flex items-center gap-1.5 md:gap-3 cursor-pointer group transition-all duration-500 relative shrink-0 ${
-                                status === 'active' ? 'scale-105 md:scale-110' : 'hover:scale-105'
-                            }`}
-                        >
-                            {/* Step Icon Hexagon/Box */}
-                            <div className={`relative w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center border-2 transition-all duration-500 shadow-sm shrink-0 ${
-                                status === 'error' 
-                                ? 'border-rose-600 bg-rose-600 text-white shadow-gradient-rose shadow-rose-500/40'
-                                : status === 'active' 
-                                ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-500/40 rotate-[22.5deg]' 
-                                : status === 'done'
-                                ? 'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
-                                : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shadow-none text-slate-400 group-hover:border-blue-200'
-                            }`}>
-                                <i className={`bi ${s.icon} text-sm md:text-lg transition-transform duration-500 ${status === 'active' ? '-rotate-[22.5deg]' : ''}`} />
-                                
-                                {status === 'error' && (
-                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center border border-rose-500 shadow-sm">
-                                        <i className="bi bi-exclamation-triangle-fill text-rose-500 text-[6px]" />
-                                    </div>
-                                )}
-                            </div>
+        <div className="w-full max-w-full overflow-x-auto no-scrollbar py-1">
+            <div className="flex items-center justify-start md:justify-center gap-2 sm:gap-3 md:gap-4 min-w-max px-2">
+                {visibleSteps.map((s, idx) => {
+                    const status = getStepStatus(s.step);
+                    return (
+                        <React.Fragment key={s.step}>
+                            <button
+                                type="button"
+                                onClick={() => jumpToStep(s.step)}
+                                className={`flex items-center gap-2 sm:gap-2.5 cursor-pointer group transition-all duration-300 shrink-0 outline-none ${
+                                    status === 'active' ? 'scale-105' : 'hover:scale-105'
+                                }`}
+                                title={`Passo ${s.step}: ${s.label}`}
+                            >
+                                {/* Step Icon Box */}
+                                <div className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center border-2 transition-all duration-300 shadow-sm shrink-0 ${
+                                    status === 'error' 
+                                    ? 'border-rose-600 bg-rose-600 text-white shadow-rose-500/40'
+                                    : status === 'active' 
+                                    ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
+                                    : status === 'done'
+                                    ? 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/20' 
+                                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:border-blue-300 dark:group-hover:border-blue-700'
+                                }`}>
+                                    <i className={`bi ${s.icon} text-sm sm:text-base md:text-lg transition-transform duration-300`} />
+                                    
+                                    {status === 'error' && (
+                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center border border-rose-500 shadow-sm">
+                                            <i className="bi bi-exclamation-triangle-fill text-rose-500 text-[7px]" />
+                                        </div>
+                                    )}
+                                </div>
 
-                            {/* Text Label */}
-                            <div className={`flex flex-col transition-all duration-300 overflow-hidden ${
-                                status === 'active' 
-                                ? 'opacity-100 w-auto translate-x-0' 
-                                : 'opacity-0 w-0 -translate-x-4 md:opacity-100 md:w-auto md:overflow-visible md:translate-x-0'
-                            }`}>
-                                <span className={`text-[7px] md:text-[8px] font-black uppercase tracking-widest leading-none ${status === 'error' ? 'text-rose-500' : status === 'active' ? 'text-blue-500' : 'text-slate-400'}`}>
-                                    {status === 'error' ? 'Atenção' : `Passo ${s.step}`}
-                                </span>
-                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight whitespace-nowrap ${status === 'error' ? 'text-rose-600 font-black italic' : status === 'active' ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500'}`}>
-                                    {s.label}
-                                </span>
-                            </div>
-                        </div>
+                                {/* Text Label */}
+                                <div className={`flex flex-col text-left transition-all duration-300 ${
+                                    status === 'active' 
+                                    ? 'flex' 
+                                    : 'hidden xl:flex'
+                                }`}>
+                                    <span className={`text-[8px] font-black uppercase tracking-widest leading-none ${status === 'error' ? 'text-rose-500' : status === 'active' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                                        {status === 'error' ? 'Atenção' : `Passo ${s.step}`}
+                                    </span>
+                                    <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-tight whitespace-nowrap ${status === 'error' ? 'text-rose-600 italic' : status === 'active' ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500'}`}>
+                                        {s.label}
+                                    </span>
+                                </div>
+                            </button>
 
-                        {/* Connector Line */}
-                        {idx < visibleSteps.length - 1 && (
-                            <div className={`hidden lg:block h-[2px] w-4 md:w-6 transition-all duration-1000 shrink-0 ${
-                                status === 'done' ? 'bg-emerald-500/30' : status === 'error' ? 'bg-rose-500/20' : 'bg-slate-100 dark:bg-slate-800'
-                            }`} />
-                        )}
-                    </React.Fragment>
-                );
-            })}
+                            {/* Connector Line */}
+                            {idx < visibleSteps.length - 1 && (
+                                <div className={`hidden sm:block h-[2px] w-3 sm:w-4 md:w-6 transition-all duration-500 shrink-0 ${
+                                    status === 'done' ? 'bg-emerald-500/40' : status === 'error' ? 'bg-rose-500/30' : 'bg-slate-200 dark:bg-slate-800'
+                                }`} />
+                            )}
+                        </React.Fragment>
+                    );
+                })}
+            </div>
         </div>
     );
 };

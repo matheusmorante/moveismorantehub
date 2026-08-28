@@ -24,5 +24,23 @@ export const styles = StyleSheet.create({
   profileLogoutItem: { backgroundColor: '#fef2f2', borderColor: '#fee2e2' },
   profileMenuIconWrapper: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
   profileMenuLabel: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
-  profileMenuSubtext: { fontSize: 11, fontWeight: '600', color: '#64748b', marginTop: 2 }
+  profileMenuSubtext: { fontSize: 11, fontWeight: '600', color: '#64748b', marginTop: 2 },
+  versionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dbeafe'
+  },
+  versionBadgeDark: {
+    backgroundColor: '#1e3a8a30',
+    borderColor: '#1e40af'
+  },
+  versionBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#2563eb',
+    letterSpacing: 0.5
+  }
 });

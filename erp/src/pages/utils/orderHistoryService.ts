@@ -323,11 +323,15 @@ export const saveOrder = async (order: Order): Promise<string> => {
         // Disparar notificação em tempo real / push se for pedido agendado, montagem ou não rascunho
         if (orderToSave.status && orderToSave.status !== 'draft') {
             const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
-            notifyNewSaleAndAssemblies({
-                orderId: String(rowId),
-                order: orderToSave,
-                scheduleText: schedText,
-            }).catch(err => console.error("[OrderCreate] Erro ao notificar app:", err));
+            try {
+                await notifyNewSaleAndAssemblies({
+                    orderId: String(rowId),
+                    order: orderToSave,
+                    scheduleText: schedText,
+                });
+            } catch (err) {
+                console.error('[OrderCreate] Erro ao notificar app:', err);
+            }
         }
 
         return String(rowId);
@@ -558,23 +562,31 @@ export const updateOrder = async (
         // 1. Mudança de status de rascunho -> agendado / não rascunho (ou criação com id preexistente do rascunho)
         const isFromDraftOrNew = (!oldStatus || oldStatus === 'draft') && newStatus && newStatus !== 'draft';
         if (isFromDraftOrNew) {
-            notifyNewSaleAndAssemblies({
-                orderId: String(id),
-                order: merged,
-                scheduleText: schedText,
-            }).catch(err => console.error("[OrderUpdate] Erro ao notificar pedido agendado:", err));
+            try {
+                await notifyNewSaleAndAssemblies({
+                    orderId: String(id),
+                    order: merged,
+                    scheduleText: schedText,
+                });
+            } catch (err) {
+                console.error('[OrderUpdate] Erro ao notificar pedido agendado:', err);
+            }
         }
 
         if (!isFromDraftOrNew && previousOrderData) {
             const previousKinds = new Set(getOrderAssemblyKinds(previousOrderData));
             const newKinds = getOrderAssemblyKinds(merged).filter(kind => !previousKinds.has(kind));
             if (newKinds.length > 0) {
-                notifyNewAssemblies({
-                    orderId: String(id),
-                    order: merged,
-                    scheduleText: schedText,
-                    kinds: newKinds,
-                }).catch(err => console.error("[OrderUpdate] Erro ao notificar nova montagem:", err));
+                try {
+                    await notifyNewAssemblies({
+                        orderId: String(id),
+                        order: merged,
+                        scheduleText: schedText,
+                        kinds: newKinds,
+                    });
+                } catch (err) {
+                    console.error('[OrderUpdate] Erro ao notificar nova montagem:', err);
+                }
             }
         }
 
@@ -583,14 +595,18 @@ export const updateOrder = async (
 
         if (changedAreas.length > 0 && oldStatus !== 'draft') {
             const notifData = formatOrderChangeNotification(customerName, changedAreas);
-            dispatchAppNotification({
-                orderId: String(id),
-                title: notifData.title,
-                message: notifData.message,
-                type: notifData.type,
-                scheduleText: schedText,
-                orderData: merged
-            }).catch(err => console.error("[OrderUpdate] Erro ao notificar alteração do pedido:", err));
+            try {
+                await dispatchAppNotification({
+                    orderId: String(id),
+                    title: notifData.title,
+                    message: notifData.message,
+                    type: notifData.type,
+                    scheduleText: schedText,
+                    orderData: merged
+                });
+            } catch (err) {
+                console.error('[OrderUpdate] Erro ao notificar alteração do pedido:', err);
+            }
         }
 
         // Log status change

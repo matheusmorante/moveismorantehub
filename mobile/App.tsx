@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, ScrollView, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Speech from 'expo-speech';
@@ -8,7 +8,7 @@ import * as Linking from 'expo-linking';
 import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supabaseClient';
 import { completeGoogleSignIn } from './src/services/googleAuth';
 import { resolveMobileUserProfile } from './src/services/mobileAuthProfile';
-import { registerPushToken, triggerLocalNotification } from './src/services/notificationService';
+import { registerPushToken, triggerLocalNotification, initPushTokenListeners } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
 import { isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
@@ -442,7 +442,17 @@ export default function App() {
   };
 
   useEffect(() => {
+    // 1. Registra e sincroniza o push token do aparelho
     registerPushToken();
+    const cleanTokenListeners = initPushTokenListeners();
+
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        registerPushToken();
+        fetchNotifications();
+        fetchDashboardStats();
+      }
+    });
 
     // On web, use the browser URL directly. Expo Linking does not reliably
     // expose OAuth query params after a full-page redirect in development.
@@ -458,8 +468,6 @@ export default function App() {
       if (event.url) handleDeepLinkUrl(event.url);
     });
 
-
-
     // Ouvir mudanças de autenticação do Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[AuthChange] Event:', event);
@@ -471,7 +479,6 @@ export default function App() {
     supabase.auth.getSession()
       .then(({ data: { session } }) => syncAuthProfile(session))
       .catch((err) => console.warn('[Auth] Não foi possível carregar a sessão inicial:', err));
-
     fetchDashboardStats();
     fetchNotifications();
 
@@ -514,6 +521,8 @@ export default function App() {
     }, 15000);
 
     return () => {
+      cleanTokenListeners();
+      appStateSub.remove();
       subscription.unsubscribe();
       notifChannel.unsubscribe();
       deepLinkSubscription.remove();

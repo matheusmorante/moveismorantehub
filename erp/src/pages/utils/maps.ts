@@ -413,12 +413,68 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
     const tryFetchGoogleMaps = async (q: string, contextCity?: string) => {
         if (!settings.googleMapsApiKey) return [];
         
-        const searchSuffix = contextCity ? `, ${contextCity}, Paraná, Brasil` : ', Paraná, Brasil';
-        const fullQuery = q + searchSuffix;
+        const searchSuffix = contextCity ? `, ${contextCity}, PR, Brasil` : ', Paraná, Brasil';
+        const fullQuery = q.includes('Paraná') || q.includes('PR') ? q : q + searchSuffix;
 
         try {
             await loadGoogleMapsApi(settings.googleMapsApiKey);
-            const geocoder = new (window as any).google.maps.Geocoder();
+            const google = (window as any).google;
+
+            // 1. Tenta AutocompleteService do Google Places para sugestões ultra-rápidas ao digitar
+            if (google?.maps?.places?.AutocompleteService) {
+                try {
+                    const autocompleteService = new google.maps.places.AutocompleteService();
+                    const predictions: any[] = await new Promise((resolve) => {
+                        autocompleteService.getPlacePredictions(
+                            {
+                                input: q + (contextCity ? `, ${contextCity}` : ''),
+                                componentRestrictions: { country: 'br' },
+                                types: ['geocode', 'establishment'],
+                            },
+                            (res: any, status: any) => {
+                                if (status === google.maps.places.PlacesServiceStatus.OK && res) {
+                                    resolve(res);
+                                } else {
+                                    resolve([]);
+                                }
+                            }
+                        );
+                    });
+
+                    if (predictions && predictions.length > 0) {
+                        const placesMapped = predictions.map((pred: any) => {
+                            const mainText = pred.structured_formatting?.main_text || pred.description.split(',')[0];
+                            const secondaryParts = (pred.structured_formatting?.secondary_text || '').split(',').map((s: string) => s.trim());
+                            
+                            const suburb = secondaryParts[0] || '';
+                            const cityFound = secondaryParts[1] || contextCity || 'Colombo';
+                            const stateFound = secondaryParts[2] || 'PR';
+
+                            return {
+                                display_name: pred.description,
+                                place_id: pred.place_id,
+                                lat: 0,
+                                lon: 0,
+                                address: {
+                                    road: mainText,
+                                    suburb: suburb,
+                                    neighbourhood: suburb,
+                                    city: cityFound,
+                                    state: stateFound,
+                                    postcode: ''
+                                }
+                            };
+                        });
+
+                        return placesMapped;
+                    }
+                } catch (autoErr) {
+                    console.warn("AutocompleteService warning, falling back to Geocoder:", autoErr);
+                }
+            }
+
+            // 2. Fallback para Google Geocoder
+            const geocoder = new google.maps.Geocoder();
             const gResults: any[] = await new Promise((resolve, reject) => {
                 geocoder.geocode({ address: fullQuery, region: 'br' }, (res: any, status: any) => {
                     if (status === 'OK' && res) resolve(res);
@@ -429,7 +485,7 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
             if (gResults && gResults.length > 0) {
                 const mappedResults = gResults.map((r: any) => {
                     const getComponent = (type: string) => {
-                        const comp = r.address_components.find((c: any) => c.types.includes(type));
+                        const comp = r.address_components?.find((c: any) => c.types.includes(type));
                         return comp ? comp.long_name : "";
                     };
                     
@@ -438,10 +494,11 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
                         lat: r.geometry.location.lat(),
                         lon: r.geometry.location.lng(),
                         address: {
-                            road: getComponent("route"),
+                            road: getComponent("route") || r.formatted_address.split(',')[0],
                             suburb: getComponent("sublocality") || getComponent("sublocality_level_1") || getComponent("neighborhood"),
                             neighbourhood: getComponent("neighborhood") || getComponent("sublocality") || getComponent("sublocality_level_1"),
-                            city: getComponent("administrative_area_level_2") || getComponent("locality"),
+                            city: getComponent("administrative_area_level_2") || getComponent("locality") || contextCity || 'Colombo',
+                            state: getComponent("administrative_area_level_1") || 'PR',
                             postcode: getComponent("postal_code")
                         }
                     };

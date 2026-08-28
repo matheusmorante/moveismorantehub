@@ -1,15 +1,21 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
 export function useSearch() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentSearchParam = searchParams.get("search") || ""
+
   const [isOpen, setIsOpen] = useState(false)
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(currentSearchParam)
   const inputRef = useRef<HTMLInputElement>(null)
   const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setQuery(currentSearchParam)
+  }, [currentSearchParam])
   
   // Sugestões
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -76,12 +82,37 @@ export function useSearch() {
     const timer = setTimeout(async () => {
       try {
         const cleanQuery = normalizeText(trimmed)
-        const queryTokens = cleanQuery.split(" ").filter(Boolean)
+        const queryTokens = cleanQuery.split(" ").filter(token => token.length >= 2)
+
+        const getSynonyms = (token: string): string[] => {
+          if (/^(roupa|roupas|guarda|roupeiro|roupeiros)$/.test(token)) {
+            return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros"]
+          }
+          if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
+            return ["sofa", "sofas", "estofado", "estofados"]
+          }
+          if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
+            return ["colchao", "colchoes"]
+          }
+          if (/^(cama|camas|box|sommier)$/.test(token)) {
+            return ["cama", "camas", "box"]
+          }
+          if (/^(mesa|mesas)$/.test(token)) {
+            return ["mesa", "mesas"]
+          }
+          if (/^(painel|paineis|rack|racks)$/.test(token)) {
+            return ["painel", "paineis", "rack", "racks"]
+          }
+          return [token]
+        }
         
         // 1. Filtrar Ambientes e Categorias localmente (insensível a acentos e hífens)
         const matched = allDbCategories.filter(c => {
           const cleanCatName = normalizeText(c.name)
-          return queryTokens.every(token => cleanCatName.includes(token))
+          return queryTokens.every(token => {
+            const synonyms = getSynonyms(token)
+            return synonyms.some(syn => cleanCatName.includes(syn))
+          })
         })
         const environments = matched.filter(c => c.type === "environment").slice(0, 5)
         const categories = matched.filter(c => c.type === "category").slice(0, 5)
@@ -104,7 +135,10 @@ export function useSearch() {
           // Refinar match com todos os tokens no frontend
           const filtered = prodData.filter((p: any) => {
             const cleanProdName = normalizeText(p.name)
-            return queryTokens.every(token => cleanProdName.includes(token))
+            return queryTokens.every(token => {
+              const synonyms = getSynonyms(token)
+              return synonyms.some(syn => cleanProdName.includes(syn))
+            })
           }).slice(0, 5)
 
           products = filtered.map((p: any) => {

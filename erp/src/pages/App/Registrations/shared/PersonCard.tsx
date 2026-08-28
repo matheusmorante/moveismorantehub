@@ -1,5 +1,6 @@
 import React from "react";
 import Person from "../../../types/person.type";
+import DropdownPortal from "../../../../components/shared/DropdownPortal";
 
 interface PersonCardProps {
     person: Person;
@@ -26,6 +27,9 @@ const PersonCard = ({
     onToggleSelection,
     onViewPurchaseHistory
 }: PersonCardProps) => {
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
+
     return (
         <div 
             className={`bg-white dark:bg-slate-900 border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} rounded-xl p-3 shadow-sm active:scale-[0.98] transition-all`}
@@ -45,11 +49,94 @@ const PersonCard = ({
                     <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
                         {person.id?.substring(0, 8) || "NO-ID"}
                     </span>
+                    <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${person.active ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500'}`}>
+                        {person.active ? 'Ativo' : 'Inativo'}
+                    </span>
                 </div>
                 
-                <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${person.active ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500'}`}>
-                    {person.active ? 'Ativo' : 'Inativo'}
-                </span>
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        ref={menuAnchorRef}
+                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border shrink-0 ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                        title="Mais Ações"
+                    >
+                        <i className="bi bi-three-dots text-xs" />
+                    </button>
+
+                    <DropdownPortal
+                        isOpen={isMenuOpen}
+                        onClose={() => setIsMenuOpen(false)}
+                        anchorRef={menuAnchorRef}
+                        className="min-w-[190px]"
+                    >
+                        <div 
+                            className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
+                            onMouseLeave={() => setIsMenuOpen(false)}
+                        >
+                            {showTrash ? (
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onRestore(person.id!); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                    >
+                                        <i className="bi bi-arrow-counterclockwise text-emerald-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Restaurar</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onPermanentDelete(person.id!); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                    >
+                                        <i className="bi bi-trash3-fill text-red-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Permanentemente</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(person); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                    >
+                                        <i className="bi bi-pencil-fill text-blue-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
+                                    </button>
+
+                                    {onViewPurchaseHistory && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onViewPurchaseHistory(person); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                        >
+                                            <i className="bi bi-bag-check-fill text-amber-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Pedidos</span>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            setIsMenuOpen(false);
+                                            import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
+                                                sendDirectPersonGroupInviteMessage(person);
+                                            });
+                                        }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left group"
+                                    >
+                                        <i className="bi bi-person-lines-fill text-indigo-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Enviar Convite VIP</span>
+                                    </button>
+
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(person.id!); }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                    >
+                                        <i className="bi bi-trash-fill text-red-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Mover para Lixeira</span>
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </DropdownPortal>
+                </div>
             </div>
 
             <div className="mb-3">
@@ -93,82 +180,6 @@ const PersonCard = ({
                             {person.fullAddress.street}, {person.fullAddress.number || 'S/N'} - {person.fullAddress.city}
                         </span>
                     </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-1.5 mt-3" onClick={(e) => e.stopPropagation()}>
-                {showTrash ? (
-                    <>
-                        <button
-                            onClick={() => onRestore(person.id!)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg"
-                        >
-                            <i className="bi bi-arrow-counterclockwise text-base" />
-                            <span className="text-[8px] font-black uppercase">Restaurar</span>
-                        </button>
-                        <button
-                            onClick={() => onPermanentDelete(person.id!)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg col-span-2"
-                        >
-                            <i className="bi bi-trash3-fill text-base" />
-                            <span className="text-[8px] font-black uppercase tracking-tighter">Excluir Permanente</span>
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <button
-                            onClick={() => onToggleActive(person.id!, person.active)}
-                            className={`flex flex-col items-center justify-center gap-1 py-2 rounded-lg border focus:outline-none transition-all ${person.active 
-                                ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400' 
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400'}`}
-                        >
-                            <i className={`bi ${person.active ? 'bi-toggle-on' : 'bi-toggle-off'} text-base`} />
-                            <span className="text-[8px] font-black uppercase">{person.active ? 'Ativo' : 'Inativo'}</span>
-                        </button>
-
-                        <button
-                            onClick={() => onEdit(person)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg"
-                        >
-                            <i className="bi bi-pencil-fill text-base" />
-                            <span className="text-[8px] font-black uppercase">Editar</span>
-                        </button>
-
-                        <button
-                            onClick={() => onDelete(person.id!)}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg"
-                        >
-                            <i className="bi bi-trash-fill text-base" />
-                            <span className="text-[8px] font-black uppercase">Excluir</span>
-                        </button>
-
-                        <button
-                            onClick={(e) => { 
-                                e.stopPropagation(); 
-                                import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
-                                    sendDirectPersonGroupInviteMessage(person);
-                                });
-                            }}
-                            className="flex flex-col items-center justify-center gap-1 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg col-span-3 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
-                        >
-                            <div className="flex items-center gap-2">
-                                <i className="bi bi-person-lines-fill text-sm" />
-                                <span className="text-[9px] font-black uppercase tracking-widest">Enviar Convite VIP</span>
-                            </div>
-                        </button>
-
-                            {onViewPurchaseHistory && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onViewPurchaseHistory(person); }}
-                                    className="flex flex-col items-center justify-center gap-1 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg col-span-3 mt-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <i className="bi bi-clock-history text-sm" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Ver Histórico de Pedidos</span>
-                                    </div>
-                                </button>
-                            )}
-                    </>
                 )}
             </div>
         </div>

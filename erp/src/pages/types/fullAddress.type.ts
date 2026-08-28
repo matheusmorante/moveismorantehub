@@ -7,7 +7,10 @@ type FullAddress = {
     neighborhood: string,
     city: string,
     state?: string,
-    housingType?: string
+    housingType?: string,
+    mapsUrl?: string,
+    googleMapsUrl?: string,
+    mapsLink?: string
 }
 
 export type AddressViaCep = {

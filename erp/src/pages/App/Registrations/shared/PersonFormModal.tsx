@@ -41,6 +41,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             state: "",
             housingType: "",
             complement: "",
+            mapsUrl: "",
             observation: ""
         },
         noAddress: false,
@@ -86,6 +87,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     state: person.fullAddress?.state || "",
                     housingType: (person.fullAddress as any)?.housingType || "",
                     complement: person.fullAddress?.complement || "",
+                    mapsUrl: person.fullAddress?.mapsUrl || (person.fullAddress as any)?.googleMapsUrl || (person.fullAddress as any)?.mapsLink || "",
                     observation: person.fullAddress?.observation || ""
                 },
                 additionalContacts: person.additionalContacts || [],
@@ -111,6 +113,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     state: "",
                     housingType: "",
                     complement: "",
+                    mapsUrl: "",
                     observation: ""
                 },
                 noAddress: false,
@@ -127,7 +130,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         setFormData((prev: Partial<Person>) => {
             const currentAddress = prev.fullAddress || {
                 cep: "", street: "", number: "", neighborhood: "",
-                city: "", housingType: "", complement: "", observation: ""
+                city: "", housingType: "", complement: "", mapsUrl: "", observation: ""
             };
             return {
                 ...prev,
@@ -147,13 +150,12 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
     const handleStreetChange = async (val: string) => {
         handleAddressChange('street', val);
-        if (val.length >= 3) {
+        if (val.length >= 2) {
             setLoadingSuggestions(true);
             setIsStreetSuggestionsOpen(true);
             try {
                 const suggestions = await searchAddressSuggestions(val, formData.fullAddress?.city);
                 setStreetSuggestions(suggestions);
-                // No need to set isOpen true here as we did it before
                 if (suggestions.length === 0) setIsStreetSuggestionsOpen(false);
             } catch {
                 setStreetSuggestions([]);
@@ -170,15 +172,26 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
     const handleSelectAddressSuggestion = (suggestion: any) => {
         const addr = suggestion.address;
+        const streetName = addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0];
+        const neighborhood = addr.neighbourhood || addr.suburb || formData.fullAddress?.neighborhood || "";
+        const city = addr.city || addr.town || addr.village || formData.fullAddress?.city || "";
+        const state = addr.state || formData.fullAddress?.state || "PR";
+        const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : formData.fullAddress?.cep || "";
+
+        // Se tiver place_id ou nome completo, monta link do Google Maps para facilitar
+        const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
+        const generatedMapsUrl = formData.fullAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+
         setFormData((prev: Partial<Person>) => ({
             ...prev,
             fullAddress: {
                 ...prev.fullAddress!,
-                street: addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0],
-                neighborhood: addr.neighbourhood || addr.suburb || prev.fullAddress?.neighborhood || "",
-                city: addr.city || addr.town || addr.village || prev.fullAddress?.city || "",
-                state: addr.state || prev.fullAddress?.state || "",
-                cep: addr.postcode ? addr.postcode.replace(/\D/g, '') : prev.fullAddress?.cep || ""
+                street: streetName,
+                neighborhood: neighborhood,
+                city: city,
+                state: state,
+                cep: cep,
+                mapsUrl: generatedMapsUrl
             }
         }));
         setIsStreetSuggestionsOpen(false);
@@ -231,22 +244,22 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
+        if (collectionName !== 'suppliers' && requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
             toast.error("O telefone é obrigatório.");
             return;
         }
 
-        if (requiredFields.customer?.cpfCnpj && (!formData.cpfCnpj || formData.cpfCnpj.trim() === '')) {
+        if (collectionName !== 'suppliers' && requiredFields.customer?.cpfCnpj && (!formData.cpfCnpj || formData.cpfCnpj.trim() === '')) {
             toast.error("O CPF/CNPJ é obrigatório.");
             return;
         }
 
-        if (requiredFields.customer?.email && (!formData.email || formData.email.trim() === '')) {
+        if (collectionName !== 'suppliers' && requiredFields.customer?.email && (!formData.email || formData.email.trim() === '')) {
             toast.error("O e-mail é obrigatório.");
             return;
         }
 
-        if (requiredFields.customer?.rgIe && (!(formData as any).rgIe || (formData as any).rgIe.trim() === '')) {
+        if (collectionName !== 'suppliers' && requiredFields.customer?.rgIe && (!(formData as any).rgIe || (formData as any).rgIe.trim() === '')) {
             toast.error("O RG/IE é obrigatório.");
             return;
         }
@@ -256,7 +269,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (!formData.noAddress) {
+        if (collectionName !== 'suppliers' && !formData.noAddress) {
             const addr = formData.fullAddress;
             if (!addr?.street || !addr?.number || !addr?.city) {
                 toast.error("Rua, Número e Cidade são obrigatórios no endereço.");
@@ -269,43 +282,23 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        // Check for duplicates and cross-registration rules according to:
-        // "Clientes não podem ser fornecedores. Fornecedores podem ser clientes."
+        // Verifica duplicidade apenas dentro do mesmo grupo (Clientes com Clientes, Fornecedores com Fornecedores)
         if (!person) { 
             const existing = await getPersonByIdentifiers({
                 cpfCnpj: formData.cpfCnpj || "",
                 email: formData.email || "",
                 phone: formData.phone || ""
-            });
+            }, collectionName);
 
             if (existing) {
                 if (collectionName === 'suppliers') {
-                    if (existing.type === 'customers') {
-                        toast.error("Este CPF/CNPJ já existe como CLIENTE. Clientes não podem ser cadastrados como fornecedores.");
-                        return;
-                    }
-                    if (existing.type === 'suppliers') {
-                        toast.error("Este fornecedor já está cadastrado.");
-                        return;
-                    }
+                    toast.error("Este fornecedor já está cadastrado.");
+                    return;
                 } else if (collectionName === 'customers') {
-                    if (existing.type === 'suppliers') {
-                        toast.info("Este registro já existe como FORNECEDOR e já está disponível na lista de clientes.");
-                        onClose(); // Prevent creation but close modal as if successful since they are already available
-                        return;
-                    }
-                    if (existing.type === 'customers') {
-                        toast.warn("Aviso: Já existe um cliente cadastrado com este CPF/CNPJ ou celular.");
-                    }
+                    toast.warn("Aviso: Já existe um cliente cadastrado com este CPF/CNPJ, e-mail ou celular.");
                 } else if (collectionName === 'employees') {
-                    if (existing.type === 'customers') {
-                        toast.error("Clientes registrados não podem ser cadastrados como funcionários.");
-                        return;
-                    }
-                    if (existing.type === 'employees') {
-                        toast.error("Este funcionário já está cadastrado.");
-                        return;
-                    }
+                    toast.error("Este funcionário já está cadastrado.");
+                    return;
                 }
             }
         }
@@ -340,7 +333,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             {person ? `Editar ${title}` : `Novo ${title}`}
                         </h2>
                         <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">
-                            {person ? `Editando ID: ${person.id}` : `Preencha as informações do novo ${title.toLowerCase()}`}
+                            {person ? `Editando cadastro de ${title.toLowerCase()}` : `Preencha as informações do novo ${title.toLowerCase()}`}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors ml-auto">
@@ -438,7 +431,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             </div>
                         )}
 
-                        {formData.personType === 'PF' && (
+                        {formData.personType === 'PF' && collectionName !== 'suppliers' && (
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome Social</label>
                                 <input
@@ -453,7 +446,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                {isEmployee ? 'CPF' : (formData.personType === 'PJ' ? 'CNPJ' : 'CPF')} {settings.requiredFields.customer?.cpfCnpj ? <span className="text-red-500">*</span> : null}
+                                {isEmployee ? 'CPF' : (formData.personType === 'PJ' ? 'CNPJ' : 'CPF')} {collectionName !== 'suppliers' && settings.requiredFields.customer?.cpfCnpj ? <span className="text-red-500">*</span> : null}
                             </label>
                             <PatternFormat
                                 format={(isEmployee || formData.personType === 'PF') ? "###.###.###-##" : "##.###.###/####-##"}
@@ -468,15 +461,17 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Telefone {settings.requiredFields.customer?.phone && !formData.noPhone ? <span className="text-red-500">*</span> : null}
+                                    Telefone {collectionName !== 'suppliers' && settings.requiredFields.customer?.phone && !formData.noPhone ? <span className="text-red-500">*</span> : null}
                                 </label>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, noPhone: !formData.noPhone, phone: !formData.noPhone ? "" : formData.phone })}
-                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${formData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                                >
-                                    {formData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
-                                </button>
+                                {collectionName !== 'suppliers' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, noPhone: !formData.noPhone, phone: !formData.noPhone ? "" : formData.phone })}
+                                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${formData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                    >
+                                        {formData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
+                                    </button>
+                                )}
                             </div>
                             <div className="flex gap-2">
                                 <PatternFormat
@@ -505,7 +500,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         </div>
 
                         <div className="md:col-span-2 flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">E-mail {settings.requiredFields.customer?.email ? <span className="text-red-500">*</span> : null}</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">E-mail {collectionName !== 'suppliers' && settings.requiredFields.customer?.email ? <span className="text-red-500">*</span> : null}</label>
                             <input
                                 type="email"
                                 value={formData.email || ""}
@@ -529,78 +524,82 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         )}
 
                         {/* Additional Contacts Section */}
-                        <div className="md:col-span-2 mt-4 space-y-4">
-                            <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 flex items-center gap-2">
-                                    <i className="bi bi-person-plus-fill text-blue-600"></i>
-                                    Contatos Adicionais (Referência / Fixos)
-                                </h4>
-                                <button
-                                    type="button"
-                                    onClick={addAdditionalContact}
-                                    className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-800 hover:bg-blue-600 hover:text-white transition-all active:scale-95"
-                                >
-                                    + Adicionar Novo
-                                </button>
-                            </div>
+                        {collectionName !== 'suppliers' && (
+                            <div className="md:col-span-2 mt-4 space-y-4">
+                                <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 flex items-center gap-2">
+                                        <i className="bi bi-person-plus-fill text-blue-600"></i>
+                                        Contatos Adicionais (Referência / Fixos)
+                                    </h4>
+                                    <button
+                                        type="button"
+                                        onClick={addAdditionalContact}
+                                        className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-800 hover:bg-blue-600 hover:text-white transition-all active:scale-95"
+                                    >
+                                        + Adicionar Novo
+                                    </button>
+                                </div>
 
-                            {(formData.additionalContacts || []).length === 0 && (
-                                <p className="text-[10px] text-slate-400 font-bold italic py-4 text-center">
-                                    Nenhum contato secundário cadastrado.
-                                </p>
-                            )}
+                                {(formData.additionalContacts || []).length === 0 && (
+                                    <p className="text-[10px] text-slate-400 font-bold italic py-4 text-center">
+                                        Nenhum contato secundário cadastrado.
+                                    </p>
+                                )}
 
-                            <div className="grid grid-cols-1 gap-4">
-                                {(formData.additionalContacts || []).map((contact, idx) => (
-                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-slide-up flex flex-col md:flex-row gap-4 items-end">
-                                        <div className="flex-1 flex flex-col gap-2 w-full">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome do Contato</label>
-                                            <input
-                                                type="text"
-                                                value={contact.name}
-                                                onChange={(e) => updateAdditionalContact(idx, 'name', e.target.value)}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
-                                                placeholder="Ex: Mãe, Sócio, Marido..."
-                                            />
+                                <div className="grid grid-cols-1 gap-4">
+                                    {(formData.additionalContacts || []).map((contact, idx) => (
+                                        <div key={idx} className="bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-slide-up flex flex-col md:flex-row gap-4 items-end">
+                                            <div className="flex-1 flex flex-col gap-2 w-full">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome do Contato</label>
+                                                <input
+                                                    type="text"
+                                                    value={contact.name}
+                                                    onChange={(e) => updateAdditionalContact(idx, 'name', e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                                    placeholder="Ex: Mãe, Sócio, Marido..."
+                                                />
+                                            </div>
+                                            <div className="flex-1 flex flex-col gap-2 w-full">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Telefone / Celular</label>
+                                                <PatternFormat
+                                                    format="(##) #####-####"
+                                                    type="text"
+                                                    value={contact.phone}
+                                                    onChange={(e: any) => updateAdditionalContact(idx, 'phone', e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                                    placeholder="(00) 00000-0000"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeAdditionalContact(idx)}
+                                                className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                                            >
+                                                <i className="bi bi-trash-fill"></i>
+                                            </button>
                                         </div>
-                                        <div className="flex-1 flex flex-col gap-2 w-full">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Telefone / Celular</label>
-                                            <PatternFormat
-                                                format="(##) #####-####"
-                                                type="text"
-                                                value={contact.phone}
-                                                onChange={(e: any) => updateAdditionalContact(idx, 'phone', e.target.value)}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                                placeholder="(00) 00000-0000"
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeAdditionalContact(idx)}
-                                            className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
-                                        >
-                                            <i className="bi bi-trash-fill"></i>
-                                        </button>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-6">
                         <h4 className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center justify-between gap-2">
                              <div className="flex items-center gap-2">
                                 <i className="bi bi-geo-alt-fill text-blue-600"></i>
-                                Endereço {!formData.noAddress && <span className="text-red-500">*</span>}
+                                Endereço {collectionName !== 'suppliers' && !formData.noAddress && <span className="text-red-500">*</span>}
                              </div>
 
-                             <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, noAddress: !formData.noAddress })}
-                                className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${formData.noAddress ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-100 dark:bg-slate-900 dark:border-slate-800'}`}
-                             >
-                                {formData.noAddress ? <><i className="bi bi-geo-alt mr-1"></i> Informar Endereço</> : 'Não Informar'}
-                             </button>
+                             {collectionName !== 'suppliers' && (
+                                 <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, noAddress: !formData.noAddress })}
+                                    className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${formData.noAddress ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-100 dark:bg-slate-900 dark:border-slate-800'}`}
+                                 >
+                                    {formData.noAddress ? <><i className="bi bi-geo-alt mr-1"></i> Informar Endereço</> : 'Não Informar'}
+                                 </button>
+                             )}
                         </h4>
                             <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
                                 <div className="flex flex-col gap-2">
@@ -614,7 +613,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     />
                                 </div>
                                 <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro <span className="text-red-500">*</span></label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
                                     <input
                                         type="text"
                                         value={formData.fullAddress?.street || ""}
@@ -653,7 +652,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     </DropdownPortal>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número <span className="text-red-500">*</span></label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
                                     <input
                                         type="text"
                                         value={formData.fullAddress?.number || ""}
@@ -681,7 +680,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade <span className="text-red-500">*</span></label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
                                     <input
                                         type="text"
                                         value={formData.fullAddress?.city || ""}
@@ -699,45 +698,77 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                         placeholder="Opcional"
                                     />
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
-                                    <select
-                                        value={(formData.fullAddress as any)?.housingType || ""}
-                                        onChange={(e) => handleAddressChange("housingType", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    >
-                                        <option value="" disabled>Selecione...</option>
-                                        <option value="Casa">Casa</option>
-                                        <option value="Apartamento">Apartamento</option>
-                                        <option value="Condomínio Residencial">Condomínio Residencial</option>
-                                        <option value="Kitnet">Kitnet</option>
-                                        <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
-                                        <option value="Chácara">Chácara</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-3 flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.observation || ""}
-                                        onChange={(e) => handleAddressChange("observation", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                        placeholder="Ponto de referência, etc."
-                                    />
-                                </div>
+                                {collectionName !== 'suppliers' && (
+                                    <>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
+                                            <select
+                                                value={(formData.fullAddress as any)?.housingType || ""}
+                                                onChange={(e) => handleAddressChange("housingType", e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                            >
+                                                <option value="" disabled>Selecione...</option>
+                                                <option value="Casa">Casa</option>
+                                                <option value="Apartamento">Apartamento</option>
+                                                <option value="Condomínio Residencial">Condomínio Residencial</option>
+                                                <option value="Kitnet">Kitnet</option>
+                                                <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
+                                                <option value="Chácara">Chácara</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-3 flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                                    <i className="bi bi-geo-alt-fill text-red-500"></i>
+                                                    Link do Google Maps da Localização <span className="text-[9px] font-normal text-slate-400">(Opcional - caso não localize por rua/número)</span>
+                                                </label>
+                                                {formData.fullAddress?.mapsUrl && (
+                                                    <a
+                                                        href={formData.fullAddress.mapsUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                                    >
+                                                        <i className="bi bi-box-arrow-up-right"></i>
+                                                        Testar Link
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="url"
+                                                value={formData.fullAddress?.mapsUrl || ""}
+                                                onChange={(e) => handleAddressChange("mapsUrl", e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                                placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-3 flex flex-col gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
+                                            <input
+                                                type="text"
+                                                value={formData.fullAddress?.observation || ""}
+                                                onChange={(e) => handleAddressChange("observation", e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                                placeholder="Ponto de referência, etc."
+                                            />
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                         {/* Map Verification */}
-                        <div className="md:col-span-3 mt-4">
-                            <AddressVerificationMap 
-                                address={{
-                                    street: formData.fullAddress?.street || "",
-                                    number: formData.fullAddress?.number || "",
-                                    neighborhood: formData.fullAddress?.neighborhood || "",
-                                    city: formData.fullAddress?.city || ""
-                                }}
-                            />
-                        </div>
+                        {collectionName !== 'suppliers' && (
+                            <div className="md:col-span-3 mt-4">
+                                <AddressVerificationMap 
+                                    address={{
+                                        street: formData.fullAddress?.street || "",
+                                        number: formData.fullAddress?.number || "",
+                                        neighborhood: formData.fullAddress?.neighborhood || "",
+                                        city: formData.fullAddress?.city || ""
+                                    }}
+                                />
+                            </div>
+                        )}
                         <div className="md:col-span-3 mt-4 flex flex-col gap-2">
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center gap-2">
                                 <i className="bi bi-journal-text text-blue-600"></i>

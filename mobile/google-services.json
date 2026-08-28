@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "653632517897",
+    "project_id": "morantemobile",
+    "storage_bucket": "morantemobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:653632517897:android:a0f2aa55dac735713185d8",
+        "android_client_info": {
+          "package_name": "com.morante.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYfgJOx4HEgJRikThHNsT4Mrp6M0qOJTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

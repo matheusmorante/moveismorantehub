@@ -34,6 +34,7 @@ const menuItems = [
             { to: '/stock?tab=history', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
             { to: '/stock?tab=audit', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
             { to: '/stock/purchases', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
+            { to: '/registrations/suppliers', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
             { to: '/stock/label-printing?category=identificacao', icon: 'bi-qr-code', iconColor: 'text-blue-500', label: 'Etiqueta de Identificação' },
         ]
     },
@@ -44,7 +45,7 @@ const menuItems = [
         color: 'text-violet-500',
         bg: 'bg-violet-50 dark:bg-violet-900/20',
         links: [
-            { to: '/registrations/customers', icon: 'bi-person-fill', iconColor: 'text-violet-500', label: 'Clientes e Fornecedores' },
+            { to: '/registrations/customers', icon: 'bi-person-fill', iconColor: 'text-violet-500', label: 'Clientes' },
             { to: '/registrations/employees', icon: 'bi-person-badge-fill', iconColor: 'text-violet-600', label: 'Funcionários' },
         ]
     },

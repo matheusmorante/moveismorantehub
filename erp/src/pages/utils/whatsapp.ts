@@ -42,6 +42,8 @@ const buildDeliveryMessage = (order: Order) => {
         itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
     }
 
+    const mapsLink = customer.fullAddress?.mapsUrl || (customer.fullAddress as any)?.googleMapsUrl || (customer.fullAddress as any)?.mapsLink;
+
     let finalMessage = message
         .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
         .replace(/{{deliveryDate}}/g, () => date)
@@ -51,14 +53,18 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{customerObservations}}/g, () => customer.observations || "")
         .replace(/{{address}}/g, () => {
             if (order.shipping?.noAddress) return order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado";
-            return stringifyFullAddressWithObservation(customer.fullAddress);
+            let addrStr = stringifyFullAddressWithObservation(customer.fullAddress);
+            if (mapsLink) {
+                addrStr += `\n📍 *Localização (Google Maps):* ${mapsLink}`;
+            }
+            return addrStr;
         })
         .replace(/{{items}}/g, () => itemsBlock)
         .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []))
         .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
         .replace(/{{observation}}/g, () => order.observation || "Sem observações")
         .replace(/{{seller}}/g, () => order.seller || "Não informado")
-        .replace(/{{routeUrl}}/g, () => customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado");
+        .replace(/{{routeUrl}}/g, () => mapsLink || (customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado"));
 
     if (order.shipping?.deliveryMethod === 'pickup') {
         finalMessage = finalMessage

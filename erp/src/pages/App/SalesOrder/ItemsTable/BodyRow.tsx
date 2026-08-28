@@ -139,152 +139,165 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
 
     if (isMobile) {
         return (
-            <div className={`p-4 bg-white dark:bg-slate-900/40 border rounded-3xl ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'} shadow-sm relative group overflow-hidden transition-all hover:shadow-lg`}>
-                <div className="flex flex-col gap-4">
-                    {/* Linha 1: Descrição e Manuseio */}
-                    <div className="flex gap-3">
-                        <div className="flex-[3] min-w-0">
-                            <label className={`text-[9px] font-black uppercase mb-1 flex items-center gap-1.5 ml-1 ${isTemporaryProduct ? 'text-amber-600' : 'text-slate-400'}`}>
-                                Produto
-                                {isTemporaryProduct && <TemporaryProductAlert />}
-                            </label>
-                            {!item.isComboItem ? (
-                                <ProductAutocomplete
-                                    value={item.description}
-                                    onChange={(val) => onChange(idx, 'description', val)}
-                                    onSelect={(p, v) => onSelectProduct(idx, p, v)}
-                                    placeholder="Busque ou digite um produto..."
-                                    isTemporary={isTemporaryProduct}
-                                    className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
-                                />
-                            ) : (
-                                <div className="flex items-center gap-2 pl-3 py-2">
-                                    <i className="bi bi-arrow-return-right text-slate-300" />
-                                    <span className="text-sm italic text-slate-500 dark:text-slate-400">{item.description}</span>
-                                </div>
-                            )}
-                        </div>
-                        
-                        {!item.isComboItem && (
-                            <div className="flex-[2] min-w-0">
-                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Manuseio</label>
-                                <select
-                                    className={`w-full bg-white dark:bg-slate-950 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500 px-3 py-2 rounded-xl outline-none transition-all text-xs font-bold text-slate-600 dark:text-slate-400`}
-                                    value={item.handlingType || ''}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (!val) return;
-                                        if (item.handlingType === val) return;
-                                        onChange(idx, 'handlingType', val);
-                                    }}
-                                >
-                                    <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
-                                    {(() => {
-                                        const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
-                                        const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
-                                        
-                                        return (
-                                            <>
-                                                {options.map(opt => (
-                                                    <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                                                ))}
-                                                {item.handlingType && !isSelectedInOptions && (
-                                                    <option value={item.handlingType} className="italic text-slate-400">
-                                                        {item.handlingType} (Atual)
-                                                    </option>
-                                                )}
-                                            </>
-                                        );
-                                    })()}
-                                </select>
-                            </div>
-                        )}
+            <div className={`p-4 sm:p-5 bg-white dark:bg-slate-900 border rounded-3xl ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-200/80 dark:border-slate-800'} shadow-sm relative group transition-all hover:shadow-md space-y-4`}>
+                {/* Header do Card: Número do Item + Botão Excluir */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-black text-xs flex items-center justify-center border border-blue-200/60 dark:border-blue-800/60 shrink-0">
+                            #{idx + 1}
+                        </span>
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 truncate">
+                            {item.description ? item.description : 'Novo Item'}
+                        </span>
+                    </div>
 
-                        {!item.isComboItem && (
-                            <button
-                                type="button"
-                                onClick={onDelete}
-                                className="w-9 h-9 mt-5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
-                                title="Excluir item"
-                            >
-                                <i className="bi bi-trash text-lg" />
-                             </button>
+                    {!item.isComboItem && (
+                        <button
+                            type="button"
+                            onClick={onDelete}
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all shrink-0"
+                            title="Excluir item"
+                        >
+                            <i className="bi bi-trash text-sm" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Linha 1: Descrição e Manuseio */}
+                <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-[220px]">
+                        <label className={`text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 ${isTemporaryProduct ? 'text-amber-600' : 'text-slate-400 dark:text-slate-500'}`}>
+                            Descrição do Item <span className="text-red-500">*</span>
+                            {isTemporaryProduct && <TemporaryProductAlert />}
+                        </label>
+                        {!item.isComboItem ? (
+                            <ProductAutocomplete
+                                value={item.description}
+                                onChange={(val) => onChange(idx, 'description', val)}
+                                onSelect={(p, v) => onSelectProduct(idx, p, v)}
+                                onSelectDescription={(desc) => onChange(idx, 'description', desc)}
+                                placeholder="Buscar produto..."
+                                isTemporary={isTemporaryProduct}
+                                className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
+                            />
+                        ) : (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                <i className="bi bi-arrow-return-right text-slate-400" />
+                                <span className="text-xs italic font-bold text-slate-600 dark:text-slate-300">{item.description}</span>
+                            </div>
                         )}
                     </div>
 
-                    {/* Linha 2: Quantidade e Preço Unitário */}
-                    {!item.isComboItem && (
-                        <div className="flex gap-3">
-                            <div className="flex-1">
-                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Qtd</label>
-                                <UnitInput
-                                    value={item.quantity}
-                                    onChange={(value: number) => onChange(idx, 'quantity', value)}
-                                    disabled={item.isComboItem}
-                                />
-                            </div>
-                            <div className="flex-[2]">
-                                <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Preço Unitário</label>
-                                <CurrencyInput
-                                    value={tempUnitPrice}
-                                    onChange={(val: number) => setTempUnitPrice(val)}
-                                    onBlur={commitUnitPrice}
-                                    className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none"
-                                />
-                            </div>
+                    {!isBudget && !item.isComboItem && (
+                        <div className="w-[240px] sm:w-[260px] shrink-0">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Tipo de Manuseio
+                            </label>
+                            <select
+                                className={`w-full bg-transparent border-b-2 ${handlingError ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} focus:border-blue-600 px-3 py-2 shadow-sm outline-none transition-all text-xs font-bold text-slate-700 dark:text-slate-200`}
+                                value={item.handlingType || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!val) return;
+                                    if (item.handlingType === val) return;
+                                    onChange(idx, 'handlingType', val);
+                                }}
+                            >
+                                <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
+                                {(() => {
+                                    const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
+                                    const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
+                                    
+                                    return (
+                                        <>
+                                            {options.map(opt => (
+                                                <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                                            ))}
+                                            {item.handlingType && !isSelectedInOptions && (
+                                                <option value={item.handlingType} className="italic text-slate-400">
+                                                    {item.handlingType} (Atual)
+                                                </option>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </select>
                         </div>
                     )}
+                </div>
 
-                    {/* Linha 3: Desconto e Total */}
-                    <div className="flex gap-3 items-end">
-                        {!item.isComboItem ? (
-                            <div className="flex-[3] space-y-1">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto R$</label>
-                                        <CurrencyInput
-                                            value={tempDiscountValue}
-                                            max={item.unitPrice || undefined}
-                                            onChange={(val: number) => setTempDiscountValue(val)}
-                                            onBlur={commitDiscountValue}
-                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Desconto %</label>
-                                        <CurrencyOrPercentInput
-                                            prefix=""
-                                            suffix=" %"
-                                            value={tempDiscountPercent}
-                                            max={100}
-                                            onChange={(val: number) => setTempDiscountPercent(val)}
-                                            onBlur={commitDiscountPercent}
-                                            className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ) : <div className="flex-[3]" />}
-                        
-                        <div className="flex-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Preço Un. Líquido</label>
+                {/* Linha 2: Quantidade, Preço Unitário, Descontos, Líquido e Total */}
+                {!item.isComboItem && (
+                    <div className="flex flex-wrap items-end gap-3 pt-1">
+                        <div className="w-[85px] shrink-0">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Qtd. <span className="text-red-500">*</span>
+                            </label>
+                            <UnitInput
+                                value={item.quantity}
+                                onChange={(value: number) => onChange(idx, 'quantity', value)}
+                                disabled={item.isComboItem}
+                            />
+                        </div>
+
+                        <div className="w-[120px] shrink-0">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Preço Un. <span className="text-red-500">*</span>
+                            </label>
+                            <CurrencyInput
+                                value={tempUnitPrice}
+                                onChange={(val: number) => setTempUnitPrice(val)}
+                                onBlur={commitUnitPrice}
+                            />
+                        </div>
+
+                        <div className="w-[110px] shrink-0">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Desc. R$
+                            </label>
+                            <CurrencyInput
+                                value={tempDiscountValue}
+                                max={item.unitPrice || undefined}
+                                onChange={(val: number) => setTempDiscountValue(val)}
+                                onBlur={commitDiscountValue}
+                            />
+                        </div>
+
+                        <div className="w-[90px] shrink-0">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Desc. %
+                            </label>
+                            <CurrencyOrPercentInput
+                                prefix=""
+                                suffix=" %"
+                                value={tempDiscountPercent}
+                                max={100}
+                                onChange={(val: number) => setTempDiscountPercent(val)}
+                                onBlur={commitDiscountPercent}
+                            />
+                        </div>
+
+                        <div className="w-[120px] shrink-0">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Preço Un. Líq.
+                            </label>
                             <CurrencyInput
                                 value={tempSubtotal}
                                 max={item.unitPrice || undefined}
                                 onChange={(val: number) => setTempSubtotal(val)}
                                 onBlur={commitSubtotal}
-                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-3 py-2 rounded-xl text-sm font-bold outline-none text-right"
                             />
                         </div>
 
-                        <div className="flex-1 flex flex-col items-end gap-1 px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/30 dark:border-blue-500/10">
-                            <span className="text-[8px] font-black uppercase text-blue-600/60 dark:text-blue-400/60 tracking-widest">Total Item</span>
+                        {/* Total do Item */}
+                        <div className="ml-auto flex flex-col items-end justify-center px-4 py-2 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl shrink-0">
+                            <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">Total Item</span>
                             <div className="text-sm font-black text-blue-600 dark:text-blue-400">
                                 <CurrencyDisplay value={calcItemTotalValue(item)} />
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         );
     }
@@ -338,7 +351,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                                     
                                     return (
                                         <>
-                                             {options.map(opt => (
+                                            {options.map(opt => (
                                                 <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
                                             ))}
                                             {item.handlingType && !isSelectedInOptions && (
@@ -350,79 +363,69 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                                     );
                                 })()}
                             </select>
-                            {handlingError && (
-                                <div className="absolute left-0 -top-8 hidden group-hover/hsel:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap font-sans">
-                                    {handlingError}
-                                    <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                                </div>
-                            )}
                         </div>
                     )}
                 </td>
             )}
             <td className="px-2 py-2 w-[80px]">
-                <div className="w-full mx-auto">
-                    <UnitInput
-                        value={item.quantity}
-                        onChange={(value: number) => onChange(idx, 'quantity', value)}
-                        disabled={item.isComboItem}
-                    />
-                </div>
+                <UnitInput
+                    value={item.quantity}
+                    onChange={(value: number) => onChange(idx, 'quantity', value)}
+                    disabled={item.isComboItem}
+                />
             </td>
             <td className="px-2 py-2 w-[110px]">
                 {!item.isComboItem ? (
-                    <div className="w-full ml-auto">
-                        <CurrencyInput
-                            value={tempUnitPrice}
-                            onChange={(val: number) => setTempUnitPrice(val)}
-                            onBlur={commitUnitPrice}
-                            showBadge={true}
-                            badgeText="R$"
-                        />
-                    </div>
+                    <CurrencyInput
+                        value={tempUnitPrice}
+                        onChange={(val: number) => setTempUnitPrice(val)}
+                        onBlur={commitUnitPrice}
+                        className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                    />
                 ) : (
-                    <div className="text-center text-[10px] text-slate-400 font-bold">---</div>
+                    <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
-            <td className="px-2 py-2 w-[100px] text-right">
-                {!item.isComboItem && (
-                    <div className="w-full ml-auto">
-                        <CurrencyInput
-                            value={tempDiscountValue}
-                            max={item.unitPrice || undefined}
-                            onChange={(val: number) => setTempDiscountValue(val)}
-                            onBlur={commitDiscountValue}
-                            showBadge={true}
-                            badgeText="R$"
-                        />
-                    </div>
+            <td className="px-2 py-2 w-[100px]">
+                {!item.isComboItem ? (
+                    <CurrencyInput
+                        value={tempDiscountValue}
+                        max={item.unitPrice || undefined}
+                        onChange={(val: number) => setTempDiscountValue(val)}
+                        onBlur={commitDiscountValue}
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                    />
+                ) : (
+                    <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
-            <td className="px-2 py-2 w-[85px] text-right">
-                {!item.isComboItem && (
-                    <div className="w-full ml-auto">
-                        <CurrencyOrPercentInput
-                            value={tempDiscountPercent}
-                            max={100}
-                            onChange={(val: number) => setTempDiscountPercent(val)}
-                            onBlur={commitDiscountPercent}
-                            showBadge={true}
-                            badgeText="%"
-                        />
-                    </div>
+            <td className="px-2 py-2 w-[85px]">
+                {!item.isComboItem ? (
+                    <CurrencyOrPercentInput
+                        prefix=""
+                        suffix=" %"
+                        value={tempDiscountPercent}
+                        max={100}
+                        onChange={(val: number) => setTempDiscountPercent(val)}
+                        onBlur={commitDiscountPercent}
+                        className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                    />
+                ) : (
+                    <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
             <td className="px-2 py-2 w-[110px]">
-                <div className="w-full ml-auto">
+                {!item.isComboItem ? (
                     <CurrencyInput
                         value={tempSubtotal}
                         max={item.unitPrice || undefined}
                         onChange={(val: number) => setTempSubtotal(val)}
                         onBlur={commitSubtotal}
-                        showBadge={true}
-                        badgeText="R$"
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
                     />
-                </div>
+                ) : (
+                    <div className="text-right text-xs font-bold text-slate-400">-</div>
+                )}
             </td>
             <td className="px-2 py-2 w-[105px] text-right">
                 <div className="font-bold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap">

@@ -1,5 +1,6 @@
 import React from "react";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
+import DropdownPortal from "../../../../components/shared/DropdownPortal";
 
 interface PersonRowProps {
     person: Person;
@@ -30,6 +31,8 @@ const PersonRow = ({
     onToggleSelection,
     onViewPurchaseHistory
 }: PersonRowProps) => {
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
     const renderCell = (key: string) => {
         if (!visibilitySettings[key as keyof PersonVisibilitySettings]) return null;
@@ -118,77 +121,113 @@ const PersonRow = ({
             case 'actions':
                 return (
                     <td key="actions" className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-2">
-                            {showTrash ? (
-                                <>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onRestore(person.id!); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Restaurar"
-                                    >
-                                        <i className="bi bi-arrow-counterclockwise text-sm" />
-                                    </button>
+                        <div className="flex items-center justify-center">
+                            <div className="relative">
+                                <button
+                                    ref={menuAnchorRef}
+                                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                                    className={`p-2 rounded-xl transition-all shadow-sm border bg-white dark:bg-slate-955 hover:bg-slate-50 dark:hover:bg-slate-900 ${
+                                        isMenuOpen ? 'border-blue-200 text-blue-600 ring-4 ring-blue-50 dark:ring-blue-900/10' : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-800'
+                                    }`}
+                                    title="Mais Ações"
+                                >
+                                    <i className="bi bi-three-dots-vertical text-sm" />
+                                </button>
 
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onPermanentDelete(person.id!); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Excluir Permanentemente"
+                                <DropdownPortal
+                                    isOpen={isMenuOpen}
+                                    onClose={() => setIsMenuOpen(false)}
+                                    anchorRef={menuAnchorRef}
+                                    className="min-w-[190px]"
+                                >
+                                    <div 
+                                        className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
+                                        onMouseLeave={() => setIsMenuOpen(false)}
                                     >
-                                        <i className="bi bi-trash3-fill text-sm" />
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onToggleActive(person.id!, person.active); }}
-                                        className={`p-2 rounded-xl transition-all shadow-sm border ${person.active
-                                            ? 'text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30'
-                                            : 'text-slate-400 hover:text-slate-500 bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}
-                                        title={person.active ? "Desativar" : "Ativar"}
-                                    >
-                                        <i className={`bi ${person.active ? 'bi-toggle-on' : 'bi-toggle-off'} text-lg`} />
-                                    </button>
+                                        {showTrash ? (
+                                            <>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMenuOpen(false);
+                                                        onRestore(person.id!);
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                                >
+                                                    <i className="bi bi-arrow-counterclockwise text-emerald-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Restaurar</span>
+                                                </button>
 
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onEdit(person); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Editar"
-                                    >
-                                        <i className="bi bi-pencil-fill text-sm" />
-                                    </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMenuOpen(false);
+                                                        onPermanentDelete(person.id!);
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                >
+                                                    <i className="bi bi-trash3-fill text-red-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Permanentemente</span>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMenuOpen(false);
+                                                        onEdit(person);
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                                >
+                                                    <i className="bi bi-pencil-fill text-blue-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
+                                                </button>
 
-                                        {onViewPurchaseHistory && (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onViewPurchaseHistory(person); }}
-                                                className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                                title="Ver Histórico de Pedidos"
-                                            >
-                                                <i className="bi bi-bag-check-fill text-sm" />
-                                            </button>
+                                                {onViewPurchaseHistory && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onViewPurchaseHistory(person);
+                                                        }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                                    >
+                                                        <i className="bi bi-bag-check-fill text-amber-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Pedidos</span>
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setIsMenuOpen(false);
+                                                        import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
+                                                            sendDirectPersonGroupInviteMessage(person);
+                                                        });
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left group"
+                                                >
+                                                    <i className="bi bi-person-lines-fill text-indigo-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Enviar Convite VIP</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMenuOpen(false);
+                                                        onDelete(person.id!);
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                >
+                                                    <i className="bi bi-trash-fill text-red-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Mover para Lixeira</span>
+                                                </button>
+                                            </>
                                         )}
-
-                                    <button
-                                        onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
-                                                sendDirectPersonGroupInviteMessage(person);
-                                            });
-                                        }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Enviar Convite Grupo VIP"
-                                    >
-                                        <i className="bi bi-person-lines-fill text-sm" />
-                                    </button>
-
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete(person.id!); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Mover para Lixeira"
-                                    >
-                                        <i className="bi bi-trash-fill text-sm" />
-                                    </button>
-                                </>
-                            )}
+                                    </div>
+                                </DropdownPortal>
+                            </div>
                         </div>
                     </td>
                 );

@@ -58,6 +58,21 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Variáveis de Ambiente**: Revisar rotas de API e Supabase para garantir funcionamento perfeito em ambos os ambientes conforme a nova regra.
 
 ### 💎 UX / Refinamentos
+- [x] **Correção da Tela Branca em Detalhes do Pedido (Mobile)**: Corrigido o `ReferenceError` em `OrderDetailsSections.tsx` restaurando a declaração de `displayOriginalPrice` e `displayFinalPrice` ao renderizar o manuseio e preço com desconto.
+- [x] **Card de Formas de Pagamento Dinâmico (Mobile)**:
+  - Fundo e borda em **Amarelo/Âmbar** (`#f59e0b` / `#fffbeb`) com alerta quando o status estiver **Pendente**, **A Verificar** ou houver saldo a receber.
+  - Fundo e borda em **Verde** (`#10b981` / `#f0fdf4`) com check quando todos os pagamentos estiverem **Pagos**.
+- [x] **Exibição do Manuseio do Item e Desconto Sobreposto (Mobile)**:
+  - Exibição do tipo de manuseio (ex: *"Item não necessita de montagem"*, *"Montagem de Móvel"*) diretamente abaixo do título de cada produto.
+  - Preço original antes do desconto posicionado diretamente **acima** do preço verde final (com efeito riscado/tachado).
+- [x] **Checklist com Checkbox Individual por Item/Volume (Mobile)**: Cada volume/item do pedido possui seu próprio checkbox de conferência e carregamento antes de sair.
+- [x] **Busca Precisa do Catálogo Digital**: Aprimorada a barra de busca e sugestões para filtrar por palavras completas e sinônimos moveleiros (ex: "roupa" busca guarda-roupas, roupeiros e armários de roupas no título ou categoria) sem misturar letras soltas.
+- [x] **Integração Nativa Google Firebase FCM V1 (v1.2.0 / Build 19)**: Arquivos `google-services.json` e `google-services-key.json` vinculados para entrega de notificações push com o app 100% fechado (nível de sistema operacional idêntico ao WhatsApp).
+  - Build oficial concluída e links atualizados no ERP: `https://expo.dev/accounts/morante/projects/mobile/builds/7fca3976-4db5-4b11-92c6-caeee69a39c1`
+- [x] **Google Maps Places Autocomplete (2 dígitos)**: Ativação instantânea a partir de 2 caracteres digitados no campo Rua/Logradouro em todos os formulários do ERP (Cadastro de Clientes, Pedido de Venda - Dados do Cliente, Dados de Entrega e Assistência Técnica), preenchendo automaticamente Rua, Bairro, Cidade, Estado, CEP e link do Maps.
+- [x] **Link de Localização do Google Maps (ERP & Mobile)**: Campo no cadastro de clientes para localização precisa (especialmente quando ruas/números não batem exatamente no GPS), integrado na mensagem do WhatsApp do grupo de entregas e nos detalhes/etapas de entrega do app mobile.
+- [x] **Link da Build APK Oficial**: Atualizado em todos os menus e botões de download do ERP para a build `cf9aa69d-99ba-4467-9941-cc62588c407e`.
+- [x] **Stepper Informativo e Sliders Bidirecionais de Entrega**: Indicador visual no topo das 3 etapas e controle seguro por deslizamento (`«` para avançar e `»` para retroceder).
 - [ ] **CategorySearchModal**: Avaliar o comportamento em dispositivos móveis.
 - [ ] **Feedback de Sincronização de Preços**: Testar se a sincronização de preços entre pai e filhos funciona corretamente em tempo real após a economia.
 - [ ] **Feedback visual de Herança**: Adicionar feedback visual mais claro quando a herança está ativa.

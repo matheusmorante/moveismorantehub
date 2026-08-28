@@ -1,7 +1,11 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, ShieldCheck, Settings, LogOut } from 'lucide-react-native';
+import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing } from 'lucide-react-native';
+import * as Updates from 'expo-updates';
+import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
+import { testRemotePushNotification } from '../../services/notificationService';
+import { APP_VERSION, APP_BUILD } from '../../constants/appVersion';
 import { styles } from './ProfileModalStyles';
 
 interface Props {
@@ -28,6 +32,22 @@ export const ProfileModal: React.FC<Props> = ({
   WEB_URL,
 }) => {
   const insets = useSafeAreaInsets();
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [testingNotif, setTestingNotif] = useState(false);
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    await checkAndUpdateManually();
+    setCheckingUpdate(false);
+  };
+
+  const handleTestNotif = async () => {
+    setTestingNotif(true);
+    await testRemotePushNotification();
+    setTestingNotif(false);
+  };
+
+  const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 8)}` : 'OTA Ativa';
 
   return (
     <Modal
@@ -44,7 +64,12 @@ export const ProfileModal: React.FC<Props> = ({
         <View style={[styles.profileModalContent, isDarkMode && styles.modalContentDark]}>
           {/* Topo do Modal */}
           <View style={styles.profileModalTopRow}>
-            <Text style={[styles.profileModalTitle, isDarkMode && styles.textPrimaryDark]}>Perfil & Configurações</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.profileModalTitle, isDarkMode && styles.textPrimaryDark]}>Perfil</Text>
+              <View style={[styles.versionBadge, isDarkMode && styles.versionBadgeDark]}>
+                <Text style={styles.versionBadgeText}>v{APP_VERSION}</Text>
+              </View>
+            </View>
             <TouchableOpacity
               style={[styles.closeModalButton, isDarkMode && styles.iconButtonDark]}
               onPress={onClose}
@@ -82,6 +107,52 @@ export const ProfileModal: React.FC<Props> = ({
 
           {/* Menu de Ações */}
           <View style={styles.profileMenuItems}>
+            {/* Botão Testar Notificação na Barra */}
+            <TouchableOpacity
+              style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
+              onPress={handleTestNotif}
+              disabled={testingNotif}
+            >
+              <View style={[styles.profileMenuIconWrapper, { backgroundColor: '#eff6ff' }]}>
+                {testingNotif ? (
+                  <ActivityIndicator size="small" color="#2563eb" />
+                ) : (
+                  <BellRing size={18} color="#2563eb" />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileMenuLabel, isDarkMode && styles.textPrimaryDark]}>
+                  Testar Notificação na Barra
+                </Text>
+                <Text style={styles.profileMenuSubtext}>
+                  Dispara um teste com banner e som no aparelho
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Botão Verificar Atualizações */}
+            <TouchableOpacity
+              style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
+              onPress={handleCheckUpdate}
+              disabled={checkingUpdate}
+            >
+              <View style={[styles.profileMenuIconWrapper, { backgroundColor: '#f0fdf4' }]}>
+                {checkingUpdate ? (
+                  <ActivityIndicator size="small" color="#16a34a" />
+                ) : (
+                  <RefreshCw size={18} color="#16a34a" />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileMenuLabel, isDarkMode && styles.textPrimaryDark]}>
+                  {checkingUpdate ? 'Buscando atualizações...' : 'Verificar Atualizações'}
+                </Text>
+                <Text style={styles.profileMenuSubtext}>
+                  Versão: v{APP_VERSION} (Build {APP_BUILD}) • Update: {currentUpdateId}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Botão Configurações */}
             <TouchableOpacity
               style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
@@ -116,9 +187,16 @@ export const ProfileModal: React.FC<Props> = ({
               </View>
             </TouchableOpacity>
           </View>
+          {/* Rodapé Informativo de Versão */}
+          <View style={{ marginTop: 18, alignItems: 'center' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Equipe Morante • v{APP_VERSION} • Morante Móveis
+            </Text>
+          </View>
           </ScrollView>
         </View>
       </TouchableOpacity>
     </Modal>
   );
+};
 };

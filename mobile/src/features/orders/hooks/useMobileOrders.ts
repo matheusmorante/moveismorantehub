@@ -38,7 +38,7 @@ export function useMobileOrders() {
     if (term && !customer.includes(term) && !city.includes(term)) return false;
     const status = String(order.status || data.status || '').toLowerCase();
     if (statusFilter === 'agendados') return status.includes('agendad') || status.includes('scheduled');
-    if (statusFilter === 'concluidos') return /concluid|entreg|finaliz/.test(status);
+    if (statusFilter === 'concluidos') return /fulfill|atendid|concluid|entreg|finaliz/.test(status);
     if (statusFilter === 'rascunhos') return /draft|rascunh/.test(status);
     return true;
   }), [orders, searchTerm, statusFilter]);

@@ -5,6 +5,7 @@ import { Calendar, Truck, RefreshCw, ChevronRight, ChevronDown, Hammer, Clock, M
 import { supabase } from '../../../services/supabaseClient';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
+import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 interface Props {
   isDarkMode: boolean;
@@ -377,6 +378,9 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
             </View>
           </View>
         ) : null}
+
+        {/* Rodapé de Etapas da Entrega (Em Preparação / Em Rota / Em Atendimento / Não Atendido / Concluído) */}
+        <OrderCardDeliveryFooter order={o} dark={isDarkMode} onPress={() => onSelectOrder && onSelectOrder(o)} />
       </TouchableOpacity>
     );
   };

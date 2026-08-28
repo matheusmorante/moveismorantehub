@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LabelConfig } from './LabelConstants';
 import bwipjs from 'bwip-js';
+import { PriceLabelArtRenderer, PriceLabelArtData } from './PriceLabelArtRenderer';
 
 interface Props {
     config: LabelConfig;
@@ -96,8 +97,6 @@ const getCentsStr = (priceStr: string, tplCentsText: string): string => {
     return `,${parts[1].padEnd(2, '0').slice(0, 2)}`;
 };
 
-import { PriceLabelArtRenderer, PriceLabelArtData } from './PriceLabelArtRenderer';
-
 export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     // GUARD: Sem artConfig do BD, não renderizar com fallbacks genéricos
     if (!config.artConfig) {
@@ -157,8 +156,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     const centsColor = oppColors['cents'] ?? t.centsColor;
     const installmentsColor = oppColors['installments'] ?? t.installmentsColor;
 
-    // 6. Lê exclusivamente o tamanho salvo para a grandeza atual. Os valores
-    // Não usa outra grandeza nem um estado local como fallback.
+    // 6. Lê exclusivamente o tamanho salvo para a grandeza atual.
     const magnitudeSuffix = mag === 'tens' ? 'Tens' : mag === 'hundreds' ? 'Hundreds' : 'Thousands';
     const readFontSize = (field: string, fallback: number) => {
         const value = t[`${field}FontSize${magnitudeSuffix}`];
@@ -195,9 +193,6 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
 
     // 8. VISIBILIDADE DOS COMPONENTES
     const showTitle = config.showName !== false && (t.showTitle ?? false);
-    // "De", preço anterior e "Por" só fazem sentido para um produto com
-    // preço promocional válido. O template continua configurável no editor,
-    // mas esses elementos não aparecem no resultado final sem promoção.
     const showDe = hasPromotion && (t.showDe ?? false);
     const showNormalPrice = hasPromotion && (t.showNormalPrice ?? false);
     const showPor = hasPromotion && (t.showPor ?? false);
@@ -363,8 +358,11 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
         ...safeExtraFields.map((f: any) => ({ ...f, pos: { x: f.x, y: f.y }, font: f.size, align: f.align || 'center', valign: 'middle', hidden: false }))
     ].filter(el => !el.hidden);
 
-    const isLogoOnly = config.category !== 'precos' && (config.category === 'logos' || (config as any).printingMode === 'simple' || !!image);
     const isBlank = (config as any).isBlank;
+    const isImageMode = (config as any).printingMode === 'simple' || config.category === 'logos' || config.category === 'posts';
+    const isAdvancedPriceMode = config.category === 'precos' && (config as any).printingMode === 'advanced';
+    const hasImage = Boolean(image && !isBlank);
+    const isLogoOnly = isImageMode || hasImage;
 
     const renderModularElement = (el: any) => {
         if (el.isBarcode) {
@@ -383,14 +381,29 @@ const LabelItem: React.FC<Props> = ({ config, image, index, scale, rotation, hid
 
     return (
         <div className="label-item-bleed-container" style={{ ...bleedStyle, border: hideBleedBorder ? 'none' : undefined }}>
-            {image && !isBlank && config.category !== 'precos' && (
-                <img src={image} alt="" style={{ position: 'absolute', top: '50%', left: '50%', width: '100%', height: '100%', objectFit: (config.imageFit as any) || 'cover', zIndex: 1, transform: `translate(-50%, -50%) scale(${activeScale})`, transition: 'transform 0.2s ease-out', opacity: 1 }} />
+            {hasImage && (
+                <img 
+                    src={image!} 
+                    alt="" 
+                    style={{ 
+                        position: 'absolute', 
+                        top: '50%', 
+                        left: '50%', 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: (config.imageFit as any) || 'contain', 
+                        zIndex: 1, 
+                        transform: `translate(-50%, -50%) scale(${activeScale})`, 
+                        transition: 'transform 0.2s ease-out', 
+                        opacity: 1 
+                    }} 
+                />
             )}
             <div className="label-item-container" style={labelStyle}>
-                {config.category === 'precos' && !isBlank && !hideContent ? (
+                {isAdvancedPriceMode && !isBlank && !hideContent ? (
                     <PriceLabelArtItem config={config} />
                 ) : (
-                    !isLogoOnly && !hideContent && !isBlank && elements.map(renderModularElement)
+                    !hasImage && !isLogoOnly && !hideContent && !isBlank && elements.map(renderModularElement)
                 )}
             </div>
             <style dangerouslySetInnerHTML={{ __html: `

@@ -5,6 +5,7 @@ import { Hammer, RefreshCw, ChevronRight, ChevronDown, ChevronUp, Calendar, Cloc
 import { supabase } from '../../../services/supabaseClient';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod } from '../../../utils/orderUtils';
+import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 interface Props {
   isDarkMode: boolean;
@@ -219,7 +220,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
         {/* Items Container Pills */}
         {items.length > 0 ? (
           <View style={[styles.itemsContainer, isDarkMode && styles.itemsContainerDark]}>
-            <Text style={styles.itemsSectionTitle}>MÓVEIS PARA MONTAR</Text>
+            <Text style={styles.itemsSectionTitle}>ITENS PARA MONTAGEM</Text>
             <View style={styles.itemsPillsRow}>
               {items.map((item: any, idx: number) => {
                 const qty = Number(item.quantity || item.qty || 1);
@@ -253,6 +254,9 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
             </View>
           </View>
         ) : null}
+
+        {/* Rodapé de Etapas da Entrega (Em Preparação / Em Rota / Em Atendimento / Não Atendido / Concluído) */}
+        <OrderCardDeliveryFooter order={o} dark={isDarkMode} onPress={() => onSelectOrder && onSelectOrder(o)} />
       </TouchableOpacity>
     );
   };

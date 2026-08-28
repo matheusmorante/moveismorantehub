@@ -1315,8 +1315,6 @@ const LabelPrinting: React.FC = () => {
                                                          products={products}
                                                          selectedProduct={selectedProductToAdd}
                                                          onSelectProduct={(p) => setSelectedProductToAdd(p)}
-                                                         hasMore={hasMoreProducts}
-                                                         onLoadMore={() => fetchAllProducts(true)}
                                                          placeholder="Digite para buscar produto (nome, código, SKU)..."
                                                      />
 
@@ -1354,7 +1352,32 @@ const LabelPrinting: React.FC = () => {
 
                                              {/* DIREITA: BOTÕES DE MODO E BOTÃO DE LIMPAR FILA */}
                                              <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                                                 {(selectedCategory === 'logos' || (selectedCategory === 'precos' && printingMode === 'simple')) && (
+                                                 {printingMode === 'simple' && (
+                                                     <>
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => cellInputRef.current?.click()}
+                                                             className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-blue-100 dark:border-blue-900/40 shadow-sm cursor-pointer"
+                                                         >
+                                                             <i className="bi bi-cloud-arrow-up-fill text-sm" /> Carregar Imagem da Etiqueta
+                                                         </button>
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => handleAddBlankLabel(1)}
+                                                             className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-50 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
+                                                         >
+                                                             <i className="bi bi-file-earmark-plus text-slate-400" /> Adicionar Etiqueta em Branco
+                                                         </button>
+                                                         <input
+                                                             type="file"
+                                                             ref={cellInputRef}
+                                                             className="hidden"
+                                                             accept="image/*"
+                                                             onChange={handleLogoUpload}
+                                                         />
+                                                     </>
+                                                 )}
+                                                 {selectedCategory === 'logos' && (
                                                      <>
                                                          <button 
                                                              onClick={() => handleAddBlankLabel(1)}
@@ -1389,37 +1412,6 @@ const LabelPrinting: React.FC = () => {
                                          </div>
 
                                          <div className="flex flex-col gap-6">
-                                             {printingMode === 'simple' && (
-                                                 <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                                                     <div 
-                                                         onClick={() => cellInputRef.current?.click()}
-                                                         className="p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-[2rem] text-center group cursor-pointer transition-all hover:bg-blue-100/50 flex-1 flex items-center justify-center gap-3"
-                                                     >
-                                                         <div className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center group-hover:scale-110 transition-transform font-black">
-                                                             <i className="bi bi-cloud-arrow-up text-lg" />
-                                                         </div>
-                                                         <div className="text-left">
-                                                             <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">Carregar Imagem da Etiqueta</p>
-                                                             <p className="text-[8px] text-blue-400 font-bold uppercase tracking-widest">A imagem preencherá a etiqueta</p>
-                                                         </div>
-                                                     </div>
-                                                     <button 
-                                                         onClick={() => handleAddBlankLabel(1)}
-                                                         className="px-6 py-4 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800 cursor-pointer shrink-0"
-                                                     >
-                                                         <i className="bi bi-file-earmark-plus text-sm" />
-                                                         Adicionar Etiqueta em Branco
-                                                     </button>
-                                                     <input 
-                                                         type="file" 
-                                                         ref={cellInputRef} 
-                                                         className="hidden" 
-                                                         accept="image/*" 
-                                                         onChange={handleLogoUpload} 
-                                                     />
-                                                 </div>
-                                             )}
-                                             
                                             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-[300px]">
                                                 <div className="space-y-4">
                                                     {selectedCategory === 'logos' ? (

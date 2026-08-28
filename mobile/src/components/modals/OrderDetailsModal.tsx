@@ -71,7 +71,7 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
 
         {/* Full-Screen Body Content */}
         <View style={{ flex: 1 }}>
-          <OrderDetailsBody order={order} isDarkMode={isDarkMode} canStartDelivery={canStartDelivery} onStartDelivery={() => setPreparingDelivery(true)} />
+          <OrderDetailsBody order={order} isDarkMode={isDarkMode} canStartDelivery={canStartDelivery} onStartDelivery={() => setPreparingDelivery(true)} onViewDelivery={() => setPreparingDelivery(true)} />
         </View>
         </>}
       </View>

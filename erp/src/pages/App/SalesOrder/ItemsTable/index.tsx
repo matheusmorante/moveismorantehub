@@ -34,27 +34,16 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
     }
 
     const { width } = useWindowSize();
-    const isMobile = width < 768;
+    const isMobile = width < 1024; // Usar visualização em cards para telas menores que LG (< 1024px)
 
     if (isMobile) {
         return (
-            <div className="flex flex-col gap-4 p-4 h-full">
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Itens</h3>
-                    <button
-                        type="button"
-                        onClick={addItem}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-100 dark:shadow-blue-900/20 active:scale-95 transition-all"
-                    >
-                        <i className="bi bi-plus-lg" /> Adicionar Item
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 overflow-y-auto custom-scrollbar pr-1">
+            <div className="flex flex-col gap-3 p-0 h-full">
+                <div className="grid grid-cols-1 gap-3">
                     <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} />
                 </div>
 
-                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="mt-2 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
                     <Footer summary={summary} isMobile={true} isBudget={isBudget} />
                 </div>
             </div>
