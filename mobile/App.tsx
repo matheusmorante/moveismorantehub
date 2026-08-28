@@ -11,7 +11,7 @@ import { resolveMobileUserProfile } from './src/services/mobileAuthProfile';
 import { registerPushToken, triggerLocalNotification, initPushTokenListeners } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
-import { isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
+import { isCancelledOrder, isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
 import { DashboardHeader } from './src/features/dashboard/components/DashboardHeader';
 import { AISummaryCard } from './src/features/dashboard/components/AISummaryCard';
 import { OperationalStatsGrid } from './src/features/dashboard/components/OperationalStatsGrid';
@@ -273,7 +273,7 @@ export default function App() {
       activeOrders.forEach((o: any) => {
         const oData = o.order_data || {};
         const orderStatus = (o.status || oData.status || '').toLowerCase();
-        if (orderStatus === 'draft' || orderStatus === 'rascunho') return;
+        if (orderStatus === 'draft' || orderStatus === 'rascunho' || isCancelledOrder(o)) return;
 
         const shipping = oData.shipping || {};
         const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
@@ -338,7 +338,7 @@ export default function App() {
       const todayOrders = activeOrders.filter((o: any) => {
         const oData = o.order_data || {};
         const orderStatus = (o.status || oData.status || '').toLowerCase();
-        if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'cancelado') return false;
+        if (orderStatus === 'draft' || orderStatus === 'rascunho' || isCancelledOrder(o)) return false;
 
         const shipping = oData.shipping || {};
         const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};

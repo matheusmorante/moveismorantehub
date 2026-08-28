@@ -169,6 +169,11 @@ const ProductRow = ({
                                     <span className={`text-sm ${isChildVariation ? 'font-semibold text-blue-900 dark:text-blue-300' : product.isParent ? 'font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
                                         {displayName}
                                     </span>
+                                    {(product.active === false || product.deleted) && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 mt-0.5">
+                                            <i className="bi bi-x-circle-fill text-red-500"></i> Desativado
+                                        </span>
+                                    )}
                                     <div className="flex items-center gap-2 mt-1">
                                         {isChildVariation && (
                                             <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-955/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider border border-blue-200 dark:border-blue-800/80 shadow-xs">
@@ -267,7 +272,7 @@ const ProductRow = ({
                 );
             case 'category':
                 if (isChildVar) return <td key="category" className={`px-3 py-3 ${firstCellBorder}`}></td>;
-                const categoryDisplay = getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || (product as any).category_name || (product as any).category || (product as any).categoryName || "-";
+                const categoryDisplay = getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || product.category || (product as any).category_name || (product as any).categoryName || "-";
                 const leafCategories = categoryDisplay.split(' | ').map(path => {
                     const parts = path.split(' > ');
                     return parts[parts.length - 1];

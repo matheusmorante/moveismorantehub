@@ -117,15 +117,15 @@ const Products: React.FC = () => {
         // Ordenação gerenciada internamente pela ProductList
     };
 
-    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: filters.activeOnly ?? true }), [filters]);
-    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: false }), [filters]);
+    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: true }), [filters]);
+    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, activeOnly: false }), [filters]);
 
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
             <div className="flex-1 flex flex-col min-w-0 p-0.5 sm:p-2 lg:p-6 xl:p-8">
                 <div className="flex flex-col gap-3 sm:gap-6 flex-1 min-h-0">
                     {/* Header Actions Container */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 px-0.5 sm:px-1">
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 sm:gap-4 px-0.5 sm:px-1">
                         <div className="flex flex-wrap items-center gap-3 w-full">
                             <div className="relative flex-1 min-w-[200px] max-w-md">
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
@@ -138,10 +138,10 @@ const Products: React.FC = () => {
                                 />
                             </div>
 
-                            {/* Botão de Filtros - Oculto em Telas Maiores (>= lg) já que os filtros ficam na Sidebar Direita Sanfonada */}
+                            {/* Botão de Filtros - Oculto em Telas Maiores (>= xl) já que os filtros ficam na Sidebar Direita Sanfonada */}
                             <button
                                 onClick={() => setIsSidebarOpen(true)}
-                                className={`lg:hidden flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isSidebarOpen
+                                className={`xl:hidden flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isSidebarOpen
                                     ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
                                     : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600'
                                     }`}
@@ -151,7 +151,17 @@ const Products: React.FC = () => {
                                 <span>Filtros</span>
                             </button>
 
-                            <div className="flex gap-2 ml-auto shrink-0">
+                            <div className="flex gap-2 ml-auto shrink-0 items-center">
+                                {/* Botão para Abrir Modal de Produtos Desativados */}
+                                <button
+                                    onClick={() => setIsTrashOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all shadow-sm font-bold text-xs tracking-wide whitespace-nowrap active:scale-95 border border-slate-200 dark:border-slate-700"
+                                    title="Ver Produtos Desativados no ERP"
+                                >
+                                    <i className="bi bi-slash-circle text-amber-500 text-sm"></i>
+                                    <span>Produtos Desativados</span>
+                                </button>
+
                                 <button
                                     onClick={() => {
                                         setEditingProduct(null);
@@ -208,7 +218,7 @@ const Products: React.FC = () => {
                             />
                         </div>
 
-                        <div className="hidden lg:block w-80 shrink-0 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-sm p-4 space-y-4">
+                        <div className="hidden xl:block w-80 shrink-0 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-sm p-4 space-y-4">
                             
                             {/* TÓPICO 1: Resumo do Catálogo (Sanfona) */}
                             <div className="border-b border-slate-100 dark:border-slate-800 pb-3">

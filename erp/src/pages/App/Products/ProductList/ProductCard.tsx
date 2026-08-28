@@ -298,6 +298,11 @@ const ProductCard = ({
                             ? (variationName || product.name || product.title || "-")
                             : (product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-"))}
                     </h3>
+                    {(product.active === false || product.deleted) && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 mt-0.5">
+                            <i className="bi bi-x-circle-fill text-red-500"></i> Desativado
+                        </span>
+                    )}
                     {!isVariation && (
                         <div className="flex items-center flex-wrap gap-2 mt-1 leading-relaxed">
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">

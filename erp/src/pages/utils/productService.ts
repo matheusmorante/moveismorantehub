@@ -207,10 +207,13 @@ export const mapFromDB = (data: any, index?: number): Product => {
     const variationRecords = data.product_variations || data.variations || [];
     
     // Coletar categoria
-    let primaryCategory = data.category || '';
-    if (!primaryCategory && Array.isArray(data.product_categories) && data.product_categories.length > 0) {
-        primaryCategory = data.product_categories[0]?.categories?.name || '';
+    let categoryNames: string[] = [];
+    if (Array.isArray(data.product_categories) && data.product_categories.length > 0) {
+        categoryNames = data.product_categories
+            .map((pc: any) => pc.categories?.name || pc.category_name || pc.name)
+            .filter(Boolean);
     }
+    let primaryCategory = data.category || (categoryNames.length > 0 ? categoryNames.join(' | ') : '');
 
     // A flag armazenada nunca deve manter ativo no ERP um produto importado que
     // ainda não possui os dados internos exigidos para operar nesse canal.
@@ -538,15 +541,53 @@ export const fetchProductsPage = async (
 
         let query = supabase
             .from(TABLE_NAME)
-            .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)', { count: 'exact' })
-            .eq('deleted', showTrash)
+            .select('*, product_variations(*), product_images(*), product_categories(*, categories(*))', { count: 'exact' });
+
+        if (showTrash) {
+            query = query.or('deleted.eq.true,active.eq.false');
+        } else {
+            query = query.eq('deleted', false).eq('active', true);
+        }
+
+        query = query
             .order(orderColumn, { ascending })
             .range(from, to);
 
-        // Filtro de busca textual — busca por descrição ou código
+        // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações
         if (options?.search) {
-            const term = `%${options.search}%`;
-            query = query.or(`description.ilike.${term},code.ilike.${term}`);
+            const rawSearch = options.search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
+            if (rawSearch.length > 0) {
+                const term = `%${rawSearch}%`;
+
+                // 1. Buscar variações exclusivamente pelo campo 'name' na tabela product_variations
+                let variationParentIds: string[] = [];
+                try {
+                    const { data: matchedVariations } = await supabase
+                        .from('product_variations')
+                        .select('product_id')
+                        .ilike('name', term)
+                        .limit(100);
+
+                    if (matchedVariations && matchedVariations.length > 0) {
+                        variationParentIds = Array.from(new Set(
+                            matchedVariations.map(v => v.product_id).filter(Boolean)
+                        ));
+                    }
+                } catch (e) {
+                    console.warn('[ProductService] Erro ao buscar em product_variations:', e);
+                }
+
+                // 2. Montar filtro or exclusivamente com o campo name dos produtos e os IDs de variações
+                const orConditions = [`name.ilike.${term}`];
+
+                if (variationParentIds.length > 0) {
+                    variationParentIds.forEach(id => {
+                        orConditions.push(`id.eq.${id}`);
+                    });
+                }
+
+                query = query.or(orConditions.join(','));
+            }
         }
 
         // Filtro de categoria
@@ -808,11 +849,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         }
                     });
 
-                    const parentCode = product.code || '000000';
+                    const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id);
                     const suffix = String(index + 1).padStart(2, '0');
-                    const expectedPrefix = `${parentCode}-`;
-                    const isAlreadyFormatted = v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix);
-                    const resolvedSku = isAlreadyFormatted ? v.sku : `${parentCode}-${suffix}`;
+                    const defaultSku = `${parentCode}-${suffix}`;
+                    const isAlreadyFormatted = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentCode}-`) && v.sku !== '000000-01';
+                    const resolvedSku = isAlreadyFormatted ? v.sku : defaultSku;
 
                     return {
                         ...(v.id ? { id: v.id } : {}),
@@ -828,7 +869,6 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         width: v.width ? String(v.width) : null,
                         depth: v.depth ? String(v.depth) : null,
                         height: v.height ? String(v.height) : null,
-                        weight: v.weight ? String(v.weight) : null,
                         use_parent_price: v.syncUnitPrice !== false,
                         use_parent_promo_price: v.syncPromoPrice !== false,
                         use_parent_dimensions: v.syncWidth !== false,
@@ -845,23 +885,10 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
             }
         }
 
-        // Sincronizar catálogo do Meta assincronamente (background) sempre que um produto é atualizado
+        // Sincronizar catálogo do Meta (CSV) assincronamente (background)
         fetch('/api/facebook-catalog/sync', { method: 'POST' }).catch(err => {
-            console.warn('[Meta Sync] Falha silenciosa ao sincronizar catálogo do Meta (CSV):', err);
+            console.warn('[Meta Sync] Falha ao atualizar feed CSV do catálogo Meta:', err);
         });
-
-        // Sincronizar diretamente via WhatsApp/Meta Graph API (Batch/Single) com notificação
-        import('./whatsappGraphService').then(({ whatsappGraphService }) => {
-            const isPublished = product.status === 'published' && product.active !== false;
-            const action = isPublished ? 'UPDATE' : 'DELETE';
-            whatsappGraphService.syncProductToCatalog(product, action).then(() => {
-                import('react-toastify').then(({ toast }) => {
-                    toast.success(`Meta Graph API: Produto ${isPublished ? 'sincronizado com o Catálogo' : 'removido do Catálogo'}! 🚀`);
-                }).catch(() => {});
-            }).catch(err => {
-                console.warn('[Meta Graph Sync] Falha no sync direto via API:', err);
-            });
-        }).catch(() => {});
     } catch (err: any) {
         console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
         throw new Error(err.message || "Erro ao salvar no Supabase");
@@ -912,6 +939,10 @@ const ensureUuidFormat = (product: Partial<Product>): string => {
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
     const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '') ? product.id : undefined;
     const resolvedId = ensureUuidFormat(product);
+
+    if (!product.code || product.code === '000000') {
+        product.code = generateUniqueCode(resolvedId);
+    }
 
     const skusToValidate: string[] = [];
     if (product.code) skusToValidate.push(product.code);

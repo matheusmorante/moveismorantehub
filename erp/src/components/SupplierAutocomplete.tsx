@@ -8,6 +8,7 @@ interface SupplierAutocompleteProps {
     onSelect: (supplierId: string) => void;
     placeholder?: string;
     className?: string;
+    inputClassName?: string;
 }
 
 const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
@@ -15,7 +16,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     selectedSupplierId,
     onSelect,
     placeholder = "Buscar fornecedor...",
-    className = ""
+    className = "",
+    inputClassName = "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm"
 }) => {
     const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
     const [query, setQuery] = useState(selectedSupplier?.fullName || "");
@@ -81,7 +83,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
                     }}
                     onFocus={() => setShowSuggestions(query.trim().length >= 2)}
                     placeholder={placeholder}
-                    className="w-full bg-white dark:bg-slate-950 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm text-slate-700 dark:text-slate-200"
+                    className={inputClassName}
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                     <i className="bi bi-truck text-base" />

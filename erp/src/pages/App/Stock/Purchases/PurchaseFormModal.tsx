@@ -235,22 +235,19 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 xl:p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={handleCancelOrClose} />
             
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-7xl h-full lg:h-auto lg:max-h-[90vh] lg:rounded-[2.5rem] rounded-none shadow-2xl flex flex-col overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
+            <div className="relative bg-white dark:bg-slate-900 w-full h-full xl:h-auto xl:max-h-[90vh] xl:max-w-7xl rounded-none xl:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 xl:border border-slate-100 dark:border-slate-800">
                 {/* Header */}
-                <div className="p-8 bg-blue-600 text-white flex items-center justify-between shrink-0">
-                    <div>
-                        <h2 className="text-2xl font-black tracking-tight uppercase">Novo Pedido de Compra</h2>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200 mt-1">Entrada de mercadorias via fornecedor</p>
-                    </div>
-                    <button onClick={handleCancelOrClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                        <i className="bi bi-x-lg text-xl"></i>
+                <div className="px-4 py-3 xl:px-6 xl:py-3 bg-blue-600 text-white flex items-center justify-between shrink-0">
+                    <h2 className="text-base xl:text-lg font-black tracking-tight uppercase">Novo Pedido de Compra</h2>
+                    <button onClick={handleCancelOrClose} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                        <i className="bi bi-x-lg text-lg"></i>
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 xl:p-8 space-y-6 xl:space-y-8 custom-scrollbar">
                     {/* Supplier, Date, IPI & Freight */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
                         <div className="md:col-span-2 flex flex-col gap-2">
@@ -260,7 +257,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                                 selectedSupplierId={selectedSupplierId}
                                 onSelect={setSelectedSupplierId}
                                 placeholder="Buscar fornecedor..."
-                                inputClassName="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm"
+                                inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
                             />
                         </div>
                         <div className="flex flex-col gap-2">
@@ -269,18 +266,18 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                                 type="date"
                                 value={purchaseDate}
                                 onChange={(e) => setPurchaseDate(e.target.value)}
-                                className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-200 transition-all focus:ring-0"
+                                className="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-200 transition-all focus:ring-0 rounded-none"
                             />
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">IPI (%)</label>
-                            <div className="relative border-0 border-b border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
+                            <div className="relative border-0 border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
                                 <input
                                     type="number"
                                     placeholder="0"
                                     value={ipiPercent || ""}
                                     onChange={(e) => setIpiPercent(Number(e.target.value))}
-                                    className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0"
+                                    className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0 rounded-none"
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs select-none">
                                     %
@@ -289,13 +286,13 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frete (%)</label>
-                            <div className="relative border-0 border-b border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
+                            <div className="relative border-0 border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
                                 <input
                                     type="number"
                                     placeholder="0"
                                     value={freightPercent || ""}
                                     onChange={(e) => setFreightPercent(Number(e.target.value))}
-                                    className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0"
+                                    className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0 rounded-none"
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs select-none">
                                     %
@@ -305,17 +302,17 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                     </div>
 
                     {/* Nota Fiscal Attachments & Chave de Acesso */}
-                    <div className="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800/30 pt-6">
+                    <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-800/30 pt-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                             {/* Lado esquerdo: Upload e Listagem de arquivos */}
                             <div className="flex flex-col gap-2 w-full">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anexar Documento / Nota Fiscal (PDF ou Imagem - Máx: 5)</label>
-                                <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-[2rem] p-6 text-center cursor-pointer transition-all hover:bg-slate-50/20 dark:hover:bg-slate-950/10 ${attachments.length >= 5 ? 'opacity-50 pointer-events-none border-slate-200' : 'border-slate-300 dark:border-slate-800 hover:border-blue-500'}`}>
-                                    <i className={`bi ${isUploading ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-arrow-up-fill'} text-blue-600 dark:text-blue-400 text-3xl mb-2`} />
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all hover:bg-slate-50/20 dark:hover:bg-slate-950/10 ${attachments.length >= 5 ? 'opacity-50 pointer-events-none border-slate-200' : 'border-slate-300 dark:border-slate-800 hover:border-blue-500'}`}>
+                                    <i className={`bi ${isUploading ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-arrow-up-fill'} text-blue-600 dark:text-blue-400 text-2xl mb-1`} />
+                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                                         {isUploading ? 'Enviando arquivos...' : 'Arraste ou clique para anexar nota fiscal'}
                                     </span>
-                                    <span className="text-xs text-slate-400 mt-1">Formatos aceitos: PDF, PNG, JPG (Enviados: {attachments.length}/5)</span>
+                                    <span className="text-[10px] text-slate-400 mt-0.5">Formatos: PDF, PNG, JPG (Enviados: {attachments.length}/5)</span>
                                     <input
                                         type="file"
                                         multiple
@@ -331,9 +328,9 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                                         {attachments.map((url, idx) => {
                                             const fileName = url.split('/').pop()?.slice(-25) || `Nota Fiscal #${idx + 1}`;
                                             return (
-                                                <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/50 rounded-2xl gap-3 shadow-sm animate-slide-up">
+                                                <div key={idx} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/50 rounded-xl gap-3 shadow-sm animate-slide-up">
                                                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                        <i className="bi bi-file-earmark-pdf-fill text-red-500 shrink-0 text-lg" />
+                                                        <i className="bi bi-file-earmark-pdf-fill text-red-500 shrink-0 text-base" />
                                                         <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 truncate hover:underline">
                                                             {fileName}
                                                         </a>
@@ -341,10 +338,10 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemoveAttachment(idx)}
-                                                        className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 rounded-xl transition-colors shrink-0"
+                                                        className="p-1 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 rounded-lg transition-colors shrink-0"
                                                         title="Remover anexo"
                                                     >
-                                                        <i className="bi bi-trash text-sm" />
+                                                        <i className="bi bi-trash text-xs" />
                                                     </button>
                                                 </div>
                                             );
@@ -362,7 +359,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                                     maxLength={44}
                                     onChange={(e) => setFiscalKey(e.target.value.replace(/\D/g, ''))}
                                     placeholder="Digite a chave da nota fiscal..."
-                                    className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold tracking-widest text-slate-700 dark:text-slate-200 transition-all focus:ring-0 focus:shadow-sm"
+                                    className="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold tracking-widest text-slate-700 dark:text-slate-200 transition-all focus:ring-0 focus:shadow-sm rounded-none"
                                 />
                             </div>
                         </div>
@@ -380,11 +377,11 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-8 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-4 shrink-0">
+                <div className="p-4 xl:p-6 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-4 shrink-0">
                     <button
                         type="button"
                         onClick={handleCancelOrClose}
-                        className="px-6 py-3.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        className="px-6 py-3 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs uppercase tracking-wider"
                     >
                         Cancelar / Fechar
                     </button>
@@ -393,7 +390,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                             type="button"
                             onClick={() => handleSave('ordered')}
                             disabled={isSaving}
-                            className="px-6 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+                            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none text-xs uppercase tracking-wider"
                         >
                             Confirmar Pedido
                         </button>
@@ -401,7 +398,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                             type="button"
                             onClick={() => handleSave('fulfilled')}
                             disabled={isSaving}
-                            className="px-6 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 dark:shadow-none"
+                            className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 dark:shadow-none text-xs uppercase tracking-wider"
                         >
                             Atender Completo
                         </button>

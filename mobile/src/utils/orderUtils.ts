@@ -347,3 +347,7 @@ export const formatOrderSchedulingText = (shipping: any, item: any): string => {
 
   return '';
 };
+export const isCancelledOrder = (order: any): boolean => {
+  const data = order?.order_data || {};
+  return /cancel/.test(String(order?.status || data.status || '').toLowerCase());
+};

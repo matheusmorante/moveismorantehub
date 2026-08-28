@@ -20,6 +20,7 @@
         {
           "icon": "./assets/icon.png",
           "color": "#2563EB",
+          "defaultChannel": "morante_alerts_v3",
           "sounds": [
             "./assets/levelup.mp3"
           ]

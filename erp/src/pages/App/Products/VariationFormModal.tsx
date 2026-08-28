@@ -585,9 +585,32 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                             className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
                                         />
                                     </div>
-                                ) : (
-                                    <div className="hidden sm:block p-2"></div>
-                                )}
+                                ) : null}
+                            </div>
+
+                            {/* Campo de Exibição do Slug (Nome do Pai + Atributos) */}
+                            <div className="space-y-1.5 p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-2xl">
+                                <label className="text-[10px] uppercase font-black text-blue-600 dark:text-blue-400 tracking-widest flex items-center gap-1.5 h-6">
+                                    <i className="bi bi-link-45deg text-blue-500"></i>
+                                    <span>Slug Gerado (Nome Pai + Atributos)</span>
+                                </label>
+                                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-700 dark:text-slate-200 shadow-sm">
+                                    <span className="text-slate-400 select-none">/produto/</span>
+                                    <span className="font-bold text-blue-600 dark:text-blue-400 truncate">
+                                        {(() => {
+                                            const parentName = (parentProduct.name || parentProduct.description || '').trim();
+                                            const attributeValues = (formData.attributes || []).map((a: any) => a.value).filter(Boolean);
+                                            const fullVarName = attributeValues.length > 0
+                                                ? [parentName, ...attributeValues].filter(Boolean).join(' ')
+                                                : (formData.name || parentName);
+                                            return (fullVarName.toLowerCase()
+                                                .normalize('NFD')
+                                                .replace(/[\u0300-\u036f]/g, '')
+                                                .replace(/[^a-z0-9]+/g, '-')
+                                                .replace(/^-+|-+$/g, '')) || 'slug-da-variacao';
+                                        })()}
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="space-y-3 bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100 dark:border-slate-850">

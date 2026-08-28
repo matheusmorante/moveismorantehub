@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, Truck, RefreshCw, ChevronRight, ChevronDown, Hammer, Clock, MapPin, Navigation, Package, AlertCircle, Wrench, Check } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
-import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
+import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isCancelledOrder, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 interface Props {
@@ -91,7 +91,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
 
   const deliveryOrders = orders.filter((o) => {
     const oData = o.order_data || {};
-    if (oData.deleted || o.deleted) return false;
+    if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
     if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'drafts') return false;
 

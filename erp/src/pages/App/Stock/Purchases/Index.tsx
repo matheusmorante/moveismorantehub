@@ -30,25 +30,25 @@ const PurchasesPage = () => {
     return (
         <div className="flex flex-col">
             <div className="flex-1 flex flex-col min-w-0 p-4 md:p-8">
-                <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-6">
-                    <div className="flex items-start xl:items-center gap-4 xl:gap-6">
-                        <div className="w-12 h-12 xl:w-16 xl:h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200 dark:shadow-none">
-                            <i className="bi bi-truck text-2xl xl:text-3xl"></i>
+                <div className="flex flex-row justify-between items-center mb-6 md:mb-10 gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4 xl:gap-6">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 xl:w-16 xl:h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200 dark:shadow-none shrink-0">
+                            <i className="bi bi-truck text-xl sm:text-2xl xl:text-3xl"></i>
                         </div>
                         <div>
-                            <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
+                            <h1 className="text-xl sm:text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
                                 Pedidos de Compra
                             </h1>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
+                            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-sm xl:text-lg hidden sm:block">
                                 Gerencie a entrada de mercadorias e custos
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 shrink-0">
                         <button
                             onClick={() => setIsModalOpen(true)}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
+                            className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2.5 sm:px-4 sm:py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 whitespace-nowrap"
                         >
                             <i className="bi bi-plus-lg text-sm xl:text-base" />
                             Nova Compra

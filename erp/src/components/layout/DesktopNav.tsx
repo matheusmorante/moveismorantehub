@@ -157,7 +157,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
                         <a 
-                            href="https://expo.dev/artifacts/eas/5nd30aIY79ycwA27j6c93vkxSc02_p5Rsmx6Z_ENB4I.apk"
+                            href="https://expo.dev/accounts/morante/projects/mobile/builds/89f81326-2042-48e8-ae13-627f7cc24547"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"

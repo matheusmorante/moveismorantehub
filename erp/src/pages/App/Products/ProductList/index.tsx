@@ -177,7 +177,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                             </select>
                         </div>
                     </div>
-                    {totalPages > 1 && (
+                    {totalPages >= 1 && (
                         <div className="flex items-center gap-1.5">
                             <button
                                 type="button"

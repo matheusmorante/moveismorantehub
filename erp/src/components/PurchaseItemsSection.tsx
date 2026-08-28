@@ -77,20 +77,25 @@ export const PurchaseItemsSection = ({
     return (
         <div className="space-y-6">
             {/* Itens do Pedido Section */}
-            <div>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-4 border-t border-slate-100 dark:border-slate-800/30 pt-6">Itens do Pedido</h3>
+            {/* Container de Adicionar Item */}
+            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 bg-slate-50/50 dark:bg-slate-900/30 space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                    <i className="bi bi-plus-circle-fill text-blue-600 text-sm" />
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Adicionar Item</h3>
+                </div>
                 
-                {/* Inputs do Item (borda inferior estilizada) */}
-                <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
-                    <div className="md:col-span-2 flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Produto</label>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                    {/* Campo Produto */}
+                    <div className="sm:col-span-6 flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produto</label>
                         <ProductAutocomplete
                             value={currentDescription}
                             onChange={setCurrentDescription}
                             onSelect={(p, v) => {
                                 setCurrentProductId(p.id!);
                                 setCurrentVariationId(v?.id);
-                                setCurrentDescription(v ? `${p.description} (${v.name})` : p.description);
+                                const prodName = p.name || p.title || p.description;
+                                setCurrentDescription(v ? (v.name && v.name.toLowerCase().includes(prodName.toLowerCase()) ? v.name : `${prodName} - ${v.name}`) : prodName);
                                 
                                 if (v?.costPrice) setCurrentCost(v.costPrice);
                                 else if (p.costPrice) setCurrentCost(p.costPrice);
@@ -98,79 +103,49 @@ export const PurchaseItemsSection = ({
                             }}
                             onSelectDescription={setCurrentDescription}
                             placeholder="Buscar produto..."
-                            inputClassName="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm"
+                            inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
                         />
                     </div>
-                    <div className="flex flex-col gap-2 items-center">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block text-center">Qtd</label>
-                        <div className="flex bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-1.5 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all max-w-[90px] mx-auto items-center">
+
+                    {/* Campo Qtd */}
+                    <div className="sm:col-span-2 flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Qtd</label>
+                        <div className="flex bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-1.5 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all items-center justify-center">
                             <input 
                                 type="number"
                                 placeholder="0"
                                 value={currentQty || ""}
-                                max={99}
-                                onChange={(e) => setCurrentQty(Math.min(99, Math.max(1, Number(e.target.value))))}
-                                className="w-full bg-transparent outline-none font-bold text-sm text-center border-none focus:ring-0 p-0 text-slate-700 dark:text-slate-300"
+                                max={999}
+                                onChange={(e) => setCurrentQty(Math.min(999, Math.max(1, Number(e.target.value))))}
+                                className="w-full bg-transparent outline-none font-bold text-sm text-center border-none focus:ring-0 p-0 text-slate-700 dark:text-slate-300 rounded-none"
                             />
-                            <span className="text-[10px] font-black text-slate-400 ml-1">
-                                un
-                            </span>
+                            <span className="text-[10px] font-black text-slate-400 ml-1">un</span>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center block">Custo Base</label>
+
+                    {/* Campo Custo Base */}
+                    <div className="sm:col-span-3 flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Custo Base (R$)</label>
                         <input 
                             type="number"
                             placeholder="0.00"
                             value={currentCost || ""}
                             onChange={(e) => setCurrentCost(Number(e.target.value))}
-                            className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 text-center"
+                            className="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 text-center rounded-none"
                         />
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center block">IPI (R$)</label>
-                        <input 
-                            type="text"
-                            readOnly
-                            value={formatCurrency(tempIpiVal)}
-                            className="w-full bg-transparent border-0 border-b border-slate-100 dark:border-slate-800/20 p-2 outline-none text-sm font-bold text-slate-400 cursor-default text-center"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center block">Frete (R$)</label>
-                        <input 
-                            type="text"
-                            readOnly
-                            value={formatCurrency(tempFreightVal)}
-                            className="w-full bg-transparent border-0 border-b border-slate-100 dark:border-slate-800/20 p-2 outline-none text-sm font-bold text-slate-400 cursor-default text-center"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center block">Subtotal</label>
-                        <input 
-                            type="text"
-                            readOnly
-                            value={formatCurrency(tempSubtotal)}
-                            className="w-full bg-transparent border-0 border-b border-slate-100 dark:border-slate-800/20 p-2 outline-none text-sm font-bold text-slate-400 cursor-default text-center"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center block">Total Final</label>
-                        <div className="flex gap-2 items-center border-0 border-b border-slate-200 dark:border-slate-800 pb-1.5 focus-within:border-blue-600 dark:focus-within:border-blue-500">
-                            <input 
-                                type="text"
-                                readOnly
-                                value={formatCurrency(tempTotalFinal)}
-                                className="w-full bg-transparent outline-none font-black text-sm text-center text-emerald-600 dark:text-emerald-400 cursor-default p-0"
-                            />
-                            <button 
-                                type="button"
-                                onClick={handleAddItemClick}
-                                className="p-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-sm"
-                            >
-                                <i className="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
+
+                    {/* Botão Adicionar */}
+                    <div className="sm:col-span-1 flex justify-end">
+                        <button 
+                            type="button"
+                            onClick={handleAddItemClick}
+                            className="w-full py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-1 font-bold shadow-md shadow-blue-200 dark:shadow-none text-xs"
+                            title="Adicionar Item"
+                        >
+                            <i className="bi bi-plus-lg text-sm"></i>
+                            <span className="sm:hidden font-black">Adicionar</span>
+                        </button>
                     </div>
                 </div>
             </div>

@@ -74,38 +74,12 @@ export function FilterContent({ filters, categories, environments, relationships
     }
     setLocalEnvs(nextEnvs)
     
-    // Calcular as categorias correspondentes
-    let nextCats: string[] = [...localCats]
-    if (id === "all") {
-      // Se selecionou "Todos os Ambientes", limpa a seleção de categorias
-      nextCats = []
-    } else {
-      const isSelecting = nextEnvs.includes(id)
-      // Buscar IDs das categorias filhas associadas a este ambiente
-      const relatedCatIds = relationships
-        .filter(r => r.parent_id === id)
-        .map(r => r.child_id)
-        
-      if (isSelecting) {
-        // Adiciona categorias relacionadas que ainda não estejam selecionadas
-        relatedCatIds.forEach(catId => {
-          if (!nextCats.includes(catId)) {
-            nextCats.push(catId)
-          }
-        })
-      } else {
-        // Remove as categorias relacionadas do ambiente desmarcado
-        nextCats = nextCats.filter(catId => !relatedCatIds.includes(catId))
-      }
-    }
-    setLocalCats(nextCats)
-
     onApply({
       minPrice: localPrice[0],
       maxPrice: localPrice[1],
       type: localType,
       envs: nextEnvs,
-      cats: nextCats
+      cats: localCats
     })
   }
 

@@ -65,11 +65,11 @@ export const playNotificationSound = async () => {
 export const setupNotificationChannel = async () => {
   try {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('morante_alerts_v2', {
-        name: 'Alertas e Pedidos - Móveis Morante',
+      await Notifications.setNotificationChannelAsync('morante_alerts_v3', {
+        name: 'Alertas e Pedidos - Móveis Morante (Level Up)',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        sound: 'default',
+        sound: 'levelup.mp3',
         enableVibrate: true,
         enableLights: true,
         lightColor: '#2563EB',
@@ -82,7 +82,7 @@ export const setupNotificationChannel = async () => {
         name: 'Geral - Móveis Morante',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        sound: 'default',
+        sound: 'levelup.mp3',
         enableVibrate: true,
         enableLights: true,
         lightColor: '#2563EB',
@@ -267,7 +267,7 @@ export const triggerLocalNotification = async (title: string, body: string, data
           sound: 'default',
           priority: Notifications.AndroidNotificationPriority.MAX,
           vibrate: [0, 250, 250, 250],
-          ...(Platform.OS === 'android' && { channelId: 'morante_alerts_v2' }),
+          ...(Platform.OS === 'android' && { channelId: 'morante_alerts_v3' }),
         },
         trigger: null,
       });
@@ -309,7 +309,7 @@ export const testRemotePushNotification = async () => {
             sound: 'default',
             priority: Notifications.AndroidNotificationPriority.MAX,
             vibrate: [0, 250, 250, 250],
-            ...(Platform.OS === 'android' && { channelId: 'morante_alerts_v2' }),
+            ...(Platform.OS === 'android' && { channelId: 'morante_alerts_v3' }),
             data: { test: true },
           },
           trigger: null,
@@ -353,7 +353,7 @@ export const testRemotePushNotification = async () => {
           sound: 'default',
           title: '🔔 Teste Remoto Expo • Móveis Morante',
           body: 'Notificação push remota recebida com sucesso!',
-          channelId: 'morante_alerts_v2',
+          channelId: 'morante_alerts_v3',
           priority: 'high',
           data: { test: true },
         }]),

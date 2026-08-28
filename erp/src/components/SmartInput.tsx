@@ -143,7 +143,7 @@ const SmartInput: React.FC<SmartInputProps> = ({
             )}
             <div className="relative">
                 {icon && (
-                    <i className={`bi ${icon} absolute left-4 top-1/2 -translate-y-1/2 ${error ? 'text-red-500' : 'text-slate-400'}`} />
+                    <i className={`bi ${icon} absolute left-1 top-1/2 -translate-y-1/2 ${error ? 'text-red-500' : 'text-slate-400'}`} />
                 )}
                 <input
                     {...props}
@@ -163,12 +163,12 @@ const SmartInput: React.FC<SmartInputProps> = ({
                         if (!disableSuggestions) setIsOpen(true);
                     }}
                     onKeyDown={handleKeyDown}
-                    className={`w-full ${icon ? 'pl-11' : 'px-4'} py-4 bg-slate-50 dark:bg-slate-950 rounded-2xl outline-none transition-all text-sm font-bold dark:text-slate-100 
+                    className={`w-full ${icon ? 'pl-7' : 'px-1'} py-2 bg-transparent outline-none transition-all text-sm font-bold dark:text-slate-100 rounded-none
                         ${error 
-                          ? 'border-2 border-red-500 ring-4 ring-red-500/10' 
+                          ? 'border-b-2 border-red-500' 
                           : isSelected 
-                            ? 'border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/10'
-                            : 'border border-slate-100 dark:border-slate-800 focus:ring-2 focus:ring-blue-50'} 
+                            ? 'border-b-2 border-blue-500'
+                            : 'border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600'} 
                         ${className}`}
                 />
 

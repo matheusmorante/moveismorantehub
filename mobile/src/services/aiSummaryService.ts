@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
+import { isCancelledOrder } from '../utils/orderUtils';
 
 export const generateDeliveryAISummary = async (
   mode: 'today' | 'tomorrow' | 'next5days',
@@ -13,7 +14,8 @@ export const generateDeliveryAISummary = async (
       const { data: rawOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
 
       // Fingerprint dos pedidos (IDs, data de atualização/criação, status, exclusão e dados do pedido)
-      const currentFingerprint = (rawOrders || []).map((o: any) => 
+      const activeOrders = (rawOrders || []).filter((order: any) => !isCancelledOrder(order));
+      const currentFingerprint = activeOrders.map((o: any) => 
         `${o.id}_${o.updated_at || o.created_at || ''}_${o.status || ''}_${o.deleted || ''}_${JSON.stringify(o.order_data || {})}`
       ).join('|');
 
@@ -124,9 +126,9 @@ export const generateDeliveryAISummary = async (
         return filteredWords.slice(0, 3).join(' ');
       };
 
-      const deliveryOrders = (rawOrders || []).filter((o: any) => {
+      const deliveryOrders = activeOrders.filter((o: any) => {
         const oData = o.order_data || {};
-        if (o.deleted || o.is_deleted || o.status === 'deleted' || o.status === 'cancelled' || oData.deleted) return false;
+        if (o.deleted || o.is_deleted || o.status === 'deleted' || oData.deleted) return false;
 
         const shipping = oData.shipping || {};
         const isDelivery = shipping.deliveryMethod === 'delivery' || !shipping.deliveryMethod;

@@ -39,11 +39,12 @@ export const useProducts = (filters?: any) => {
     const fetchPage = useCallback(async (page: number, perPage: number) => {
         setServerLoading(true);
         try {
+            const hasSearch = Boolean(filters?.search && filters.search.trim().length > 0);
             const result = await fetchProductsPage(page, perPage, {
                 showTrash: filters?.showTrash,
                 search: filters?.search,
                 category: filters?.category,
-                activeOnly: filters?.activeOnly,
+                activeOnly: hasSearch ? undefined : filters?.activeOnly,
                 status: filters?.status,
                 sortBy: filters?.sortBy,
                 sortOrder: filters?.sortOrder,
@@ -73,9 +74,9 @@ export const useProducts = (filters?: any) => {
                 // Filter by deleted status. All products are visible regardless
                 // of whether they are active in a channel.
                 if (showTrash) {
-                    if (!product.deleted) return false;
+                    if (!product.deleted && product.active !== false) return false;
                 } else {
-                    if (product.deleted) return false;
+                    if (product.deleted || product.active === false) return false;
                 }
 
                 if (!filters) return true;
@@ -90,32 +91,25 @@ export const useProducts = (filters?: any) => {
                     return categoryMatch && activeMatch;
                 }
 
-                // BUSCA DINÂMICA: Se o produto é um pai, ele bate se ele mesmo ou qualquer filho bater
-                // Se o produto é um filho (independente), ele bate se ele mesmo ou o pai bater
-                const matchesSelf = (product.description || "").toLowerCase().includes(searchTerm) || 
-                                   (product.code || "").toLowerCase().includes(searchTerm);
+                // BUSCA DINÂMICA: Filtra EXCLUSIVAMENTE pelo campo de nome ('name') do produto ou variação
+                const checkStringMatch = (str?: string) => (str || "").toLowerCase().includes(searchTerm);
+
+                const matchesSelf = checkStringMatch(product.name);
                 
                 let matchesChildren = false;
                 if (!product.parentId) {
-                    // Match no JSON de variações
-                    matchesChildren = product.variations?.some((v: any) => 
-                        (v.name || "").toLowerCase().includes(searchTerm) || 
-                        (v.sku || "").toLowerCase().includes(searchTerm)
-                    ) || false;
+                    // Match no nome das variações
+                    matchesChildren = product.variations?.some((v: any) => checkStringMatch(v.name)) || false;
                     
                     // Match em variações independentes
                     if (!matchesChildren) {
-                        matchesChildren = products.some(p => p.parentId === product.id && (
-                            p.description.toLowerCase().includes(searchTerm) || 
-                            p.code?.toLowerCase().includes(searchTerm)
-                        ));
+                        matchesChildren = products.some(p => p.parentId === product.id && checkStringMatch(p.name));
                     }
                 } else {
-                    // Se for filho, verifica se o pai bate
+                    // Se for filho, verifica se o nome do pai bate
                     const parent = products.find(p => p.id === product.parentId);
                     if (parent) {
-                        matchesChildren = (parent.description || "").toLowerCase().includes(searchTerm) || 
-                                          (parent.code || "").toLowerCase().includes(searchTerm);
+                        matchesChildren = checkStringMatch(parent.name);
                     }
                 }
 
@@ -126,7 +120,7 @@ export const useProducts = (filters?: any) => {
                     (filters.category === "Serviços" && product.itemType === "service") ||
                     (filters.category === "Produtos" && product.itemType === "product");
 
-                const activeMatch = filters.activeOnly === undefined || product.active === filters.activeOnly;
+                const activeMatch = searchTerm ? true : (filters.activeOnly === undefined || product.active === filters.activeOnly);
 
                 return searchMatch && categoryMatch && activeMatch;
             })
@@ -608,16 +602,11 @@ export const useProducts = (filters?: any) => {
                 .filter(child => child.id)
                 .map(child => updateProduct(child.id!, { status: newStatus })));
 
-            // Sincronização direta via Graph API com a Meta
-            try {
-                const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
-                const targetProd = parentProduct || { id, status: newStatus };
-                await whatsappGraphService.syncProductToCatalog({ ...targetProd, status: newStatus }, newStatus === 'published' ? 'UPDATE' : 'DELETE');
-                toast.success(`Sincronizado com Meta Graph API: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'}! 🚀`);
-            } catch (graphErr: any) {
-                console.warn('[Meta Graph Sync Warn]:', graphErr);
-                toast.info(`Status local alterado. (Meta API: ${graphErr.message || 'offline'})`);
-            }
+            // Atualiza catálogo CSV em background
+            fetch('/api/facebook-catalog/sync', { method: 'POST' }).catch(err => {
+                console.warn('[Meta Sync] Falha ao atualizar feed CSV do catálogo Meta:', err);
+            });
+            toast.success(`Catálogo Digital: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'} com sucesso! 🚀`);
 
             refresh();
         } catch (error) {

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Hammer, RefreshCw, ChevronRight, ChevronDown, ChevronUp, Calendar, Clock, MapPin, Navigation, Package, Truck, AlertCircle, Check } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
-import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isDateInPeriod } from '../../../utils/orderUtils';
+import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isCancelledOrder, isDateInPeriod } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 interface Props {
@@ -96,7 +96,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
 
   const filteredAssemblies = orders.filter(o => {
     const oData = o.order_data || {};
-    if (oData.deleted || o.deleted) return false;
+    if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
     if (orderStatus === 'draft' || orderStatus === 'rascunho') return false;
 

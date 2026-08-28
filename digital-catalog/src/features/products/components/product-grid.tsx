@@ -238,6 +238,15 @@ export function ProductGrid({ filters }: ProductGridProps) {
           if (/^(painel|paineis|rack|racks)$/.test(token)) {
             return ["painel", "paineis", "rack", "racks"]
           }
+          if (/^(balcao|balcoes|pia|pias)$/.test(token)) {
+            return ["balcao", "balcoes", "pia", "pias"]
+          }
+          if (/^(armario|armarios|multiuso|multiusos)$/.test(token)) {
+            return ["armario", "armarios", "multiuso", "multiusos"]
+          }
+          if (/^(cadeira|cadeiras|banqueta|banquetas)$/.test(token)) {
+            return ["cadeira", "cadeiras", "banqueta", "banquetas"]
+          }
           return [token]
         }
 
@@ -257,8 +266,9 @@ export function ProductGrid({ filters }: ProductGridProps) {
             const fullText = `${cleanName} ${cleanDesc}`
 
             return envCategoryNames.some(envName => {
-              const tokens = envName.split(" ").filter(t => t.length >= 2)
-              return tokens.every(token => {
+              const tokens = envName.split(" ").filter(t => t.length >= 2 && !["de", "da", "do", "dos", "das", "para", "com", "em"].includes(t))
+              if (tokens.length === 0) return true
+              return tokens.some(token => {
                 const syns = getSynonyms(token)
                 return syns.some(syn => fullText.includes(syn))
               })
@@ -267,13 +277,19 @@ export function ProductGrid({ filters }: ProductGridProps) {
         }
 
         if (filters?.cats && filters.cats.length > 0) {
+          const allCatTargetIds = new Set<string>(filters.cats)
+          relationships.forEach(r => {
+            if (filters.cats.includes(r.parent_id)) allCatTargetIds.add(r.child_id)
+            if (filters.cats.includes(r.child_id)) allCatTargetIds.add(r.parent_id)
+          })
+
           const selectedCatNames = (dbCategoriesList || [])
-            .filter(c => filters.cats.includes(c.id))
+            .filter(c => allCatTargetIds.has(c.id))
             .map(c => normalizeSearch(c.name))
 
           results = results.filter(p => {
             const prodCatIds = p.product_categories?.map((pc: any) => pc.category_id) || []
-            if (prodCatIds.some((catId: string) => filters.cats.includes(catId))) {
+            if (prodCatIds.some((catId: string) => allCatTargetIds.has(catId))) {
               return true
             }
 
@@ -283,8 +299,9 @@ export function ProductGrid({ filters }: ProductGridProps) {
             const fullText = `${cleanName} ${cleanDesc}`
 
             return selectedCatNames.some(catName => {
-              const tokens = catName.split(" ").filter(t => t.length >= 2)
-              return tokens.every(token => {
+              const tokens = catName.split(" ").filter(t => t.length >= 2 && !["de", "da", "do", "dos", "das", "para", "com", "em"].includes(t))
+              if (tokens.length === 0) return false
+              return tokens.some(token => {
                 const syns = getSynonyms(token)
                 return syns.some(syn => fullText.includes(syn))
               })

@@ -73,9 +73,10 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     if (p.hasVariations && variations.length > 0) {
                         variations.forEach(v => {
                             if (v.active !== false) {
-                                const fullName = v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(p.description))
+                                const baseName = p.name || p.title || p.description;
+                                const fullName = v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName))
                                     ? v.name 
-                                    : `${p.description} - ${v.name}`;
+                                    : `${baseName} - ${v.name}`;
                                 const normFullName = normalizeProductSearch(fullName);
                                 const normSku = normalizeProductSearch(v.sku || '');
 
@@ -166,9 +167,10 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         </div>
                     ) : suggestions.map((item, index) => {
                         const { product: p, variation: v } = item;
+                        const baseName = p.name || p.title || p.description;
                         const fullName = v 
-                            ? (v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(p.description)) ? v.name : `${p.description} - ${v.name}`)
-                            : p.description;
+                            ? (v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName)) ? v.name : `${baseName} - ${v.name}`)
+                            : baseName;
 
                         const displayCode = v?.sku || p.code || '';
                         const displayPrice = v 

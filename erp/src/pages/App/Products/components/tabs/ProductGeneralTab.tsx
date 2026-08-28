@@ -177,9 +177,25 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                             placeholder="Digite o título no catálogo..."
                         />
                     </div>
-                ) : (
-                    <div className="hidden sm:block p-2"></div>
-                )}
+                ) : null}
+
+                {/* Slug (URL amigável do Produto) */}
+                <div className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
+                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+                        <i className="bi bi-link-45deg text-blue-500"></i>
+                        <span>Slug (URL do Produto)</span>
+                    </label>
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-600 dark:text-slate-300">
+                        <span className="text-slate-400 select-none">/produto/</span>
+                        <span className="font-bold text-blue-600 dark:text-blue-400 truncate">
+                            {((formData.name || formData.title || '').toLowerCase()
+                                .normalize('NFD')
+                                .replace(/[\u0300-\u036f]/g, '')
+                                .replace(/[^a-z0-9]+/g, '-')
+                                .replace(/^-+|-+$/g, '')) || 'slug-do-produto'}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             {/* Selection Row */}

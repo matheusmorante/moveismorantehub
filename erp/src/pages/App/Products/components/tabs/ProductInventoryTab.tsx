@@ -4,6 +4,7 @@ import { Person } from '../../../../types/person.type';
 import InitialStockList from '../InitialStockList';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import CurrencyInput from '@/components/CurrencyInput';
+import PersonFormModal from '../../../Registrations/shared/PersonFormModal';
 
 interface ProductInventoryTabProps {
     formData: Partial<Product>;
@@ -39,6 +40,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
 }) => {
     const [supplierSearch, setSupplierSearch] = useState('');
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+    const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
     const supplierInputRef = useRef<HTMLDivElement>(null);
 
     const updateCost = (fields: Partial<Product>) => {
@@ -122,8 +124,17 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Fornecedor Principal */}
                 <div id="field-main-supplier" className="md:col-span-2 flex flex-col gap-2 relative p-2 rounded-2xl" ref={supplierInputRef}>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between h-6">
                         <span>Fornecedor Principal</span>
+                        <button
+                            type="button"
+                            onClick={() => setIsPersonFormOpen(true)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-black flex items-center gap-1 uppercase tracking-widest text-[9px] hover:underline"
+                            title="Criar Novo Fornecedor"
+                        >
+                            <i className="bi bi-plus-lg text-xs font-black"></i>
+                            <span>Novo</span>
+                        </button>
                     </label>
                     <div className="relative">
                         <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
@@ -242,7 +253,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <div className="flex flex-col gap-2 p-2 rounded-2xl">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                             <span>Desconto (%)</span>
-                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                         </label>
                         <div className="relative">
                             <input
@@ -260,7 +270,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <div className="flex flex-col gap-2 p-2 rounded-2xl">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                             <span>Desconto (R$)</span>
-                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                         </label>
                         <CurrencyInput
                             value={discountFixed}
@@ -273,7 +282,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     <div className="flex flex-col gap-2 p-2 rounded-2xl">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
                             <span>Preço Promocional Final</span>
-                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                         </label>
                         <CurrencyInput
                             placeholder="Sem desconto"
@@ -292,6 +300,29 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                     Vincule o fornecedor para automatizar o cálculo de Lead Time e pedidos de compra. O Lead Time é definido no cadastro do fornecedor.
                 </p>
             </div>
+
+            {/* Modal de Criação Rápida de Fornecedor */}
+            {isPersonFormOpen && (
+                <PersonFormModal
+                    isOpen={isPersonFormOpen}
+                    onClose={() => setIsPersonFormOpen(false)}
+                    onSuccess={(createdPerson) => {
+                        if (createdPerson?.id) {
+                            updateCost({ 
+                                mainSupplierId: createdPerson.id,
+                                ipiPercent: createdPerson.defaultIpiPercent !== undefined ? createdPerson.defaultIpiPercent : formData.ipiPercent,
+                                freightCost: createdPerson.defaultFreightCost !== undefined ? createdPerson.defaultFreightCost : formData.freightCost,
+                                freightType: createdPerson.defaultFreightType || formData.freightType
+                            });
+                            setSupplierSearch(createdPerson.fullName || '');
+                            setIsSupplierDropdownOpen(false);
+                        }
+                        setIsPersonFormOpen(false);
+                    }}
+                    collectionName="suppliers"
+                    title="Novo Fornecedor"
+                />
+            )}
         </div>
     );
 };
