@@ -56,9 +56,9 @@ export const createCategory = async (name: string, parentIds: string[], seoField
     let uniqueSlug = normalizeSlug(seoFields?.slug || formattedName);
     try { uniqueSlug = await resolveUniqueSlug(supabase, 'categories', uniqueSlug); } catch { /* Banco antigo sem coluna slug. */ }
     const candidates = [
-        { name: formattedName, active: true, slug: uniqueSlug, meta_title: seoFields?.meta_title, meta_description: seoFields?.meta_description, seo_description: seoFields?.seo_description },
-        { name: formattedName, active: true, slug: uniqueSlug },
-        { name: formattedName, active: true },
+        { name: formattedName, slug: uniqueSlug, meta_title: seoFields?.meta_title, meta_description: seoFields?.meta_description, seo_description: seoFields?.seo_description },
+        { name: formattedName, slug: uniqueSlug },
+        { name: formattedName },
     ];
     let data: any = null;
     let error: any = null;
