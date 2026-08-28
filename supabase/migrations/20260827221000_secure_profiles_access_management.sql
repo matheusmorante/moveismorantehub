@@ -25,6 +25,11 @@ DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Authenticated users can insert own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Administrators manage profiles" ON public.profiles;
 
+DROP POLICY IF EXISTS "Authenticated users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Authenticated users can insert own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users update own profile or administrators" ON public.profiles;
+DROP POLICY IF EXISTS "Administrators delete profiles" ON public.profiles;
+
 CREATE POLICY "Authenticated users can view own profile" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid() OR public.is_administrator());
 CREATE POLICY "Authenticated users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid() OR public.is_administrator());
 CREATE POLICY "Users update own profile or administrators" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid() OR public.is_administrator()) WITH CHECK (id = auth.uid() OR public.is_administrator());

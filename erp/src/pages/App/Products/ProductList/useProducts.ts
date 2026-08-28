@@ -64,6 +64,7 @@ export const useProducts = (filters?: any) => {
                 category: filters?.category,
                 activeOnly: hasSearch ? undefined : filters?.activeOnly,
                 status: filters?.status,
+                isDraft: filters?.isDraft,
                 sortBy: filters?.sortBy,
                 sortOrder: filters?.sortOrder,
             });
@@ -72,7 +73,7 @@ export const useProducts = (filters?: any) => {
         } finally {
             setServerLoading(false);
         }
-    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.sortBy, filters?.sortOrder]);
+    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.sortBy, filters?.sortOrder]);
 
     // Fetch on page/perPage/filters/refresh change
     useEffect(() => {
@@ -86,18 +87,21 @@ export const useProducts = (filters?: any) => {
     }, [filters]);
 
     const filteredProducts = useMemo(() => {
-        const showTrash = filters?.showTrash || false;
         return products
             .filter(product => {
-                // Filter by deleted status. All products are visible regardless
-                // of whether they are active in a channel.
-                if (showTrash) {
-                    if (!product.deleted && product.active !== false) return false;
-                } else {
-                    if (product.deleted || product.active === false) return false;
-                }
+                const isDraft = Boolean(product.isDraft) || product.status === 'draft';
+                const isActive = !isDraft && product.active !== false && !product.deleted;
+                const isDeactivated = !isDraft && (product.active === false || product.deleted);
 
-                if (!filters) return true;
+                if (filters?.isDraft) {
+                    if (!isDraft) return false;
+                } else if (filters?.showTrash || filters?.activeOnly === false) {
+                    if (!isDeactivated) return false;
+                } else if (filters?.activeOnly === true) {
+                    if (!isActive) return false;
+                } else {
+                    if (isDraft) return false;
+                }
 
                 const searchTerm = filters.search?.toLowerCase() || "";
                 if (!searchTerm) {

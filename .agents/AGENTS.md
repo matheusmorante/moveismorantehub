@@ -45,4 +45,28 @@ Este documento registra regras específicas e lógicas de funcionamento do Moran
     - `"runtimeVersion"` (ex: `"1.0.1"`, `"1.0.2"`...)
     - `"versionCode"` em `android` (incrementar número inteiro de versão: `1`, `2`, `3`...)
 
+## 7. Ciclo de Vida e Estados Exclusivos de Produtos no ERP
+
+- **3 Estados Mutuamente Exclusivos**:
+  - Todo produto no ERP pertence a **EXATAMENTE UM** dos três estados a seguir:
+    1. **Produto Ativo**: Cadastro 100% concluído (`is_draft: false`, `status != 'draft'`), habilitado para vendas e operações (`active: true`, `deleted: false`).
+    2. **Produto Desativado**: Cadastro 100% concluído (`is_draft: false`, `status != 'draft'`), mas inativado pelo usuário (`active: false`, `deleted: false`).
+    3. **Rascunho de Produto**: Cadastro em andamento / incompleto (`is_draft: true` ou `status == 'draft'`).
+- **Regras de Criação de Rascunho**:
+  - Para um produto virar rascunho, é obrigatório:
+    - O formulário ter sido aberto para cadastro (novo produto ou rascunho em edição).
+    - Ter preenchido **pelo menos o nome do produto**.
+    - **NÃO ter finalizado o cadastro** (salvando silenciosamente via auto-save ou fechando o modal).
+  - Se o usuário abrir o modal de cadastro e fechar sem preencher o nome, **nenhum rascunho é criado**.
+- **Imutabilidade Pós-Cadastro (Produto Concluído NUNCA volta a ser rascunho)**:
+  - Uma vez que o produto teve seu cadastro concluído (`is_draft: false`), ele transita apenas entre **Ativo** e **Desativado**.
+  - **NÃO pode virar rascunho de volta**.
+  - Ao editar um produto existente já cadastrado, o auto-save de rascunho é desativado e o produto nunca tem seu status rebaixado para rascunho.
+- **Regras de Isolamento**:
+  - **Rascunhos NUNCA devem aparecer na lista de Produtos Desativados** nem na lista de **Produtos Ativos**.
+  - Rascunhos só aparecem na visão / filtro dedicado de **"Rascunhos"**.
+  - Um produto desativado só aparece na lista de **"Produtos Desativados"**.
+  - Um produto ativo só aparece na lista principal de **"Produtos Ativos"**.
+
+
 

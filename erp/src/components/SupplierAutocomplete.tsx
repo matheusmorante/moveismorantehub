@@ -9,6 +9,8 @@ interface SupplierAutocompleteProps {
     placeholder?: string;
     className?: string;
     inputClassName?: string;
+    disabled?: boolean;
+    disabledReason?: string;
 }
 
 const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
@@ -17,7 +19,9 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     onSelect,
     placeholder = "Buscar fornecedor...",
     className = "",
-    inputClassName = "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm"
+    inputClassName = "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm",
+    disabled = false,
+    disabledReason = ""
 }) => {
     const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
     const [query, setQuery] = useState(selectedSupplier?.fullName || "");
@@ -67,13 +71,22 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
 
     return (
         <div ref={wrapperRef} className={`relative flex flex-col gap-2 ${className}`}>
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fornecedor</label>
+            <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fornecedor</label>
+                {disabled && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                        <i className="bi bi-lock-fill text-[10px]" /> Bloqueado
+                    </span>
+                )}
+            </div>
             <div className="relative">
                 <input
                     type="text"
                     autoComplete="off"
                     value={query}
+                    disabled={disabled}
                     onChange={(e) => {
+                        if (disabled) return;
                         const val = e.target.value;
                         setQuery(val);
                         setShowSuggestions(val.trim().length >= 2);
@@ -81,16 +94,25 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
                             onSelect("");
                         }
                     }}
-                    onFocus={() => setShowSuggestions(query.trim().length >= 2)}
-                    placeholder={placeholder}
-                    className={inputClassName}
+                    onFocus={() => {
+                        if (!disabled) setShowSuggestions(query.trim().length >= 2);
+                    }}
+                    placeholder={disabled ? "Fornecedor fixado para os itens atuais" : placeholder}
+                    className={`${inputClassName} ${disabled ? 'opacity-70 cursor-not-allowed bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
+                    title={disabled ? (disabledReason || "Para trocar de fornecedor, remova todos os itens do pedido.") : undefined}
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                    <i className="bi bi-truck text-base" />
+                    <i className={`bi ${disabled ? 'bi-lock-fill text-amber-500' : 'bi-truck'} text-base`} />
                 </div>
             </div>
+            {disabled && disabledReason && (
+                <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <i className="bi bi-info-circle text-[10px]" />
+                    {disabledReason}
+                </p>
+            )}
 
-            <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && query.trim().length >= 2}>
+            <DropdownPortal anchorRef={wrapperRef} isOpen={!disabled && showSuggestions && query.trim().length >= 2}>
                 <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-slate-100 dark:divide-slate-800/50">
                     {filteredSuggestions.length === 0 ? (
                         <div className="px-4 py-4 text-center text-xs font-bold text-slate-400">

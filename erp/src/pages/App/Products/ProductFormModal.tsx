@@ -1205,14 +1205,24 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         toast.info("SKUs das variações regenerados com exclusividade.");
     };
 
+    const isExistingRegisteredProduct = Boolean(product?.id && product.isDraft !== true && product.status !== 'draft');
+
+    const getEnteredProductName = (data: Partial<Product>) => {
+        return (data.name || data.title || data.marketplaceTitle || data.description || '').trim();
+    };
+
     /**
      * Salva o produto manualmente (acionado pelo usuário).
      * Exibe o spinner no botão e toasts de erro.
      */
     const handleSubmit = async (showResult = true, saveAsDraft = false): Promise<boolean> => {
-        if (!saveAsDraft) {
+        // REGRA: Se for um produto já cadastrado no ERP, ele NUNCA pode ser salvo como rascunho
+        const actualSaveAsDraft = isExistingRegisteredProduct ? false : saveAsDraft;
+
+        if (!actualSaveAsDraft) {
             const errors: Record<string, boolean> = {};
-            if (!(formData.name || formData.description)?.trim()) {
+            const enteredName = getEnteredProductName(formData);
+            if (!enteredName) {
                 errors.name = true;
             }
             const hasVars = Boolean(formData.hasVariations) || (Array.isArray(formData.variations) && formData.variations.length > 0);
@@ -1245,7 +1255,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             }
             setValidationErrors({});
         } else {
-            if (!hasProductName) {
+            // REGRA: Para virar rascunho, precisa ter pelo menos o nome preenchido
+            const enteredName = getEnteredProductName(formData);
+            if (!enteredName) {
                 return false;
             }
         }
@@ -1271,15 +1283,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         isSavingDraftRef.current = true;
         setLoading(true);
         try {
+            const enteredName = getEnteredProductName(formData);
             const normalizedData = { 
                 ...formData, 
-                isDraft: saveAsDraft,
-                active: true,
-                status: formData.status || 'draft'
+                name: enteredName || formData.name || 'Produto',
+                isDraft: actualSaveAsDraft,
+                active: actualSaveAsDraft ? false : (formData.active !== undefined ? formData.active : true),
+                status: actualSaveAsDraft ? 'draft' : (formData.status && formData.status !== 'draft' ? formData.status : 'published')
             } as Product;
 
             await saveProduct(normalizedData);
-            setFormData(prev => ({ ...prev, isDraft: saveAsDraft }));
+            setFormData(prev => ({ ...prev, isDraft: actualSaveAsDraft }));
             hasChanged.current = false;
             
             if (showResult) {
@@ -1307,19 +1321,25 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
      * Usa isSavingDraftRef como guard para evitar chamadas concorrentes.
      */
     const autoSaveDraft = useCallback(async (data: Partial<Product>) => {
+        // REGRA: Produto já cadastrado no ERP NUNCA vira rascunho
+        if (isExistingRegisteredProduct) return;
+
+        // REGRA: Só vira rascunho se tiver pelo menos o nome preenchido
+        const draftTitle = getEnteredProductName(data);
+        if (!draftTitle) return;
+
         if (isSavingDraftRef.current) return;
         isSavingDraftRef.current = true;
         setIsSavingDraft(true);
         try {
-            const draftTitle = (data.title || data.name || data.marketplaceTitle || data.description || '').trim() || 'Rascunho de Produto';
             const normalizedData = {
                 ...data,
-                name: data.name || draftTitle,
+                name: draftTitle,
                 title: data.title || draftTitle,
                 description: data.description || draftTitle,
                 isDraft: true,
                 active: false,
-                status: data.status || 'draft'
+                status: 'draft'
             } as Product;
             await saveProduct(normalizedData);
             hasChanged.current = false;
@@ -1330,30 +1350,34 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             isSavingDraftRef.current = false;
             setIsSavingDraft(false);
         }
-    }, []);
+    }, [isExistingRegisteredProduct]);
 
     // Durante a criação ou edição de rascunho, cada alteração é salva automaticamente após 800ms
     useEffect(() => {
-        const isDraftProduct = !product || Boolean(product.isDraft) || Boolean(formData.isDraft);
-        if (!isOpen || !isDraftProduct || !hasChanged.current) return;
+        if (isExistingRegisteredProduct) return;
+
+        const enteredName = getEnteredProductName(formData);
+        if (!isOpen || !enteredName || !hasChanged.current) return;
 
         const timer = window.setTimeout(() => {
             autoSaveDraft(formData);
         }, 800);
 
         return () => window.clearTimeout(timer);
-    }, [formData, isOpen, product, autoSaveDraft]);
+    }, [formData, isOpen, isExistingRegisteredProduct, autoSaveDraft]);
 
     const handleSaveAndClose = async () => {
-        const isDraftProduct = !product || Boolean(product.isDraft) || Boolean(formData.isDraft);
+        const isDraftProduct = !isExistingRegisteredProduct;
         const saved = await handleSubmit(false, isDraftProduct);
         if (saved) onClose();
     };
 
     const handleCloseWithAutoSave = async () => {
-        const isDraftProduct = !product || Boolean(product.isDraft) || Boolean(formData.isDraft);
-        if (isDraftProduct && hasChanged.current && !loading && !isSavingDraftRef.current) {
-            await autoSaveDraft(formData);
+        if (!isExistingRegisteredProduct && hasChanged.current && !loading && !isSavingDraftRef.current) {
+            const enteredName = getEnteredProductName(formData);
+            if (enteredName) {
+                await autoSaveDraft(formData);
+            }
         }
         onClose();
     };

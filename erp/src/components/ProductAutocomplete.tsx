@@ -15,6 +15,8 @@ interface ProductAutocompleteProps {
     value?: string;
     placeholder?: string;
     className?: string;
+    inputClassName?: string;
+    supplierId?: string;
 }
 
 
@@ -28,7 +30,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     isTemporary = false,
     value = "",
     placeholder = "Digite o nome ou código do produto...",
-    className = ""
+    className = "",
+    supplierId
 }) => {
     const [query, setQuery] = useState(value);
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
@@ -63,17 +66,23 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 const { data: productsData } = await fetchProductsPage(1, 30, {
                     search: trimmed,
                     activeOnly: true,
+                    supplierId: supplierId || undefined,
                 });
                 const items: SuggestionItem[] = [];
                 const searchNormWords = words.map(normalizeProductSearch);
 
                 (productsData || []).forEach((p: Product) => {
+                    const prodSupplierId = p.mainSupplierId || p.supplierId || (p as any).main_supplier_id || (p as any).supplier_id;
+                    if (supplierId && prodSupplierId && prodSupplierId !== supplierId) {
+                        return;
+                    }
+
                     const variations = p.variations || [];
 
                     if (p.hasVariations && variations.length > 0) {
                         variations.forEach(v => {
                             if (v.active !== false) {
-                                const baseName = p.name || p.title || p.description;
+                                const baseName = p.name || p.title || p.description || '';
                                 const fullName = v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName))
                                     ? v.name 
                                     : `${baseName} - ${v.name}`;
@@ -84,13 +93,23 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                     normFullName.includes(nw) || normSku.includes(nw)
                                 );
 
-                                if (matchesAll || words.length === 1) {
+                                if (matchesAll) {
                                     items.push({ product: p, variation: v });
                                 }
                             }
                         });
                     } else {
-                        items.push({ product: p });
+                        const baseName = p.name || p.title || p.description || '';
+                        const normBaseName = normalizeProductSearch(baseName);
+                        const normSku = normalizeProductSearch(p.code || p.sku || '');
+
+                        const matchesAll = searchNormWords.every(nw => 
+                            normBaseName.includes(nw) || normSku.includes(nw)
+                        );
+
+                        if (matchesAll) {
+                            items.push({ product: p });
+                        }
                     }
                 });
 
@@ -104,7 +123,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
         const timeoutId = setTimeout(fetchSuggestions, 250);
         return () => clearTimeout(timeoutId);
-    }, [query]);
+    }, [query, supplierId]);
 
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>

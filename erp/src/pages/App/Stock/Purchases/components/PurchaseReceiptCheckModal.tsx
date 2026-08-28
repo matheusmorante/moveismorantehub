@@ -202,7 +202,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
             let invStatus: 'pending' | 'partially_received' | 'received' = 'pending';
 
             if (isAllReceived && !hasDiscrepancy) {
-                newStatus = 'completed';
+                newStatus = 'fulfilled';
                 invStatus = 'received';
             } else if (isAnyReceived) {
                 invStatus = 'partially_received';

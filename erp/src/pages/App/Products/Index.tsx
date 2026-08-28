@@ -38,6 +38,7 @@ const Products: React.FC = () => {
     const [stockLaunchTarget, setStockLaunchTarget] = React.useState<{ product?: any; variation?: Variation } | null>(null);
 
     const [isTrashOpen, setIsTrashOpen] = React.useState(false);
+    const [isDraftsOpen, setIsDraftsOpen] = React.useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
     const [accordionOpen, setAccordionOpen] = React.useState<{
@@ -68,19 +69,26 @@ const Products: React.FC = () => {
             const { count: totalCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
-                .eq('deleted', false);
+                .eq('deleted', false)
+                .not('is_draft', 'is', true)
+                .neq('status', 'draft');
 
             const { count: publishedCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
                 .eq('deleted', false)
-                .eq('status', 'published');
+                .eq('status', 'published')
+                .eq('active', true)
+                .not('is_draft', 'is', true)
+                .neq('status', 'draft');
 
             const { count: disabledCount } = await supabase
                 .from('products')
                 .select('*', { count: 'exact', head: true })
                 .eq('deleted', false)
-                .eq('status', 'hidden');
+                .eq('active', false)
+                .not('is_draft', 'is', true)
+                .neq('status', 'draft');
 
             const { count: draftsCount } = await supabase
                 .from('products')
@@ -117,8 +125,13 @@ const Products: React.FC = () => {
         // Ordenação gerenciada internamente pela ProductList
     };
 
-    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: true }), [filters]);
-    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, activeOnly: false }), [filters]);
+    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: true, isDraft: false }), [filters]);
+    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, activeOnly: false, isDraft: false }), [filters]);
+    const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true, activeOnly: undefined }), [filters]);
+
+    const currentFilters = isDraftsOpen ? draftFilters : isTrashOpen ? trashFilters : activeFilters;
+    const currentTitle = isDraftsOpen ? "Rascunhos de Produtos" : isTrashOpen ? "Produtos Desativados" : undefined;
+    const handleCloseSpecialView = isDraftsOpen ? () => setIsDraftsOpen(false) : isTrashOpen ? () => setIsTrashOpen(false) : undefined;
 
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
@@ -131,7 +144,7 @@ const Products: React.FC = () => {
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                                 <input
                                     type="text"
-                                    placeholder="Pesquisar produtos ativos..."
+                                    placeholder={isDraftsOpen ? "Pesquisar rascunhos..." : isTrashOpen ? "Pesquisar produtos desativados..." : "Pesquisar produtos ativos..."}
                                     value={filters.search || ""}
                                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                                     className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
@@ -152,13 +165,40 @@ const Products: React.FC = () => {
                             </button>
 
                             <div className="flex gap-2 ml-auto shrink-0 items-center">
-                                {/* Botão para Abrir Modal de Produtos Desativados */}
+                                {/* Botão para Abrir Rascunhos */}
                                 <button
-                                    onClick={() => setIsTrashOpen(true)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all shadow-sm font-bold text-xs tracking-wide whitespace-nowrap active:scale-95 border border-slate-200 dark:border-slate-700"
+                                    onClick={() => {
+                                        setIsDraftsOpen(prev => !prev);
+                                        setIsTrashOpen(false);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all shadow-sm font-bold text-xs tracking-wide whitespace-nowrap active:scale-95 border ${isDraftsOpen 
+                                        ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/20' 
+                                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                                    }`}
+                                    title="Ver Rascunhos de Produtos em andamento"
+                                >
+                                    <i className="bi bi-file-earmark-text text-amber-500 text-sm"></i>
+                                    <span>Rascunhos</span>
+                                    {catalogStats.drafts > 0 && (
+                                        <span className="ml-0.5 px-1.5 py-0.2 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-[10px] font-black rounded-full">
+                                            {catalogStats.drafts}
+                                        </span>
+                                    )}
+                                </button>
+
+                                {/* Botão para Abrir Produtos Desativados */}
+                                <button
+                                    onClick={() => {
+                                        setIsTrashOpen(prev => !prev);
+                                        setIsDraftsOpen(false);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all shadow-sm font-bold text-xs tracking-wide whitespace-nowrap active:scale-95 border ${isTrashOpen 
+                                        ? 'bg-slate-700 text-white border-slate-800' 
+                                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                                    }`}
                                     title="Ver Produtos Desativados no ERP"
                                 >
-                                    <i className="bi bi-slash-circle text-amber-500 text-sm"></i>
+                                    <i className="bi bi-slash-circle text-rose-500 text-sm"></i>
                                     <span>Produtos Desativados</span>
                                 </button>
 
@@ -182,9 +222,9 @@ const Products: React.FC = () => {
                         {/* Conteúdo Principal: Tabela de Produtos (Esquerda/Centro) */}
                         <div className="flex-1 min-w-0">
                             <ProductList
-                                filters={isTrashOpen ? trashFilters : activeFilters}
-                                title={isTrashOpen ? "Produtos Desativados" : undefined}
-                                onCloseTrash={isTrashOpen ? () => setIsTrashOpen(false) : undefined}
+                                filters={currentFilters}
+                                title={currentTitle}
+                                onCloseTrash={handleCloseSpecialView}
                                 visibilitySettings={visibilitySettings}
                                 onEdit={(p: any) => {
                                     if (p.isVariation) {
@@ -240,38 +280,54 @@ const Products: React.FC = () => {
 
                                 {accordionOpen.summary && (
                                     <div className="flex flex-col gap-2 mt-3 animate-fade-in">
-                                        <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setIsTrashOpen(false); setIsDraftsOpen(false); }}
+                                            className="w-full p-3 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100/70 dark:hover:bg-blue-900/50 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex items-center justify-between transition-colors text-left"
+                                        >
                                             <div className="flex items-center gap-2">
                                                 <i className="bi bi-boxes text-blue-600 dark:text-blue-400 text-sm" />
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">Total de Produtos</span>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">Total de Cadastrados</span>
                                             </div>
                                             <span className="text-base font-black text-blue-800 dark:text-blue-300">
                                                 {catalogStats.total}
                                             </span>
-                                        </div>
+                                        </button>
 
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                                                <span className="text-[9px] font-black uppercase text-slate-400 block">Publicados no Catálogo</span>
+                                            <button 
+                                                type="button"
+                                                onClick={() => { setIsTrashOpen(false); setIsDraftsOpen(false); }}
+                                                className="p-3 bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 text-left transition-colors"
+                                            >
+                                                <span className="text-[9px] font-black uppercase text-slate-400 block">Publicados</span>
                                                 <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
                                                     {catalogStats.published}
                                                 </span>
-                                            </div>
-                                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => { setIsTrashOpen(true); setIsDraftsOpen(false); }}
+                                                className="p-3 bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 text-left transition-colors"
+                                            >
                                                 <span className="text-[9px] font-black uppercase text-slate-400 block">Desativados</span>
                                                 <span className="text-base font-black text-rose-500 dark:text-rose-400 mt-0.5 block">
                                                     {catalogStats.disabled}
                                                 </span>
-                                            </div>
-                                            <div className="col-span-2 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => { setIsDraftsOpen(true); setIsTrashOpen(false); }}
+                                                className="col-span-2 p-3 bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-left transition-colors"
+                                            >
                                                 <div className="flex items-center gap-2">
                                                     <i className="bi bi-file-earmark-text text-amber-500 text-sm" />
-                                                    <span className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400">Rascunhos</span>
+                                                    <span className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400">Rascunhos (Em Cadastro)</span>
                                                 </div>
                                                 <span className="text-base font-black text-amber-600 dark:text-amber-400">
                                                     {catalogStats.drafts}
                                                 </span>
-                                            </div>
+                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -425,60 +481,6 @@ const Products: React.FC = () => {
                             >
                                 Aplicar Filtros
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Trash Modal */}
-            {isTrashOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsTrashOpen(false)} />
-                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-6xl h-[80vh] rounded-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
-                        <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-                                    Produtos Desativados
-                                </h2>
-                                <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Gerencie produtos e serviços desativados</p>
-                            </div>
-                            <button onClick={() => setIsTrashOpen(false)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                                <i className="bi bi-x-lg text-xl"></i>
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            <ProductList
-                                onEdit={(p: any) => {
-                                    if (p.isVariation) {
-                                        setVariationParentProduct(p);
-                                        const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                        setEditingVariation(actualVariation || (p as any));
-                                        setIsVariationModalOpen(true);
-                                    } else {
-                                        setEditingProduct(p);
-                                        setIsFormModalOpen(true);
-                                    }
-                                }}
-                                onShowHistory={(p) => { setHistoryProduct(p); setIsHistoryModalOpen(true); }}
-                                onLaunchStock={(p: any) => {
-                                    if (p.isVariation) {
-                                        const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                        setStockLaunchTarget({ variation: actualVariation || p });
-                                    } else {
-                                        setStockLaunchTarget({ product: p });
-                                    }
-                                    setIsStockModalOpen(true);
-                                }}
-                                filters={trashFilters}
-                                visibilitySettings={visibilitySettings}
-                                onToggleColumn={toggleVisibility}
-                                onSort={handleSort}
-                                categoryTree={categoryTree}
-                                title="Produtos Desativados"
-                                onCloseTrash={() => setIsTrashOpen(false)}
-                                ref={trashListRef}
-                                onRefresh={() => productListRef.current?.refresh()}
-                            />
                         </div>
                     </div>
                 </div>

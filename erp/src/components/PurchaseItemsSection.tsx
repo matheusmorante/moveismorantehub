@@ -9,6 +9,8 @@ interface Props {
     ipiPercent: number;
     freightPercent: number;
     formatCurrency: (value: number) => string;
+    supplierId?: string;
+    onSupplierAutoSelect?: (supplierId: string) => void;
 }
 
 export const PurchaseItemsSection = ({
@@ -17,7 +19,9 @@ export const PurchaseItemsSection = ({
     onRemoveItem,
     ipiPercent,
     freightPercent,
-    formatCurrency
+    formatCurrency,
+    supplierId,
+    onSupplierAutoSelect
 }: Props) => {
     // Current item being added
     const [currentProductId, setCurrentProductId] = useState("");
@@ -89,6 +93,7 @@ export const PurchaseItemsSection = ({
                     <div className="sm:col-span-6 flex flex-col gap-1.5">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produto</label>
                         <ProductAutocomplete
+                            supplierId={supplierId || undefined}
                             value={currentDescription}
                             onChange={setCurrentDescription}
                             onSelect={(p, v) => {
@@ -100,9 +105,14 @@ export const PurchaseItemsSection = ({
                                 if (v?.costPrice) setCurrentCost(v.costPrice);
                                 else if (p.costPrice) setCurrentCost(p.costPrice);
                                 else setCurrentCost(0);
+
+                                const prodSupplierId = p.mainSupplierId || p.supplierId || (p as any).main_supplier_id || (p as any).supplier_id;
+                                if (!supplierId && prodSupplierId && onSupplierAutoSelect) {
+                                    onSupplierAutoSelect(prodSupplierId);
+                                }
                             }}
                             onSelectDescription={setCurrentDescription}
-                            placeholder="Buscar produto..."
+                            placeholder={supplierId ? "Buscar produto deste fornecedor..." : "Buscar produto..."}
                             inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
                         />
                     </div>

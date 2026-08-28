@@ -281,7 +281,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         minStock: Number(data.min_stock || 0),
         unit: data.unit || 'UN',
         active: Boolean(data.active),
-        isDraft: Boolean(data.is_draft),
+        isDraft: Boolean(data.is_draft) || data.status === 'draft',
         deleted: data.deleted ?? false,
         supplierId: data.supplier_id || '',
         images: productImages,
@@ -515,6 +515,8 @@ export const fetchProductsPage = async (
         category?: string;
         activeOnly?: boolean;
         status?: string;
+        isDraft?: boolean;
+        supplierId?: string;
         sortBy?: string;
         sortOrder?: 'asc' | 'desc';
     }
@@ -543,10 +545,23 @@ export const fetchProductsPage = async (
             .from(TABLE_NAME)
             .select('*, product_variations(*), product_images(*), product_categories(*, categories(*))', { count: 'exact' });
 
-        if (showTrash) {
-            query = query.eq('deleted', true);
+        query = query.eq('deleted', false);
+
+        // 3 Estados exclusivos no ERP: Ativo, Desativado ou Rascunho
+        if (options?.isDraft === true) {
+            // RASCUNHO: Apenas rascunhos (is_draft = true ou status = 'draft')
+            query = query.or('is_draft.eq.true,status.eq.draft');
         } else {
-            query = query.eq('deleted', false);
+            // NÃO É RASCUNHO: Deve ser produto com cadastro concluído
+            query = query.not('is_draft', 'is', true).neq('status', 'draft');
+
+            if (showTrash || options?.activeOnly === false) {
+                // DESATIVADO: Cadastro concluído e desativado no ERP (NUNCA rascunho)
+                query = query.eq('active', false);
+            } else if (options?.activeOnly === true) {
+                // ATIVO: Cadastro concluído e ativo no ERP (NUNCA rascunho nem desativado)
+                query = query.eq('active', true);
+            }
         }
 
         query = query
@@ -599,14 +614,14 @@ export const fetchProductsPage = async (
             query = query.eq('item_type', 'product');
         }
 
-        // Filtro por status (ex: 'published', 'hidden', 'draft')
+        // Filtro por status do catálogo digital (ex: 'published', 'hidden')
         if (options?.status) {
             query = query.eq('status', options.status);
         }
 
-        // Filtro de apenas ativos
-        if (options?.activeOnly !== undefined) {
-            query = query.eq('active', options.activeOnly);
+        // Filtro por fornecedor
+        if (options?.supplierId) {
+            query = query.or(`supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId}`);
         }
 
         const { data, error, count } = await query;
@@ -998,18 +1013,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
             unitCost: product.finalPurchasePrice || product.costPrice || 0,
             date: new Date().toISOString(),
             label: 'ESTOQUE INICIAL',
-            observation: 'Lançamento automático de estoque inicial.'
-        }, 0).catch(console.error);
-    } else if (!product.variations?.length && product.minStock && Number(product.minStock) > 0) {
-        saveInventoryMove({
-            productId: resolvedId,
-            productDescription: product.description || "Ajuste de Saldo Inicial",
-            type: 'entry',
-            quantity: Number(product.minStock),
-            unitCost: product.finalPurchasePrice || product.costPrice || 0,
-            date: new Date().toISOString(),
-            label: 'ESTOQUE INICIAL',
-            observation: 'Ajuste de saldo inicial'
+            observation: 'Lançamento automático de estoque inicial no cadastro do produto.'
         }, 0).catch(console.error);
     }
 
@@ -1024,7 +1028,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
                     unitCost: entry.finalUnitCost || entry.unitCost,
                     date: new Date().toISOString(),
                     label: 'ESTOQUE INICIAL',
-                    observation: 'Entrada múltipla.'
+                    observation: 'Lançamento automático de estoque inicial no cadastro do produto (lote múltiplo).'
                 }, 0).catch(console.error);
             }
         }
@@ -1042,19 +1046,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
                     unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
                     date: new Date().toISOString(),
                     label: 'ESTOQUE INICIAL',
-                    observation: `Estoque da variação ${v.name}.`
-                }, 0).catch(console.error);
-            } else if (v.minStock && Number(v.minStock) > 0) {
-                saveInventoryMove({
-                    productId: resolvedId,
-                    variationId: v.id,
-                    productDescription: `${product.description} (${v.name})`,
-                    type: 'entry',
-                    quantity: Number(v.minStock),
-                    unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
-                    date: new Date().toISOString(),
-                    label: 'ESTOQUE INICIAL',
-                    observation: 'Ajuste de saldo inicial'
+                    observation: `Lançamento automático de estoque inicial no cadastro da variação: ${v.name}.`
                 }, 0).catch(console.error);
             }
         }

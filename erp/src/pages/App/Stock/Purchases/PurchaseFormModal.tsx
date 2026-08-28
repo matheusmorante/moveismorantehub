@@ -4,20 +4,22 @@ import Product from "../../../types/product.type";
 import Person from "../../../types/person.type";
 import { subscribeToProducts } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { savePurchase } from "../../../utils/purchaseService";
+import { savePurchase, updatePurchase } from "../../../utils/purchaseService";
 import { toast } from "react-toastify";
 import { formatCurrency } from "../../../utils/formatters";
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import { supabase } from "@/pages/utils/supabaseConfig";
 import imageCompression from 'browser-image-compression';
 import { PurchaseItemsSection } from "@/components/PurchaseItemsSection";
+import PurchaseReceiptCheckModal from "./components/PurchaseReceiptCheckModal";
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
+    initialPurchase?: Purchase | null;
 }
 
-const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
+const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
@@ -29,6 +31,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
     const [ipiPercent, setIpiPercent] = useState(0);
     const [freightPercent, setFreightPercent] = useState(0);
+    const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
     // Legacy fields held as constants
     const observation = "";
@@ -43,23 +46,39 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
             const unsubProducts = subscribeToProducts((data) => {
                 setProducts(data.filter(p => !p.deleted && p.itemType === 'product'));
             });
+
+            if (initialPurchase) {
+                setSelectedSupplierId(initialPurchase.supplierId || "");
+                setItems(initialPurchase.items || []);
+                setFiscalKey(initialPurchase.fiscalKey || "");
+                setAttachments(initialPurchase.attachments || []);
+                setPurchaseDate(initialPurchase.date ? new Date(initialPurchase.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+                setIpiPercent(initialPurchase.ipiPercent || 0);
+                setFreightPercent(initialPurchase.freightPercent || 0);
+            } else {
+                setSelectedSupplierId("");
+                setItems([]);
+                setFiscalKey("");
+                setAttachments([]);
+                setPurchaseDate(new Date().toISOString().split('T')[0]);
+                setIpiPercent(0);
+                setFreightPercent(0);
+            }
+
             return () => { unsubSuppliers(); unsubProducts(); };
         }
-    }, [isOpen]);
+    }, [isOpen, initialPurchase]);
 
     const handleAddItem = (newItem: PurchaseItem) => {
-        if (!selectedSupplierId) {
-            toast.error("Selecione o fornecedor no cabeçalho antes de adicionar itens.");
-            return;
-        }
-
         const product = products.find(p => p.id === newItem.productId);
-        if (product) {
-            if (product.supplierId && product.supplierId !== selectedSupplierId) {
-                const prodSupplier = suppliers.find(s => s.id === product.supplierId);
-                toast.error(`Este produto pertence ao fornecedor "${prodSupplier?.fullName || 'outro fornecedor'}". Selecione o fornecedor correspondente no cabeçalho.`);
-                return;
-            }
+        const prodSupplierId = product?.mainSupplierId || product?.supplierId || (product as any)?.main_supplier_id || (product as any)?.supplier_id;
+
+        if (!selectedSupplierId && prodSupplierId) {
+            setSelectedSupplierId(prodSupplierId);
+        } else if (selectedSupplierId && prodSupplierId && prodSupplierId !== selectedSupplierId) {
+            const prodSupplier = suppliers.find(s => s.id === prodSupplierId);
+            toast.error(`Este produto pertence ao fornecedor "${prodSupplier?.fullName || 'outro fornecedor'}". Remova os itens para trocar de fornecedor.`);
+            return;
         }
 
         setItems([...items, newItem]);
@@ -139,7 +158,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
     };
 
     const handleCancelOrClose = async () => {
-        if (selectedSupplierId || items.length > 0) {
+        if (!initialPurchase && (selectedSupplierId || items.length > 0)) {
             try {
                 const supplier = suppliers.find(s => s.id === selectedSupplierId);
                 const purchase: Purchase = {
@@ -207,7 +226,7 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                 items: processedItems,
                 totalValue,
                 observation,
-                status,
+                status: initialPurchase?.status === 'cancelled' ? 'cancelled' : status,
                 invoiceNumber,
                 invoiceDate,
                 invoiceStatus: status === 'fulfilled' ? 'received' : 'pending',
@@ -217,13 +236,17 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                 freightPercent
             };
 
-            await savePurchase(purchase);
+            if (initialPurchase?.id) {
+                await updatePurchase(initialPurchase.id, purchase);
+                toast.success("Pedido de compra atualizado com sucesso!");
+            } else {
+                await savePurchase(purchase);
+                let message = "Pedido de compra salvo!";
+                if (status === 'ordered') message = "Pedido confirmado e estoque atualizado! 📦";
+                if (status === 'fulfilled') message = "Pedido atendido e estoque atualizado! ✨";
+                toast.success(message);
+            }
             
-            let message = "Pedido de compra salvo!";
-            if (status === 'ordered') message = "Pedido confirmado e estoque atualizado! 📦";
-            if (status === 'fulfilled') message = "Pedido atendido e estoque atualizado! ✨";
-            
-            toast.success(message);
             onClose();
         } catch (error) {
             toast.error("Erro ao salvar o pedido de compra.");
@@ -241,7 +264,26 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
             <div className="relative bg-white dark:bg-slate-900 w-full h-full xl:h-auto xl:max-h-[90vh] xl:max-w-7xl rounded-none xl:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 xl:border border-slate-100 dark:border-slate-800">
                 {/* Header */}
                 <div className="px-4 py-3 xl:px-6 xl:py-3 bg-blue-600 text-white flex items-center justify-between shrink-0">
-                    <h2 className="text-base xl:text-lg font-black tracking-tight uppercase">Novo Pedido de Compra</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-base xl:text-lg font-black tracking-tight uppercase">
+                            {initialPurchase ? `Pedido de Compra #${initialPurchase.id?.slice(-4)}` : 'Novo Pedido de Compra'}
+                        </h2>
+                        {initialPurchase && (() => {
+                            const status = initialPurchase.status;
+                            const isFulfilled = status === 'fulfilled';
+                            const isOrdered = status === 'ordered';
+                            const isCancelled = status === 'cancelled';
+                            const label = isFulfilled ? 'Atendido' : isOrdered ? 'Em Ordem' : isCancelled ? 'Cancelado' : 'Em Aberto';
+                            const dotColor = isFulfilled ? 'bg-emerald-300' : isOrdered ? 'bg-amber-300' : isCancelled ? 'bg-rose-300' : 'bg-slate-300';
+                            
+                            return (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/15 text-white border border-white/20">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                                    {label}
+                                </span>
+                            );
+                        })()}
+                    </div>
                     <button onClick={handleCancelOrClose} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
                         <i className="bi bi-x-lg text-lg"></i>
                     </button>
@@ -251,11 +293,12 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                     {/* Supplier, Date, IPI & Freight */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
                         <div className="md:col-span-2 flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fornecedor</label>
                             <SupplierAutocomplete
                                 suppliers={suppliers}
                                 selectedSupplierId={selectedSupplierId}
                                 onSelect={setSelectedSupplierId}
+                                disabled={items.length > 0}
+                                disabledReason="Para alterar o fornecedor, remova todos os itens do pedido."
                                 placeholder="Buscar fornecedor..."
                                 inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
                             />
@@ -373,18 +416,32 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                         ipiPercent={ipiPercent}
                         freightPercent={freightPercent}
                         formatCurrency={formatCurrency}
+                        supplierId={selectedSupplierId}
+                        onSupplierAutoSelect={(supId) => setSelectedSupplierId(supId)}
                     />
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 xl:p-6 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-4 shrink-0">
-                    <button
-                        type="button"
-                        onClick={handleCancelOrClose}
-                        className="px-6 py-3 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs uppercase tracking-wider"
-                    >
-                        Cancelar / Fechar
-                    </button>
+                <div className="p-4 xl:p-6 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-4 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={handleCancelOrClose}
+                            className="px-6 py-3 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs uppercase tracking-wider"
+                        >
+                            Cancelar / Fechar
+                        </button>
+                        {initialPurchase && initialPurchase.status !== 'cancelled' && (
+                            <button
+                                type="button"
+                                onClick={() => setIsReceiptModalOpen(true)}
+                                className="px-5 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 font-bold rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-xs uppercase tracking-wider flex items-center gap-2"
+                            >
+                                <i className="bi bi-qr-code-scan text-sm"></i>
+                                Conferir Recebimento
+                            </button>
+                        )}
+                    </div>
                     <div className="flex gap-3">
                         <button
                             type="button"
@@ -394,17 +451,17 @@ const PurchaseFormModal = ({ isOpen, onClose }: Props) => {
                         >
                             Confirmar Pedido
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => handleSave('fulfilled')}
-                            disabled={isSaving}
-                            className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 dark:shadow-none text-xs uppercase tracking-wider"
-                        >
-                            Atender Completo
-                        </button>
                     </div>
                 </div>
             </div>
+
+            {initialPurchase && (
+                <PurchaseReceiptCheckModal
+                    isOpen={isReceiptModalOpen}
+                    purchase={initialPurchase}
+                    onClose={() => setIsReceiptModalOpen(false)}
+                />
+            )}
         </div>
     );
 };

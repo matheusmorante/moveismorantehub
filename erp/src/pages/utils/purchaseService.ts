@@ -62,13 +62,13 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
     await supabase.from(TABLE_NAME).update({ stockProcessed: true }).eq('id', savedId);
 };
 
-const reverseInventoryMoves = async (purchaseId: string) => {
-    // Procura por movimentações que tenham o ID do pedido na observação
-    const searchPattern = `Pedido de Compra #${purchaseId}%`;
+export const reverseInventoryMoves = async (purchaseId: string) => {
+    // Procura por movimentações que tenham o ID do pedido na observação ou label
+    const searchPattern = `%Pedido de Compra #${purchaseId}%`;
     const { data: moves, error } = await supabase
         .from('inventory_moves')
         .select('id')
-        .ilike('observation', searchPattern);
+        .or(`observation.ilike.${searchPattern},label.ilike.%${purchaseId}%`);
 
     if (error) {
         console.error("Erro ao buscar lançamentos para estorno:", error);
@@ -85,6 +85,40 @@ const reverseInventoryMoves = async (purchaseId: string) => {
 
     // Marcar como não processado
     await supabase.from(TABLE_NAME).update({ stockProcessed: false }).eq('id', purchaseId);
+};
+
+export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
+    if (!purchase.id) return;
+
+    if (purchase.status === 'cancelled') {
+        throw new Error("Este pedido de compra já está cancelado.");
+    }
+
+    // Validar se o estoque ainda está lançado
+    if (purchase.stockProcessed) {
+        throw new Error("Não é possível cancelar um pedido com entrada de estoque ativa. Por favor, estorne a entrada de estoque antes de cancelar.");
+    }
+
+    // Checar se há lançamentos residuais no banco de dados
+    const searchPattern = `%Pedido de Compra #${purchase.id}%`;
+    const { data: moves } = await supabase
+        .from('inventory_moves')
+        .select('id')
+        .or(`observation.ilike.${searchPattern},label.ilike.%${purchase.id}%`);
+
+    if (moves && moves.length > 0) {
+        throw new Error("Existem movimentações de estoque vinculadas a este pedido. Realize o estorno da entrada antes de cancelar.");
+    }
+
+    const { error } = await supabase
+        .from(TABLE_NAME)
+        .update({ status: 'cancelled' })
+        .eq('id', purchase.id);
+
+    if (error) {
+        console.error("Erro ao cancelar compra:", error);
+        throw error;
+    }
 };
 
 export const toggleStockProcessing = async (purchase: Purchase): Promise<void> => {
@@ -127,19 +161,19 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
         const merged: Purchase = { ...currentPurchase, ...updates };
 
         const dbUpdates: any = {};
-        if (updates.supplierId) dbUpdates.supplier_id = updates.supplierId;
-        if (updates.supplierName) dbUpdates.supplier_name = updates.supplierName;
-        if (updates.date) dbUpdates.date = updates.date;
-        if (updates.items) dbUpdates.items = updates.items;
-        if (updates.totalValue) dbUpdates.total_value = updates.totalValue;
-        if (updates.observation) dbUpdates.observation = updates.observation;
-        if (updates.status) dbUpdates.status = updates.status;
+        if (updates.supplierId !== undefined) dbUpdates.supplier_id = updates.supplierId || null;
+        if (updates.supplierName !== undefined) dbUpdates.supplier_name = updates.supplierName || null;
+        if (updates.date !== undefined) dbUpdates.date = updates.date ? new Date(updates.date).toISOString() : new Date().toISOString();
+        if (updates.items !== undefined) dbUpdates.items = updates.items;
+        if (updates.totalValue !== undefined) dbUpdates.total_value = updates.totalValue;
+        if (updates.observation !== undefined) dbUpdates.observation = updates.observation || '';
+        if (updates.status !== undefined) dbUpdates.status = updates.status;
         if (updates.stockProcessed !== undefined) dbUpdates.stockProcessed = updates.stockProcessed;
-        if (updates.invoiceNumber !== undefined) dbUpdates.invoice_number = updates.invoiceNumber;
-        if (updates.invoiceDate !== undefined) dbUpdates.invoice_date = updates.invoiceDate;
+        if (updates.invoiceNumber !== undefined) dbUpdates.invoice_number = updates.invoiceNumber || null;
+        if (updates.invoiceDate !== undefined) dbUpdates.invoice_date = updates.invoiceDate && updates.invoiceDate.trim() !== '' ? new Date(updates.invoiceDate).toISOString() : null;
         if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
-        if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey;
-        if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
+        if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey || null;
+        if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments || [];
 
         const { error } = await supabase
             .from(TABLE_NAME)
@@ -176,21 +210,21 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
 };
 
 const mapToDB = (p: Purchase) => ({
-    supplier_id: p.supplierId,
-    supplier_name: p.supplierName,
-    date: p.date,
-    items: p.items,
-    total_value: p.totalValue,
-    observation: p.observation,
-    status: p.status,
-    invoice_number: p.invoiceNumber,
-    invoice_date: p.invoiceDate,
-    invoice_status: p.invoiceStatus,
-    fiscal_key: p.fiscalKey,
+    supplier_id: p.supplierId || null,
+    supplier_name: p.supplierName || null,
+    date: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
+    items: p.items || [],
+    total_value: p.totalValue || 0,
+    observation: p.observation || '',
+    status: p.status || 'opened',
+    invoice_number: p.invoiceNumber || null,
+    invoice_date: p.invoiceDate && p.invoiceDate.trim() !== '' ? new Date(p.invoiceDate).toISOString() : null,
+    invoice_status: p.invoiceStatus || 'pending',
+    fiscal_key: p.fiscalKey || null,
     attachments: p.attachments || [],
     ipi_value: p.ipiPercent || 0,
     freight_percent: p.freightPercent || 0,
-    created_at: p.createdAt || new Date().toISOString()
+    created_at: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString()
 });
 
 const mapFromDB = (data: any): Purchase => ({

@@ -169,9 +169,9 @@ const ProductRow = ({
                                     <span className={`text-sm ${isChildVariation ? 'font-semibold text-blue-900 dark:text-blue-300' : product.isParent ? 'font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
                                         {displayName}
                                     </span>
-                                    {(product.active === false || product.deleted) && (
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 mt-0.5">
-                                            <i className="bi bi-x-circle-fill text-red-500"></i> Desativado
+                                    {(product.active === false || product.deleted) && !product.isDraft && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">
+                                            <i className="bi bi-slash-circle text-rose-500"></i> Desativado
                                         </span>
                                     )}
                                     <div className="flex items-center gap-2 mt-1">
@@ -181,7 +181,7 @@ const ProductRow = ({
                                             </span>
                                         )}
                                         {product.isDraft && (
-                                            <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+                                            <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-800">
                                                 <i className="bi bi-file-earmark-text"></i> Rascunho
                                             </span>
                                         )}

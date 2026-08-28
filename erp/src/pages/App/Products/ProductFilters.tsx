@@ -5,6 +5,7 @@ interface ProductFiltersData {
     search: string;
     category: string;
     activeOnly: boolean | undefined;
+    isDraft?: boolean;
     status?: string;
     sortBy: "description" | "unitPrice" | "stock" | "code" | "createdAt" | "category";
     sortOrder: "asc" | "desc";
@@ -42,6 +43,7 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
             search: "",
             category: "",
             activeOnly: undefined,
+            isDraft: false,
             sortBy: "createdAt",
             sortOrder: "desc",
             showTrash: filters.showTrash
@@ -78,17 +80,25 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
                     <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Situação no ERP</label>
                         <select
-                            name="activeOnly"
-                            value={filters.activeOnly === undefined ? "" : String(filters.activeOnly)}
+                            value={filters.isDraft ? "draft" : filters.activeOnly === true ? "active" : filters.activeOnly === false ? "deactivated" : ""}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                setFilters(prev => ({ ...prev, activeOnly: val === "" ? undefined : val === "true" }));
+                                if (val === "draft") {
+                                    setFilters(prev => ({ ...prev, isDraft: true, activeOnly: undefined, showTrash: false }));
+                                } else if (val === "active") {
+                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: true, showTrash: false }));
+                                } else if (val === "deactivated") {
+                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: false, showTrash: true }));
+                                } else {
+                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: undefined, showTrash: false }));
+                                }
                             }}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
                         >
-                            <option value="" className="dark:bg-slate-900">Todos</option>
-                            <option value="true" className="dark:bg-slate-900">Produtos Ativos</option>
-                            <option value="false" className="dark:bg-slate-900">Produtos Desativados</option>
+                            <option value="" className="dark:bg-slate-900">Todos os Cadastrados</option>
+                            <option value="active" className="dark:bg-slate-900">Produtos Ativos</option>
+                            <option value="deactivated" className="dark:bg-slate-900">Produtos Desativados</option>
+                            <option value="draft" className="dark:bg-slate-900">Rascunhos (Em Cadastro)</option>
                         </select>
                     </div>
 

@@ -27,6 +27,30 @@ const fetchOppMap = async (): Promise<Record<string, string>> => {
     return oppPromise;
 };
 
+let supplierCache: Record<string, string> | null = null;
+let supplierPromise: Promise<Record<string, string>> | null = null;
+
+const fetchSupplierMap = async (): Promise<Record<string, string>> => {
+    if (supplierCache) return supplierCache;
+    if (!supplierPromise) {
+        supplierPromise = (async () => {
+            const { data } = await supabase
+                .from('people')
+                .select('id, full_name, nickname, social_name')
+                .or('person_type.ilike.suppliers,person_type.ilike.supplier');
+            const map: Record<string, string> = {};
+            if (data) {
+                data.forEach((item: any) => {
+                    map[item.id] = item.nickname || item.full_name || item.social_name || '';
+                });
+            }
+            supplierCache = map;
+            return map;
+        })();
+    }
+    return supplierPromise;
+};
+
 interface ProductCardProps {
     product: Product;
     onEdit: (product: Product) => void;
@@ -77,6 +101,9 @@ const ProductCard = ({
     const [oppName, setOppName] = React.useState<string | null>(
         product.opportunityName || product.opportunity?.name || null
     );
+    const [supplierName, setSupplierName] = React.useState<string | null>(
+        (product as any).supplierName || (product as any).supplier?.name || (product as any).supplier || null
+    );
 
     React.useEffect(() => {
         let isMounted = true;
@@ -91,6 +118,21 @@ const ProductCard = ({
         }
         return () => { isMounted = false; };
     }, [product.opportunityId, product.opportunityName, product.opportunity]);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        const targetSupplierId = product.mainSupplierId || product.supplierId || (product as any).supplier_id || (product as any).main_supplier_id;
+        if (targetSupplierId) {
+            fetchSupplierMap().then(map => {
+                if (isMounted && map && map[targetSupplierId]) {
+                    setSupplierName(map[targetSupplierId]);
+                }
+            });
+        } else {
+            setSupplierName((product as any).supplierName || (product as any).supplier?.name || (product as any).supplier || null);
+        }
+        return () => { isMounted = false; };
+    }, [product.mainSupplierId, product.supplierId, (product as any).supplier_id, (product as any).main_supplier_id]);
 
     // Process attributes text if variation
     let variationName = '';
@@ -304,10 +346,19 @@ const ProductCard = ({
                         </span>
                     )}
                     {!isVariation && (
-                        <div className="flex items-center flex-wrap gap-2 mt-1 leading-relaxed">
+                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 leading-relaxed">
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">
                                 {getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || product.category || "-"}
                             </span>
+                            {supplierName && (
+                                <>
+                                    <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-700/60">
+                                        <i className="bi bi-truck text-[9px] text-slate-400 dark:text-slate-500" />
+                                        {supplierName}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     )}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2 w-full">
@@ -317,11 +368,15 @@ const ProductCard = ({
                                 {oppName}
                             </span>
                         )}
-                        {product.isDraft && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                        {product.isDraft ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
                                 <i className="bi bi-file-earmark-text" /> Rascunho
                             </span>
-                        )}
+                        ) : product.active === false ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800">
+                                <i className="bi bi-slash-circle" /> Desativado
+                            </span>
+                        ) : null}
                         {!isParent && (
                             <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
