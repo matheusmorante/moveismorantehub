@@ -27,6 +27,12 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
             return;
         }
 
+        const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '');
+        if (type === 'withdrawal' && hasTemporaryItems) {
+            toast.error("Não é possível lançar saída de estoque para pedidos que contêm produtos temporários. Por favor, edite o pedido e selecione produtos reais.");
+            return;
+        }
+
         setIsSaving(true);
         try {
             // Record a move for each item in the order
@@ -38,7 +44,8 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
                 quantity: item.quantity,
                 date: new Date().toISOString(),
                 label: type === 'withdrawal' ? `Saída - Pedido #${order.id?.slice(-8)}` : `Estorno - Pedido #${order.id?.slice(-8)}`,
-                observation: observation
+                observation: observation,
+                unitPrice: item.unitPrice
             }));
 
             // Execute moves

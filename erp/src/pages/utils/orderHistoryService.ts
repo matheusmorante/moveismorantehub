@@ -349,6 +349,12 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
     // Don't process assistance orders or orders already processed (unless forced)
     if (order.orderType !== 'sale' || (order.stockProcessed && !force)) return orderToUpdate;
 
+    // Se houver algum item temporário no pedido, impede o faturamento automático ou manual de estoque
+    const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '');
+    if (hasTemporaryItems) {
+        return orderToUpdate;
+    }
+
     // Determine if stock should be subtracted based on new automation settings or force flag
     const shouldSubtractStock = force || (order.status && inventoryAutomation?.autoWithdrawalOnStatus?.includes(order.status));
 
@@ -401,7 +407,8 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                         label: `Pedido #${orderId}`,
                         relatedEntityId: orderId,
                         relatedEntityType: 'sales_order',
-                        observation: `FIFO Fallback`
+                        observation: `FIFO Fallback`,
+                        unitPrice: item.unitPrice
                     }, currentStock);
                 } else {
                     for (const lot of availableLots) {
@@ -420,7 +427,8 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                             relatedEntityType: 'sales_order',
                             observation: `Lote de ${new Date(lot.date).toLocaleDateString()}`,
                             unitCost: lot.unitCost, // USE THE LOT COST!
-                            parentMoveId: lot.id   // LINK TO LOT
+                            parentMoveId: lot.id,   // LINK TO LOT
+                            unitPrice: item.unitPrice
                         }, currentStock);
 
                         remainingToWithdraw -= takeFromLot;
@@ -438,7 +446,8 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                             label: `Pedido #${orderId}`,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Quantidade acima dos lotes disponíveis`
+                            observation: `Quantidade acima dos lotes disponíveis`,
+                            unitPrice: item.unitPrice
                         }, currentStock);
                     }
                 }

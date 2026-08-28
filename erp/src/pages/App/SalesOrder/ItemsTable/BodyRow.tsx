@@ -25,6 +25,7 @@ interface Props {
 }
 
 const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
+    const isTemporaryProduct = Boolean(item.description?.trim() && !item.productId);
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
     const handlingErrorKey = `item_${idx}_handlingType`;
@@ -143,14 +144,17 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     {/* Linha 1: Descrição e Manuseio */}
                     <div className="flex gap-3">
                         <div className="flex-[3] min-w-0">
-                            <label className="text-[9px] font-black uppercase text-slate-400 mb-1 block ml-1">Descrição do Item</label>
+                            <label className={`text-[9px] font-black uppercase mb-1 flex items-center gap-1.5 ml-1 ${isTemporaryProduct ? 'text-amber-600' : 'text-slate-400'}`}>
+                                Produto
+                                {isTemporaryProduct && <TemporaryProductAlert />}
+                            </label>
                             {!item.isComboItem ? (
                                 <ProductAutocomplete
                                     value={item.description}
                                     onChange={(val) => onChange(idx, 'description', val)}
                                     onSelect={(p, v) => onSelectProduct(idx, p, v)}
-                                    onSelectDescription={(desc) => onChange(idx, 'description', desc)}
-                                    placeholder="Descrição do item..."
+                                    placeholder="Busque ou digite um produto..."
+                                    isTemporary={isTemporaryProduct}
                                     className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
                                 />
                             ) : (
@@ -289,14 +293,17 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans">
             <td className="px-4 py-2 relative group/desc">
                 {!item.isComboItem ? (
+                    <>
                     <ProductAutocomplete
                         value={item.description}
                         onChange={(val) => onChange(idx, 'description', val)}
                         onSelect={(p, v) => onSelectProduct(idx, p, v)}
-                        onSelectDescription={(desc) => onChange(idx, 'description', desc)}
-                        placeholder="Descrição do item..."
+                        placeholder="Busque ou digite um produto..."
+                        isTemporary={isTemporaryProduct}
                         className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
                     />
+                    {isTemporaryProduct && <div className="mt-1"><TemporaryProductAlert /></div>}
+                    </>
                 ) : (
                     <div className="flex items-center gap-2 pl-3">
                         <i className="bi bi-arrow-return-right text-slate-300" />
@@ -437,5 +444,14 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         </tr>
     );
 };
+
+const TemporaryProductAlert = () => (
+    <span className="relative inline-flex items-center group/temp-alert" tabIndex={0} aria-label="Item temporário">
+        <i className="bi bi-exclamation-triangle-fill text-amber-500 text-xs cursor-help" />
+        <span className="pointer-events-none absolute left-0 top-full z-[80] mt-2 hidden w-64 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
+            Item temporário: selecione depois um produto real da lista para vincular estoque, custos e gráficos.
+        </span>
+    </span>
+);
 
 export default BodyRow;

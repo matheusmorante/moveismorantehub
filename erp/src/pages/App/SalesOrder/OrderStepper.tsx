@@ -43,7 +43,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
     const visibleSteps = isBudget ? steps.filter(s => s.step !== 5) : steps;
 
     return (
-        <div className="flex flex-nowrap items-center justify-center gap-1.5 md:gap-4 transition-all duration-500 py-1">
+        <div className="w-full flex flex-nowrap items-center justify-center lg:justify-between gap-1.5 md:gap-4 lg:gap-2 2xl:gap-4 transition-all duration-500 py-1">
             {visibleSteps.map((s, idx) => {
                 const status = getStepStatus(s.step);
                 return (

@@ -140,13 +140,7 @@ export default function ProductsAdminPage() {
   async function fetchData() {
     setLoading(true)
     
-    // Purge items deleted more than 30 days ago
-    try {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      await supabase.from("products").delete().lt("deleted_at", thirtyDaysAgo)
-    } catch (e) {
-      console.error("Erro ao limpar lixeira antiga:", e)
-    }
+    // Purga física de itens da lixeira desabilitada para preservar o histórico do banco de dados
 
     const { data, error } = await supabase
       .from("products")
@@ -227,18 +221,19 @@ export default function ProductsAdminPage() {
   }
 
   const handleHardDelete = async (id: string) => {
-    if (!confirm("Excluir permanentemente este produto? Esta ação é irreversível.")) return
+    if (!confirm("Confirmar inativação definitiva deste produto? O produto será arquivado para preservar o histórico.")) return
     try {
-      // Remover do catálogo da Meta primeiro (antes de deletar do banco)
+      // Remover do catálogo da Meta primeiro
       await fetch("/api/catalog/sync-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: id, action: "DELETE" }),
-      }).catch((err) => console.error("Erro ao sincronizar exclusão permanente com a Meta:", err))
+      }).catch((err) => console.error("Erro ao sincronizar exclusão com a Meta:", err))
 
-      const { error } = await supabase.from("products").delete().eq("id", id)
+      // No lugar de deletar fisicamente, definimos status como 'hidden' e active como false
+      const { error } = await supabase.from("products").update({ status: 'hidden', active: false }).eq("id", id)
       if (error) throw error
-      toast.success("Produto excluído permanentemente!")
+      toast.success("Produto desativado e arquivado permanentemente!")
       if (typeof window !== "undefined") {
         const channel = new BroadcastChannel("catalog-updates")
         channel.postMessage("catalog-updated")
@@ -246,7 +241,7 @@ export default function ProductsAdminPage() {
       }
       fetchData()
     } catch (error: any) {
-      toast.error("Erro ao excluir permanentemente: " + error.message)
+      toast.error("Erro ao arquivar produto: " + error.message)
     }
   }
 

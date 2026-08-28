@@ -6,6 +6,8 @@ export type PurchaseItem = {
     receivedQuantity?: number;
     unitCost: number;
     totalCost: number;
+    baseCost?: number;
+    ipiPercent?: number;
 };
 
 export type Purchase = {
@@ -22,6 +24,10 @@ export type Purchase = {
     invoiceNumber?: string;
     invoiceDate?: string;
     invoiceStatus?: 'pending' | 'partially_received' | 'received';
+    fiscalKey?: string;
+    attachments?: string[];
+    ipiPercent?: number;
+    freightPercent?: number;
 };
 
 export default Purchase;

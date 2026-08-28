@@ -8,9 +8,9 @@ import { buildOrderObservations, OrderObservationLabels } from './order-details/
 import { AddressSection, CustomerSection, ItemsSection, OrderTypeBadges } from './order-details/OrderDetailsSections';
 import { getPendingPaymentTotal, OrderPaymentSection } from './order-details/OrderPaymentSection';
 
-interface Props { order: any; isDarkMode: boolean; onStartDelivery?: () => void }
+interface Props { order: any; isDarkMode: boolean; onStartDelivery?: () => void; canStartDelivery: boolean }
 
-export function OrderDetailsBody({ order, isDarkMode, onStartDelivery }: Props) {
+export function OrderDetailsBody({ order, isDarkMode, onStartDelivery, canStartDelivery }: Props) {
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
   useEffect(() => {
     supabase.from('settings').select('*').limit(1).then(({ data }) => {
@@ -40,6 +40,6 @@ export function OrderDetailsBody({ order, isDarkMode, onStartDelivery }: Props) 
     <AddressSection shipping={shipping} customer={customer} schedule={schedule} order={order} dark={isDarkMode} />
     <ItemsSection items={items} total={getOrderTotalValue(order)} pendingTotal={getPendingPaymentTotal(payments)} dark={isDarkMode} />
     <OrderPaymentSection payments={payments} fallbackMethod={data.paymentMethod || data.payment_method} dark={isDarkMode} />
-    <OrderDeliveryStartFooter order={order} onStart={onStartDelivery} />
+    <OrderDeliveryStartFooter order={order} onStart={onStartDelivery} allowed={canStartDelivery} />
   </ScrollView>;
 }

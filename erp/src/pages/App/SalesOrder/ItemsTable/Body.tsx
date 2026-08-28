@@ -38,7 +38,12 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProdu
     ) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
-            const newItem = sanitizeItem({ ...newItems[idx], [key]: value });
+            const isTemporaryProduct = key === 'description' && Boolean(String(value).trim());
+            const newItem = sanitizeItem({
+                ...newItems[idx],
+                [key]: value,
+                ...(key === 'description' ? { productId: undefined, variationId: undefined, isTemporaryProduct } : {})
+            });
             newItems[idx] = newItem;
             return newItems;
         });

@@ -1156,34 +1156,18 @@ export const deleteProduct = async (id: string): Promise<{ success: boolean; mes
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
         
         if (isUUID) {
-            const hasMoves = await checkProductHasMoves(realId);
-            if (hasMoves) {
-                return {
-                    success: false,
-                    message: "Este produto possui movimentações de estoque ou vendas vinculadas e não pode ser excluído para preservar o histórico. Você pode desativá-lo."
-                };
-            }
-
-            // Excluir variações vinculadas do Supabase
-            await supabase.from("product_variations").delete().eq("product_id", realId);
-
-            // Excluir produto principal do Supabase
-            const { error } = await supabase.from(TABLE_NAME).delete().eq("id", realId);
-            if (error) throw error;
+            await deactivateProduct(realId);
         }
 
-        // Remover do cache / estado local
-        let products = getLocalProducts();
-        products = products.filter(p => String(p.id) !== String(realId));
-        saveLocalProducts(products);
-        notifySubscribers();
-
-        return { success: true };
+        return { 
+            success: true, 
+            message: "Produto desativado com sucesso. Deleções físicas não são permitidas para preservar o histórico do sistema."
+        };
     } catch (error: any) {
-        console.error("Erro ao excluir produto permanentemente:", error);
+        console.error("Erro ao desativar produto:", error);
         return {
             success: false,
-            message: error?.message || "Erro ao excluir o produto do banco de dados."
+            message: error.message || "Erro ao desativar o produto."
         };
     }
 };

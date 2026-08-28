@@ -1,4 +1,4 @@
-package com.matheusmorante.mobile
+package com.morante.mobile
 
 import android.os.Build
 import android.os.Bundle

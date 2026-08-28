@@ -52,7 +52,7 @@ const UsersManagement = () => {
                 'seller': 'Vendedor',
                 'manager': 'Gerente',
                 'administrator': 'Gerente',
-                'deliverer': 'Entregador'
+                'deliverer': 'Entregador / Montador'
             };
 
             const positionToSet = roleMap[newRole];
@@ -143,8 +143,8 @@ const UsersManagement = () => {
                                             <option value="">Nenhum</option>
                                             <option value="Vendedor">Vendedor</option>
                                             <option value="Gerente">Gerente</option>
-                                            <option value="Entregador">Entregador</option>
-                                            {profile.position && !['Vendedor', 'Gerente', 'Entregador'].includes(profile.position) && (
+                                            <option value="Entregador / Montador">Entregador / Montador</option>
+                                            {profile.position && !['Vendedor', 'Gerente', 'Entregador / Montador'].includes(profile.position) && (
                                                 <option value={profile.position}>{profile.position}</option>
                                             )}
                                         </select>
@@ -170,7 +170,7 @@ const UsersManagement = () => {
                                             <option value="administrator">Administrador</option>
                                             <option value="manager">Gerente</option>
                                             <option value="seller">Vendedor</option>
-                                            <option value="deliverer">Entregador</option>
+                                            <option value="deliverer">Entregador / Montador</option>
                                             <option value="accountant">Contador</option>
                                         </select>
                                     </td>

@@ -50,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('[Auth] Fetching profile for:', user.id);
             const userEmail = (user.email || '').toLowerCase().trim();
             const isMasterEmail = isMasterEmailCheck(userEmail);
+            const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
             let { data, error } = await supabase
                 .from('profiles')
@@ -64,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: user.id,
                     email: user.email || '',
                     role: assignedRole,
-                    full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || (isMasterEmail ? 'Matheus Morante' : 'Novo Usuário'),
+                    full_name: googleName || user.email?.split('@')[0] || (isMasterEmail ? 'Matheus Morante' : 'Novo Usuário'),
                 };
 
                 const { data: upsertedData } = await supabase
@@ -79,6 +80,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('[Auth] Promovendo conta Master para administrator...');
                 data.role = 'administrator';
                 await supabase.from('profiles').update({ role: 'administrator' }).eq('id', user.id);
+            }
+
+            if (data && googleName && data.full_name !== googleName) {
+                data.full_name = googleName;
+                await supabase.from('profiles').update({ full_name: googleName }).eq('id', user.id);
             }
 
             setProfile(data as Profile);

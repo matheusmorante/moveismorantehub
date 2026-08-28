@@ -30,6 +30,7 @@ import ProductMaterialsSection from './components/ProductMaterialsSection';
 import CardFlagSettings from './components/CardFlagSettings';
 import BlingConfigSection from './components/BlingConfigSection';
 import FiscalSettingsSection from './components/FiscalSettingsSection';
+import AccessManagementSection from './components/AccessManagementSection';
 // import SaveButton from './components/SaveButton'; // Removido para auto-save
 
 const categories: any[] = [
@@ -192,6 +193,20 @@ export default function Settings(): any {
                     <SettingsSection id="scroll" title="Rolagem Automática" icon="bi-mouse3-fill" isVisible={isVisible('scroll')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('scroll')}>
                         <AutoScrollSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
+                </div>
+
+                {/* Grupo: Controle de Acesso (Admin) */}
+                <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
+                    <div className="flex items-center justify-between px-3 mb-3">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                            Controle de Acesso
+                        </h3>
+                        <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                            ADMIN
+                        </span>
+                    </div>
+
+                    <AccessManagementSection settings={settings} onChange={handleChange} />
                 </div>
 
                 {/* Grupo 2: Sistema (Admin) */}

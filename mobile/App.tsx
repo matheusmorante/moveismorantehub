@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import { View, ScrollView, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Speech from 'expo-speech';
+import * as Linking from 'expo-linking';
 
 import { supabase, MASTER_DEFAULT_PROFILE, WEB_URL } from './src/services/supabaseClient';
+import { completeGoogleSignIn } from './src/services/googleAuth';
+import { resolveMobileUserProfile } from './src/services/mobileAuthProfile';
 import { registerPushToken, triggerLocalNotification } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
@@ -14,15 +17,20 @@ import { AISummaryCard } from './src/features/dashboard/components/AISummaryCard
 import { OperationalStatsGrid } from './src/features/dashboard/components/OperationalStatsGrid';
 import { NativeBottomNav } from './src/features/dashboard/components/NativeBottomNav';
 import { useExpoAutoUpdate } from './src/hooks/useExpoAutoUpdate';
+import { useMandatoryAppUpdate } from './src/hooks/useMandatoryAppUpdate';
 
 import { NativeOrdersScreen } from './src/features/orders/screens/NativeOrdersScreen';
 import { NativeLogisticsScreen } from './src/features/logistics/screens/NativeLogisticsScreen';
 import { NativeAssembliesScreen } from './src/features/assemblies/screens/NativeAssembliesScreen';
 import { NativeReportsScreen } from './src/features/reports/screens/NativeReportsScreen';
+import { NativeSettingsScreen } from './src/features/settings/screens/NativeSettingsScreen';
 
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { ProfileModal } from './src/components/modals/ProfileModal';
 import { OrderDetailsModal } from './src/components/modals/OrderDetailsModal';
+import { LoginScreen } from './src/components/LoginScreen';
+import { PendingApprovalScreen } from './src/components/PendingApprovalScreen';
+import { MandatoryUpdateModal } from './src/components/modals/MandatoryUpdateModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,7 +44,9 @@ const PERIOD_OPTIONS = [
 
 export default function App() {
   useExpoAutoUpdate();
-  const [userProfile] = useState<any>(MASTER_DEFAULT_PROFILE);
+  const mandatoryUpdate = useMandatoryAppUpdate();
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [currentTab, setCurrentTab] = useState('home');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -67,8 +77,8 @@ export default function App() {
   const [speechTotalDuration, setSpeechTotalDuration] = useState(0);
   const speechIntervalRef = useRef<any>(null);
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'master';
-  const isAssemblerDriver = userProfile?.role === 'assembler' || userProfile?.role === 'driver' || userProfile?.role === 'entregador';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'master' || userProfile?.role === 'administrator';
+  const isAssemblerDriver = userProfile?.role === 'assembler' || userProfile?.role === 'driver' || userProfile?.role === 'entregador' || userProfile?.role === 'deliverer';
   const canSeeReports = isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'seller';
 
   const formatAudioTime = (secs: number) => {
@@ -88,6 +98,11 @@ export default function App() {
   };
 
   const handleTabChange = (newTab: string, url: string) => {
+    if (newTab === 'configuracoes') {
+      void url;
+      setCurrentTab('configuracoes');
+      return;
+    }
     setCurrentTab(newTab);
   };
 
@@ -362,7 +377,7 @@ export default function App() {
     }
   };
 
-  // 1. Carregar Notificações e Inicialização
+  // Carregar Notificações e Inicialização
   const fetchNotifications = async () => {
     try {
       const { data, error } = await supabase.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(50);
@@ -384,15 +399,86 @@ export default function App() {
     } catch (err) {}
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUserProfile(null);
+    } catch (err) {
+      console.warn('[Logout] Erro:', err);
+    }
+  };
+
+  const syncAuthProfile = async (session: any) => {
+    setLoadingProfile(true);
+    try {
+      setUserProfile(await resolveMobileUserProfile(session));
+    } catch (err) {
+      console.warn('[AuthChange] Erro ao processar autenticação:', err);
+      setUserProfile(null);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const handleDeepLinkUrl = async (url: string) => {
+    if (!url) return;
+    console.log('[DeepLink] Recebido URL:', url);
+    try {
+      if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error=')) return;
+
+      setLoadingProfile(true);
+      const session = await completeGoogleSignIn(url);
+      if (session) {
+        console.log('[DeepLink] Sessão ativada com sucesso');
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+    } catch (err) {
+      console.warn('[DeepLink] Falha ao processar URL:', err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   useEffect(() => {
     registerPushToken();
+
+    // On web, use the browser URL directly. Expo Linking does not reliably
+    // expose OAuth query params after a full-page redirect in development.
+    const initialUrlPromise = Platform.OS === 'web' && typeof window !== 'undefined'
+      ? Promise.resolve(window.location.href)
+      : Linking.getInitialURL();
+    initialUrlPromise.then((url) => {
+      if (url) handleDeepLinkUrl(url);
+    });
+
+    // Capturar links recebidos em background/foreground (quente)
+    const deepLinkSubscription = Linking.addEventListener('url', (event) => {
+      if (event.url) handleDeepLinkUrl(event.url);
+    });
+
+
+
+    // Ouvir mudanças de autenticação do Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthChange] Event:', event);
+      // Supabase locks auth state while emitting this event. Deferring the
+      // profile query prevents a deadlock that left assigned users as pending.
+      setTimeout(() => { void syncAuthProfile(session); }, 0);
+    });
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => syncAuthProfile(session))
+      .catch((err) => console.warn('[Auth] Não foi possível carregar a sessão inicial:', err));
+
     fetchDashboardStats();
     fetchNotifications();
 
     generateDeliveryAISummary('today', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
     generateDeliveryAISummary('tomorrow', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
 
-    // 2. Realtime Listener + Disparo de Notificação Nativa na Barra do Celular
+    // Realtime Listener
     const notifChannel = supabase
       .channel('realtime-app-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_notifications' }, async (payload) => {
@@ -412,7 +498,6 @@ export default function App() {
         }, ...prev]);
         setUnreadCount(prev => prev + 1);
 
-        // Dispara banner com som e vibração na barra de status do celular
         triggerLocalNotification(
           newNotif.title || 'Móveis Morante',
           newNotif.message || 'Nova notificação de pedido',
@@ -429,10 +514,53 @@ export default function App() {
     }, 15000);
 
     return () => {
+      subscription.unsubscribe();
       notifChannel.unsubscribe();
+      deepLinkSubscription.remove();
       clearInterval(pollingInterval);
     };
   }, []);
+
+  useEffect(() => {
+    if (!userProfile?.id || userProfile.role !== 'pending') return;
+
+    let active = true;
+    let attempts = 0;
+    const retryProfileSync = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (active && session) await syncAuthProfile(session);
+      attempts += 1;
+      if (active && attempts < 3) setTimeout(retryProfileSync, 3000);
+    };
+    const timeout = setTimeout(retryProfileSync, 1500);
+    return () => { active = false; clearTimeout(timeout); };
+  }, [userProfile?.id, userProfile?.role]);
+
+  // Telas de carregamento e autenticação
+  if (loadingProfile) {
+    return <>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+      <MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} />
+    </>;
+  }
+
+  if (!userProfile) return <><LoginScreen isDarkMode={isDarkMode} onLoginSuccess={() => {}} /><MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} /></>;
+
+  // Se o usuário estiver sem cargo (pendente)
+  const hasNoRole = !userProfile.role || userProfile.role === 'pending';
+  if (hasNoRole) {
+    return <>
+      <PendingApprovalScreen
+        isDarkMode={isDarkMode}
+        fullName={userProfile.fullName}
+        userEmail={userProfile.email}
+        onLogout={handleLogout}
+      />
+      <MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} />
+    </>;
+  }
 
   return (
     <SafeAreaProvider>
@@ -450,7 +578,7 @@ export default function App() {
             unreadCount={unreadCount}
           />
           {currentTab === 'home' ? (
-            <ScrollView style={{ flex: 1 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 128 }}>
 
               <AISummaryCard
                 isDarkMode={isDarkMode}
@@ -495,6 +623,8 @@ export default function App() {
             <NativeLogisticsScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
           ) : currentTab === 'montagens' ? (
             <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
+          ) : currentTab === 'configuracoes' ? (
+            <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('home')} />
           ) : canSeeReports ? (
             <NativeReportsScreen isDarkMode={isDarkMode} />
           ) : (
@@ -528,7 +658,7 @@ export default function App() {
           isAdmin={isAdmin}
           isAssemblerDriver={isAssemblerDriver}
           handleTabChange={handleTabChange}
-          handleLogout={() => {}}
+          handleLogout={handleLogout}
           WEB_URL={WEB_URL}
         />
 
@@ -536,8 +666,19 @@ export default function App() {
           order={appSelectedOrder}
           onClose={() => setAppSelectedOrder(null)}
           isDarkMode={isDarkMode}
+          userRole={userProfile?.role}
         />
+        <MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} />
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+});

@@ -10,6 +10,7 @@ export type InventoryMove = {
     date: string;
     label?: string; // e.g., 'Venda', 'Compra', 'Ajuste Manual'
     unitCost?: number;
+    unitPrice?: number;
     parentMoveId?: string; // Links withdrawal to original entry for FIFO
     relatedEntityId?: string; // e.g., orderId, purchaseId
     relatedEntityType?: 'sales_order' | 'purchase_order' | 'adjustment' | 'manual';

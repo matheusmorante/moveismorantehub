@@ -143,6 +143,7 @@ export interface AppSettings {
         productConfig: string[];
         viewFinancials: string[];
         deleteOrders: string[];
+        startDelivery: string[];
         manageSettings: string[];
     };
     whatsappTemplates: {
@@ -532,6 +533,7 @@ RESPOSTA NO FORMATO JSON:
         productConfig: ['administrator', 'manager'],
         viewFinancials: ['administrator', 'manager', 'accountant'],
         deleteOrders: ['administrator', 'manager'],
+        startDelivery: ['administrator', 'deliverer'],
         manageSettings: ['administrator']
     },
     whatsappTemplates: {

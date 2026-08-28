@@ -57,6 +57,7 @@ const OrderHistoryRow = ({
     const { profile } = useAuth();
     const settings = getSettings();
     const isIncomplete = isOrderIncomplete(order);
+    const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '') || false;
     
     // DEBUG: Confirming file loaded
     React.useEffect(() => {
@@ -580,7 +581,52 @@ const OrderHistoryRow = ({
                                                 {/* Dropdown Menu - Continuous hover area bridged with pt-2 instead of mt-2 */}
                                                 <div className={`absolute top-full right-0 pt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                        {/* Manual Stock Action Removed as per user request */}
+                                                         {/* Ações Manuais de Estoque */}
+                                                         {(order.orderType === 'sale' || order.orderType === 'showroom') && (
+                                                             <>
+                                                                     {!order.stockProcessed ? (
+                                                                         <button
+                                                                             disabled={hasTemporaryItems}
+                                                                             onClick={(e) => { 
+                                                                                 e.stopPropagation(); 
+                                                                                 if (hasTemporaryItems) return;
+                                                                                 onAction('stockWithdrawal', order); 
+                                                                                 setShowMenu(false); 
+                                                                             }}
+                                                                             className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${
+                                                                                 hasTemporaryItems 
+                                                                                     ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600' 
+                                                                                     : 'text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20'
+                                                                             }`}
+                                                                             title={hasTemporaryItems ? "Substitua os itens temporários por produtos reais para liberar a saída de estoque." : "Lançar saída de estoque para este pedido"}
+                                                                         >
+                                                                             <i className="bi bi-box-arrow-right text-lg" />
+                                                                             <div className="flex flex-col text-left">
+                                                                                 <span className="text-xs font-black uppercase tracking-widest">Lançar Saída</span>
+                                                                                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                                                                     {hasTemporaryItems ? "Bloqueado: Itens Temporários" : "Registrar saída física do estoque"}
+                                                                                 </span>
+                                                                             </div>
+                                                                         </button>
+                                                                     ) : (
+                                                                         <button
+                                                                             onClick={(e) => { 
+                                                                                 e.stopPropagation(); 
+                                                                                 onAction('stockReversal', order); 
+                                                                                 setShowMenu(false); 
+                                                                             }}
+                                                                             className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                                                                             title="Estornar lançamento de estoque deste pedido"
+                                                                         >
+                                                                             <i className="bi bi-arrow-counterclockwise text-lg" />
+                                                                             <div className="flex flex-col text-left">
+                                                                                 <span className="text-xs font-black uppercase tracking-widest">Estornar Saída</span>
+                                                                                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Devolver itens para o estoque</span>
+                                                                             </div>
+                                                                         </button>
+                                                                     )}
+                                                                 </>
+                                                             )}
 
                                                         {(order.orderType === 'sale' || order.orderType === 'showroom') && <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />}
 

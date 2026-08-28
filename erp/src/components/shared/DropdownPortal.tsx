@@ -47,6 +47,8 @@ const DropdownPortal: React.FC<DropdownPortalProps> = ({ anchorRef, children, is
                 top: coords.top + 4,
                 left: coords.left,
                 width: coords.width,
+                maxHeight: `calc(100vh - ${coords.top + 12}px)`,
+                overflowY: 'auto',
             }}
             onMouseDown={(e) => e.stopPropagation()}
         >

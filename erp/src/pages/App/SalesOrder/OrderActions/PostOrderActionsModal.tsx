@@ -35,9 +35,6 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                                     Cadastrado
                                 </span>
                             </div>
-                            <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mt-0.5">
-                                Pedido #{order.id} • {order.customerData?.fullName || 'Cliente não informado'}
-                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 transition-colors" title="Fechar">

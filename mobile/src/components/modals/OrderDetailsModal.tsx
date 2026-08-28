@@ -4,19 +4,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ShoppingBag } from 'lucide-react-native';
 import { OrderDetailsBody } from '../OrderDetailsBody';
 import { DeliveryPreparationScreen } from '../../features/orders/screens/DeliveryPreparationScreen';
+import { supabase } from '../../services/supabaseClient';
 
 interface Props {
   order: any;
   onClose: () => void;
   isDarkMode: boolean;
+  userRole?: string;
 }
 
-export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode }) => {
+export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode, userRole }) => {
   const insets = useSafeAreaInsets();
   const [preparingDelivery, setPreparingDelivery] = useState(false);
+  const [canStartDelivery, setCanStartDelivery] = useState(false);
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
   useEffect(() => { if (!order) setPreparingDelivery(false); }, [order]);
+  useEffect(() => {
+    const loadPermission = async () => {
+      const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();
+      const allowedRoles = data?.data?.rolePermissions?.startDelivery || ['administrator', 'deliverer'];
+      setCanStartDelivery(userRole === 'administrator' || allowedRoles.includes(userRole));
+    };
+    void loadPermission();
+  }, [userRole]);
 
   if (!order) return null;
 
@@ -60,7 +71,7 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode 
 
         {/* Full-Screen Body Content */}
         <View style={{ flex: 1 }}>
-          <OrderDetailsBody order={order} isDarkMode={isDarkMode} onStartDelivery={() => setPreparingDelivery(true)} />
+          <OrderDetailsBody order={order} isDarkMode={isDarkMode} canStartDelivery={canStartDelivery} onStartDelivery={() => setPreparingDelivery(true)} />
         </View>
         </>}
       </View>

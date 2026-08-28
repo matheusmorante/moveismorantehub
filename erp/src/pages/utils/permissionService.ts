@@ -6,6 +6,7 @@ export type PermissionAction =
     | 'productConfig' 
     | 'viewFinancials' 
     | 'deleteOrders' 
+    | 'startDelivery'
     | 'manageSettings';
 
 /**
@@ -20,6 +21,7 @@ export const canPerform = (action: PermissionAction, role?: UserRole): boolean =
 
     // Administrators always have full access
     if (role === 'administrator') return true;
+    if (action === 'manageSettings') return false;
 
     const settings = getSettings();
     const permissions = settings.rolePermissions;
@@ -31,6 +33,7 @@ export const canPerform = (action: PermissionAction, role?: UserRole): boolean =
             productConfig: ['manager'],
             viewFinancials: ['manager', 'accountant'],
             deleteOrders: ['manager'],
+            startDelivery: ['deliverer'],
             manageSettings: [] // Admin only via hardcode above
         };
         return defaults[action].includes(role);

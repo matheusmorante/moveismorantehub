@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product, { Variation } from '../pages/types/product.type';
-import { supabase } from '../pages/utils/supabaseConfig';
+import { fetchProductsPage } from '../pages/utils/productService';
 import DropdownPortal from './shared/DropdownPortal';
+import { normalizeProductSearch, renderHighlightedProductText, SuggestionItem } from './productAutocompleteUtils';
 
 interface ProductAutocompleteProps {
     onSelect: (product: Product, variation?: Variation) => void;
@@ -10,36 +11,12 @@ interface ProductAutocompleteProps {
     onSearch?: () => void;
     onCreateNew?: () => void;
     isSelected?: boolean;
+    isTemporary?: boolean;
     value?: string;
     placeholder?: string;
     className?: string;
 }
 
-type SuggestionItem = {
-    product: Product;
-    variation?: Variation;
-};
-
-const normalizeStr = (str: string) => 
-    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-const renderHighlightedText = (text: string, query: string) => {
-    if (!query.trim()) return <span>{text}</span>;
-    
-    const words = query.trim().split(/\s+/).filter(w => w.length > 0);
-    const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
-    const parts = text.split(pattern);
-
-    return (
-        <span>
-            {parts.map((part, i) => (
-                pattern.test(part) ? 
-                <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-yellow-900 dark:text-yellow-200 rounded-sm px-0.5">{part}</span> : 
-                <span key={i}>{part}</span>
-            ))}
-        </span>
-    );
-};
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onSelect,
@@ -48,6 +25,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onSearch,
     onCreateNew,
     isSelected = false,
+    isTemporary = false,
     value = "",
     placeholder = "Digite o nome ou código do produto...",
     className = ""
@@ -57,7 +35,6 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         setQuery(value);
     }, [value]);
@@ -83,69 +60,24 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             setIsLoading(true);
             try {
                 const words = trimmed.split(/\s+/).filter(w => w.length > 0);
-                
-                let dbQuery = supabase
-                    .from('products')
-                    .select('*, product_variations(*), product_images(*)')
-                    .eq('active', true)
-                    .eq('deleted', false)
-                    .eq('is_draft', false);
-
-                if (words.length === 1) {
-                    dbQuery = dbQuery.or(`description.ilike.%${words[0]}%,code.ilike.%${words[0]}%`);
-                } else {
-                    words.forEach(word => {
-                        dbQuery = dbQuery.ilike('description', `%${word}%`);
-                    });
-                }
-
-                const { data: productsData, error: productsError } = await dbQuery.limit(15);
-
-                if (productsError) throw productsError;
-                
+                const { data: productsData } = await fetchProductsPage(1, 30, {
+                    search: trimmed,
+                    activeOnly: true,
+                });
                 const items: SuggestionItem[] = [];
-                const searchNormWords = words.map(w => normalizeStr(w));
+                const searchNormWords = words.map(normalizeProductSearch);
 
-                (productsData || []).forEach((raw: any) => {
-                    const rawVars = raw.product_variations?.length ? raw.product_variations : raw.variations;
-                    const parsedVars: Variation[] = (Array.isArray(rawVars) ? rawVars : []).map((v: any) => ({
-                        id: String(v.id || v.sku || Math.random()),
-                        sku: v.sku || '',
-                        name: v.name || '',
-                        title: v.title || '',
-                        unitPrice: Number(v.unit_price ?? v.unitPrice ?? raw.unit_price ?? 0),
-                        promoPrice: v.promo_price ?? v.promoPrice ? Number(v.promo_price ?? v.promoPrice) : undefined,
-                        costPrice: Number(v.cost_price ?? v.costPrice ?? raw.cost_price ?? 0),
-                        stock: Number(v.stock ?? 0),
-                        active: v.active !== false,
-                        condition: v.condition || raw.condition || 'novo',
-                        attributes: v.attributes || []
-                    }));
+                (productsData || []).forEach((p: Product) => {
+                    const variations = p.variations || [];
 
-                    const p: Product = {
-                        id: String(raw.id),
-                        code: raw.code,
-                        description: raw.description,
-                        unitPrice: Number(raw.unit_price || 0),
-                        promoPrice: raw.promo_price ? Number(raw.promo_price) : undefined,
-                        costPrice: Number(raw.cost_price || 0),
-                        stock: Number(raw.stock || 0),
-                        minStock: Number(raw.min_stock || 0),
-                        unit: raw.unit || 'un',
-                        active: raw.active,
-                        hasVariations: raw.has_variations || parsedVars.length > 0,
-                        variations: parsedVars,
-                        itemType: raw.item_type || 'product'
-                    };
-
-                    if (p.hasVariations && p.variations && p.variations.length > 0) {
-                        p.variations.forEach(v => {
+                    if (p.hasVariations && variations.length > 0) {
+                        variations.forEach(v => {
                             if (v.active !== false) {
-                                const fullName = v.name && normalizeStr(v.name).includes(normalizeStr(p.description)) 
+                                const fullName = v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(p.description))
                                     ? v.name 
                                     : `${p.description} - ${v.name}`;
-                                const normFullName = normalizeStr(fullName);
-                                const normSku = normalizeStr(v.sku || '');
+                                const normFullName = normalizeProductSearch(fullName);
+                                const normSku = normalizeProductSearch(v.sku || '');
 
                                 const matchesAll = searchNormWords.every(nw => 
                                     normFullName.includes(nw) || normSku.includes(nw)
@@ -184,12 +116,12 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         onChange={(e) => {
                             const val = e.target.value;
                             setQuery(val);
-                            setShowSuggestions(true);
+                            setShowSuggestions(val.trim().length >= 2);
                             if (onChange) onChange(val);
                         }}
-                        onFocus={() => setShowSuggestions(true)}
+                        onFocus={() => setShowSuggestions(query.trim().length >= 2)}
                         placeholder={placeholder}
-                        className={`w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium transition-all ${isSelected ? 'border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/10' : ''}`}
+                        className={`w-full px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium transition-all ${isTemporary ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-950/20 focus:border-amber-500 focus:ring-amber-500/20' : 'border-slate-200 dark:border-slate-800'} ${isSelected ? 'border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/10' : ''}`}
                     />
                     {isLoading && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -221,13 +153,21 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 )}
             </div>
 
-            <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && suggestions.length > 0}>
+            <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && query.trim().length >= 2}>
                 <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-slate-100 dark:divide-slate-800/50">
-                    {suggestions.map((item, index) => {
+                    {isLoading ? (
+                        <div className="flex items-center justify-center gap-2 px-4 py-5 text-xs font-bold text-slate-400">
+                            <i className="bi bi-arrow-repeat animate-spin" />
+                            Buscando produtos...
+                        </div>
+                    ) : suggestions.length === 0 ? (
+                        <div className="px-4 py-5 text-center text-xs font-bold text-slate-400">
+                            Nenhum produto encontrado para esta busca.
+                        </div>
+                    ) : suggestions.map((item, index) => {
                         const { product: p, variation: v } = item;
-                        
                         const fullName = v 
-                            ? (v.name && normalizeStr(v.name).includes(normalizeStr(p.description)) ? v.name : `${p.description} - ${v.name}`) 
+                            ? (v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(p.description)) ? v.name : `${p.description} - ${v.name}`)
                             : p.description;
 
                         const displayCode = v?.sku || p.code || '';
@@ -250,7 +190,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                             >
                                 <div className="flex flex-col min-w-0 flex-1">
                                     <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-                                        {renderHighlightedText(fullName, query)}
+                                        {renderHighlightedProductText(fullName, query)}
                                     </span>
                                     {displayCode && (
                                         <span className="text-[10px] font-mono text-slate-400">

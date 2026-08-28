@@ -62,6 +62,18 @@ export const registerPushToken = async () => {
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         showBadge: true,
       });
+
+      await Notifications.setNotificationChannelAsync('levelup-v2', {
+        name: 'Alertas Móveis Morante',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        sound: 'levelup.mp3',
+        enableVibrate: true,
+        enableLights: true,
+        lightColor: '#2563EB',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        showBadge: true,
+      });
     }
 
     // Solicita permissão de notificação (obrigatório no Android 13+ e iOS)

@@ -235,9 +235,9 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
             onClick={(e) => e.stopPropagation()}
         >
             {/* Header */}
-            <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors duration-300 shrink-0 gap-3 md:gap-6">
+            <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-b border-slate-100 dark:border-slate-800 flex flex-col 2xl:flex-row justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors duration-300 shrink-0 gap-3 2xl:gap-6">
                 {/* Esquerda: Identificação */}
-                <div className="flex w-full md:w-auto justify-between items-center shrink-0">
+                <div className="flex w-full 2xl:w-auto justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-600 p-2 sm:p-2.5 rounded-xl shadow-md shadow-blue-500/20 text-white flex items-center justify-center">
                             <i className="bi bi-pencil-square text-sm sm:text-base" />
@@ -254,7 +254,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                     <button
                         type="button"
                         onClick={onClose}
-                        className="md:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
+                        className="2xl:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
                         title="Fechar"
                     >
                         <i className="bi bi-x-lg text-xs" />
@@ -262,7 +262,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                 </div>
 
                 {/* Centro: Stepper de Etapas (Largo, Responsivo e Sem Sobreposição) */}
-                <div className="w-full md:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center">
+                <div className="w-full 2xl:flex-1 max-w-none min-w-0 px-1 sm:px-4 flex justify-center">
                     <OrderStepper
                         currentStep={form.state.currentStep}
                         jumpToStep={form.actions.jumpToStep}
@@ -271,7 +271,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                 </div>
 
                 {/* Direita: Botão Fechar no Desktop */}
-                <div className="hidden md:flex items-center shrink-0">
+                <div className="hidden 2xl:flex items-center shrink-0">
                     <button
                         type="button"
                         onClick={onClose}

@@ -138,6 +138,8 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
         if (updates.invoiceNumber !== undefined) dbUpdates.invoice_number = updates.invoiceNumber;
         if (updates.invoiceDate !== undefined) dbUpdates.invoice_date = updates.invoiceDate;
         if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
+        if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey;
+        if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
 
         const { error } = await supabase
             .from(TABLE_NAME)
@@ -184,6 +186,10 @@ const mapToDB = (p: Purchase) => ({
     invoice_number: p.invoiceNumber,
     invoice_date: p.invoiceDate,
     invoice_status: p.invoiceStatus,
+    fiscal_key: p.fiscalKey,
+    attachments: p.attachments || [],
+    ipi_value: p.ipiPercent || 0,
+    freight_percent: p.freightPercent || 0,
     created_at: p.createdAt || new Date().toISOString()
 });
 
@@ -199,6 +205,10 @@ const mapFromDB = (data: any): Purchase => ({
     invoiceNumber: data.invoice_number,
     invoiceDate: data.invoice_date,
     invoiceStatus: data.invoice_status,
+    fiscalKey: data.fiscal_key,
+    attachments: data.attachments || [],
+    ipiPercent: data.ipi_value ? Number(data.ipi_value) : 0,
+    freightPercent: data.freight_percent ? Number(data.freight_percent) : 0,
     createdAt: data.created_at,
     stockProcessed: data.stockProcessed
 });

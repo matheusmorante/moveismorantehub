@@ -242,6 +242,19 @@ const SalesOrder = () => {
                                     )}
                                 </div>
 
+                                {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores. */}
+                                <button
+                                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                    className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${isSidebarOpen
+                                        ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
+                                        : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
+                                        }`}
+                                    title="Filtros"
+                                >
+                                    <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
+                                    <span>Filtros</span>
+                                </button>
+
                                 {/* Main Create Button */}
                                 {isBudgetRoute && (
                                     <button
@@ -285,21 +298,6 @@ const SalesOrder = () => {
                 </div>
 
                 <div className="flex flex-col gap-3 flex-1">
-                    {/* Filtros Toggle Button on smaller screens */}
-                    <div className="flex justify-between items-center px-1 min-[1701px]:hidden">
-                        <button
-                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${isSidebarOpen
-                                ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
-                                : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
-                                }`}
-                            title="Filtros"
-                        >
-                            <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
-                            <span>Filtros</span>
-                        </button>
-                    </div>
-
                     <div className="bg-transparent transition-colors flex-1 flex flex-col overflow-visible">
                         <div className="flex flex-1 min-w-0 gap-4 items-start">
                             <div className={`transition-all duration-300 ease-in-out border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full rounded-2xl ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'} min-[1701px]:!sticky min-[1701px]:!top-20 min-[1701px]:!inset-auto min-[1701px]:!z-auto min-[1701px]:!w-80 min-[1701px]:!opacity-100 min-[1701px]:!overflow-hidden min-[1701px]:!border min-[1701px]:!shadow-none min-[1701px]:!shrink-0`}>
