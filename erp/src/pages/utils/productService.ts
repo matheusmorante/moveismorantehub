@@ -885,10 +885,8 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
             }
         }
 
-        // Sincronizar catálogo do Meta (CSV) assincronamente (background)
-        fetch('/api/facebook-catalog/sync', { method: 'POST' }).catch(err => {
-            console.warn('[Meta Sync] Falha ao atualizar feed CSV do catálogo Meta:', err);
-        });
+        // O feed CSV é atualizado dinamicamente pelo catálogo; não é necessário
+        // chamar a API do Meta pelo navegador a cada alteração de produto.
     } catch (err: any) {
         console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
         throw new Error(err.message || "Erro ao salvar no Supabase");
@@ -1105,9 +1103,13 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     const index = products.findIndex(p => String(p.id) === String(resolvedId));
     if (index === -1) {
         // A lista do ERP pode estar usando dados carregados diretamente do
-        // Supabase, sem uma cópia no cache local.
-        const fullProduct = { ...productToUpdate, id: resolvedId } as Product;
-        await syncProductToSupabase(fullProduct);
+        // Supabase, sem uma cópia no cache local. Atualiza apenas os campos
+        // recebidos para não sobrescrever colunas obrigatórias, como price.
+        const dbUpdate = mapToDB({ ...productToUpdate, id: resolvedId });
+        delete dbUpdate.id;
+        const { data, error } = await supabase.from(TABLE_NAME).update(dbUpdate).eq('id', resolvedId).select('*').single();
+        if (error) throw error;
+        const fullProduct = mapFromDB(data) as Product;
         const currentProducts = getLocalProducts();
         currentProducts.push(fullProduct);
         saveLocalProducts(currentProducts);

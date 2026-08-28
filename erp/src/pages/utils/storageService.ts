@@ -1,4 +1,4 @@
-const getCatalogApiUrl = () => {
+export const getCatalogApiUrl = () => {
     if (import.meta.env.VITE_CATALOG_API_URL) {
         return import.meta.env.VITE_CATALOG_API_URL.replace(/\/$/, "");
     }

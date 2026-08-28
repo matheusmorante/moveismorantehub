@@ -539,8 +539,8 @@ export const useProducts = (filters?: any) => {
             const targetSku = skuParts.join('_');
             const isEmbeddedVariation = skuParts.length > 0;
             const parentProduct = isEmbeddedVariation
-                ? products.find(product => String(product.id) === String(possibleParentId))
-                : products.find(product => String(product.id) === String(id));
+                ? serverProducts.find(product => String(product.id) === String(possibleParentId))
+                : serverProducts.find(product => String(product.id) === String(id));
 
             let currentStatus = 'published';
 
@@ -636,15 +636,11 @@ export const useProducts = (filters?: any) => {
                 if (variationsError) throw variationsError;
             }
 
-            const independentChildren = products.filter(product => String(product.parentId) === String(id));
+            const independentChildren = serverProducts.filter(product => String(product.parentId) === String(id));
             await Promise.all(independentChildren
                 .filter(child => child.id)
                 .map(child => updateProduct(child.id!, { status: newStatus })));
 
-            // Atualiza catálogo CSV em background
-            fetch('/api/facebook-catalog/sync', { method: 'POST' }).catch(err => {
-                console.warn('[Meta Sync] Falha ao atualizar feed CSV do catálogo Meta:', err);
-            });
             toast.success(`Catálogo Digital: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'} com sucesso! 🚀`);
 
             refresh();
