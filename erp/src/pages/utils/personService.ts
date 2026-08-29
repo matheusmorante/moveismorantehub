@@ -352,3 +352,31 @@ export const getPersonByIdentifiers = async (
 
     return mapFromDB(data[0]);
 };
+
+export const fetchPersons = async (collectionName: string = 'suppliers', includeDeleted = false): Promise<Person[]> => {
+    try {
+        let peopleQuery = supabase.from(TABLE_NAME).select('*');
+
+        if (!includeDeleted) {
+            peopleQuery = peopleQuery.or('deleted.eq.false,deleted.is.null');
+        } else {
+            peopleQuery = peopleQuery.eq('deleted', true);
+        }
+
+        if (collectionName === 'employees') {
+            peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},and(position.not.is.null,position.neq."")`);
+        } else if (collectionName === 'customers') {
+            peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.customer`);
+        } else {
+            peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
+        }
+
+        const { data: peopleData, error } = await peopleQuery.order('full_name', { ascending: true });
+        if (error) throw error;
+
+        return (peopleData || []).map(mapFromDB);
+    } catch (e) {
+        console.error("Erro ao buscar pessoas em personService:", e);
+        return [];
+    }
+};

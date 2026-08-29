@@ -45,7 +45,9 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
                 date: new Date().toISOString(),
                 label: type === 'withdrawal' ? `Saída - Pedido #${order.id?.slice(-8)}` : `Estorno - Pedido #${order.id?.slice(-8)}`,
                 observation: observation,
-                unitPrice: item.unitPrice
+                unitPrice: item.unitPrice,
+                relatedEntityId: order.id,
+                relatedEntityType: 'sales_order'
             }));
 
             // Execute moves

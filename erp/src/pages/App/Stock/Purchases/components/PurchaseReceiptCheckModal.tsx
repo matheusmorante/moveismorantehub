@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Purchase, { PurchaseItem } from "../../../../types/purchase.type";
-import { updatePurchase } from "../../../../utils/purchaseService";
+import { toggleStockProcessing, updatePurchase } from "../../../../utils/purchaseService";
+import { saveGoodsReceipt } from '../../../../utils/goodsReceiptService';
 import QRScannerModal from "@/components/shared/QRScannerModal";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { toast } from "react-toastify";
@@ -216,6 +217,19 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
                 invoiceStatus: invStatus,
                 observation: discrepancyNote ? `${purchase.observation || ''}\n[Divergência: ${discrepancyNote}]` : purchase.observation
             });
+            if (!purchase.stockProcessed && isAnyReceived) {
+                await toggleStockProcessing({ ...purchase, items: updatedItems, status: newStatus });
+            }
+            if (isAnyReceived) {
+                const receivedItems = updatedItems
+                    .filter(item => (item.receivedQuantity || 0) > 0)
+                    .map(item => ({
+                        ...item,
+                        quantity: item.receivedQuantity || 0,
+                        totalCost: item.totalCost * ((item.receivedQuantity || 0) / item.quantity),
+                    }));
+                await saveGoodsReceipt({ purchaseId: purchase.id, supplierName: purchase.supplierName, receivedAt: new Date().toISOString(), invoiceNumber, invoiceDate, items: receivedItems, totalValue: receivedItems.reduce((total, item) => total + item.totalCost, 0), observation: discrepancyNote });
+            }
 
             toast.success("Conferência e 3-Way Match registrados! ✨");
             onClose();
@@ -228,7 +242,7 @@ const PurchaseReceiptCheckModal = ({ purchase, isOpen, onClose }: PurchaseReceip
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-2 sm:p-4 xl:p-6">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
             
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col max-h-[90vh]">

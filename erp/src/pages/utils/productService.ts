@@ -3,6 +3,7 @@ import Product, { Variation } from "../types/product.type";
 import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
+import { ensureDefaultVariation, isDefaultVariation } from './productVariationDefaults';
 
 const TABLE_NAME = "products";
 const LOCAL_STORAGE_KEY = 'local_products';
@@ -100,7 +101,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.whatsappTemplate !== undefined) data.whatsapp_template = product.whatsappTemplate;
     if (product.ecommerceTemplate !== undefined) data.ecommerce_template = product.ecommerceTemplate;
     if (product.hasVariations !== undefined || product.variations !== undefined) {
-        data.has_variations = Boolean(product.hasVariations) || (Array.isArray(product.variations) && product.variations.length > 0);
+        data.has_variations = Boolean(product.hasVariations);
     }
     if (product.variations !== undefined) data.variations = product.variations;
     if (product.itemType !== undefined) data.item_type = product.itemType;
@@ -215,16 +216,6 @@ export const mapFromDB = (data: any, index?: number): Product => {
     }
     let primaryCategory = data.category || (categoryNames.length > 0 ? categoryNames.join(' | ') : '');
 
-    // A flag armazenada nunca deve manter ativo no ERP um produto importado que
-    // ainda não possui os dados internos exigidos para operar nesse canal.
-    const isErpEligible = Boolean(
-        data.description && String(data.description).trim().length >= 2 &&
-        Number(data.unit_price ?? data.price ?? 0) > 0 &&
-        Number(data.cost_price || 0) > 0 &&
-        data.main_supplier_id &&
-        Array.isArray(data.product_categories) && data.product_categories.length > 0
-    );
-
     // Extrair dimensões (height, width, depth) com parsing numérico robusto e fallback para string measures
     let parsedWidth = data.width !== null && data.width !== undefined && String(data.width).trim() !== '' ? parseFloat(String(data.width).replace(',', '.')) : undefined;
     let parsedHeight = data.height !== null && data.height !== undefined && String(data.height).trim() !== '' ? parseFloat(String(data.height).replace(',', '.')) : undefined;
@@ -254,14 +245,108 @@ export const mapFromDB = (data: any, index?: number): Product => {
     const fallbackCode = index !== undefined ? String(index + 1).padStart(6, '0') : '';
     const parentCode = data.code || data.sku || fallbackCode;
 
+    const mappedVariations = variationRecords.map((v: any, vIdx: number) => {
+        const varImages = parseVariationImages(v.image_url, v.images);
+        const suffix = String(vIdx + 1).padStart(2, '0');
+        const expectedPrefix = parentCode ? `${parentCode}-` : '';
+        const isAlreadyFormatted = expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix);
+        const resolvedSku = isAlreadyFormatted ? v.sku : (parentCode ? `${parentCode}-${suffix}` : (v.sku || ''));
+        
+        let attributesList: { name: string; value: string; showName?: boolean }[] = [];
+        const rawAttrs = v.attributes;
+
+        if (Array.isArray(rawAttrs)) {
+            attributesList = rawAttrs.map((a: any) => ({
+                name: a.name || a.attribute_name || a.key || '',
+                value: String(a.value || a.option || ''),
+                showName: a.showName ?? true
+            })).filter(a => a.name && a.value);
+        } else if (rawAttrs && typeof rawAttrs === 'object') {
+            attributesList = Object.entries(rawAttrs).map(([name, value]) => ({
+                name,
+                value: typeof value === 'object' && value !== null ? String((value as any).value || (value as any).name || JSON.stringify(value)) : String(value),
+                showName: true
+            })).filter(a => a.name && a.value);
+        } else if (typeof rawAttrs === 'string') {
+            try {
+                const parsed = JSON.parse(rawAttrs);
+                if (Array.isArray(parsed)) {
+                    attributesList = parsed.map((a: any) => ({ name: a.name || '', value: String(a.value || ''), showName: true }));
+                } else if (parsed && typeof parsed === 'object') {
+                    attributesList = Object.entries(parsed).map(([name, value]) => ({ name, value: String(value), showName: true }));
+                }
+            } catch (e) {}
+        }
+
+        if (v.product_id) {
+            return {
+                id: String(v.id),
+                sku: resolvedSku,
+                name: v.name || '',
+                stock: Number(v.stock || 0),
+                unitPrice: v.use_parent_price ? Number(data.unit_price || 0) : Number(v.price || 0),
+                promoPrice: v.use_parent_promo_price ? Number(data.promo_price || 0) : Number(v.promo_price || 0),
+                costPrice: Number(data.cost_price || 0),
+                active: Boolean(data.active),
+                condition: data.condition || 'novo',
+                attributes: attributesList,
+                images: varImages,
+                syncUnitPrice: v.use_parent_price !== false,
+                syncPromoPrice: v.use_parent_promo_price !== false,
+                syncDescription: v.use_parent_description !== false,
+                description: v.description || '',
+                syncWidth: v.use_parent_dimensions !== false,
+                syncHeight: v.use_parent_dimensions !== false,
+                syncDepth: v.use_parent_dimensions !== false,
+                syncWeight: v.use_parent_dimensions !== false,
+                width: v.width ? Number(v.width) : undefined,
+                depth: v.depth ? Number(v.depth) : undefined,
+                height: v.height ? Number(v.height) : undefined,
+                weight: v.weight ? Number(v.weight) : undefined,
+            };
+        }
+        return {
+            ...v,
+            images: varImages,
+            attributes: attributesList,
+            unitPrice: v.unitPrice || 0,
+            costPrice: v.costPrice || 0,
+            stock: v.stock || 0,
+            sku: resolvedSku
+        };
+    });
+
+    const finalVariations = (mappedVariations.length === 0 && (!data.item_type || data.item_type === 'product'))
+        ? [{
+            id: `${data.id}_${parentCode ? `${parentCode}-01` : '01'}`,
+            sku: parentCode ? `${parentCode}-01` : '01',
+            name: rawName || 'Padrão',
+            stock: Number(data.stock || 0),
+            unitPrice: Number(data.price !== undefined && data.price !== null ? data.price : (data.unit_price || 0)),
+            promoPrice: data.promo_price !== null && data.promo_price !== undefined ? Number(data.promo_price) : undefined,
+            costPrice: Number(data.cost_price || 0),
+            active: Boolean(data.active),
+            status: (data.status || 'published') as 'draft' | 'published' | 'hidden',
+            condition: data.condition || (data.is_salvado ? 'salvado' : 'novo'),
+            attributes: [],
+            images: productImages,
+            syncUnitPrice: true,
+            syncPromoPrice: true,
+            syncCostPrice: true,
+            syncDescription: true,
+            syncWidth: true,
+            syncHeight: true,
+            syncDepth: true,
+            syncWeight: true,
+        }]
+        : mappedVariations;
+
     return {
         id: String(data.id),
         sku: data.sku || parentCode,
         code: parentCode,
         name: rawName,
         title: data.title || rawName,
-        // The ERP form still uses marketplaceTitle internally. Products coming
-        // from the catalog persist this same value in `title`.
         marketplaceTitle: data.title || rawName,
         description: data.description || '',
         brand: data.brand || '',
@@ -289,81 +374,8 @@ export const mapFromDB = (data: any, index?: number): Product => {
         whatsappDescription: data.whatsapp_description || '',
         whatsappTemplate: data.whatsapp_template || '',
         ecommerceTemplate: data.ecommerce_template || '',
-        hasVariations: Boolean(data.has_variations) || (Array.isArray(variationRecords) && variationRecords.length > 0),
-        variations: variationRecords.map((v: any, vIdx: number) => {
-            const varImages = parseVariationImages(v.image_url, v.images);
-            const suffix = String(vIdx + 1).padStart(2, '0');
-            const expectedPrefix = parentCode ? `${parentCode}-` : '';
-            const isAlreadyFormatted = expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix);
-            const resolvedSku = isAlreadyFormatted ? v.sku : (parentCode ? `${parentCode}-${suffix}` : (v.sku || ''));
-            
-            // Parse robusto de atributos da variação
-            let attributesList: { name: string; value: string; showName?: boolean }[] = [];
-            const rawAttrs = v.attributes;
-
-            if (Array.isArray(rawAttrs)) {
-                attributesList = rawAttrs.map((a: any) => ({
-                    name: a.name || a.attribute_name || a.key || '',
-                    value: String(a.value || a.option || ''),
-                    showName: a.showName ?? true
-                })).filter(a => a.name && a.value);
-            } else if (rawAttrs && typeof rawAttrs === 'object') {
-                attributesList = Object.entries(rawAttrs).map(([name, value]) => ({
-                    name,
-                    value: typeof value === 'object' && value !== null ? String((value as any).value || (value as any).name || JSON.stringify(value)) : String(value),
-                    showName: true
-                })).filter(a => a.name && a.value);
-            } else if (typeof rawAttrs === 'string') {
-                try {
-                    const parsed = JSON.parse(rawAttrs);
-                    if (Array.isArray(parsed)) {
-                        attributesList = parsed.map((a: any) => ({ name: a.name || '', value: String(a.value || ''), showName: true }));
-                    } else if (parsed && typeof parsed === 'object') {
-                        attributesList = Object.entries(parsed).map(([name, value]) => ({ name, value: String(value), showName: true }));
-                    }
-                } catch (e) {}
-            }
-
-            if (v.product_id) {
-                return {
-                    id: String(v.id),
-                    sku: resolvedSku,
-                    name: v.name || '',
-                    stock: Number(v.stock || 0),
-                    unitPrice: v.use_parent_price ? Number(data.unit_price || 0) : Number(v.price || 0),
-                    promoPrice: v.use_parent_promo_price ? Number(data.promo_price || 0) : Number(v.promo_price || 0),
-                    costPrice: Number(v.cost_price || 0),
-                    // Variações não possuem status de ERP próprio no banco.
-                    // Elas devem refletir a elegibilidade do produto-pai, em vez
-                    // de sempre aparecerem como ativas na lista.
-                    active: Boolean(data.active),
-                    condition: data.condition || 'novo',
-                    attributes: attributesList,
-                    images: varImages,
-                    syncUnitPrice: v.use_parent_price !== false,
-                    syncPromoPrice: v.use_parent_promo_price !== false,
-                    syncDescription: v.use_parent_description !== false,
-                    description: v.description || '',
-                    syncWidth: v.use_parent_dimensions !== false,
-                    syncHeight: v.use_parent_dimensions !== false,
-                    syncDepth: v.use_parent_dimensions !== false,
-                    syncWeight: v.use_parent_dimensions !== false,
-                    width: v.width ? Number(v.width) : undefined,
-                    depth: v.depth ? Number(v.depth) : undefined,
-                    height: v.height ? Number(v.height) : undefined,
-                    weight: v.weight ? Number(v.weight) : undefined,
-                };
-            }
-            return {
-                ...v,
-                images: varImages,
-                attributes: attributesList,
-                unitPrice: v.unitPrice || 0,
-                costPrice: v.costPrice || 0,
-                stock: v.stock || 0,
-                sku: resolvedSku
-            };
-        }),
+        hasVariations: (data.item_type === 'product' || !data.item_type) ? true : Boolean(data.has_variations),
+        variations: finalVariations,
         itemType: data.item_type || 'product',
         fiscal: {
             ncm: data.fiscal?.ncm || '',
@@ -458,14 +470,13 @@ const initializeProductsIfEmpty = async (): Promise<Product[]> => {
             .from(TABLE_NAME)
             .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
             .order('created_at', { ascending: false });
-            
+
         if (error) {
             console.error("[ProductService] Erro ao buscar produtos do Supabase:", error);
             return getLocalProducts();
         }
 
         let fetchedProducts: Product[] = (data || []).map((p, idx) => mapFromDB(p, idx));
-        
         saveLocalProducts(fetchedProducts);
         return fetchedProducts;
     } catch (e) {
@@ -481,7 +492,7 @@ const subscribers = new Set<{ callback: SubscriptionCallback; includeDeleted: bo
 const notifySubscribers = () => {
     const products = getLocalProducts();
     subscribers.forEach(sub => {
-        const filtered = products.filter(p => !!p.deleted === sub.includeDeleted);
+        const filtered = products.filter(p => !p.deleted === sub.includeDeleted);
         sub.callback(filtered);
     });
 };
@@ -489,7 +500,7 @@ const notifySubscribers = () => {
 export const subscribeToProducts = (callback: (products: Product[]) => void, includeDeleted = false) => {
     const run = async () => {
         const products = await initializeProductsIfEmpty();
-        const filtered = products.filter(p => !!p.deleted === includeDeleted);
+        const filtered = products.filter(p => !p.deleted === includeDeleted);
         callback(filtered);
     };
     run();
@@ -502,10 +513,6 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, inc
     };
 };
 
-/**
- * Busca uma página de produtos diretamente do Supabase.
- * Usado para paginação real no BD em telas >= lg (desktop).
- */
 export const fetchProductsPage = async (
     page: number,
     pageSize: number,
@@ -839,7 +846,7 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         if (product.id) {
             if ((product.hasVariations || (Array.isArray(product.variations) && product.variations.length > 0)) && product.variations && product.variations.length > 0) {
                 if (!product.isDraft) {
-                    const varWithoutImage = product.variations.find(v => !v.images || v.images.length === 0);
+                    const varWithoutImage = product.variations.find((v, index) => !isDefaultVariation(v, index) && (!v.images || v.images.length === 0));
                     if (varWithoutImage) {
                         throw new Error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
                     }
@@ -870,6 +877,7 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     const isAlreadyFormatted = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentCode}-`) && v.sku !== '000000-01';
                     const resolvedSku = isAlreadyFormatted ? v.sku : defaultSku;
 
+                    const effectiveImages = isDefaultVariation(v, index) ? (product.images || v.images || []) : (v.images || []);
                     return {
                         ...(v.id ? { id: v.id } : {}),
                         product_id: product.id,
@@ -877,7 +885,7 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                         sku: resolvedSku,
                         price: v.syncUnitPrice ? (product.unitPrice ? Number(product.unitPrice) : 0) : (v.unitPrice !== undefined && v.unitPrice !== null ? Number(v.unitPrice) : 0),
                         stock: v.stock ? parseInt(String(v.stock), 10) : 0,
-                        image_url: v.images && v.images.length > 0 ? v.images.join(",") : null,
+                        image_url: effectiveImages.length > 0 ? effectiveImages.join(",") : null,
                         attributes: attributesObj,
                         promo_price: v.syncPromoPrice !== false ? (product.promoPrice ? Number(product.promoPrice) : null) : (v.promoPrice !== undefined && v.promoPrice !== null ? Number(v.promoPrice) : null),
                         description: v.syncDescription ? null : (v.description || null),
@@ -950,6 +958,7 @@ const ensureUuidFormat = (product: Partial<Product>): string => {
 };
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
+    Object.assign(product, ensureDefaultVariation(product));
     const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '') ? product.id : undefined;
     const resolvedId = ensureUuidFormat(product);
 
@@ -1007,6 +1016,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     if (product.launchInitialStock && Number(product.stock) > 0) {
         saveInventoryMove({
             productId: resolvedId,
+            variationId: product.variations?.[0]?.id,
             productDescription: product.description || "Estoque Inicial",
             type: 'entry',
             quantity: Number(product.stock),
@@ -1022,6 +1032,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
             if (entry.quantity > 0) {
                 saveInventoryMove({
                     productId: resolvedId,
+                    variationId: product.variations?.[0]?.id,
                     productDescription: product.description || "Estoque Inicial",
                     type: 'entry',
                     quantity: entry.quantity,

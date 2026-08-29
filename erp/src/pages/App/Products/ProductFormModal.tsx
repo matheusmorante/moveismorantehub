@@ -10,6 +10,7 @@ import { compressImage, compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { aiService } from '@/pages/utils/aiService';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute, isDefaultVariation } from '@/pages/utils/productVariationDefaults';
 
 // Modular Components
 import SmartInput from "../../../components/SmartInput";
@@ -20,9 +21,8 @@ import CategorySearchModal from "./CategorySearchModal";
 // Modular Tab Components
 import ProductGeneralTab from "./components/tabs/ProductGeneralTab";
 import ProductVariationsTab from "./components/tabs/ProductVariationsTab";
-import { generateProductCode } from '@/pages/utils/formatters';
+import { formatCurrency, generateProductCode } from '@/pages/utils/formatters';
 import ProductEcommerceTab from "./components/tabs/ProductEcommerceTab";
-
 import ProductInventoryTab from "./components/tabs/ProductInventoryTab";
 import ProductFiscalTab from "./components/tabs/ProductFiscalTab";
 import ProductTechnicalTab from "./components/tabs/ProductTechnicalTab";
@@ -38,8 +38,9 @@ interface ProductFormModalProps {
     onSuccess?: (newProduct: Product) => void;
 }
 
-const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormData, isCombo, onEditCombo, onEdit, parentPrice, isEdit, hasPhotoError }: {
+const VariationRow = React.memo(({ v, variationIndex, updateVariation, removeVariation, setFormData, isCombo, onEditCombo, onEdit, parentPrice, parentPromoPrice, isEdit, hasPhotoError, parentSku }: {
     v: Variation,
+    variationIndex?: number,
     updateVariation: (id: string, field: keyof Variation, value: any) => void,
     removeVariation: (id: string) => void,
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>,
@@ -47,10 +48,18 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
     onEditCombo?: (id: string) => void,
     onEdit?: (id: string) => void,
     parentPrice?: number,
+    parentPromoPrice?: number,
     isEdit?: boolean,
-    hasPhotoError?: boolean
+    hasPhotoError?: boolean,
+    parentSku?: string
 }) => {
     const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
+    const regularPrice = Number(v.syncUnitPrice ? parentPrice : v.unitPrice) || 0;
+    const promoPrice = Number(v.syncPromoPrice !== false ? parentPromoPrice : v.promoPrice) || 0;
+    const finalPrice = promoPrice > 0 && promoPrice < regularPrice ? promoPrice : regularPrice;
+    const hasDiscount = finalPrice < regularPrice;
+    const fallbackSuffix = String((variationIndex ?? 0) + 1).padStart(2, '0');
+    const displaySku = v.sku || (parentSku ? `${parentSku}-${fallbackSuffix}` : '-');
 
     return (
         <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
@@ -59,11 +68,16 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                     {varImage ? (
                         <img src={varImage} alt="Variação" className="object-cover h-full w-full" />
                     ) : (
-                            <div className="flex flex-col items-center justify-center text-red-500 bg-red-50 dark:bg-red-950/40 w-full h-full border border-red-300 dark:border-red-800 rounded-xl">
-                                <i className="bi bi-camera-fill text-sm animate-pulse"></i>
-                            </div>
+                        <div className="flex flex-col items-center justify-center text-red-500 bg-red-50 dark:bg-red-950/40 w-full h-full border border-red-300 dark:border-red-800 rounded-xl">
+                            <i className="bi bi-camera-fill text-sm animate-pulse"></i>
+                        </div>
                     )}
                 </div>
+            </td>
+            <td className="px-6 py-4">
+                <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    {displaySku}
+                </span>
             </td>
             <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
                 <div className="flex flex-col">
@@ -85,13 +99,10 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
             </td>
 
             <td className="px-6 py-4">
-                <input
-                    type="number"
-                    value={v.syncUnitPrice ? parentPrice : v.unitPrice}
-                    disabled={v.syncUnitPrice}
-                    onChange={(e) => updateVariation(v.id, 'unitPrice', parseFloat(e.target.value))}
-                    className={`bg-transparent border-none outline-none text-sm font-black w-24 ${v.syncUnitPrice ? 'text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}
-                />
+                <div className="flex flex-col gap-0.5">
+                    {hasDiscount && <span className="text-xs font-bold text-red-500 line-through decoration-red-500">{formatCurrency(regularPrice)}</span>}
+                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(finalPrice)}</span>
+                </div>
             </td>
             <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                 {isCombo && (
@@ -112,9 +123,9 @@ const VariationRow = React.memo(({ v, updateVariation, removeVariation, setFormD
                 >
                     <i className="bi bi-pencil-square text-lg"></i>
                 </button>
-                <button onClick={() => removeVariation(v.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                {variationIndex !== 0 && <button onClick={() => removeVariation(v.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" title="Excluir variação">
                     <i className="bi bi-trash"></i>
-                </button>
+                </button>}
             </td>
         </tr>
     );
@@ -133,7 +144,7 @@ const INITIAL_FORM_DATA: Partial<Product> = {
     freightType: 'fixed',
     stock: 0,
     minStock: 0,
-    hasVariations: false,
+    hasVariations: true,
     variations: [],
     images: [],
     marketplaceTitle: "",
@@ -301,7 +312,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const checkERPLegibility = useCallback((data: Partial<Product>) => {
         const errors: string[] = [];
-        const hasVars = Boolean(data.hasVariations) || (Array.isArray(data.variations) && data.variations.length > 0);
+        const hasVars = Boolean(data.hasVariations);
 
         if (!data.description || data.description.trim().length < 2) {
             errors.push("Nome do Produto (Interno) deve ter pelo menos 2 caracteres.");
@@ -346,7 +357,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
     const checkEcomLegibility = useCallback((data: Partial<Product>) => {
         const errors: string[] = [];
-        const hasVars = Boolean(data.hasVariations) || (Array.isArray(data.variations) && data.variations.length > 0);
+        const hasVars = Boolean(data.hasVariations);
         const catalogTitle = data.title || data.marketplaceTitle;
         if (!catalogTitle || catalogTitle.trim().length < 2) {
             errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
@@ -476,8 +487,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         let isMounted = true;
         const loadFullData = async () => {
             if (product?.id) {
-                const initialHasVars = Boolean(product.hasVariations) || (Array.isArray(product.variations) && product.variations.length > 0);
-                const initialNext = { ...INITIAL_FORM_DATA, ...product, hasVariations: initialHasVars };
+                const initialNext = ensureDefaultVariation({ ...INITIAL_FORM_DATA, ...product, hasVariations: true });
                 setFormData(initialNext);
                 const initOrig = product.unitPrice || 0;
                 const initPromo = product.promoPrice || 0;
@@ -492,8 +502,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
                 const full = await getFullProduct(product.id);
                 if (full && isMounted) {
-                    const hasVars = Boolean(full.hasVariations) || (Array.isArray(full.variations) && full.variations.length > 0);
-                    const nextFormData = { ...full, hasVariations: hasVars };
+                    const nextFormData = ensureDefaultVariation({ ...full, hasVariations: true });
                     initialFormDataRef.current = JSON.stringify(nextFormData);
                     setFormData(nextFormData);
                     // Inicializar descontos
@@ -509,8 +518,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     }
                 }
             } else if (product) {
-                const hasVars = Boolean(product.hasVariations) || (Array.isArray(product.variations) && product.variations.length > 0);
-                const nextFormData = { ...INITIAL_FORM_DATA, ...product, hasVariations: hasVars };
+                const nextFormData = ensureDefaultVariation({ ...INITIAL_FORM_DATA, ...product, hasVariations: true });
                 initialFormDataRef.current = JSON.stringify(nextFormData);
                 setFormData(nextFormData);
                 // Inicializar descontos
@@ -528,7 +536,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 // If creating new, start with INITIAL_FORM_DATA then apply initialData, and auto-generate ID and 6-digit SKU (code)
                 const generatedId = crypto.randomUUID();
                 const generatedSku = await getNextSequentialProductCode();
-                const nextFormData = {
+                const nextFormData = ensureDefaultVariation({
                     ...INITIAL_FORM_DATA,
                     id: generatedId,
                     code: generatedSku,
@@ -537,8 +545,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     description: "",
                     isDraft: true,
                     active: false,
-                    ...initialData
-                };
+                    ...initialData,
+                    hasVariations: true
+                });
                 initialFormDataRef.current = JSON.stringify(nextFormData);
                 setFormData(nextFormData);
                 setDiscountFixed("");
@@ -889,10 +898,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         if (!formData.description) return toast.warning("Título necessário para buscar NCM");
         setIsGeneratingNCM(true);
         try {
-            const { ncm, description } = await aiService.findNCM(formData.description, formData.material || '');
+            const { ncm } = await aiService.findNCM(formData.description, formData.material || '');
             setFormData(prev => ({
                 ...prev,
-                fiscal: { ...prev.fiscal!, ncm, ncmDescription: description }
+                fiscal: { ...prev.fiscal!, ncm }
             }));
             toast.success(`NCM Encontrado: ${ncm}`);
         } catch (error) {
@@ -1006,6 +1015,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const addVariation = () => {
+        const firstVariation = formData.variations?.[0];
+        if (firstVariation && !hasVariationAttribute(firstVariation)) {
+            toast.info('Antes de criar outra variação, informe pelo menos um atributo na Variação 1.');
+            setEditingVariationId(firstVariation.id);
+            return;
+        }
         const baseName = formData.name || formData.description || "NOVA VARIAÇÃO";
         const currentCount = (formData.variations || []).length;
         const parentCode = formData.code || '000000';
@@ -1039,6 +1054,11 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const removeVariation = async (id: string) => {
+        const variationIndex = formData.variations?.findIndex((variation) => variation.id === id) ?? -1;
+        if (variationIndex === 0) {
+            toast.info('A Variação 1 é obrigatória e não pode ser removida.');
+            return;
+        }
         // Se o produto já existe no banco, verifica se a variação tem movimentações
         if (formData.id) {
             try {
@@ -1057,12 +1077,18 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             return {
                 ...prev,
                 variations: filtered,
-                hasVariations: filtered && filtered.length > 0
+                hasVariations: true
             };
         });
     };
 
     const generateBulkVariations = (options: { name: string, values: string[], showName: boolean }[]) => {
+        const firstVariation = formData.variations?.[0];
+        if (firstVariation && !hasVariationAttribute(firstVariation)) {
+            toast.info('Informe um atributo na Variação 1 antes de gerar outras variações.');
+            setEditingVariationId(firstVariation.id);
+            return;
+        }
         setIsGeneratingBulk(true);
         setTimeout(() => {
             const attributes = options.filter(o => o.name && o.values.length > 0);
@@ -1225,7 +1251,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (!enteredName) {
                 errors.name = true;
             }
-            const hasVars = Boolean(formData.hasVariations) || (Array.isArray(formData.variations) && formData.variations.length > 0);
+            const hasVars = Boolean(formData.hasVariations);
             if (!hasVars && (!formData.unitPrice || Number(formData.unitPrice) <= 0)) {
                 errors.unitPrice = true;
             }
@@ -1236,9 +1262,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 errors.mainSupplierId = true;
             }
 
-            const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some(v => !v.images || v.images.length === 0);
+            const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some((v, index) => !isDefaultVariation(v, index) && (!v.images || v.images.length === 0));
             if (hasVarsWithMissingPhoto) {
                 errors.variationsImages = true;
+            }
+            if (hasMissingRequiredAttributes(formData.variations || [])) {
+                errors.variationsAttributes = true;
             }
 
             if (Object.keys(errors).length > 0) {
@@ -1247,10 +1276,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     setActiveTab('geral');
                 } else if (errors.unitPrice || errors.mainSupplierId) {
                     setActiveTab('estoque');
-                } else if (errors.variationsImages) {
+                } else if (errors.variationsImages || errors.variationsAttributes) {
                     setActiveTab('variacoes');
                 }
-                toast.error(errors.variationsImages ? "Cada variação deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione o fornecedor principal." : "Preencha todos os campos obrigatórios.");
+                toast.error(errors.variationsAttributes ? "Da Variação 2 em diante, informe pelo menos um atributo." : errors.variationsImages ? "Cada variação adicional deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione o fornecedor principal." : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});
@@ -1262,12 +1291,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             }
         }
 
-        const hasVars = Boolean(formData.hasVariations) || (Array.isArray(formData.variations) && formData.variations.length > 0);
+        const hasVars = Boolean(formData.hasVariations);
         if (hasVars && Array.isArray(formData.variations) && formData.variations.length > 0) {
-            const varWithoutImage = formData.variations.find(v => !v.images || v.images.length === 0);
+            const varWithoutImage = formData.variations.find((v, index) => !isDefaultVariation(v, index) && (!v.images || v.images.length === 0));
             if (varWithoutImage) {
                 setActiveTab('variacoes');
                 toast.error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
+                return false;
+            }
+            if (!actualSaveAsDraft && hasMissingRequiredAttributes(formData.variations)) {
+                setActiveTab('variacoes');
+                toast.error('Da Variação 2 em diante, informe pelo menos um atributo.');
                 return false;
             }
         }
@@ -1549,7 +1583,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                         variations={formData.variations || []}
                                         isGeneratingBulk={isGeneratingBulk}
                                         addVariation={addVariation}
-                                        VariationRow={(props: any) => <VariationRow {...props} parentPrice={formData.unitPrice} isEdit={!!product?.id} hasPhotoError={validationErrors.variationsImages && (!props.v.images || props.v.images.length === 0)} />}
+                                        VariationRow={(props: any) => <VariationRow {...props} parentPrice={formData.unitPrice} parentPromoPrice={formData.promoPrice} parentSku={formData.code || formData.sku} isEdit={!!product?.id} hasPhotoError={validationErrors.variationsImages && (!props.v.images || props.v.images.length === 0)} />}
                                         updateVariation={updateVariation}
                                         removeVariation={removeVariation}
                                         setFormData={setFormData}
@@ -1587,8 +1621,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                         setFormData={setFormData}
                                         handleGenerateNCM={handleGenerateNCM}
                                         isGeneratingNCM={isGeneratingNCM}
-                                        handleAutoFillFiscalWithAI={handleAutoFillFiscalWithAI}
-                                        isFillingFiscalWithAI={isFillingFiscalWithAI}
                                     />
                                 )}
                             </div>

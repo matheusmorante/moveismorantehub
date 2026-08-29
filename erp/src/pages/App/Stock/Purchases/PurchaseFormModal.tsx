@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Purchase, { PurchaseItem } from "../../../types/purchase.type";
 import Product from "../../../types/product.type";
 import Person from "../../../types/person.type";
@@ -11,15 +12,16 @@ import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import { supabase } from "@/pages/utils/supabaseConfig";
 import imageCompression from 'browser-image-compression';
 import { PurchaseItemsSection } from "@/components/PurchaseItemsSection";
-import PurchaseReceiptCheckModal from "./components/PurchaseReceiptCheckModal";
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
+    purchase?: Purchase | null;
     initialPurchase?: Purchase | null;
 }
 
-const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
+const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props) => {
+    const activePurchase = purchase || initialPurchase;
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
@@ -31,7 +33,6 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
     const [ipiPercent, setIpiPercent] = useState(0);
     const [freightPercent, setFreightPercent] = useState(0);
-    const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
     // Legacy fields held as constants
     const observation = "";
@@ -47,27 +48,31 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
                 setProducts(data.filter(p => !p.deleted && p.itemType === 'product'));
             });
 
-            if (initialPurchase) {
-                setSelectedSupplierId(initialPurchase.supplierId || "");
-                setItems(initialPurchase.items || []);
-                setFiscalKey(initialPurchase.fiscalKey || "");
-                setAttachments(initialPurchase.attachments || []);
-                setPurchaseDate(initialPurchase.date ? new Date(initialPurchase.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
-                setIpiPercent(initialPurchase.ipiPercent || 0);
-                setFreightPercent(initialPurchase.freightPercent || 0);
+            if (activePurchase) {
+                setSelectedSupplierId(activePurchase.supplierId || "");
+                setPurchaseDate(
+                    activePurchase.date 
+                        ? (activePurchase.date.includes('T') ? activePurchase.date.split('T')[0] : activePurchase.date) 
+                        : new Date().toISOString().split('T')[0]
+                );
+                setIpiPercent(activePurchase.ipiPercent || 0);
+                setFreightPercent(activePurchase.freightPercent || 0);
+                setFiscalKey(activePurchase.fiscalKey || "");
+                setAttachments(activePurchase.attachments || []);
+                setItems(activePurchase.items || []);
             } else {
                 setSelectedSupplierId("");
-                setItems([]);
-                setFiscalKey("");
-                setAttachments([]);
                 setPurchaseDate(new Date().toISOString().split('T')[0]);
                 setIpiPercent(0);
                 setFreightPercent(0);
+                setFiscalKey("");
+                setAttachments([]);
+                setItems([]);
             }
 
             return () => { unsubSuppliers(); unsubProducts(); };
         }
-    }, [isOpen, initialPurchase]);
+    }, [isOpen, activePurchase]);
 
     const handleAddItem = (newItem: PurchaseItem) => {
         const product = products.find(p => p.id === newItem.productId);
@@ -158,17 +163,17 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
     };
 
     const handleCancelOrClose = async () => {
-        if (!initialPurchase && (selectedSupplierId || items.length > 0)) {
+        if (!activePurchase?.id && (selectedSupplierId || items.length > 0)) {
             try {
                 const supplier = suppliers.find(s => s.id === selectedSupplierId);
-                const purchase: Purchase = {
+                const draftPurchase: Purchase = {
                     supplierId: selectedSupplierId,
                     supplierName: supplier?.fullName || 'Fornecedor Rascunho',
                     date: new Date(purchaseDate).toISOString(),
                     items: processedItems,
                     totalValue,
                     observation,
-                    status: 'opened',
+                    status: 'ordered',
                     invoiceNumber,
                     invoiceDate,
                     invoiceStatus: 'pending',
@@ -178,7 +183,7 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
                     freightPercent
                 };
 
-                await savePurchase(purchase);
+                await savePurchase(draftPurchase);
                 toast.info("Pedido de compra salvo como rascunho!");
             } catch (err) {
                 console.error("Erro ao salvar rascunho de compra:", err);
@@ -204,7 +209,7 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
 
     const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
 
-    const handleSave = async (status: 'opened' | 'ordered' | 'fulfilled') => {
+    const handleSave = async (status: 'ordered' | 'fulfilled') => {
         if (!selectedSupplierId || items.length === 0) {
             toast.error("Selecione um fornecedor e adicione pelo menos um item.");
             return;
@@ -219,36 +224,36 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
 
         setIsSaving(true);
         try {
-            const purchase: Purchase = {
+            const purchasePayload: Purchase = {
                 supplierId: selectedSupplierId,
-                supplierName: supplier!.fullName,
+                supplierName: supplier?.fullName || activePurchase?.supplierName || 'Fornecedor',
                 date: new Date(purchaseDate).toISOString(),
                 items: processedItems,
                 totalValue,
                 observation,
-                status: initialPurchase?.status === 'cancelled' ? 'cancelled' : status,
-                invoiceNumber,
-                invoiceDate,
-                invoiceStatus: status === 'fulfilled' ? 'received' : 'pending',
+                status: activePurchase?.status === 'cancelled' ? 'cancelled' : status,
+                invoiceNumber: invoiceNumber || activePurchase?.invoiceNumber,
+                invoiceDate: invoiceDate || activePurchase?.invoiceDate,
+                invoiceStatus: status === 'fulfilled' ? 'received' : (activePurchase?.invoiceStatus || 'pending'),
                 fiscalKey,
                 attachments,
                 ipiPercent,
                 freightPercent
             };
 
-            if (initialPurchase?.id) {
-                await updatePurchase(initialPurchase.id, purchase);
-                toast.success("Pedido de compra atualizado com sucesso!");
+            if (activePurchase?.id) {
+                await updatePurchase(activePurchase.id, purchasePayload);
+                toast.success("Pedido de compra atualizado com sucesso! ✨");
             } else {
-                await savePurchase(purchase);
+                await savePurchase(purchasePayload);
                 let message = "Pedido de compra salvo!";
                 if (status === 'ordered') message = "Pedido confirmado e estoque atualizado! 📦";
                 if (status === 'fulfilled') message = "Pedido atendido e estoque atualizado! ✨";
                 toast.success(message);
             }
-            
             onClose();
         } catch (error) {
+            console.error("Erro ao salvar compra:", error);
             toast.error("Erro ao salvar o pedido de compra.");
         } finally {
             setIsSaving(false);
@@ -257,39 +262,42 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 xl:p-4">
+    const modalContent = (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-0 xl:p-6">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={handleCancelOrClose} />
             
-            <div className="relative bg-white dark:bg-slate-900 w-full h-full xl:h-auto xl:max-h-[90vh] xl:max-w-7xl rounded-none xl:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 xl:border border-slate-100 dark:border-slate-800">
-                {/* Header */}
-                <div className="px-4 py-3 xl:px-6 xl:py-3 bg-blue-600 text-white flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-base xl:text-lg font-black tracking-tight uppercase">
-                            {initialPurchase ? `Pedido de Compra #${initialPurchase.id?.slice(-4)}` : 'Novo Pedido de Compra'}
-                        </h2>
-                        {initialPurchase && (() => {
-                            const status = initialPurchase.status;
-                            const isFulfilled = status === 'fulfilled';
-                            const isOrdered = status === 'ordered';
-                            const isCancelled = status === 'cancelled';
-                            const label = isFulfilled ? 'Atendido' : isOrdered ? 'Em Ordem' : isCancelled ? 'Cancelado' : 'Em Aberto';
-                            const dotColor = isFulfilled ? 'bg-emerald-300' : isOrdered ? 'bg-amber-300' : isCancelled ? 'bg-rose-300' : 'bg-slate-300';
-                            
-                            return (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/15 text-white border border-white/20">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-                                    {label}
+            <div className="relative bg-white dark:bg-slate-900 w-full h-full xl:h-auto xl:max-h-[90vh] xl:max-w-7xl rounded-none xl:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 xl:border border-slate-100 dark:border-slate-800 transition-all">
+                {/* Header Compacto */}
+                <div className="px-4 py-3 sm:px-6 sm:py-3.5 xl:px-8 xl:py-5 bg-blue-600 text-white flex items-center justify-between gap-3 shrink-0 shadow-sm">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <h2 className="text-base sm:text-lg xl:text-xl font-black tracking-tight uppercase truncate">
+                                {activePurchase?.id ? `Editar Pedido #${activePurchase.id.slice(-4)}` : 'Novo Pedido de Compra'}
+                            </h2>
+                            {activePurchase?.status && (
+                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
+                                    activePurchase.status === 'fulfilled' ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/30' :
+                                    activePurchase.status === 'ordered' ? 'bg-white/20 text-white border border-white/30' :
+                                    'bg-red-500/20 text-red-100 border border-red-400/30'
+                                }`}>
+                                    {activePurchase.status === 'fulfilled' ? 'Atendido' : 
+                                     activePurchase.status === 'ordered' ? 'Em Ordem' : 
+                                     'Cancelado'}
                                 </span>
-                            );
-                        })()}
+                            )}
+                        </div>
+                        <p className="hidden xl:block text-[10px] font-black uppercase tracking-[0.15em] text-blue-200 mt-0.5">
+                            {activePurchase?.id ? `Alteração de dados e itens • ${activePurchase.supplierName}` : 'Entrada de mercadorias via fornecedor'}
+                        </p>
                     </div>
-                    <button onClick={handleCancelOrClose} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-                        <i className="bi bi-x-lg text-lg"></i>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={handleCancelOrClose} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-xl transition-colors">
+                            <i className="bi bi-x-lg text-lg"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 xl:p-8 space-y-6 xl:space-y-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 xl:p-8 space-y-8 custom-scrollbar">
                     {/* Supplier, Date, IPI & Freight */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
                         <div className="md:col-span-2 flex flex-col gap-2">
@@ -422,48 +430,31 @@ const PurchaseFormModal = ({ isOpen, onClose, initialPurchase }: Props) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 xl:p-6 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-4 shrink-0">
-                    <div className="flex items-center gap-3">
+                <div className="p-6 xl:p-8 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                    <button
+                        type="button"
+                        onClick={handleCancelOrClose}
+                        className="w-full sm:w-auto px-6 py-3.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        Cancelar / Fechar
+                    </button>
+                    <div className="flex gap-3 w-full sm:w-auto justify-end">
                         <button
                             type="button"
-                            onClick={handleCancelOrClose}
-                            className="px-6 py-3 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs uppercase tracking-wider"
-                        >
-                            Cancelar / Fechar
-                        </button>
-                        {initialPurchase && initialPurchase.status !== 'cancelled' && (
-                            <button
-                                type="button"
-                                onClick={() => setIsReceiptModalOpen(true)}
-                                className="px-5 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 font-bold rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-xs uppercase tracking-wider flex items-center gap-2"
-                            >
-                                <i className="bi bi-qr-code-scan text-sm"></i>
-                                Conferir Recebimento
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={() => handleSave('ordered')}
+                            onClick={() => handleSave(activePurchase?.status === 'fulfilled' ? 'fulfilled' : 'ordered')}
                             disabled={isSaving}
-                            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none text-xs uppercase tracking-wider"
+                            className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2"
                         >
-                            Confirmar Pedido
+                            <i className="bi bi-check2-circle text-lg"></i>
+                            <span>{activePurchase?.id ? 'Salvar Alterações' : 'Confirmar Pedido'}</span>
                         </button>
                     </div>
                 </div>
             </div>
-
-            {initialPurchase && (
-                <PurchaseReceiptCheckModal
-                    isOpen={isReceiptModalOpen}
-                    purchase={initialPurchase}
-                    onClose={() => setIsReceiptModalOpen(false)}
-                />
-            )}
         </div>
     );
+
+    return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default PurchaseFormModal;

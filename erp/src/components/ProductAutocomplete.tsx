@@ -79,7 +79,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
                     const variations = p.variations || [];
 
-                    if (p.hasVariations && variations.length > 0) {
+                    if (variations.length > 0) {
                         variations.forEach(v => {
                             if (v.active !== false) {
                                 const baseName = p.name || p.title || p.description || '';
@@ -98,18 +98,6 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 }
                             }
                         });
-                    } else {
-                        const baseName = p.name || p.title || p.description || '';
-                        const normBaseName = normalizeProductSearch(baseName);
-                        const normSku = normalizeProductSearch(p.code || p.sku || '');
-
-                        const matchesAll = searchNormWords.every(nw => 
-                            normBaseName.includes(nw) || normSku.includes(nw)
-                        );
-
-                        if (matchesAll) {
-                            items.push({ product: p });
-                        }
                     }
                 });
 

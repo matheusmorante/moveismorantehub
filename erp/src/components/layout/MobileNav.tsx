@@ -34,6 +34,7 @@ const menuItems = [
             { to: '/stock?tab=history', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
             { to: '/stock?tab=audit', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
             { to: '/stock/purchases', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
+            { to: '/stock/receipts', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias' },
             { to: '/registrations/suppliers', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
             { to: '/stock/label-printing?category=identificacao', icon: 'bi-qr-code', iconColor: 'text-blue-500', label: 'Etiqueta de Identificação' },
         ]

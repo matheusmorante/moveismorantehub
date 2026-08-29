@@ -57,6 +57,14 @@ const SalesOrder = () => {
     }, [isBudgetRoute, isAssistanceRoute, isReturnRoute]);
 
     React.useEffect(() => {
+        const saleOrderId = location.state?.saleOrderIdToOpen as string | undefined;
+        if (!saleOrderId) return;
+        setFilters(prev => ({ ...prev, searchId: saleOrderId }));
+        setHighlightOrderId(saleOrderId);
+        navigate('/sales-order', { replace: true, state: null });
+    }, [location.state, navigate]);
+
+    React.useEffect(() => {
         const queryParams = new URLSearchParams(window.location.search);
         const typeParam = queryParams.get('type');
         const newParam = queryParams.get('new');

@@ -215,7 +215,7 @@ export default function AppLayout() {
           setActiveMenu={setActiveMenu}
       />}
 
-      <main className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-0 sm:p-2' : 'p-0 sm:p-1 lg:p-6 xl:p-8'} overflow-x-clip`}>
+      <main className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-2' : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'} overflow-x-clip`}>
         <Outlet />
       </main>
 

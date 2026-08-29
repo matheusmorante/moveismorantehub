@@ -24,6 +24,7 @@ import Signup from './pages/Signup';
 import UsersManagementPage from './pages/App/Users/Index';
 import ProfilePage from './pages/App/Profile/Index';
 import PurchasesPage from './pages/App/Stock/Purchases/Index';
+import ReceiptsPage from './pages/App/Stock/Receipts/Index';
 import OrderRouteMap from './pages/App/SalesOrder/OrderRouteMap';
 import ShippingLabelPage from './pages/ShippingLabelPage';
 import CustomerDesiresPage from './pages/App/Customers/CustomerDesiresPage';
@@ -153,6 +154,7 @@ function Router() {
             <Route path='/registrations/product-types' element={<ProductTypes />} />
             <Route path='/stock' element={<Stock />} />
             <Route path='/stock/purchases' element={<PurchasesPage />} />
+            <Route path='/stock/receipts' element={<ReceiptsPage />} />
             <Route path='/stock/bling' element={<BlingStock />} />
             <Route path='/stock/label-printing' element={<LabelPrinting />} />
             <Route path='/design/labels' element={<LabelPrinting />} />

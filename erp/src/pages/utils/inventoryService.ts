@@ -4,34 +4,61 @@ import { updateProduct } from '@/pages/utils/productService';
 
 const TABLE_NAME = "inventory_moves";
 
-export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => void) => {
-    let currentMoves: InventoryMove[] = [];
+let currentMoves: InventoryMove[] = [];
+let listeners: Array<(moves: InventoryMove[]) => void> = [];
 
-    supabase.from(TABLE_NAME)
-        .select('*')
-        .order('date', { ascending: false })
-        .then(({ data, error }: { data: any, error: any }) => {
-            if (data && !error) {
-                currentMoves = data.map(mapFromDB);
-                callback(currentMoves);
-            } else if (error) {
-                console.error("Erro ao buscar lançamentos iniciais:", error);
-                callback([]);
-            }
-        });
+const notifyListeners = () => {
+    listeners.forEach(listener => {
+        try {
+            listener([...currentMoves]);
+        } catch (e) {
+            console.error("Erro ao notificar listener de movimentações:", e);
+        }
+    });
+};
+
+export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => void) => {
+    listeners.push(callback);
+
+    const fetchAll = () => {
+        supabase.from(TABLE_NAME)
+            .select('*')
+            .order('date', { ascending: false })
+            .then(({ data, error }: { data: any, error: any }) => {
+                if (data && !error) {
+                    currentMoves = data.map(mapFromDB);
+                    notifyListeners();
+                } else if (error) {
+                    console.error("Erro ao buscar lançamentos iniciais:", error);
+                    callback([]);
+                }
+            });
+    };
+
+    if (currentMoves.length > 0) {
+        callback([...currentMoves]);
+    }
+    fetchAll();
 
     return () => {
-        // Realtime desabilitado para economizar conexões e tráfego
+        listeners = listeners.filter(l => l !== callback);
     };
 };
 
 export const saveInventoryMove = async (move: InventoryMove, currentProductStock: number): Promise<void> => {
     try {
-        const { error } = await supabase
+        const payload = mapToDB(move);
+        const { data, error } = await supabase
             .from(TABLE_NAME)
-            .insert([mapToDB(move)]);
+            .insert([payload])
+            .select();
 
         if (error) throw error;
+
+        if (data?.[0]) {
+            currentMoves = [mapFromDB(data[0]), ...currentMoves];
+            notifyListeners();
+        }
 
         // Fetch latest product data to handle variations correctly
         const { data: p } = await supabase.from('products').select('*').eq('id', move.productId).single();
@@ -50,7 +77,6 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
                 
                 updatedVariations[vIdx].stock = vStock;
             }
-            // If it has variations, total stock is usually sum of variations
             newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
         } else {
             if (move.type === 'entry') newTotalStock += move.quantity;
@@ -70,8 +96,10 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
 
 export const deleteInventoryMove = async (id: string): Promise<void> => {
     try {
-        const { data: move } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
-        if (!move) return;
+        const { data: moveData } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
+        if (!moveData) return;
+
+        const move = mapFromDB(moveData);
 
         const { error } = await supabase
             .from(TABLE_NAME)
@@ -80,15 +108,19 @@ export const deleteInventoryMove = async (id: string): Promise<void> => {
 
         if (error) throw error;
 
-        // Revert stock
-        const { data: p } = await supabase.from('products').select('*').eq('id', move.product_id).single();
+        // Atualizar estado em memória
+        currentMoves = currentMoves.filter(m => m.id !== id);
+        notifyListeners();
+
+        // Reverter saldo do estoque do produto
+        const { data: p } = await supabase.from('products').select('*').eq('id', move.productId).single();
         if (!p) return;
 
         let newTotalStock = Number(p.stock || 0);
         let updatedVariations = p.variations ? [...p.variations] : [];
 
-        if (move.variation_id && updatedVariations.length > 0) {
-            const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variation_id));
+        if (move.variationId && updatedVariations.length > 0) {
+            const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
             if (vIdx !== -1) {
                 let vStock = Number(updatedVariations[vIdx].stock || 0);
                 if (move.type === 'entry') vStock -= move.quantity;
@@ -101,14 +133,18 @@ export const deleteInventoryMove = async (id: string): Promise<void> => {
             else if (move.type === 'withdrawal') newTotalStock += move.quantity;
         }
 
-        await updateProduct(move.product_id, { 
+        await updateProduct(move.productId, { 
             stock: newTotalStock,
             variations: updatedVariations.length > 0 ? updatedVariations : undefined
         });
     } catch (error) {
-        console.error("Erro ao deletar lançamento de estoque: ", error);
+        console.error("Erro ao excluir/estornar lançamento de estoque: ", error);
         throw error;
     }
+};
+
+export const cancelInventoryMove = async (id: string): Promise<void> => {
+    return deleteInventoryMove(id);
 };
 
 export const updateInventoryMove = async (id: string, updates: Partial<InventoryMove>): Promise<void> => {
@@ -130,7 +166,11 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
 
         if (error) throw error;
 
-        // If quantity changed, update product stock
+        // Atualizar estado em memória
+        currentMoves = currentMoves.map(m => m.id === id ? { ...m, ...updates } : m);
+        notifyListeners();
+
+        // Se a quantidade mudou, recalcular estoque do produto
         if (updates.quantity !== undefined && Number(updates.quantity) !== Number(oldMove.quantity)) {
             const { data: p } = await supabase.from('products').select('*').eq('id', oldMove.product_id).single();
             if (!p) return;
@@ -168,15 +208,28 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
 };
 
 export const cancelInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
-    // DESATIVADO: Colunas related_entity não existem no banco
-    console.log(`[InventoryService] Cancelamento ignorado (colunas ausentes) para: ${relatedEntityType} ${relatedEntityId}`);
-    return;
+    try {
+        const searchPattern = `%${relatedEntityId}%`;
+        const { data: moves, error } = await supabase
+            .from(TABLE_NAME)
+            .select('id')
+            .or(`order_id.eq.${relatedEntityId},observation.ilike.${searchPattern},label.ilike.${searchPattern}`);
+
+        if (error) throw error;
+
+        if (moves && moves.length > 0) {
+            for (const move of moves) {
+                await deleteInventoryMove(move.id);
+            }
+        }
+    } catch (error) {
+        console.error(`Erro ao estornar movimentações vinculadas a ${relatedEntityType} ${relatedEntityId}:`, error);
+        throw error;
+    }
 };
 
 export const deleteInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
-    // DESATIVADO: Colunas related_entity não existem no banco
-    console.log(`[InventoryService] Exclusão ignorada (colunas ausentes) para: ${relatedEntityType} ${relatedEntityId}`);
-    return;
+    return cancelInventoryMovesByRelatedEntity(relatedEntityId, relatedEntityType);
 };
 
 export const getInventoryMoveById = async (id: string): Promise<InventoryMove | null> => {
@@ -195,18 +248,14 @@ export const getInventoryMoveById = async (id: string): Promise<InventoryMove | 
     }
 };
 
-/**
- * Fetches entry lots for a product/variation that still have positive balance (FIFO).
- */
 export const getAvailableLots = async (productId: string, variationId?: string): Promise<(InventoryMove & { balance: number })[]> => {
     try {
-        // 1. Get all entries
         let query = supabase
             .from(TABLE_NAME)
             .select('*')
             .eq('product_id', productId)
             .eq('type', 'entry')
-            .order('date', { ascending: true }); // Important: FIFO
+            .order('date', { ascending: true });
 
         if (variationId) query = query.eq('variation_id', variationId);
         else query = query.is('variation_id', null);
@@ -214,7 +263,6 @@ export const getAvailableLots = async (productId: string, variationId?: string):
         const { data: entries, error: entryError } = await query;
         if (entryError) throw entryError;
 
-        // Calculate available entry stock without lot link (since column is missing)
         const availableLots = (entries || [])
             .map((e: any) => {
                 const move = mapFromDB(e);
@@ -230,15 +278,16 @@ export const getAvailableLots = async (productId: string, variationId?: string):
 
 const mapToDB = (move: InventoryMove) => ({
     product_id: move.productId,
-    variation_id: move.variationId,
+    variation_id: move.variationId || null,
     product_description: move.productDescription,
     type: move.type,
     quantity: move.quantity,
     date: move.date,
-    label: move.label,
-    unit_cost: move.unitCost,
-    unit_price: move.unitPrice,
-    observation: move.observation
+    label: move.label || null,
+    unit_cost: move.unitCost || 0,
+    unit_price: move.unitPrice || 0,
+    observation: move.observation || null,
+    order_id: move.relatedEntityId || null
 });
 
 const mapFromDB = (data: any): InventoryMove => ({
@@ -253,5 +302,11 @@ const mapFromDB = (data: any): InventoryMove => ({
     unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
     unitPrice: data.unit_price ? Number(data.unit_price) : undefined,
     observation: data.observation,
+    relatedEntityId: data.order_id,
+    relatedEntityType: data.label?.startsWith('Entrada a partir do Pedido')
+        ? 'purchase_order'
+        : data.type === 'withdrawal' && (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || ''))
+            ? 'sales_order'
+            : undefined,
     createdAt: data.created_at
 });

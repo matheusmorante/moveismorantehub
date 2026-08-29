@@ -1,14 +1,26 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Purchase from "../types/purchase.type";
-import { saveInventoryMove } from '@/pages/utils/inventoryService';
+import { saveInventoryMove, deleteInventoryMove } from '@/pages/utils/inventoryService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { formatToBRDate } from '@/pages/utils/formatters';
 
 const TABLE_NAME = "purchases";
 
+let currentPurchases: Purchase[] = [];
+let listeners: Array<(purchases: Purchase[]) => void> = [];
 
+const notifyListeners = () => {
+    listeners.forEach(listener => {
+        try {
+            listener([...currentPurchases]);
+        } catch (e) {
+            console.error("Erro ao notificar listener de compras:", e);
+        }
+    });
+};
 
 export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
-    let currentPurchases: Purchase[] = [];
+    listeners.push(callback);
 
     const fetchAll = () => {
         supabase.from(TABLE_NAME)
@@ -18,7 +30,7 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
                 const { data, error } = response;
                 if (data && !error) {
                     currentPurchases = data.map(mapFromDB);
-                    callback(currentPurchases);
+                    notifyListeners();
                 } else if (error) {
                     console.error("Erro ao buscar compras iniciais:", error);
                     callback([]);
@@ -26,14 +38,43 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
             });
     };
 
+    if (currentPurchases.length > 0) {
+        callback([...currentPurchases]);
+    }
     fetchAll();
 
+    const channel = supabase.channel(`purchases_changes_${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
+            const id = String((payload.new || payload.old)?.id || '');
+            if (payload.eventType === 'DELETE') {
+                currentPurchases = currentPurchases.filter(purchase => purchase.id !== id);
+                notifyListeners();
+                return;
+            }
+            if (!payload.new) return;
+            const changedPurchase = mapFromDB(payload.new);
+            const exists = currentPurchases.some(purchase => purchase.id === changedPurchase.id);
+            currentPurchases = exists
+                ? currentPurchases.map(purchase => purchase.id === changedPurchase.id ? changedPurchase : purchase)
+                : [changedPurchase, ...currentPurchases];
+            currentPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            notifyListeners();
+        })
+        .subscribe();
+
     return () => {
-        // Realtime desabilitado para economizar conexões e tráfego
+        listeners = listeners.filter(l => l !== callback);
+        supabase.removeChannel(channel);
     };
 };
 
 const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
+    const supplierName = purchase.supplierName || 'Fábrica';
+    const formattedDate = formatToBRDate(purchase.date);
+    const moveLabel = purchase.invoiceNumber 
+        ? `Entrada NF-${purchase.invoiceNumber}` 
+        : `Entrada do Pedido da ${supplierName} (${formattedDate})`;
+
     for (const item of purchase.items) {
         // Fetch current stock
         const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
@@ -51,24 +92,32 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
             type: 'entry',
             quantity: qtyToMove,
             date: new Date().toISOString(),
-            label: purchase.invoiceNumber ? `Entrada NF-${purchase.invoiceNumber}` : `Entrada do Pedido nº ${savedId}`,
+            label: moveLabel,
             relatedEntityId: savedId,
             relatedEntityType: 'purchase_order',
-            observation: `Pedido de Compra #${savedId} | Fornecedor: ${purchase.supplierName || 'Desconhecido'}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}`,
+            observation: `Pedido de Compra #${savedId?.slice(-4)} | Fornecedor: ${supplierName}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''} | Data: ${formattedDate}`,
             unitCost: item.unitCost
         }, currentStockValue);
     }
     
     await supabase.from(TABLE_NAME).update({ stockProcessed: true }).eq('id', savedId);
+
+    // Atualizar estado em memória e notificar UI instantaneamente
+    currentPurchases = currentPurchases.map(p => 
+        p.id === savedId ? { ...p, stockProcessed: true } : p
+    );
+    notifyListeners();
 };
 
 export const reverseInventoryMoves = async (purchaseId: string) => {
-    // Procura por movimentações que tenham o ID do pedido na observação ou label
-    const searchPattern = `%Pedido de Compra #${purchaseId}%`;
+    const searchPattern = `%${purchaseId}%`;
+    const shortPattern = purchaseId.length >= 4 ? `%#${purchaseId.slice(-4)}%` : searchPattern;
+
+    // Busca utilizando apenas colunas existentes no banco (order_id, observation, label)
     const { data: moves, error } = await supabase
         .from('inventory_moves')
         .select('id')
-        .or(`observation.ilike.${searchPattern},label.ilike.%${purchaseId}%`);
+        .or(`order_id.eq.${purchaseId},observation.ilike.${searchPattern},label.ilike.${searchPattern},observation.ilike.${shortPattern}`);
 
     if (error) {
         console.error("Erro ao buscar lançamentos para estorno:", error);
@@ -76,15 +125,19 @@ export const reverseInventoryMoves = async (purchaseId: string) => {
     }
 
     if (moves && moves.length > 0) {
-        // Importamos a função de deletar do inventoryService para garantir que o estoque seja revertido
-        const { deleteInventoryMove } = await import('@/pages/utils/inventoryService');
         for (const move of moves) {
             await deleteInventoryMove(move.id);
         }
     }
 
-    // Marcar como não processado
+    // Marcar como não processado no banco
     await supabase.from(TABLE_NAME).update({ stockProcessed: false }).eq('id', purchaseId);
+
+    // Atualizar estado em memória e notificar UI instantaneamente
+    currentPurchases = currentPurchases.map(p => 
+        p.id === purchaseId ? { ...p, stockProcessed: false } : p
+    );
+    notifyListeners();
 };
 
 export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
@@ -92,22 +145,6 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
 
     if (purchase.status === 'cancelled') {
         throw new Error("Este pedido de compra já está cancelado.");
-    }
-
-    // Validar se o estoque ainda está lançado
-    if (purchase.stockProcessed) {
-        throw new Error("Não é possível cancelar um pedido com entrada de estoque ativa. Por favor, estorne a entrada de estoque antes de cancelar.");
-    }
-
-    // Checar se há lançamentos residuais no banco de dados
-    const searchPattern = `%Pedido de Compra #${purchase.id}%`;
-    const { data: moves } = await supabase
-        .from('inventory_moves')
-        .select('id')
-        .or(`observation.ilike.${searchPattern},label.ilike.%${purchase.id}%`);
-
-    if (moves && moves.length > 0) {
-        throw new Error("Existem movimentações de estoque vinculadas a este pedido. Realize o estorno da entrada antes de cancelar.");
     }
 
     const { error } = await supabase
@@ -119,31 +156,40 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
         console.error("Erro ao cancelar compra:", error);
         throw error;
     }
+
+    // Atualizar estado em memória e notificar UI instantaneamente
+    currentPurchases = currentPurchases.map(p => 
+        p.id === purchase.id ? { ...p, status: 'cancelled' } : p
+    );
+    notifyListeners();
 };
 
-export const toggleStockProcessing = async (purchase: Purchase): Promise<void> => {
-    if (!purchase.id) return;
+export const toggleStockProcessing = async (purchase: Purchase): Promise<boolean> => {
+    if (!purchase.id) return false;
     
     if (purchase.stockProcessed) {
         await reverseInventoryMoves(purchase.id);
+        return false;
     } else {
         await processInventoryMoves(purchase, purchase.id);
+        return true;
     }
 };
 
 export const savePurchase = async (purchase: Purchase): Promise<void> => {
     try {
+        const dbPayload = mapToDB(purchase);
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .insert([mapToDB(purchase)])
+            .insert([dbPayload])
             .select();
 
         if (error) throw error;
-        const savedId = data?.[0]?.id;
-
-        const isEntryStatus = purchase.status === 'ordered' || purchase.status === 'fulfilled';
-        if (isEntryStatus && !purchase.stockProcessed) {
-            await processInventoryMoves(purchase, savedId);
+        const savedRecord = data?.[0];
+        if (savedRecord) {
+            const mapped = mapFromDB(savedRecord);
+            currentPurchases = [mapped, ...currentPurchases];
+            notifyListeners();
         }
     } catch (error) {
         console.error("Erro ao salvar compra: ", error);
@@ -153,7 +199,6 @@ export const savePurchase = async (purchase: Purchase): Promise<void> => {
 
 export const updatePurchase = async (id: string, updates: Partial<Purchase>): Promise<void> => {
     try {
-        // Fetch existing record to ensure we have full context for automation
         const { data: existing } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
         if (!existing) throw new Error("Pedido não encontrado");
 
@@ -182,17 +227,11 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
 
         if (error) throw error;
 
-        // Automation Check on Update
-        const isEntryStatus = merged.status === 'ordered' || merged.status === 'fulfilled';
-        const isCancelled = merged.status === 'cancelled';
-        
-        if (isEntryStatus && !merged.stockProcessed) {
-            await processInventoryMoves(merged, id);
-        } else if (isCancelled && merged.stockProcessed) {
-            await reverseInventoryMoves(id);
-        }
+        // Atualizar estado em memória
+        currentPurchases = currentPurchases.map(p => p.id === id ? merged : p);
+        notifyListeners();
 
-        // Propagate cost changes to inventory_moves if items updated ONLY if already processed
+        // Propagar alterações de custo se já estiver processado
         if (updates.items && merged.stockProcessed) {
             for (const item of updates.items) {
                 await supabase
@@ -200,7 +239,7 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
                     .update({ unit_cost: item.unitCost })
                     .eq('product_id', item.productId)
                     .eq('type', 'entry')
-                    .like('observation', `%Pedido de Compra #${id}%`);
+                    .like('observation', `%${id}%`);
             }
         }
     } catch (error) {
@@ -216,7 +255,7 @@ const mapToDB = (p: Purchase) => ({
     items: p.items || [],
     total_value: p.totalValue || 0,
     observation: p.observation || '',
-    status: p.status || 'opened',
+    status: p.status || 'ordered',
     invoice_number: p.invoiceNumber || null,
     invoice_date: p.invoiceDate && p.invoiceDate.trim() !== '' ? new Date(p.invoiceDate).toISOString() : null,
     invoice_status: p.invoiceStatus || 'pending',
@@ -235,7 +274,7 @@ const mapFromDB = (data: any): Purchase => ({
     items: data.items,
     totalValue: Number(data.total_value),
     observation: data.observation,
-    status: data.status,
+    status: data.status === 'opened' ? 'ordered' : data.status,
     invoiceNumber: data.invoice_number,
     invoiceDate: data.invoice_date,
     invoiceStatus: data.invoice_status,
@@ -244,5 +283,5 @@ const mapFromDB = (data: any): Purchase => ({
     ipiPercent: data.ipi_value ? Number(data.ipi_value) : 0,
     freightPercent: data.freight_percent ? Number(data.freight_percent) : 0,
     createdAt: data.created_at,
-    stockProcessed: data.stockProcessed
+    stockProcessed: !!data.stockProcessed
 });

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Variation } from '../../../../types/product.type';
+import { hasVariationAttribute } from '../../../../utils/productVariationDefaults';
 
-interface ProductVariationsTabProps {
+interface Props {
     variations: Variation[];
     isGeneratingBulk: boolean;
     addVariation: () => void;
@@ -11,116 +12,28 @@ interface ProductVariationsTabProps {
     setFormData: any;
     onEditCombo: (id: string) => void;
     onEdit: (id: string) => void;
-    regenerateAllSkus?: () => void;
     isCombo: boolean;
+    onEditCombo?: (id: string) => void;
+    regenerateAllSkus?: () => void;
     onOpenCartesianModal?: () => void;
-    hasVariations: boolean;
-    setHasVariations: (val: boolean) => void;
+    hasVariations?: boolean;
+    setHasVariations?: (value: boolean) => void;
 }
 
-const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
-    variations,
-    addVariation,
-    VariationRow,
-    updateVariation,
-    removeVariation,
-    setFormData,
-    isCombo,
-    onEdit,
-    hasVariations,
-    setHasVariations
-}) => {
-    return (
-        <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Toggle Switch */}
-            <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-900/40 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
-                        <i className="bi bi-grid-3x3-gap-fill text-lg"></i>
-                    </div>
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Ativar variações para este produto?</h4>
-                        <p className="text-[8px] text-slate-450 uppercase font-bold tracking-widest mt-0.5">Se ativo, este produto terá múltiplos tamanhos, cores ou opções.</p>
-                    </div>
-                </div>
-                <div 
-                    onClick={() => setHasVariations(!hasVariations)}
-                    className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-all ${hasVariations ? 'bg-blue-500 shadow-md shadow-blue-500/20' : 'bg-slate-200 dark:bg-slate-800'}`}
-                >
-                    <div className={`w-4 h-4 bg-white rounded-full transition-all ${hasVariations ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                </div>
-            </div>
+const ProductVariationsTab: React.FC<Props> = ({ variations, addVariation, VariationRow, updateVariation, removeVariation, setFormData, isCombo, onEdit }) => {
+    const canAddVariation = variations.length > 0 && hasVariationAttribute(variations[0]);
+    const disabledMessage = 'Informe pelo menos um atributo na Variação 1 para liberar novas variações.';
 
-            {/* PRODUTO SIMPLES (DESATIVADO) */}
-            {!hasVariations && (
-                <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white dark:bg-slate-900/20 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] text-center shadow-sm">
-                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-350">
-                        <i className="bi bi-box-seam text-3xl"></i>
-                    </div>
-                    <div>
-                        <h5 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Produto Simples (Sem Variações)</h5>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-md mx-auto mt-2 leading-relaxed normal-case">
-                            Este produto é tratado de forma única. Suas informações de preço, estoque e dimensões físicas são geridas diretamente nas abas "Cadastro Geral" e "Estoque e Precificação".
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* PRODUTO COM VARIAÇÕES (ATIVADO) */}
-            {hasVariations && (
-                <div className="flex flex-col gap-4 animate-in fade-in duration-200">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Variações ({variations.length})</h4>
-                        </div>
-                        <div className="flex items-center gap-2.5 w-full md:w-auto">
-                            <button
-                                type="button"
-                                onClick={addVariation}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-750 shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 flex-1 md:flex-initial"
-                            >
-                                <i className="bi bi-plus-lg"></i> Adicionar variação
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-[2.5rem] bg-white dark:bg-slate-955/20 shadow-sm">
-                        <table className="w-full text-left border-collapse min-w-[1000px]">
-                            <thead>
-                                <tr className="bg-slate-50 dark:bg-slate-900/50">
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[80px]">Foto</th>
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th>
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço Venda (R$)</th>
-                                    <th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {variations.map(v => (
-                                    <VariationRow
-                                        key={v.id}
-                                        v={v}
-                                        updateVariation={updateVariation}
-                                        removeVariation={removeVariation}
-                                        setFormData={setFormData}
-                                        isCombo={isCombo}
-                                        onEdit={onEdit}
-                                    />
-                                ))}
-                                {variations.length === 0 && (
-                                    <tr className="px-6 py-20 text-center text-slate-400">
-                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400">
-                                            <i className="bi bi-stack text-4xl mb-3 block opacity-20"></i>
-                                            <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma variação definida ainda.</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+    return <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="flex items-center gap-4 rounded-3xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-900/30 dark:bg-blue-900/10">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white"><i className="bi bi-diagram-3-fill text-lg" /></div>
+        <div><h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">Variações do produto</h4><p className="mt-1 text-[10px] font-bold text-slate-500">A Variação 1 é obrigatória e pode ficar sem atributos. Para criar outra variação, informe pelo menos um atributo na Variação 1.</p></div>
+    </div>
+    <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3"><h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Variações ({variations.length})</h4><span className="group relative" title={!canAddVariation ? disabledMessage : undefined}><button type="button" disabled={!canAddVariation} onClick={addVariation} className="rounded-xl bg-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none dark:disabled:bg-slate-700"><i className="bi bi-plus-lg mr-2" />Adicionar variação</button>{!canAddVariation && <span className="pointer-events-none absolute right-0 top-full z-10 mt-2 hidden w-64 rounded-xl bg-slate-800 px-3 py-2 text-center text-[10px] font-bold normal-case tracking-normal text-white shadow-xl group-hover:block">{disabledMessage}</span>}</span></div>
+        <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950/20"><table className="w-full min-w-[1000px] border-collapse text-left"><thead><tr className="bg-slate-50 dark:bg-slate-900/50"><th className="w-[80px] px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Foto</th><th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">SKU / Código</th><th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th><th className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço venda (R$)</th><th className="px-6 py-5 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Ações</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{variations.map((variation, index) => <VariationRow key={variation.id} v={variation} variationIndex={index} updateVariation={updateVariation} removeVariation={removeVariation} setFormData={setFormData} isCombo={isCombo} onEdit={onEdit} />)}</tbody></table></div>
+    </div>
+</div>;
 };
 
 export default ProductVariationsTab;

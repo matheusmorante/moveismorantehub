@@ -30,7 +30,7 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
         const items: { p: Product; v?: Variation; key: string }[] = [];
         
         products.forEach((p, pIdx) => {
-            if (p.hasVariations && p.variations && p.variations.length > 0) {
+            if (p.variations && p.variations.length > 0) {
                 p.variations.forEach((v, vIdx) => {
                     if (v.active !== false) {
                         items.push({ 
@@ -39,11 +39,6 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
                             key: `v-${v.id || vIdx}-${p.id || pIdx}` 
                         });
                     }
-                });
-            } else {
-                items.push({ 
-                    p, 
-                    key: `p-${p.id || pIdx}` 
                 });
             }
         });

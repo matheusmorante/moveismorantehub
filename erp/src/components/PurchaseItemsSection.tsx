@@ -235,45 +235,55 @@ export const PurchaseItemsSection = ({
                     const itemIpi = baseCost * (ipiPercent / 100);
                     const itemFreight = baseCost * (freightPercent / 100);
                     return (
-                        <div key={idx} className="bg-white dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3 relative shadow-sm">
+                        <div key={idx} className="bg-white dark:bg-slate-950 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3 relative shadow-sm">
                             <div className="flex justify-between items-start gap-4">
-                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{item.description}</span>
+                                <span className="text-sm font-black text-slate-800 dark:text-slate-100">{item.description}</span>
                                 <button 
                                     onClick={() => onRemoveItem(idx)} 
-                                    className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors"
+                                    className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors"
+                                    title="Remover Item"
                                 >
-                                    <i className="bi bi-trash"></i>
+                                    <i className="bi bi-trash text-base"></i>
                                 </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3">
-                                <div>
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block">Quantidade</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-200">{item.quantity} un</span>
+
+                            {/* Grid Flexível de Métricas com Mais Colunas */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3">
+                                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Quantidade</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{item.quantity} un</span>
                                 </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block">Custo Base</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-200">{formatCurrency(baseCost)}</span>
+
+                                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Custo Base</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(baseCost)}</span>
                                 </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block">IPI (R$)</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-200">{formatCurrency(itemIpi)}</span>
+
+                                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">IPI (R$)</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(itemIpi)}</span>
                                 </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block">Frete (R$)</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-200">{formatCurrency(itemFreight)}</span>
+
+                                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Frete (R$)</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(itemFreight)}</span>
                                 </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block">Total Unitário</span>
-                                    <span className="font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(item.unitCost || 0)}</span>
+
+                                <div className="p-2.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100/60 dark:border-emerald-900/40">
+                                    <span className="text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider text-[9px] font-black block mb-0.5">Total Unitário</span>
+                                    <span className="font-black text-emerald-600 dark:text-emerald-400 block text-xs leading-normal">{formatCurrency(item.unitCost || 0)}</span>
                                 </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block">Subtotal</span>
-                                    <span className="font-black text-slate-500">{formatCurrency(item.subtotal || 0)}</span>
+
+                                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Subtotal</span>
+                                    <span className="font-black text-slate-600 dark:text-slate-300 block text-xs leading-normal">{formatCurrency(item.subtotal || 0)}</span>
                                 </div>
-                                <div className="col-span-2 border-t border-slate-100 dark:border-slate-800/50 pt-2 flex justify-between items-center">
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">Total Final</span>
-                                    <span className="font-black text-blue-600 dark:text-blue-400">{formatCurrency(item.totalCost || 0)}</span>
-                                </div>
+                            </div>
+
+                            {/* Total Final com destaque e sem corte */}
+                            <div className="border-t border-slate-100 dark:border-slate-800/50 pt-2.5 flex justify-between items-center px-1">
+                                <span className="text-slate-400 uppercase tracking-wider text-[10px] font-black">Total Final</span>
+                                <span className="font-black text-sm text-blue-600 dark:text-blue-400 leading-normal pb-0.5">{formatCurrency(item.totalCost || 0)}</span>
                             </div>
                         </div>
                     );

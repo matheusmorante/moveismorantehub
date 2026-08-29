@@ -1,0 +1,8 @@
+import InventoryMove from '@/pages/types/inventoryMove.type';
+
+type Props = { move: InventoryMove | null; isPurchaseEntry: boolean; isDeleting: boolean; onClose: () => void; onConfirm: () => void; };
+
+export default function InventoryMoveDeleteModal({ move, isPurchaseEntry, isDeleting, onClose, onConfirm }: Props) {
+    if (!move) return null;
+    return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"><div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} /><div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-900/20"><i className="bi bi-exclamation-triangle-fill text-xl" /></div><h2 className="mt-4 text-xl font-black text-slate-800 dark:text-white">Remover movimentação?</h2><p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{isPurchaseEntry ? 'Esta entrada foi gerada a partir de um pedido de compra. Deseja removê-la e desfazer o efeito dessa entrada no estoque? O pedido ficará disponível para gerar uma nova entrada depois.' : 'Deseja remover esta movimentação e desfazer seu efeito no saldo de estoque?'}</p><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} disabled={isDeleting} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button><button type="button" onClick={onConfirm} disabled={isDeleting} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60">{isDeleting ? 'Removendo...' : 'Sim, remover'}</button></div></div></div>;
+}

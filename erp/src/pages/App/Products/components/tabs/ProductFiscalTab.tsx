@@ -7,8 +7,6 @@ interface ProductFiscalTabProps {
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     handleGenerateNCM: () => void;
     isGeneratingNCM: boolean;
-    handleAutoFillFiscalWithAI?: () => void;
-    isFillingFiscalWithAI?: boolean;
 }
 
 const COMMON_NCMS = [
@@ -80,13 +78,13 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     formData,
     setFormData,
     handleGenerateNCM,
-    isGeneratingNCM,
-    handleAutoFillFiscalWithAI,
-    isFillingFiscalWithAI
+    isGeneratingNCM
 }) => {
     const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
 
     // Carrega os dados padrões fiscais das configurações se o formulário for novo e não tiver dados fiscais definidos
     useEffect(() => {
@@ -143,28 +141,6 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         </h4>
                         <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Dados essenciais para emissão de nota fiscal e conformidade tributária</p>
                     </div>
-
-                    {handleAutoFillFiscalWithAI && (
-                        <button
-                            type="button"
-                            disabled={isFillingFiscalWithAI}
-                            onClick={handleAutoFillFiscalWithAI}
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                            title="Preencher NCM, CEST, CFOP, CSOSN e PIS/COFINS com base na IA e nas regras tributárias brasileiras"
-                        >
-                            {isFillingFiscalWithAI ? (
-                                <>
-                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    <span>Analisando Regras Fiscais...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <i className="bi bi-stars text-amber-300" />
-                                    <span>Preencher com IA</span>
-                                </>
-                            )}
-                        </button>
-                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -182,7 +158,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         <>
                             {/* NCM input pesquisável */}
                             <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label>
+                                <div className="flex items-center justify-between gap-2"><label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label><button type="button" disabled={isGeneratingNCM} onClick={handleGenerateNCM} className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-blue-600 hover:text-blue-700 disabled:opacity-50" title="Usar IA para preencher o NCM">{isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-stars" />}Preencher com IA</button></div>
                                 <div className="relative">
                                     <input
                                         type="text"

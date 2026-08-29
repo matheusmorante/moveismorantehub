@@ -42,7 +42,7 @@ const DropdownPortal: React.FC<DropdownPortalProps> = ({ anchorRef, children, is
     return createPortal(
         <div 
             ref={portalRef}
-            className={`fixed z-[9999] pointer-events-auto ${className}`}
+            className={`fixed z-[99999999] pointer-events-auto ${className}`}
             style={{
                 top: coords.top + 4,
                 left: coords.left,

@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import StockLaunchModal from "./components/StockLaunchModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
 import InventoryAudit from "./components/InventoryAudit";
-import StockReportModal from "./components/StockReportModal";
 import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
 import QRScannerModal from "@/components/shared/QRScannerModal";
 import { toast } from "react-toastify";
 import { getProductByCode } from "@/pages/utils/productService";
+import Purchase from '../../types/purchase.type';
+import PurchaseStockEntryModal from './components/PurchaseStockEntryModal';
 
 const StockPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
@@ -19,7 +22,7 @@ const StockPage = () => {
         (searchParams.get('tab') as any) || 'history'
     );
     const [isScannerOpen, setIsScannerOpen] = useState(false);
-    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [purchaseForStockEntry, setPurchaseForStockEntry] = useState<Purchase | null>(null);
 
     useEffect(() => {
         const tab = searchParams.get('tab');
@@ -30,10 +33,13 @@ const StockPage = () => {
         }
     }, [searchParams]);
 
-    const handleTabChange = (tab: 'history' | 'audit' | 'purchases') => {
-        setActiveTab(tab);
-        setSearchParams({ tab });
-    };
+    useEffect(() => {
+        const purchase = location.state?.purchaseForStockEntry as Purchase | undefined;
+        if (!purchase) return;
+        setActiveTab('history');
+        setPurchaseForStockEntry(purchase);
+        navigate(`${location.pathname}?tab=history`, { replace: true, state: null });
+    }, [location.pathname, location.state, navigate]);
 
     const handleLaunch = (product?: Product, variation?: Variation) => {
         setSelectedProduct(product || null);
@@ -42,49 +48,38 @@ const StockPage = () => {
     };
 
     return (
-        <div className="animate-slide-up space-y-8">
+        <div className="animate-fade-in space-y-3">
             {/* Main Content Area */}
             <div className="flex flex-col min-w-0">
-                <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-6">
-                    <div className="flex items-start xl:items-center gap-4 xl:gap-6">
-                        <div className="w-12 h-12 xl:w-16 xl:h-16 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-xl shadow-emerald-200 dark:shadow-none">
-                            <i className="bi bi-box-seam-fill text-2xl xl:text-3xl"></i>
+                {/* Header com ícone, título e botão + Nova */}
+                <div className="flex flex-row justify-between items-center mb-3 gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200/50 dark:shadow-none shrink-0">
+                            <i className="bi bi-arrow-left-right text-xl sm:text-2xl"></i>
                         </div>
                         <div>
-                            <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Gestão de Estoque
+                            <h1 className="text-xl sm:text-2xl xl:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
+                                Movimentações
                             </h1>
+                            <p className="text-slate-400 dark:text-slate-500 font-medium text-xs hidden sm:block">
+                                Histórico de entradas, saídas e ajustes de estoque
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-4">
-                        <Link
-                            to="/stock/label-printing"
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:text-emerald-600 transition-all active:scale-95 w-full sm:w-auto"
-                        >
-                            <i className="bi bi-printer-fill" />
-                            Etiquetas
-                        </Link>
-
-                        <button
-                            onClick={() => setIsReportModalOpen(true)}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:text-orange-600 transition-all active:scale-95 w-full sm:w-auto"
-                        >
-                            <i className="bi bi-bar-chart-fill" />
-                            Relatório
-                        </button>
-                        
+                    <div className="flex items-center gap-2 shrink-0">
                         <button
                             onClick={() => handleLaunch()}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-black uppercase tracking-wider text-xs shadow-md shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95"
+                            title="Lançar Nova Movimentação de Estoque"
                         >
-                            <i className="bi bi-lightning-charge-fill text-sm xl:text-base" />
-                            Nova Movimentação de Estoque
+                            <i className="bi bi-plus-lg text-sm" />
+                            <span>Nova</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
+                <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
                     {activeTab === 'history' ? (
                         <InventoryMovesHistory />
                     ) : activeTab === 'audit' ? (
@@ -106,6 +101,11 @@ const StockPage = () => {
                 targetProduct={selectedProduct}
                 targetVariation={selectedVariation}
             />
+            <PurchaseStockEntryModal
+                purchase={purchaseForStockEntry}
+                isOpen={Boolean(purchaseForStockEntry)}
+                onClose={() => setPurchaseForStockEntry(null)}
+            />
             {isScannerOpen && (
                 <QRScannerModal 
                     isOpen={isScannerOpen} 
@@ -123,12 +123,6 @@ const StockPage = () => {
                     title="Escanear Inventário"
                 />
             )}
-
-            {/* Stock Report Modal */}
-            <StockReportModal 
-                isOpen={isReportModalOpen} 
-                onClose={() => setIsReportModalOpen(false)} 
-            />
         </div>
     );
 };
