@@ -27,6 +27,7 @@ interface PersonTableProps {
     storageKey: string;
     onViewPurchaseHistory?: (person: Person) => void;
     collectionName: string;
+    supplierProductCounts?: Record<string, number>;
 }
 
 interface ColumnDef {
@@ -37,13 +38,16 @@ interface ColumnDef {
 
 const getColumnsDef = (collectionName: string): ColumnDef[] => {
     const isEmployee = collectionName === 'employees';
+    const isSupplier = collectionName === 'suppliers';
     return [
         { key: 'id', label: 'ID' },
         { key: 'fullName', label: isEmployee ? 'Nome' : 'Nome / Razão Social' },
         { key: 'cpfCnpj', label: isEmployee ? 'CPF' : 'CPF/CNPJ' },
-        { key: 'email', label: 'E-mail' },
-        { key: 'phone', label: 'Telefone' },
-        { key: 'address', label: 'Endereço' },
+        ...(isSupplier ? [{ key: 'products' as const, label: 'Produtos', align: 'text-center' }] : [
+            { key: 'email' as const, label: 'E-mail' },
+            { key: 'phone' as const, label: 'Telefone' },
+            { key: 'address' as const, label: 'Endereço' },
+        ]),
         { key: 'actions', label: 'Ações', align: 'text-center' },
     ];
 };
@@ -53,7 +57,7 @@ const PersonTable = ({
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedPeople, onToggleSelection, onSelectAll, onClearSelection,
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, storageKey,
-    onViewPurchaseHistory, collectionName
+    onViewPurchaseHistory, collectionName, supplierProductCounts
 }: PersonTableProps) => {
     const columnsDef = getColumnsDef(collectionName);
     const containerRef = React.useRef<HTMLDivElement>(null);
@@ -75,7 +79,11 @@ const PersonTable = ({
         if (savedOrder) {
             try {
                 const keys = JSON.parse(savedOrder) as string[];
-                return keys.map(key => columnsDef.find(c => c.key === key)!).filter(Boolean);
+                const savedColumns = keys.map(key => columnsDef.find(c => c.key === key)!).filter(Boolean);
+                const columns = [...savedColumns, ...columnsDef.filter(column => !savedColumns.some(saved => saved.key === column.key))];
+                if (collectionName !== 'suppliers') return columns;
+                const actions = columns.find((column) => column.key === 'actions');
+                return [...columns.filter((column) => column.key !== 'actions'), ...(actions ? [actions] : [])];
             } catch (e) {
                 return columnsDef;
             }
@@ -224,13 +232,13 @@ const PersonTable = ({
                                                     </button>
                                                 )}
 
-                                                <button
+                                                {collectionName !== 'suppliers' && <button
                                                     onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
                                                     className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
                                                     title={`Ocultar ${col.label}`}
                                                 >
                                                     <i className="bi bi-eye-slash text-sm" />
-                                                </button>
+                                                </button>}
                                             </div>
                                         </th>
                                     );
@@ -253,6 +261,7 @@ const PersonTable = ({
                                     isSelected={selectedPeople.includes(person.id!)}
                                     onToggleSelection={() => onToggleSelection(person.id!)}
                                     onViewPurchaseHistory={onViewPurchaseHistory}
+                                    productCount={supplierProductCounts?.[person.id || ''] || 0}
                                 />
                             ))}
                         </tbody>
@@ -281,6 +290,7 @@ const PersonTable = ({
                             isSelected={selectedPeople.includes(person.id!)}
                             onToggleSelection={() => onToggleSelection(person.id!)}
                             onViewPurchaseHistory={onViewPurchaseHistory}
+                            productCount={supplierProductCounts?.[person.id || ''] || 0}
                         />
                     ))
                 )}

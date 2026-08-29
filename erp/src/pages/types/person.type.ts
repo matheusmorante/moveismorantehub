@@ -38,6 +38,7 @@ export type PersonVisibilitySettings = {
     email: boolean;
     phone: boolean;
     address: boolean;
+    products: boolean;
     actions: boolean;
 };
 

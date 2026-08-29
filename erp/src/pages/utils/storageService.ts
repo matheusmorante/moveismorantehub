@@ -5,7 +5,9 @@ export const getCatalogApiUrl = () => {
     if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
         return "http://localhost:3001";
     }
-    return "https://www.moveismorante.com.br";
+    // Em produção, as credenciais do R2 ficam protegidas na API do catálogo.
+    // O ERP recebe apenas uma URL temporária para enviar o arquivo.
+    return "https://ecommercemoveismorante.vercel.app";
 };
 
 /**

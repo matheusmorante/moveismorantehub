@@ -3,6 +3,7 @@ import PersonTable from "./PersonTable";
 import { usePeople } from "./usePeople";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 interface PersonListProps {
     onEdit: (person: Person) => void;
@@ -29,6 +30,7 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
     storageKey,
     onViewPurchaseHistory
 }, ref) => {
+    const [supplierProductCounts, setSupplierProductCounts] = React.useState<Record<string, number>>({});
     const [confirmModal, setConfirmModal] = React.useState<{
         isOpen: boolean;
         title: string;
@@ -65,6 +67,28 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
         toggleActive,
         refresh
     } = usePeople(collectionName, filters);
+
+    useEffect(() => {
+        if (collectionName !== 'suppliers') return;
+        const loadSupplierProductCounts = async () => {
+            const { data, error } = await supabase
+                .from('products')
+                .select('id, supplier_id, main_supplier_id, supplier_ids')
+                .eq('deleted', false)
+                .eq('item_type', 'product');
+            if (error) {
+                console.error('Não foi possível carregar os produtos dos fornecedores:', error);
+                return;
+            }
+            const counts: Record<string, number> = {};
+            (data || []).forEach((product) => {
+                const supplierIds = new Set([...(product.supplier_ids || []), product.main_supplier_id, product.supplier_id].filter(Boolean));
+                supplierIds.forEach((supplierId) => { counts[String(supplierId)] = (counts[String(supplierId)] || 0) + 1; });
+            });
+            setSupplierProductCounts(counts);
+        };
+        loadSupplierProductCounts();
+    }, [collectionName]);
 
     // Auto-scroll to top when page changes
     React.useEffect(() => {
@@ -184,6 +208,7 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
                     storageKey={storageKey}
                     onViewPurchaseHistory={onViewPurchaseHistory}
                     collectionName={collectionName}
+                    supplierProductCounts={supplierProductCounts}
                 />
 
                 {totalPages > 1 && (

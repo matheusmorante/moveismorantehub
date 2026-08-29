@@ -27,12 +27,14 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
     const [items, setItems] = useState<PurchaseItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [fiscalKey, setFiscalKey] = useState("");
     const [attachments, setAttachments] = useState<string[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
     const [ipiPercent, setIpiPercent] = useState(0);
     const [freightPercent, setFreightPercent] = useState(0);
+    const [validationErrors, setValidationErrors] = useState({ supplier: false, items: false });
+    const [draftId, setDraftId] = useState<string | null>(null);
+    const [isAutoSaving, setIsAutoSaving] = useState(false);
 
     // Legacy fields held as constants
     const observation = "";
@@ -57,17 +59,19 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                 );
                 setIpiPercent(activePurchase.ipiPercent || 0);
                 setFreightPercent(activePurchase.freightPercent || 0);
-                setFiscalKey(activePurchase.fiscalKey || "");
                 setAttachments(activePurchase.attachments || []);
                 setItems(activePurchase.items || []);
+                setValidationErrors({ supplier: false, items: false });
+                setDraftId(null);
             } else {
                 setSelectedSupplierId("");
                 setPurchaseDate(new Date().toISOString().split('T')[0]);
                 setIpiPercent(0);
                 setFreightPercent(0);
-                setFiscalKey("");
                 setAttachments([]);
                 setItems([]);
+                setValidationErrors({ supplier: false, items: false });
+                setDraftId(null);
             }
 
             return () => { unsubSuppliers(); unsubProducts(); };
@@ -76,17 +80,24 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
 
     const handleAddItem = (newItem: PurchaseItem) => {
         const product = products.find(p => p.id === newItem.productId);
+        const supplierIds = product?.supplierIds || (product as any)?.supplier_ids || [];
         const prodSupplierId = product?.mainSupplierId || product?.supplierId || (product as any)?.main_supplier_id || (product as any)?.supplier_id;
+        // A busca de produtos pode estar mais atualizada que o cache local usado
+        // neste modal. Se o produto não estiver no cache, não o rejeite: ele já
+        // foi escolhido na busca filtrada pelo fornecedor.
+        const productUsesSelectedSupplier = !selectedSupplierId || !product || supplierIds.includes(selectedSupplierId) || prodSupplierId === selectedSupplierId;
 
         if (!selectedSupplierId && prodSupplierId) {
             setSelectedSupplierId(prodSupplierId);
-        } else if (selectedSupplierId && prodSupplierId && prodSupplierId !== selectedSupplierId) {
+        } else if (selectedSupplierId && !productUsesSelectedSupplier) {
             const prodSupplier = suppliers.find(s => s.id === prodSupplierId);
             toast.error(`Este produto pertence ao fornecedor "${prodSupplier?.fullName || 'outro fornecedor'}". Remova os itens para trocar de fornecedor.`);
-            return;
+            return false;
         }
 
-        setItems([...items, newItem]);
+        setItems((currentItems) => [...currentItems, newItem]);
+        setValidationErrors((current) => ({ ...current, items: false }));
+        return true;
     };
 
     const handleRemoveItem = (idx: number) => {
@@ -151,7 +162,7 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
             toast.success("Arquivo(s) anexado(s) com sucesso!");
         } catch (error) {
             console.error("Erro ao fazer upload do arquivo:", error);
-            toast.error("Erro ao fazer upload dos anexos de nota fiscal.");
+            toast.error("Erro ao fazer upload dos documentos do pedido.");
         } finally {
             setIsUploading(false);
             e.target.value = "";
@@ -163,7 +174,8 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
     };
 
     const handleCancelOrClose = async () => {
-        if (!activePurchase?.id && (selectedSupplierId || items.length > 0)) {
+        // Rascunho só é criado para um pedido ainda não confirmado e que já tenha itens.
+        if (!activePurchase?.id && !draftId && items.length > 0) {
             try {
                 const supplier = suppliers.find(s => s.id === selectedSupplierId);
                 const draftPurchase: Purchase = {
@@ -177,7 +189,6 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                     invoiceNumber,
                     invoiceDate,
                     invoiceStatus: 'pending',
-                    fiscalKey,
                     attachments,
                     ipiPercent,
                     freightPercent
@@ -209,14 +220,25 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
 
     const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
 
+    useEffect(() => {
+        if (!isOpen || activePurchase?.id || !items.length) return;
+        const timer = window.setTimeout(async () => {
+            setIsAutoSaving(true);
+            try {
+                const supplier = suppliers.find((item) => item.id === selectedSupplierId);
+                const payload: Purchase = { supplierId: selectedSupplierId, supplierName: supplier?.fullName || 'Fornecedor Rascunho', date: new Date(purchaseDate).toISOString(), items: processedItems, totalValue, observation, status: 'ordered', invoiceNumber, invoiceDate, invoiceStatus: 'pending', attachments, ipiPercent, freightPercent };
+                if (draftId) await updatePurchase(draftId, payload);
+                else { const savedId = await savePurchase(payload); if (savedId) setDraftId(savedId); }
+            } catch (error) { console.error('Erro ao salvar rascunho:', error); }
+            finally { setIsAutoSaving(false); }
+        }, 700);
+        return () => window.clearTimeout(timer);
+    }, [isOpen, activePurchase?.id, items, selectedSupplierId, suppliers, purchaseDate, ipiPercent, freightPercent, attachments, draftId, totalValue]);
+
     const handleSave = async (status: 'ordered' | 'fulfilled') => {
         if (!selectedSupplierId || items.length === 0) {
-            toast.error("Selecione um fornecedor e adicione pelo menos um item.");
-            return;
-        }
-
-        if (fiscalKey && fiscalKey.length !== 44) {
-            toast.error("A Chave de Acesso da Nota Fiscal deve conter exatamente 44 dígitos numéricos.");
+            setValidationErrors({ supplier: !selectedSupplierId, items: items.length === 0 });
+            toast.error(!selectedSupplierId && items.length === 0 ? "Selecione o fornecedor e adicione pelo menos um item." : !selectedSupplierId ? "Selecione um fornecedor para salvar o pedido." : "Adicione pelo menos um item ao pedido.");
             return;
         }
 
@@ -235,14 +257,14 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                 invoiceNumber: invoiceNumber || activePurchase?.invoiceNumber,
                 invoiceDate: invoiceDate || activePurchase?.invoiceDate,
                 invoiceStatus: status === 'fulfilled' ? 'received' : (activePurchase?.invoiceStatus || 'pending'),
-                fiscalKey,
+                fiscalKey: '',
                 attachments,
                 ipiPercent,
                 freightPercent
             };
 
-            if (activePurchase?.id) {
-                await updatePurchase(activePurchase.id, purchasePayload);
+            if (activePurchase?.id || draftId) {
+                await updatePurchase(activePurchase?.id || draftId!, purchasePayload);
                 toast.success("Pedido de compra atualizado com sucesso! ✨");
             } else {
                 await savePurchase(purchasePayload);
@@ -310,6 +332,7 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                                 placeholder="Buscar fornecedor..."
                                 inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
                             />
+                            {validationErrors.supplier && <span className="text-xs font-bold text-red-500">Selecione um fornecedor.</span>}
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Data do Pedido</label>
@@ -352,16 +375,16 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                         </div>
                     </div>
 
-                    {/* Nota Fiscal Attachments & Chave de Acesso */}
+                    {/* Documento do pedido */}
                     <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-800/30 pt-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                             {/* Lado esquerdo: Upload e Listagem de arquivos */}
                             <div className="flex flex-col gap-2 w-full">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anexar Documento / Nota Fiscal (PDF ou Imagem - Máx: 5)</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anexar documento do pedido (PDF ou imagem · máx. 5)</label>
                                 <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all hover:bg-slate-50/20 dark:hover:bg-slate-950/10 ${attachments.length >= 5 ? 'opacity-50 pointer-events-none border-slate-200' : 'border-slate-300 dark:border-slate-800 hover:border-blue-500'}`}>
                                     <i className={`bi ${isUploading ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-arrow-up-fill'} text-blue-600 dark:text-blue-400 text-2xl mb-1`} />
                                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                        {isUploading ? 'Enviando arquivos...' : 'Arraste ou clique para anexar nota fiscal'}
+                                        {isUploading ? 'Enviando arquivos...' : 'Arraste ou clique para anexar documento do pedido'}
                                     </span>
                                     <span className="text-[10px] text-slate-400 mt-0.5">Formatos: PDF, PNG, JPG (Enviados: {attachments.length}/5)</span>
                                     <input
@@ -377,7 +400,7 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                                 {attachments.length > 0 && (
                                     <div className="grid grid-cols-1 gap-2 mt-2">
                                         {attachments.map((url, idx) => {
-                                            const fileName = url.split('/').pop()?.slice(-25) || `Nota Fiscal #${idx + 1}`;
+                                            const fileName = url.split('/').pop()?.slice(-25) || `Documento do pedido #${idx + 1}`;
                                             return (
                                                 <div key={idx} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/50 rounded-xl gap-3 shadow-sm animate-slide-up">
                                                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -401,18 +424,6 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                                 )}
                             </div>
 
-                            {/* Lado direito: Input da Chave de Acesso */}
-                            <div className="flex flex-col gap-2 w-full">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chave de Acesso (NF-e - 44 dígitos)</label>
-                                <input
-                                    type="text"
-                                    value={fiscalKey}
-                                    maxLength={44}
-                                    onChange={(e) => setFiscalKey(e.target.value.replace(/\D/g, ''))}
-                                    placeholder="Digite a chave da nota fiscal..."
-                                    className="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold tracking-widest text-slate-700 dark:text-slate-200 transition-all focus:ring-0 focus:shadow-sm rounded-none"
-                                />
-                            </div>
                         </div>
                     </div>
 
@@ -426,11 +437,13 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                         formatCurrency={formatCurrency}
                         supplierId={selectedSupplierId}
                         onSupplierAutoSelect={(supId) => setSelectedSupplierId(supId)}
+                        hasError={validationErrors.items}
                     />
                 </div>
 
                 {/* Footer Actions */}
                 <div className="p-6 xl:p-8 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                    {!activePurchase?.id && <p className="text-xs font-bold text-slate-400"><i className={`bi ${isAutoSaving ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-check-fill'} mr-1.5 text-blue-500`} />Rascunho: salvo automaticamente</p>}
                     <button
                         type="button"
                         onClick={handleCancelOrClose}

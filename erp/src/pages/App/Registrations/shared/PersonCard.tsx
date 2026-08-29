@@ -13,6 +13,7 @@ interface PersonCardProps {
     isSelected?: boolean;
     onToggleSelection?: () => void;
     onViewPurchaseHistory?: (person: Person) => void;
+    productCount?: number;
 }
 
 const PersonCard = ({
@@ -25,7 +26,7 @@ const PersonCard = ({
     showTrash,
     isSelected,
     onToggleSelection,
-    onViewPurchaseHistory
+    onViewPurchaseHistory, productCount = 0
 }: PersonCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
@@ -161,6 +162,9 @@ const PersonCard = ({
             </div>
 
             <div className="grid grid-cols-1 gap-1.5 border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
+                {person.type === 'suppliers' ? (
+                    <div className="flex items-center gap-2 text-[11px] font-black text-blue-600 dark:text-blue-400"><i className="bi bi-box-seam" /><span>{productCount} produto(s) vinculado(s)</span></div>
+                ) : <>
                 {person.email && (
                     <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
                         <i className="bi bi-envelope text-slate-400" />
@@ -181,6 +185,7 @@ const PersonCard = ({
                         </span>
                     </div>
                 )}
+                </>}
             </div>
         </div>
     );

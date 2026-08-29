@@ -33,6 +33,7 @@ const DEFAULT_VISIBILITY: PersonVisibilitySettings = {
     email: true,
     phone: true,
     address: true,
+    products: false,
     actions: true,
 };
 
@@ -56,11 +57,24 @@ const PersonPage = ({
     canImport = false,
 }: PersonPageProps) => {
     const isEmployee = collectionName === "employees";
+    const isSupplier = collectionName === "suppliers";
 
-    const COLUMN_OPTIONS: { key: keyof PersonVisibilitySettings; label: string }[] = [
+    const COLUMN_OPTIONS: { key: keyof PersonVisibilitySettings; label: string }[] = isEmployee ? [
         { key: "id", label: "ID" },
         { key: "fullName", label: isEmployee ? "Nome" : "Nome / Razão Social" },
         { key: "cpfCnpj", label: isEmployee ? "CPF" : "CPF/CNPJ" },
+        { key: "email", label: "E-mail" },
+        { key: "phone", label: "Telefone" },
+        { key: "address", label: "Endereço" },
+    ] : collectionName === 'suppliers' ? [
+        { key: "id", label: "ID" },
+        { key: "fullName", label: "Nome / Razão Social" },
+        { key: "cpfCnpj", label: "CPF/CNPJ" },
+        { key: "products", label: "Produtos" },
+    ] : [
+        { key: "id", label: "ID" },
+        { key: "fullName", label: "Nome / Razão Social" },
+        { key: "cpfCnpj", label: "CPF/CNPJ" },
         { key: "email", label: "E-mail" },
         { key: "phone", label: "Telefone" },
         { key: "address", label: "Endereço" },
@@ -70,9 +84,10 @@ const PersonPage = ({
         id: false,
         fullName: true,
         cpfCnpj: !isEmployee, // Default false for employees as requested
-        email: true,
-        phone: true,
-        address: true,
+        email: collectionName !== 'suppliers',
+        phone: collectionName !== 'suppliers',
+        address: collectionName !== 'suppliers',
+        products: collectionName === 'suppliers',
         actions: true,
     };
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -157,9 +172,9 @@ const PersonPage = ({
             )}
 
             {/* Main content */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
+            <div className={`flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden ${isSupplier ? 'p-4 md:p-6' : 'p-4 md:p-10'}`}>
                 {/* Header */}
-                <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0">
+                <div className={isSupplier ? "flex flex-col gap-3 border-b border-slate-100 pb-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0"}>
                     <div>
                         <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
                             {title}
@@ -168,10 +183,10 @@ const PersonPage = ({
                             {subtitle}
                         </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className={isSupplier ? "flex flex-row gap-2" : "flex flex-col sm:flex-row gap-3"}>
                         <button
                             onClick={() => navigate('/app/configuracoes')}
-                            className="flex items-center justify-center p-3 xl:p-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all w-full sm:w-auto mt-2 xl:mt-0"
+                            className={isSupplier ? "flex items-center justify-center rounded-xl bg-slate-100 p-3 text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" : "flex items-center justify-center p-3 xl:p-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all w-full sm:w-auto mt-2 xl:mt-0"}
                             title="Configurar Campos Obrigatórios"
                         >
                             <i className="bi bi-gear-fill text-lg xl:text-xl" />
@@ -179,7 +194,7 @@ const PersonPage = ({
                         {canImport && (
                             <button
                                 onClick={() => setIsImportModalOpen(true)}
-                                className="flex items-center justify-center gap-2 xl:gap-3 bg-white hover:bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm shadow-slate-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
+                                className={isSupplier ? "flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 shadow-sm transition-all active:scale-95 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300" : "flex items-center justify-center gap-2 xl:gap-3 bg-white hover:bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm shadow-slate-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"}
                             >
                                 <i className="bi bi-cloud-arrow-up-fill text-lg xl:text-xl" />
                                 Importar
@@ -187,7 +202,7 @@ const PersonPage = ({
                         )}
                         <button
                             onClick={openAdd}
-                            className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"
+                            className={isSupplier ? "flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-blue-200 transition-all active:scale-95 hover:bg-blue-700 dark:shadow-none" : "flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"}
                         >
                             <i className={`${newIcon} text-lg xl:text-xl`} />
                             {newLabel}
@@ -196,7 +211,7 @@ const PersonPage = ({
                 </div>
 
                 {/* Toolbar */}
-                <div className="flex flex-col gap-6">
+                <div className={isSupplier ? "hidden" : "flex flex-col gap-6"}>
                     <div className="flex justify-between items-center px-2">
                         <div className="flex gap-3">
                             <button

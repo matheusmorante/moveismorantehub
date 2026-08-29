@@ -41,7 +41,7 @@ const PurchasesPage = () => {
 
     const filteredPurchases = useMemo(() => selectedSupplierId
         ? purchases.filter(purchase => purchase.supplierId === selectedSupplierId)
-        : purchases, [purchases, selectedSupplierId]);
+        : [], [purchases, selectedSupplierId]);
 
     const handleStatusChange = async (purchase: Purchase, status: Purchase['status']) => {
         if (!purchase.id || status === purchase.status) return;
@@ -56,7 +56,7 @@ const PurchasesPage = () => {
         <section className="overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white shadow-2xl shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"><div className="flex flex-col gap-4 border-b border-slate-50 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center"><PurchaseSupplierFilter suppliers={suppliers} selectedSupplierId={selectedSupplierId} onSelect={setSelectedSupplierId} /></div>
             <PurchaseTable purchases={filteredPurchases} onOpen={purchase => { setSelectedPurchase(purchase); setIsDetailsModalOpen(true); }} onChangeStatus={handleStatusChange} />
             {loading && <div className="p-20 text-center text-xs font-black uppercase tracking-widest text-slate-400">Carregando compras...</div>}
-            {!loading && !filteredPurchases.length && <div className="p-20 text-center text-xl font-black text-slate-400">Nenhum pedido para este fornecedor</div>}
+            {!loading && !filteredPurchases.length && <div className="p-20 text-center text-xl font-black text-slate-400">{selectedSupplierId ? 'Nenhum pedido para este fornecedor' : 'Selecione um fornecedor para ver os pedidos'}</div>}
         </section>
     </div>
     <PurchaseDetailsModal isOpen={isDetailsModalOpen} purchase={selectedPurchase} onClose={() => { setIsDetailsModalOpen(false); setSelectedPurchase(null); }} onEdit={purchase => { setSelectedPurchase(purchase); setIsDetailsModalOpen(false); setIsModalOpen(true); }} />

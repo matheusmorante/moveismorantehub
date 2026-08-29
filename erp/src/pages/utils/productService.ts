@@ -95,6 +95,7 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.isDraft !== undefined) data.is_draft = product.isDraft;
     if (product.deleted !== undefined) data.deleted = product.deleted;
     if (product.supplierId !== undefined) data.supplier_id = product.supplierId || null;
+    if (product.supplierIds !== undefined) data.supplier_ids = product.supplierIds || [];
     if (product.images !== undefined) data.images = product.images;
     if (product.ecommerceDescription !== undefined) data.ecommerce_description = product.ecommerceDescription;
     if (product.whatsappDescription !== undefined) data.whatsapp_description = product.whatsappDescription;
@@ -369,6 +370,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         isDraft: Boolean(data.is_draft) || data.status === 'draft',
         deleted: data.deleted ?? false,
         supplierId: data.supplier_id || '',
+        supplierIds: data.supplier_ids || [],
         images: productImages,
         ecommerceDescription: data.ecommerce_description || '',
         whatsappDescription: data.whatsapp_description || '',
@@ -442,7 +444,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
     };
 };
 
-const LIGHT_COLUMNS = "id, code, description, brand, category, condition, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, images, has_variations, item_type, created_at, updated_at";
+const LIGHT_COLUMNS = "id, code, description, brand, category, condition, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, initial_stock, stock, min_stock, unit, active, is_draft, deleted, supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at";
 const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(category_id), product_variations(*), product_images(*)";
 
 // Helper to get products from localStorage
@@ -626,10 +628,9 @@ export const fetchProductsPage = async (
             query = query.eq('status', options.status);
         }
 
-        // Filtro por fornecedor
-        if (options?.supplierId) {
-            query = query.or(`supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId}`);
-        }
+        // O vínculo por múltiplos fornecedores é filtrado após o mapeamento. Isso
+        // mantém a busca funcional enquanto bancos antigos ainda não possuem a
+        // coluna supplier_ids.
 
         const { data, error, count } = await query;
 
@@ -639,7 +640,13 @@ export const fetchProductsPage = async (
         }
 
         const mapped: Product[] = (data || []).map((p, idx) => mapFromDB(p, idx));
-        return { data: mapped, total: count ?? 0 };
+        const filteredBySupplier = options?.supplierId
+            ? mapped.filter((product) => {
+                const supplierIds = product.supplierIds || [];
+                return supplierIds.includes(options.supplierId!) || product.mainSupplierId === options.supplierId || product.supplierId === options.supplierId;
+            })
+            : mapped;
+        return { data: filteredBySupplier, total: options?.supplierId ? filteredBySupplier.length : (count ?? 0) };
     } catch (e) {
         console.error('[ProductService] Exceção em fetchProductsPage:', e);
         return { data: [], total: 0 };
@@ -852,16 +859,20 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     }
                 }
 
-                const currentIds = product.variations.map(v => v.id).filter(Boolean);
-                if (currentIds.length > 0) {
-                    await supabase
-                        .from("product_variations")
-                        .delete()
-                        .eq("product_id", product.id)
-                        .not("id", "in", `(${currentIds.join(",")})`);
-                } else {
-                    await supabase.from("product_variations").delete().eq("product_id", product.id);
-                }
+                // Alguns cadastros legados usam IDs como "<id-do-produto>_01".
+                // A tabela product_variations exige UUID, então normalizamos antes de
+                // montar os filtros e o upsert para não bloquear o salvamento.
+                const isUuid = (value?: string) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value));
+                product.variations.forEach((variation) => {
+                    if (!isUuid(variation.id)) variation.id = crypto.randomUUID();
+                });
+                // Substitui o conjunto completo de variações. Além de simplificar a
+                // sincronização, evita enviar IDs legados no filtro `not.in`.
+                const { error: deleteVariationsError } = await supabase
+                    .from("product_variations")
+                    .delete()
+                    .eq("product_id", product.id);
+                if (deleteVariationsError) throw deleteVariationsError;
 
                 const recordsToSave = product.variations.map((v, index) => {
                     const attributesObj: Record<string, string> = {};

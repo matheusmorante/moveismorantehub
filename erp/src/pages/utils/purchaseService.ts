@@ -176,7 +176,7 @@ export const toggleStockProcessing = async (purchase: Purchase): Promise<boolean
     }
 };
 
-export const savePurchase = async (purchase: Purchase): Promise<void> => {
+export const savePurchase = async (purchase: Purchase): Promise<string | undefined> => {
     try {
         const dbPayload = mapToDB(purchase);
         const { data, error } = await supabase
@@ -190,6 +190,7 @@ export const savePurchase = async (purchase: Purchase): Promise<void> => {
             const mapped = mapFromDB(savedRecord);
             currentPurchases = [mapped, ...currentPurchases];
             notifyListeners();
+            return String(savedRecord.id);
         }
     } catch (error) {
         console.error("Erro ao salvar compra: ", error);

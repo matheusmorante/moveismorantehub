@@ -15,6 +15,7 @@ interface PersonRowProps {
     isSelected?: boolean;
     onToggleSelection?: () => void;
     onViewPurchaseHistory?: (person: Person) => void;
+    productCount?: number;
 }
 
 const PersonRow = ({
@@ -29,7 +30,7 @@ const PersonRow = ({
     orderedColumnKeys,
     isSelected,
     onToggleSelection,
-    onViewPurchaseHistory
+    onViewPurchaseHistory, productCount = 0
 }: PersonRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
@@ -60,11 +61,6 @@ const PersonRow = ({
                                         <span className="text-slate-400 dark:text-slate-500 font-medium ml-2">({person.tradeName})</span>
                                     )}
                                 </span>
-                                {person.type === 'suppliers' && (
-                                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/30">
-                                        Fornecedor
-                                    </span>
-                                )}
                             </div>
                             {person.cpfCnpj && (
                                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-0.5">
@@ -118,6 +114,8 @@ const PersonRow = ({
                         )}
                     </td>
                 );
+            case 'products':
+                return <td key="products" className="px-3 py-1.5 text-center"><span className="inline-flex min-w-8 items-center justify-center rounded-lg bg-blue-50 px-2 py-1 text-xs font-black text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">{productCount}</span></td>;
             case 'actions':
                 return (
                     <td key="actions" className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -220,8 +218,8 @@ const PersonRow = ({
                                                     }}
                                                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
                                                 >
-                                                    <i className="bi bi-trash-fill text-red-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Mover para Lixeira</span>
+                                                    <i className={`bi ${person.type === 'suppliers' ? 'bi-person-dash-fill text-amber-500' : 'bi-trash-fill text-red-500'}`} />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">{person.type === 'suppliers' ? 'Desativar' : 'Mover para Lixeira'}</span>
                                                 </button>
                                             </>
                                         )}
@@ -238,7 +236,7 @@ const PersonRow = ({
 
     return (
         <tr
-            className={`transition-colors group cursor-pointer bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/50`}
+            className={`transition-colors group cursor-pointer bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 ${person.type === 'suppliers' && !person.active ? 'grayscale opacity-55 hover:opacity-70' : ''}`}
             onClick={() => onEdit(person)}
         >
             <td className="p-0 w-12 text-center">

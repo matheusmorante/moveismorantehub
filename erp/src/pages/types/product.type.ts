@@ -181,6 +181,7 @@ export type Product = {
     // Supplier Details
     supplierId?: string;
     mainSupplierId?: string; // Same as supplierId? Keeping for UI compatibility
+    supplierIds?: string[];
     supplierRef?: string; // Referência do fornecedor
 
     // Per-product notification configuration

@@ -72,8 +72,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 const searchNormWords = words.map(normalizeProductSearch);
 
                 (productsData || []).forEach((p: Product) => {
+                    const supplierIds = p.supplierIds || (p as any).supplier_ids || [];
                     const prodSupplierId = p.mainSupplierId || p.supplierId || (p as any).main_supplier_id || (p as any).supplier_id;
-                    if (supplierId && prodSupplierId && prodSupplierId !== supplierId) {
+                    if (supplierId && !supplierIds.includes(supplierId) && prodSupplierId !== supplierId) {
                         return;
                     }
 
@@ -98,6 +99,12 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 }
                             }
                         });
+                    } else {
+                        const baseName = p.name || p.title || p.description || '';
+                        const matchesAll = searchNormWords.every((word) =>
+                            normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
+                        );
+                        if (matchesAll) items.push({ product: p });
                     }
                 });
 

@@ -4,7 +4,7 @@ import { PurchaseItem } from '../types/purchase.type';
 export type GoodsReceipt = {
     id: string; purchaseId?: string; supplierName: string; receivedAt: string;
     invoiceNumber?: string; invoiceDate?: string; items: PurchaseItem[];
-    totalValue: number; observation?: string;
+    totalValue: number; observation?: string; fiscalKey?: string; attachments?: string[];
 };
 
 const map = (row: any): GoodsReceipt => ({
@@ -12,6 +12,7 @@ const map = (row: any): GoodsReceipt => ({
     receivedAt: row.received_at, invoiceNumber: row.invoice_number || undefined,
     invoiceDate: row.invoice_date || undefined, items: row.items || [],
     totalValue: Number(row.total_value || 0), observation: row.observation || '',
+    fiscalKey: row.fiscal_key || undefined, attachments: row.attachments || [],
 });
 
 export const saveGoodsReceipt = async (receipt: Omit<GoodsReceipt, 'id'>) => {
@@ -20,6 +21,7 @@ export const saveGoodsReceipt = async (receipt: Omit<GoodsReceipt, 'id'>) => {
         received_at: receipt.receivedAt, invoice_number: receipt.invoiceNumber || null,
         invoice_date: receipt.invoiceDate || null, items: receipt.items,
         total_value: receipt.totalValue, observation: receipt.observation || '',
+        fiscal_key: receipt.fiscalKey || null, attachments: receipt.attachments || [],
     });
     if (error) throw error;
 };

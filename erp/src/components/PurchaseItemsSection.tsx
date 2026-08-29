@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import ProductAutocomplete from './ProductAutocomplete';
 import { PurchaseItem } from '../pages/types/purchase.type';
+import { toast } from 'react-toastify';
 
 interface Props {
     items: PurchaseItem[];
-    onAddItem: (item: PurchaseItem) => void;
+    onAddItem: (item: PurchaseItem) => boolean | void;
     onRemoveItem: (idx: number) => void;
     ipiPercent: number;
     freightPercent: number;
     formatCurrency: (value: number) => string;
     supplierId?: string;
     onSupplierAutoSelect?: (supplierId: string) => void;
+    hasError?: boolean;
 }
 
 export const PurchaseItemsSection = ({
@@ -21,7 +23,8 @@ export const PurchaseItemsSection = ({
     freightPercent,
     formatCurrency,
     supplierId,
-    onSupplierAutoSelect
+    onSupplierAutoSelect,
+    hasError = false
 }: Props) => {
     // Current item being added
     const [currentProductId, setCurrentProductId] = useState("");
@@ -38,9 +41,16 @@ export const PurchaseItemsSection = ({
     const tempTotalFinal = currentQty * tempTotalUnit;
 
     const handleAddItemClick = () => {
-        if (!currentProductId || currentQty <= 0 || currentCost <= 0) return;
+        if (!currentProductId) {
+            toast.error('Selecione um produto antes de adicionar.');
+            return;
+        }
+        if (currentQty <= 0) {
+            toast.error('Informe uma quantidade válida.');
+            return;
+        }
 
-        onAddItem({
+        const added = onAddItem({
             productId: currentProductId,
             variationId: currentVariationId,
             description: currentDescription,
@@ -50,7 +60,11 @@ export const PurchaseItemsSection = ({
             totalCost: tempTotalFinal
         });
 
-        // Reset local states
+        // Mantém os dados preenchidos quando o pedido rejeitar o item.
+        if (added === false) return;
+
+        toast.success('Item adicionado ao pedido.');
+        // Reset local states somente após a inclusão.
         setCurrentProductId("");
         setCurrentVariationId(undefined);
         setCurrentDescription("");
@@ -82,11 +96,12 @@ export const PurchaseItemsSection = ({
         <div className="space-y-6">
             {/* Itens do Pedido Section */}
             {/* Container de Adicionar Item */}
-            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 bg-slate-50/50 dark:bg-slate-900/30 space-y-4">
+            <div className={`rounded-2xl border p-4 sm:p-5 bg-slate-50/50 dark:bg-slate-900/30 space-y-4 ${hasError ? 'border-red-500 ring-2 ring-red-500/15' : 'border-slate-200 dark:border-slate-800'}`}>
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
                     <i className="bi bi-plus-circle-fill text-blue-600 text-sm" />
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Adicionar Item</h3>
                 </div>
+                {hasError && <p className="text-xs font-bold text-red-500">Adicione pelo menos um item ao pedido.</p>}
                 
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
                     {/* Campo Produto */}
