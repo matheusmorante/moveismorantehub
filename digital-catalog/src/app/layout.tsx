@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -45,7 +46,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans overflow-x-hidden bg-background">
         <StoreDesignProvider />
-        <SiteChrome>{children}</SiteChrome>
+        <Suspense fallback={null}>
+          <SiteChrome>{children}</SiteChrome>
+        </Suspense>
         <Toaster position="top-right" />
         <script
           dangerouslySetInnerHTML={{

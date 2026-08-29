@@ -874,6 +874,12 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     .eq("product_id", product.id);
                 if (deleteVariationsError) throw deleteVariationsError;
 
+                const { data: existingVariations, error: existingVariationsError } = await supabase
+                    .from("product_variations")
+                    .select("sku");
+                if (existingVariationsError) throw existingVariationsError;
+                const usedSkus = new Set((existingVariations || []).map((variation: any) => String(variation.sku || '')).filter(Boolean));
+
                 const recordsToSave = product.variations.map((v, index) => {
                     const attributesObj: Record<string, string> = {};
                     (v.attributes || []).forEach((attr: any) => {
@@ -886,7 +892,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     const suffix = String(index + 1).padStart(2, '0');
                     const defaultSku = `${parentCode}-${suffix}`;
                     const isAlreadyFormatted = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentCode}-`) && v.sku !== '000000-01';
-                    const resolvedSku = isAlreadyFormatted ? v.sku : defaultSku;
+                    let resolvedSku = isAlreadyFormatted ? v.sku : defaultSku;
+                    // Evita colisões de SKUs legados de outros produtos. O ID da
+                    // variação torna o sufixo único sem alterar SKUs já válidos.
+                    if (usedSkus.has(resolvedSku)) resolvedSku = `${defaultSku}-${v.id?.slice(0, 6) || crypto.randomUUID().slice(0, 6)}`;
+                    usedSkus.add(resolvedSku);
 
                     const effectiveImages = isDefaultVariation(v, index) ? (product.images || v.images || []) : (v.images || []);
                     return {
