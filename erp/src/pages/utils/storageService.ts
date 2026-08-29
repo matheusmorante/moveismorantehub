@@ -2,12 +2,10 @@ export const getCatalogApiUrl = () => {
     if (import.meta.env.VITE_CATALOG_API_URL) {
         return import.meta.env.VITE_CATALOG_API_URL.replace(/\/$/, "");
     }
-    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-        return "http://localhost:3001";
-    }
     // Em produção, as credenciais do R2 ficam protegidas na API do catálogo.
-    // O ERP recebe apenas uma URL temporária para enviar o arquivo.
-    return "https://ecommercemoveismorante.vercel.app";
+    // O ERP recebe apenas uma URL temporária para enviar o arquivo. Para usar
+    // uma API local, defina VITE_CATALOG_API_URL no arquivo .env.local.
+    return "https://www.moveismorante.com.br";
 };
 
 /**
