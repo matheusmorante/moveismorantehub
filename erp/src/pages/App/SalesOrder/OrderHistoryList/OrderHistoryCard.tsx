@@ -114,6 +114,7 @@ const OrderHistoryCard = ({
     };
 
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
+    const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '') || false;
     const orderHandling = normalize(
         order.handlingType || order.handling || order.shipping?.handlingType || order.shipping?.handling || ''
     );
@@ -247,7 +248,7 @@ const OrderHistoryCard = ({
                     {!showTrash && order.orderType !== 'assistance' && (
                         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                             <label
-                                className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm text-[8px] font-black uppercase ${
+                                className={`flex h-6 items-center gap-1 px-1.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${
                                     order.isStockChecked 
                                     ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/20'
                                     : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
@@ -261,8 +262,7 @@ const OrderHistoryCard = ({
                                     onClick={(e) => e.stopPropagation()}
                                     className="w-3 h-3 accent-indigo-500 cursor-pointer"
                                 />
-                                <i className="bi bi-tag-fill text-[8px]" />
-                                <span>Etiquetado</span>
+                                <i className="bi bi-tag-fill text-[11px]" />
                             </label>
                         </div>
                     )}
@@ -279,7 +279,7 @@ const OrderHistoryCard = ({
                                     }`}>
                                     {order.isRegisteredInBling && <i className="bi bi-check text-white" style={{ fontSize: '7px', lineHeight: 1 }} />}
                                 </span>
-                                <span>Reg. Bling</span>
+                                <span>Bling</span>
                                 <input
                                     type="checkbox"
                                     className="sr-only"
@@ -305,16 +305,14 @@ const OrderHistoryCard = ({
                     )}
 
                     {hasAssemblyOutside && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
-                            <i className="bi bi-hammer text-[8px] text-white" />
-                            <span>Montagem Fora</span>
+                        <span className="flex h-6 w-6 items-center justify-center rounded border bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
+                            <i className="bi bi-hammer text-[11px] text-white" />
                         </span>
                     )}
 
                     {hasAssemblyDepot && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-black uppercase bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/40 shadow-xs" title="Montagem no Depósito">
-                            <i className="bi bi-hammer text-[8px]" />
-                            <span>Montagem no Depósito</span>
+                        <span className="flex h-6 w-6 items-center justify-center rounded border bg-orange-500 text-white border-orange-600 shadow-xs" title="Montagem no Depósito">
+                            <i className="bi bi-hammer text-[11px]" />
                         </span>
                     )}
 
@@ -327,6 +325,13 @@ const OrderHistoryCard = ({
                             <i className="bi bi-link-45deg"></i>
                             Vinc: #{order.linkedOrderId.slice(-6).toUpperCase()}
                         </button>
+                    )}
+
+                    {hasTemporaryItems && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30 text-[8px] font-black uppercase" title="Este pedido possui produtos temporários">
+                            <i className="bi bi-clock-history text-[8px]" />
+                            Produtos Temporários
+                        </span>
                     )}
                 </div>{/* fim da flex-wrap de badges */}
             </div>{/* fim do header colorido */}

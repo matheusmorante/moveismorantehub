@@ -1,0 +1,14 @@
+import { useEffect, useState } from 'react';
+import Purchase from '../../../types/purchase.type';
+import { subscribeToPurchases } from '../../../utils/purchaseService';
+import { formatCurrency } from '../../../utils/formatters';
+
+type Props = { isOpen: boolean; onClose: () => void; onSelect: (purchase: Purchase) => void };
+
+export default function PurchaseReceiptPickerModal({ isOpen, onClose, onSelect }: Props) {
+    const [purchases, setPurchases] = useState<Purchase[]>([]);
+    useEffect(() => isOpen ? subscribeToPurchases(setPurchases) : undefined, [isOpen]);
+    if (!isOpen) return null;
+    const available = purchases.filter((purchase) => purchase.status !== 'cancelled');
+    return <div className="fixed inset-0 z-[1000001] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"><section className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"><header className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800"><div><h3 className="text-lg font-black text-slate-800 dark:text-slate-100"><i className="bi bi-cart-check mr-2 text-blue-600" />Utilizar pedido de compra</h3><p className="mt-1 text-xs text-slate-500">Use o pedido como ponto de partida para este recebimento.</p></div><button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500"><i className="bi bi-x-lg" /></button></header><div className="m-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900"><i className="bi bi-exclamation-triangle-fill mr-2" />Utilize um pedido de compra para preencher o recebimento com mais rapidez, mas ajuste caso haja diferença entre o pedido e o recebimento. Esta ferramenta é só para trazer agilidade; a data do pedido de compra não será usada.</div><div className="max-h-[48vh] overflow-y-auto px-5 pb-5"><div className="space-y-2">{available.map((purchase) => <button key={purchase.id} type="button" onClick={() => { onSelect(purchase); onClose(); }} className="flex w-full items-center justify-between rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-blue-200 hover:bg-blue-50/50 dark:border-slate-800 dark:hover:border-blue-900"><div><p className="text-sm font-black text-slate-800 dark:text-slate-100">Pedido #{purchase.id?.slice(-6).toUpperCase()} · {purchase.supplierName}</p><p className="mt-1 text-xs font-medium text-slate-500">{purchase.items.length} item(ns) · {new Date(purchase.date).toLocaleDateString('pt-BR')}</p></div><span className="text-sm font-black text-blue-600">{formatCurrency(purchase.totalValue)}</span></button>)}{!available.length && <p className="py-10 text-center text-sm font-bold text-slate-400">Nenhum pedido de compra disponível.</p>}</div></div></section></div>;
+}

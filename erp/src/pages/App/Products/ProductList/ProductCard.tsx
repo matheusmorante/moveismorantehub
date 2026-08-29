@@ -96,8 +96,6 @@ const ProductCard = ({
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
-    const onlyVariation = isParent && product.variations?.length === 1 ? product.variations[0] : undefined;
-    const thumbnailImages = onlyVariation?.images?.length ? onlyVariation.images : product.images;
     const isCatalogActive = product.status === 'published';
 
     const [oppName, setOppName] = React.useState<string | null>(
@@ -311,11 +309,11 @@ const ProductCard = ({
             </div>
 
             <div className="mb-3 flex items-center gap-3">
-                {(!isParent || onlyVariation) && (
+                {!isParent && (
                     <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
-                        {thumbnailImages && thumbnailImages.length > 0 && thumbnailImages[0] ? (
+                        {product.images && product.images.length > 0 && product.images[0] ? (
                             <img 
-                                src={thumbnailImages[0]} 
+                                src={product.images[0]}
                                 alt={product.name || product.title || ''} 
                                 className="w-full h-full object-cover"
                                 onError={(e) => {

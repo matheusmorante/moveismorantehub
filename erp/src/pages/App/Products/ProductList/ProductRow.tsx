@@ -140,18 +140,15 @@ const ProductRow = ({
                         displayName = variationName;
                     }
                 }
-                const onlyVariation = product.isParent && product.variations?.length === 1 ? product.variations[0] : undefined;
-                const thumbnailImages = onlyVariation?.images?.length ? onlyVariation.images : product.images;
                 return (
                     <td key="description" className={`px-3 py-3 text-left ${firstCellBorder}`}>
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-3 transition-all duration-300">
-                                {/* Produto com uma única variação usa a foto da própria variação ao lado do título. */}
-                                {(!product.isParent || onlyVariation) && (
+                                {!product.isParent && (
                                     <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
-                                        {thumbnailImages && thumbnailImages.length > 0 && thumbnailImages[0] ? (
+                                        {product.images && product.images.length > 0 && product.images[0] ? (
                                             <img 
-                                                src={thumbnailImages[0]} 
+                                                src={product.images[0]}
                                                 alt={displayName} 
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => {

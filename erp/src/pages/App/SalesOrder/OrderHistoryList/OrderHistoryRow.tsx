@@ -453,7 +453,7 @@ const OrderHistoryRow = ({
                                                 }`}>
                                                 {order.isRegisteredInBling && <i className="bi bi-check text-white" style={{ fontSize: '7px', lineHeight: 1 }} />}
                                             </span>
-                                            <span className="text-[8px] font-black uppercase tracking-tight">Reg. Bling</span>
+                                            <span className="text-[8px] font-black uppercase tracking-tight">Bling</span>
                                             <input
                                                 type="checkbox"
                                                 className="sr-only"
@@ -468,7 +468,7 @@ const OrderHistoryRow = ({
                                 {!showTrash && order.orderType !== 'assistance' && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                         <label
-                                            className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${order.isStockChecked
+                                            className={`flex h-6 items-center gap-1 px-1.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${order.isStockChecked
                                                 ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/20'
                                                 : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
                                             }`}
@@ -481,8 +481,7 @@ const OrderHistoryRow = ({
                                                 onClick={(e) => e.stopPropagation()}
                                                 className="w-3 h-3 accent-indigo-500 cursor-pointer"
                                             />
-                                            <i className="bi bi-tag-fill text-[8px]" />
-                                            <span className="text-[8px] font-black uppercase tracking-tight">Etiquetado</span>
+                                            <i className="bi bi-tag-fill text-[11px]" />
                                         </label>
                                     </div>
                                 )}
@@ -506,21 +505,26 @@ const OrderHistoryRow = ({
                                 {/* Assembly Badges: mantidos por último na sequência dos rótulos */}
                                 {hasAssemblyDepot && (
                                     <div
-                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md border border-orange-100 dark:border-orange-900/30 shadow-sm"
+                                        className="flex h-6 w-6 items-center justify-center bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm"
                                         title="MONTAGEM NO DEPÓSITO"
                                     >
-                                        <i className="bi bi-hammer text-[10px]" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Montagem no Depósito</span>
+                                        <i className="bi bi-hammer text-[11px]" />
                                     </div>
                                 )}
 
                                 {hasAssemblyOutside && (
                                     <div
-                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-red-600 text-white rounded-md border border-red-700 shadow-sm"
+                                        className="flex h-6 w-6 items-center justify-center bg-red-600 text-white rounded-md border border-red-700 shadow-sm"
                                         title="MONTAGEM FORA (NA CASA DO CLIENTE)"
                                     >
-                                        <i className="bi bi-hammer text-[10px]" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Montagem Fora</span>
+                                        <i className="bi bi-hammer text-[11px]" />
+                                    </div>
+                                )}
+
+                                {hasTemporaryItems && (
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-200 dark:border-amber-900/30 shadow-sm" title="Este pedido possui produtos temporários">
+                                        <i className="bi bi-clock-history text-[10px]" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Produtos Temporários</span>
                                     </div>
                                 )}
                             </div>

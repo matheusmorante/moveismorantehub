@@ -7,6 +7,7 @@ import VariationFormModal from './VariationFormModal';
 import PriceHistoryModal from './PriceHistoryModal';
 import StockLaunchModal from '../Stock/components/StockLaunchModal';
 import { supabase } from '../../utils/supabaseConfig';
+import { getRegisteredVariationCount } from './ProductList/registeredVariationCount';
 const categoryTree = undefined;
 
 const defaultVisibility: ProductVisibilitySettings = {
@@ -66,9 +67,9 @@ const Products: React.FC = () => {
 
     const fetchStats = React.useCallback(async () => {
         try {
-            const { count: totalCount } = await supabase
+            const { data: registeredProducts } = await supabase
                 .from('products')
-                .select('*', { count: 'exact', head: true })
+                .select('code, product_variations(sku)')
                 .eq('deleted', false)
                 .not('is_draft', 'is', true)
                 .neq('status', 'draft');
@@ -97,7 +98,7 @@ const Products: React.FC = () => {
                 .or('is_draft.eq.true,status.eq.draft');
 
             setCatalogStats({
-                total: totalCount || 0,
+                total: getRegisteredVariationCount(registeredProducts || []),
                 published: publishedCount || 0,
                 disabled: disabledCount || 0,
                 drafts: draftsCount || 0
