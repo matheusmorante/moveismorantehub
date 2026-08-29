@@ -1,4 +1,4 @@
-export type InventoryMoveType = 'entry' | 'withdrawal' | 'balance';
+export type InventoryMoveType = 'entry' | 'exit' | 'withdrawal' | 'adjustment' | 'balance';
 
 export type InventoryMove = {
     id?: string;
@@ -16,6 +16,7 @@ export type InventoryMove = {
     relatedEntityType?: 'sales_order' | 'purchase_order' | 'adjustment' | 'manual';
     observation?: string;
     status?: 'active' | 'cancelled';
+    productName?: string;
     createdAt?: string;
 };
 

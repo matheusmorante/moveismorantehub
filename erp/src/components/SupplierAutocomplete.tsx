@@ -11,6 +11,7 @@ interface SupplierAutocompleteProps {
     inputClassName?: string;
     disabled?: boolean;
     disabledReason?: string;
+    hideLabel?: boolean;
 }
 
 const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
@@ -21,7 +22,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     className = "",
     inputClassName = "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm",
     disabled = false,
-    disabledReason = ""
+    disabledReason = "",
+    hideLabel = false
 }) => {
     const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
     const [query, setQuery] = useState(selectedSupplier?.fullName || "");
@@ -72,14 +74,16 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
 
     return (
         <div ref={wrapperRef} className={`relative flex flex-col gap-2 ${className}`}>
-            <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fornecedor</label>
-                {disabled && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
-                        <i className="bi bi-lock-fill text-[10px]" /> Bloqueado
-                    </span>
-                )}
-            </div>
+            {!hideLabel && (
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fornecedor</label>
+                    {disabled && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                            <i className="bi bi-lock-fill text-[10px]" /> Bloqueado
+                        </span>
+                    )}
+                </div>
+            )}
             <div className="relative">
                 <input
                     type="text"
@@ -93,6 +97,16 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
                         setShowSuggestions(true);
                         if (val.trim() === "") {
                             onSelect("");
+                        } else {
+                            const exactMatch = suppliers.find(s => 
+                                (s.fullName || '').trim().toLowerCase() === val.trim().toLowerCase() ||
+                                (s.tradeName || '').trim().toLowerCase() === val.trim().toLowerCase()
+                            );
+                            if (exactMatch && exactMatch.id) {
+                                onSelect(exactMatch.id);
+                            } else {
+                                onSelect(val);
+                            }
                         }
                     }}
                     onFocus={() => {

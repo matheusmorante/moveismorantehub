@@ -22,9 +22,11 @@ interface Props {
     isMobile?: boolean;
     onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
     isBudget?: boolean;
+    highlightAsTemporary?: boolean;
 }
 
-const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
+const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget, highlightAsTemporary }: Props) => {
+    const isLinkedProduct = Boolean(item.description?.trim() && item.productId);
     const isTemporaryProduct = Boolean(item.description?.trim() && !item.productId);
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
@@ -139,7 +141,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
 
     if (isMobile) {
         return (
-            <div className={`p-4 sm:p-5 bg-white dark:bg-slate-900 border rounded-3xl ${error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-200/80 dark:border-slate-800'} shadow-sm relative group transition-all hover:shadow-md space-y-4`}>
+            <div className={`p-4 sm:p-5 bg-white dark:bg-slate-900 border rounded-3xl ${highlightAsTemporary ? 'border-amber-400 dark:border-amber-500 ring-4 ring-amber-400/20 bg-amber-50/20 dark:bg-amber-950/10' : error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-200/80 dark:border-slate-800'} shadow-sm relative group transition-all hover:shadow-md space-y-4`}>
                 {/* Header do Card: Número do Item + Botão Excluir */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -166,8 +168,17 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                 {/* Linha 1: Descrição e Manuseio */}
                 <div className="flex flex-wrap items-start gap-3 sm:gap-4">
                     <div className="flex-1 min-w-[220px]">
-                        <label className={`text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 ${isTemporaryProduct ? 'text-amber-600' : 'text-slate-400 dark:text-slate-500'}`}>
-                            Descrição do Item <span className="text-red-500">*</span>
+                        <label className={`text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5 ml-1 ${
+                            isLinkedProduct 
+                                ? 'text-emerald-600 dark:text-emerald-400' 
+                                : isTemporaryProduct 
+                                    ? 'text-amber-600 dark:text-amber-400' 
+                                    : 'text-slate-400 dark:text-slate-500'
+                        }`}>
+                            {isLinkedProduct && (
+                                <i className="bi bi-check-circle-fill text-emerald-500 text-xs" title="Produto vinculado ao catálogo" />
+                            )}
+                            <span>Descrição do Item</span> <span className="text-red-500">*</span>
                             {isTemporaryProduct && <TemporaryProductAlert />}
                         </label>
                         {!item.isComboItem ? (
@@ -175,9 +186,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                                 value={item.description}
                                 onChange={(val) => onChange(idx, 'description', val)}
                                 onSelect={(p, v) => onSelectProduct(idx, p, v)}
-                                onSelectDescription={(desc) => onChange(idx, 'description', desc)}
                                 placeholder="Buscar produto..."
                                 isTemporary={isTemporaryProduct}
+                                isSelected={isLinkedProduct}
                                 className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
                             />
                         ) : (
@@ -303,7 +314,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
     }
 
     return (
-        <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans">
+        <tr className={`group transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans ${highlightAsTemporary ? 'bg-amber-50/50 dark:bg-amber-950/20 ring-2 ring-inset ring-amber-400/50' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
             <td className="px-4 py-2 relative group/desc">
                 {!item.isComboItem ? (
                     <>
@@ -313,9 +324,20 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         onSelect={(p, v) => onSelectProduct(idx, p, v)}
                         placeholder="Busque ou digite um produto..."
                         isTemporary={isTemporaryProduct}
+                        isSelected={isLinkedProduct}
                         className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
                     />
-                    {isTemporaryProduct && <div className="mt-1"><TemporaryProductAlert /></div>}
+                    {isLinkedProduct && (
+                        <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
+                            <i className="bi bi-check-circle-fill text-emerald-500 text-xs" />
+                            <span>Produto vinculado ao catálogo</span>
+                        </div>
+                    )}
+                    {isTemporaryProduct && (
+                        <div className="mt-1 ml-1">
+                            <TemporaryProductAlert />
+                        </div>
+                    )}
                     </>
                 ) : (
                     <div className="flex items-center gap-2 pl-3">
@@ -449,10 +471,11 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
 };
 
 const TemporaryProductAlert = () => (
-    <span className="relative inline-flex items-center group/temp-alert" tabIndex={0} aria-label="Item temporário">
+    <span className="relative inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 group/temp-alert" tabIndex={0} aria-label="Item temporário">
         <i className="bi bi-exclamation-triangle-fill text-amber-500 text-xs cursor-help" />
-        <span className="pointer-events-none absolute left-0 top-full z-[80] mt-2 hidden w-64 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
-            Item temporário: selecione depois um produto real da lista para vincular estoque, custos e gráficos.
+        <span>Item temporário</span>
+        <span className="pointer-events-none absolute left-0 top-full z-[80] mt-1 hidden w-64 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
+            Item temporário: selecione um produto da lista de sugestões para vincular estoque, custos e saída automática.
         </span>
     </span>
 );

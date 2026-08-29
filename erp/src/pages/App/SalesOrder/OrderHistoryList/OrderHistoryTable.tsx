@@ -8,7 +8,7 @@ import { useWindowSize } from "../../../../hooks/useWindowSize";
 
 interface OrderHistoryTableProps {
     orders: Order[];
-    onEdit: (order: Order) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
@@ -150,16 +150,7 @@ const OrderHistoryTable = ({
                             Sair
                         </button>
 
-                        {!showTrash ? (
-                            <button
-                                onClick={onBulkTrash}
-                                className="bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                            >
-                                <i className="bi bi-trash-fill" />
-                                <span className="hidden sm:inline">Mover para Lixeira</span>
-                                <span className="sm:hidden">Lixeira</span>
-                            </button>
-                        ) : (
+                        {showTrash && (
                                 <div className="flex gap-2">
                                 <button
                                     onClick={onBulkRestore}
@@ -167,13 +158,6 @@ const OrderHistoryTable = ({
                                 >
                                     <i className="bi bi-arrow-counterclockwise" />
                                         <span className="hidden sm:inline">Restaurar</span>
-                                </button>
-                                <button
-                                    onClick={onBulkPermanentDelete}
-                                        className="bg-red-600 hover:bg-red-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                                >
-                                    <i className="bi bi-trash3-fill" />
-                                        <span className="hidden sm:inline">Excluir</span>
                                 </button>
                                 </div>
                         )}

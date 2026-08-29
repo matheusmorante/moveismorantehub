@@ -9,10 +9,11 @@ import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
 import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoReturn } from "@/pages/utils/orderHistoryService";
 import { toast } from "react-toastify";
+import { PackageCheck, Package } from "lucide-react";
 
 interface OrderHistoryRowProps {
     order: Order;
-    onEdit: (order: Order) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
@@ -346,30 +347,81 @@ const OrderHistoryRow = ({
                 return (
                     <td key={key} className={baseTdClass}>
                         <div className="flex flex-col py-1 group/name">
-                            <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400 transition-colors flex items-center gap-1.5">
+                            <span 
+                                onClick={(e) => { e.stopPropagation(); onEdit(order); }}
+                                className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400 transition-colors flex items-center gap-1.5 cursor-pointer w-fit"
+                                title="Clique para editar o pedido"
+                            >
                                 {order.customerData?.fullName || "Não informado"}
                                 <i className="bi bi-pencil text-[10px] opacity-0 group-hover/name:opacity-50 transition-opacity" />
                             </span>
                             
                             <div className="flex flex-wrap items-center gap-1">
-                                {/* Tráfego Pago Badge */}
-                                {isPaidTraffic && (
-                                    <div 
-                                        className="flex items-center justify-center w-6 h-6 rounded-md bg-orange-50 dark:bg-orange-900/40 border border-orange-200 dark:border-orange-800/50"
-                                        title="Gerado por Tráfego Pago"
-                                    >
-                                        <i className="bi bi-megaphone text-orange-600 dark:text-orange-400 text-[10px]"></i>
+                                {/* 1. Stock Check Badge — Selo de Etiquetado (Clicável: Bg Verde + Ícone Branco + Check no canto quando true) */}
+                                {!showTrash && order.orderType !== 'assistance' && (
+                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            type="button"
+                                            onClick={() => onStockCheckUpdate?.(order.id!, !order.isStockChecked)}
+                                            className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${
+                                                order.isStockChecked
+                                                    ? 'bg-emerald-600 text-white border-emerald-700'
+                                                    : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
+                                            }`}
+                                            title={order.isStockChecked ? 'Etiquetado (Clique para desmarcar)' : 'Não Etiquetado (Clique para marcar)'}
+                                        >
+                                            <i className={`bi bi-tag-fill text-[11px] ${order.isStockChecked ? 'text-white' : ''}`} />
+                                            {order.isStockChecked && (
+                                                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                                    <i className="bi bi-check text-[8px] font-black leading-none" />
+                                                </span>
+                                            )}
+                                        </button>
                                     </div>
                                 )}
 
-                                {/* Status Picker Button */}
+                                {/* 2. Bling Status Badge — Selo do Bling (Clicável: Bg Verde + Texto Branco + Check no canto quando true) */}
+                                {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            type="button"
+                                            onClick={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
+                                            className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${
+                                                order.isRegisteredInBling
+                                                    ? 'bg-emerald-600 text-white border-emerald-700'
+                                                    : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
+                                            }`}
+                                            title={order.isRegisteredInBling ? 'Lançado no Bling (Clique para alternar)' : 'Falta Lançar no Bling (Clique para marcar)'}
+                                        >
+                                            <span className={order.isRegisteredInBling ? 'text-white' : ''}>Bling</span>
+                                            {order.isRegisteredInBling && (
+                                                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                                    <i className="bi bi-check text-[8px] font-black leading-none" />
+                                                </span>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* 3. Demais Badges Informativos */}
+                                {/* Tráfego Pago Badge (Fundo Laranja Sólido + Ícone Branco) */}
+                                {isPaidTraffic && (
+                                    <div 
+                                        className="flex items-center justify-center h-6 w-6 rounded-md bg-orange-500 text-white border border-orange-600 shadow-2xs"
+                                        title="Gerado por Tráfego Pago"
+                                    >
+                                        <i className="bi bi-megaphone-fill text-[11px] text-white"></i>
+                                    </div>
+                                )}
+
+                                {/* Status Picker Button (Fundo colorido sólido + Ícone Branco) */}
                                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                                        className={`flex items-center justify-center w-6 h-6 rounded-md ${currentStatus.bg} dark:bg-opacity-10 !bg-opacity-40 hover:brightness-95 dark:hover:brightness-125 transition-all shadow-sm border border-white/50 dark:border-slate-800/20`}
+                                        className={`flex items-center justify-center h-6 w-6 rounded-md ${currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')} text-white hover:brightness-110 active:scale-95 transition-all shadow-2xs border border-black/10`}
                                         title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isRet ? 'Devolução' : (isPick ? 'Retirada' : 'Entrega'))}`}
                                     >
-                                        <i className={`bi ${sIcon} ${currentStatus.text} text-[10px]`} />
+                                        <i className={`bi ${sIcon} text-white text-[11px]`} />
                                     </button>
 
                                     {showPicker && (
@@ -400,28 +452,45 @@ const OrderHistoryRow = ({
                                     )}
                                 </div>
 
-                                {/* Transport Type Icon */}
+                                {/* Transport Type Icon (Entrega = Bg Verde + Ícone Branco / Retirada = Bg Roxo + Ícone Branco / Assistência = Laranja / Devolução = Âmbar) */}
                                 <div 
-                                    className={`flex items-center justify-center w-6 h-6 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50`}
-                                    title={isAssis ? 'Assistência' : (isPick ? 'Retirada' : 'Entrega')}
+                                    className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
+                                        isAssis 
+                                            ? 'bg-orange-500 text-white border-orange-600'
+                                            : isRet
+                                                ? 'bg-amber-500 text-white border-amber-600'
+                                                : isPick
+                                                    ? 'bg-purple-600 text-white border-purple-700'
+                                                    : 'bg-emerald-600 text-white border-emerald-700'
+                                    }`}
+                                    title={isAssis ? 'Assistência' : (isPick ? 'Retirada' : (isRet ? 'Devolução' : 'Entrega'))}
                                 >
-                                    <i className={`bi ${tIcon} ${tColor} text-[10px]`} />
+                                    <i className={`bi ${tIcon} text-[11px] text-white`} />
                                 </div>
 
-                                {/* Stock Processed Indicator */}
-                                {order.stockProcessed && order.items?.some(i => i.productId && i.productId.trim() !== "") && (
-                                    <div 
-                                        className="flex items-center justify-center w-6 h-6 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-100 dark:border-emerald-900/20 shadow-sm" 
-                                        title="Saída de Estoque Lançada"
-                                    >
-                                        <i className="bi bi-box-seam-fill text-[10px]" />
-                                    </div>
+                                {/* Stock Processed Indicator (Saída lançada = PackageCheck verde / Não lançada = Package cinza) */}
+                                {(order.orderType === 'sale' || order.orderType === 'showroom') && (
+                                    order.stockProcessed ? (
+                                        <div 
+                                            className="flex items-center justify-center h-6 w-6 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 shadow-sm" 
+                                            title="Saída de Estoque Lançada"
+                                        >
+                                            <PackageCheck className="w-3.5 h-3.5" />
+                                        </div>
+                                    ) : (
+                                        <div 
+                                            className="flex items-center justify-center h-6 w-6 bg-slate-50 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 rounded-md border border-slate-200/80 dark:border-slate-800 shadow-xs" 
+                                            title="Saída de Estoque Não Lançada"
+                                        >
+                                            <Package className="w-3.5 h-3.5" />
+                                        </div>
+                                    )
                                 )}
 
                                 {/* Return Status Badge */}
                                 {order.returnOrderId && (
                                     <div 
-                                        className="flex items-center justify-center w-6 h-6 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md border border-amber-100 dark:border-amber-900/20 shadow-sm" 
+                                        className="flex items-center justify-center h-6 w-6 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md border border-amber-100 dark:border-amber-900/20 shadow-sm" 
                                         title="Este pedido possui uma devolução vinculada"
                                     >
                                         <i className="bi bi-arrow-return-left text-[10px]" />
@@ -431,58 +500,11 @@ const OrderHistoryRow = ({
                                 {/* Pending Scheduling Badge */}
                                 {order.shipping?.scheduling?.pendingScheduling && (
                                     <div 
-                                        className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm"
+                                        className="flex items-center gap-1.5 px-2 h-6 bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm"
                                         title="AGENDAMENTO PENDENTE"
                                     >
                                         <i className="bi bi-clock-history text-[10px]" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Agendamento Pendente</span>
-                                    </div>
-                                )}
-
-                                {/* Bling Status Badge — Toggle Checkbox */}
-                                {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                                        <label
-                                            className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30"
-                                            title={order.isRegisteredInBling ? 'Lançado no Bling' : 'Falta Lançar no Bling'}
-                                        >
-                                            {/* Checkbox bonito */}
-                                            <span className={`w-3 h-3 rounded flex items-center justify-center border flex-shrink-0 transition-all ${order.isRegisteredInBling
-                                                ? 'bg-emerald-500 border-emerald-500'
-                                                : 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700'
-                                                }`}>
-                                                {order.isRegisteredInBling && <i className="bi bi-check text-white" style={{ fontSize: '7px', lineHeight: 1 }} />}
-                                            </span>
-                                            <span className="text-[8px] font-black uppercase tracking-tight">Bling</span>
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only"
-                                                checked={!!order.isRegisteredInBling}
-                                                onChange={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
-                                            />
-                                        </label>
-                                    </div>
-                                )}
-
-                                {/* Stock Check Badge — Toggle Checkbox com ícone de etiqueta */}
-                                {!showTrash && order.orderType !== 'assistance' && (
-                                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                                        <label
-                                            className={`flex h-6 items-center gap-1 px-1.5 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${order.isStockChecked
-                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/20'
-                                                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
-                                            }`}
-                                            title={order.isStockChecked ? 'Etiquetado' : 'Não Etiquetado'}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={!!order.isStockChecked}
-                                                onChange={(e) => onStockCheckUpdate?.(order.id!, e.target.checked)}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="w-3 h-3 accent-indigo-500 cursor-pointer"
-                                            />
-                                            <i className="bi bi-tag-fill text-[11px]" />
-                                        </label>
+                                        <span className="text-[9px] font-black uppercase tracking-widest leading-none">Agendamento Pendente</span>
                                     </div>
                                 )}
 
@@ -495,23 +517,24 @@ const OrderHistoryRow = ({
                                     order.marketingOrigin.toLowerCase().includes('google')
                                 ) && (
                                     <div 
-                                        className="flex items-center justify-center w-6 h-6 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md border border-indigo-100 dark:border-indigo-900/30 shadow-sm" 
+                                        className="flex items-center justify-center h-6 w-6 bg-orange-500 text-white rounded-md border border-orange-600 shadow-2xs" 
                                         title={`Origem: ${order.marketingOrigin}`}
                                     >
-                                        <i className="bi bi-megaphone-fill text-[10px]" />
+                                        <i className="bi bi-megaphone-fill text-[11px] text-white" />
                                     </div>
                                 )}
 
                                 {/* Assembly Badges: mantidos por último na sequência dos rótulos */}
                                 {hasAssemblyDepot && (
                                     <div
-                                        className="flex h-6 w-6 items-center justify-center bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm"
+                                        className="flex h-6 w-6 items-center justify-center bg-amber-500 text-white rounded-md border border-amber-600 shadow-sm"
                                         title="MONTAGEM NO DEPÓSITO"
                                     >
                                         <i className="bi bi-hammer text-[11px]" />
                                     </div>
                                 )}
 
+                                {/* Montagem Fora */}
                                 {hasAssemblyOutside && (
                                     <div
                                         className="flex h-6 w-6 items-center justify-center bg-red-600 text-white rounded-md border border-red-700 shadow-sm"
@@ -521,12 +544,6 @@ const OrderHistoryRow = ({
                                     </div>
                                 )}
 
-                                {hasTemporaryItems && (
-                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-200 dark:border-amber-900/30 shadow-sm" title="Este pedido possui produtos temporários">
-                                        <i className="bi bi-clock-history text-[10px]" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Produtos Temporários</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </td>
@@ -550,16 +567,6 @@ const OrderHistoryRow = ({
                                         title="Restaurar Pedido"
                                     >
                                         <i className="bi bi-arrow-counterclockwise text-sm" />
-                                    </button>
-
-                                    <div className="h-4 w-[1px] bg-slate-100 dark:bg-slate-800 mx-1" />
-
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onPermanentDelete(order.id!); }}
-                                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
-                                        title="Excluir Permanentemente"
-                                    >
-                                        <i className="bi bi-trash3-fill text-sm" />
                                     </button>
                                 </>
                             ) : (
@@ -585,56 +592,7 @@ const OrderHistoryRow = ({
                                                 {/* Dropdown Menu - Continuous hover area bridged with pt-2 instead of mt-2 */}
                                                 <div className={`absolute top-full right-0 pt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                         {/* Ações Manuais de Estoque */}
-                                                         {(order.orderType === 'sale' || order.orderType === 'showroom') && (
-                                                             <>
-                                                                     {!order.stockProcessed ? (
-                                                                         <button
-                                                                             disabled={hasTemporaryItems}
-                                                                             onClick={(e) => { 
-                                                                                 e.stopPropagation(); 
-                                                                                 if (hasTemporaryItems) return;
-                                                                                 onAction('stockWithdrawal', order); 
-                                                                                 setShowMenu(false); 
-                                                                             }}
-                                                                             className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${
-                                                                                 hasTemporaryItems 
-                                                                                     ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600' 
-                                                                                     : 'text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20'
-                                                                             }`}
-                                                                             title={hasTemporaryItems ? "Substitua os itens temporários por produtos reais para liberar a saída de estoque." : "Lançar saída de estoque para este pedido"}
-                                                                         >
-                                                                             <i className="bi bi-box-arrow-right text-lg" />
-                                                                             <div className="flex flex-col text-left">
-                                                                                 <span className="text-xs font-black uppercase tracking-widest">Lançar Saída</span>
-                                                                                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                                                                     {hasTemporaryItems ? "Bloqueado: Itens Temporários" : "Registrar saída física do estoque"}
-                                                                                 </span>
-                                                                             </div>
-                                                                         </button>
-                                                                     ) : (
-                                                                         <button
-                                                                             onClick={(e) => { 
-                                                                                 e.stopPropagation(); 
-                                                                                 onAction('stockReversal', order); 
-                                                                                 setShowMenu(false); 
-                                                                             }}
-                                                                             className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                                                                             title="Estornar lançamento de estoque deste pedido"
-                                                                         >
-                                                                             <i className="bi bi-arrow-counterclockwise text-lg" />
-                                                                             <div className="flex flex-col text-left">
-                                                                                 <span className="text-xs font-black uppercase tracking-widest">Estornar Saída</span>
-                                                                                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Devolver itens para o estoque</span>
-                                                                             </div>
-                                                                         </button>
-                                                                     )}
-                                                                 </>
-                                                             )}
-
-                                                        {(order.orderType === 'sale' || order.orderType === 'showroom') && <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />}
-
-                                                        {/* Edit Button moved below stock */}
+                                                        {/* Edit Button */}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
                                                             className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}
@@ -716,22 +674,6 @@ const OrderHistoryRow = ({
                                                             )
                                                         })}
 
-                                                        {canPerform('deleteOrders', profile?.role) && order.orderType !== 'return' && (
-                                                            <>
-                                                                <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); onDelete(order.id!); setShowMenu(false); }}
-                                                                    className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-red-50 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 group/trash"
-                                                                    title="Mover para Lixeira"
-                                                                >
-                                                                    <i className="bi bi-trash-fill text-lg" />
-                                                                    <div className="flex flex-col text-left">
-                                                                        <span className="text-xs font-black uppercase tracking-widest">Mover para Lixeira</span>
-                                                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">O pedido poderá ser restaurado depois</span>
-                                                                    </div>
-                                                                </button>
-                                                            </>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -752,8 +694,7 @@ const OrderHistoryRow = ({
         <>
             <tr
             id={id}
-            onClick={() => { setShowFulfillmentConfirm(false); onEdit(order); }}
-                className={`transition-colors group cursor-pointer border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${showMenu || showPicker ? 'relative z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
+                className={`transition-colors group cursor-default border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${showMenu || showPicker ? 'relative z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
         >
             {/* Row Checkbox */}
                 <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${cellBgClass}`}>

@@ -5,10 +5,11 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { buttons } from "../OrderActions/orderActionsConfig";
+import { PackageCheck, Package } from "lucide-react";
 
 interface OrderHistoryCardProps {
     order: Order;
-    onEdit: (order: Order) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
@@ -76,6 +77,14 @@ const OrderHistoryCard = ({
       .filter(s => s.id !== 'chargeback' && s.id !== 'disputed');
 
     const currentStatus = statuses.find(s => s.id === (order.status || 'draft')) || statuses[0];
+
+    const sIcons: Record<string, string> = {
+        draft: 'bi-clock',
+        scheduled: 'bi-calendar3',
+        fulfilled: 'bi-check-circle-fill',
+        cancelled: 'bi-x-circle-fill',
+    };
+    const sIcon = sIcons[order.status || 'draft'] || 'bi-dot';
 
     const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
@@ -167,52 +176,184 @@ const OrderHistoryCard = ({
     return (
         <div 
             id={id}
-            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none active:scale-[0.98] transition-all relative overflow-visible ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
-            onClick={() => onEdit(order)}
+            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''} cursor-default`}
         >
-            {/* Card Header com faixa colorida + todos os badges */}
-            <div className={`${headerAccentClass} rounded-t-xl px-3 pt-2.5 pb-2 flex flex-col gap-1.5`}>
-                <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                onToggleSelection?.();
-                            }}
-                            className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-                        />
-                        <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
-                            #{order.id?.slice(-6).toUpperCase()}
-                        </span>
-                        {(() => {
-                            const isAssistance = order.orderType === 'assistance';
-                            const isPickup = order.shipping?.deliveryMethod === 'pickup';
-                            const typeIcon = isAssistance ? 'bi-tools' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck');
-                            const typeColor = isAssistance ? 'text-orange-500' : (isPickup ? 'text-purple-500' : 'text-green-600');
-                            return (
-                                <i className={`bi ${typeIcon} ${typeColor} text-xs`} title={isAssistance ? 'Assistência' : (isPickup ? 'Retirada' : 'Entrega')} />
-                            );
-                        })()}
-                    </div>
+            {/* Card Header com faixa colorida + todos os badges alinhados no canto superior direito */}
+            <div className={`${headerAccentClass} rounded-t-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap`}>
+                {/* Lado Esquerdo: Checkbox + ID do Pedido */}
+                <div className="flex items-center gap-2 shrink-0">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                            e.stopPropagation();
+                            onToggleSelection?.();
+                        }}
+                        className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
+                        #{order.id?.slice(-6).toUpperCase()}
+                    </span>
+                </div>
 
-                    {/* Status Picker Button */}
+                {/* Canto Superior Direito: Todos os Selos + Status Picker */}
+                <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto">
+                    {/* 1. Selo de Etiquetado (Clicável: Bg Verde + Ícone Branco + Check no canto quando true) */}
+                    {!showTrash && order.orderType !== 'assistance' && (
+                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                onClick={() => onStockCheckUpdate?.(order.id!, !order.isStockChecked)}
+                                className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${
+                                    order.isStockChecked 
+                                        ? 'bg-emerald-600 text-white border-emerald-700'
+                                        : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
+                                }`}
+                                title={order.isStockChecked ? "Etiquetado (Clique para desmarcar)" : "Não Etiquetado (Clique para marcar)"}
+                            >
+                                <i className={`bi bi-tag-fill text-[11px] ${order.isStockChecked ? 'text-white' : ''}`} />
+                                {order.isStockChecked && (
+                                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                        <i className="bi bi-check text-[8px] font-black leading-none" />
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 2. Selo do Bling (Clicável: Bg Verde + Texto Branco + Check no canto quando true) */}
+                    {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                onClick={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
+                                className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${
+                                    order.isRegisteredInBling
+                                        ? 'bg-emerald-600 text-white border-emerald-700'
+                                        : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
+                                }`}
+                                title={order.isRegisteredInBling ? 'Lançado no Bling (Clique para alternar)' : 'Falta Lançar no Bling (Clique para marcar)'}
+                            >
+                                <span className={order.isRegisteredInBling ? 'text-white' : ''}>Bling</span>
+                                {order.isRegisteredInBling && (
+                                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                        <i className="bi bi-check text-[8px] font-black leading-none" />
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 3. Selo de Entrega / Retirada / Assistência */}
+                    {(() => {
+                        const isAssis = order.orderType === 'assistance';
+                        const isRet = order.orderType === 'return';
+                        const isPick = order.shipping?.deliveryMethod === 'pickup';
+                        const typeIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck'));
+                        return (
+                            <div 
+                                className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
+                                    isAssis 
+                                        ? 'bg-orange-500 text-white border-orange-600'
+                                        : isRet
+                                            ? 'bg-amber-500 text-white border-amber-600'
+                                            : isPick
+                                                ? 'bg-purple-600 text-white border-purple-700'
+                                                : 'bg-emerald-600 text-white border-emerald-700'
+                                }`}
+                                title={isAssis ? 'Assistência' : (isPick ? 'Retirada' : (isRet ? 'Devolução' : 'Entrega'))}
+                            >
+                                <i className={`bi ${typeIcon} text-[11px] text-white`} />
+                            </div>
+                        );
+                    })()}
+
+                    {/* 4. Tráfego Pago / Ads */}
+                    {isPaidTraffic && (
+                        <div 
+                            className="flex items-center justify-center h-6 w-6 rounded-md bg-orange-500 text-white border border-orange-600 shadow-2xs"
+                            title="Gerado por Tráfego Pago"
+                        >
+                            <i className="bi bi-megaphone-fill text-[11px] text-white" />
+                        </div>
+                    )}
+
+                    {/* 5. Selo de Estoque */}
+                    {(order.orderType === 'sale' || order.orderType === 'showroom') && (
+                        order.stockProcessed ? (
+                            <div 
+                                className="flex items-center justify-center h-6 w-6 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 shadow-sm" 
+                                title="Saída de Estoque Lançada"
+                            >
+                                <PackageCheck className="w-3.5 h-3.5" />
+                            </div>
+                        ) : (
+                            <div 
+                                className="flex items-center justify-center h-6 w-6 bg-slate-50 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 rounded-md border border-slate-200/80 dark:border-slate-800 shadow-xs" 
+                                title="Saída de Estoque Não Lançada"
+                            >
+                                <Package className="w-3.5 h-3.5" />
+                            </div>
+                        )
+                    )}
+
+                    {/* 6. Return Status Badge */}
+                    {order.returnOrderId && (
+                        <div 
+                            className="flex items-center justify-center h-6 w-6 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md border border-amber-100 dark:border-amber-900/20 shadow-sm" 
+                            title="Este pedido possui uma devolução vinculada"
+                        >
+                            <i className="bi bi-arrow-return-left text-[10px]" />
+                        </div>
+                    )}
+
+                    {/* 7. Pending Scheduling Badge */}
+                    {order.shipping?.scheduling?.pendingScheduling && (
+                        <div 
+                            className="flex items-center gap-1.5 px-2 h-6 bg-orange-500 text-white rounded-md border border-orange-600 shadow-sm"
+                            title="AGENDAMENTO PENDENTE"
+                        >
+                            <i className="bi bi-clock-history text-[10px]" />
+                            <span className="text-[9px] font-black uppercase tracking-widest leading-none">Agendamento Pendente</span>
+                        </div>
+                    )}
+
+                    {hasAssemblyOutside && (
+                        <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
+                            <i className="bi bi-hammer text-[11px] text-white" />
+                        </span>
+                    )}
+
+                    {hasAssemblyDepot && (
+                        <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-amber-500 text-white border-amber-600 shadow-xs" title="Montagem no Depósito">
+                            <i className="bi bi-hammer text-[11px]" />
+                        </span>
+                    )}
+
+                    {order.orderType === 'assistance' && order.linkedOrderId && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
+                            className="flex h-6 items-center gap-1 text-[8px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-wider bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-2 rounded-md border border-blue-100 dark:border-blue-900/30"
+                            title="Filtrar por pedido vinculado"
+                        >
+                            <i className="bi bi-link-45deg"></i>
+                            Vinc: #{order.linkedOrderId.slice(-6).toUpperCase()}
+                        </button>
+                    )}
+
+                    {/* 8. Status Picker Button */}
                     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button 
                             onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                            className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-${currentStatus.color}-50 dark:bg-${currentStatus.color}-900/10 border border-${currentStatus.color}-100 dark:border-${currentStatus.color}-900/20 active:scale-95 transition-all`}
+                            className={`flex items-center justify-center h-6 w-6 rounded-md bg-${currentStatus.color}-500 text-white hover:brightness-110 active:scale-95 transition-all shadow-2xs border border-black/10`}
+                            title={`Status: ${currentStatus.label}`}
                         >
-                            <span className={`w-1.5 h-1.5 rounded-full bg-${currentStatus.color}-500`} />
-                            <span className={`text-[9px] font-black uppercase tracking-wider text-${currentStatus.color}-700 dark:text-${currentStatus.color}-400`}>
-                                {currentStatus.label}
-                            </span>
-                            <i className={`bi bi-chevron-down text-[8px] text-${currentStatus.color}-400 ml-0.5`} />
+                            <i className={`bi ${sIcon} text-white text-[11px]`} />
                         </button>
 
                         {showPicker && (
                             <>
-                                <div className="fixed inset-0 z-10" onClick={() => setShowPicker(false)} />
+                                <div className="fixed inset-0 z-10" onClick={(e) => setShowPicker(false)} />
                                 <div className="absolute top-full right-0 mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl z-[100] p-1.5 flex flex-col gap-1 animate-slide-up">
                                     {statuses.map((s) => (
                                         <button
@@ -235,110 +376,15 @@ const OrderHistoryCard = ({
                         )}
                     </div>
                 </div>
-
-                {/* Linha 2: Sub-Badges Row — todos os rótulos no header */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                    {isPaidTraffic && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[8px] font-black uppercase tracking-wider">
-                            <i className="bi bi-megaphone-fill text-[8px]" />
-                            Ads
-                        </span>
-                    )}
-
-                    {!showTrash && order.orderType !== 'assistance' && (
-                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                            <label
-                                className={`flex h-6 items-center gap-1 px-1.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm ${
-                                    order.isStockChecked 
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/20'
-                                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
-                                }`}
-                                title={order.isStockChecked ? "Etiquetado" : "Não Etiquetado"}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={!!order.isStockChecked}
-                                    onChange={(e) => onStockCheckUpdate?.(order.id!, e.target.checked)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-3 h-3 accent-indigo-500 cursor-pointer"
-                                />
-                                <i className="bi bi-tag-fill text-[11px]" />
-                            </label>
-                        </div>
-                    )}
-
-                    {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
-                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                            <label
-                                className="flex items-center gap-1.5 px-1.5 py-0.5 rounded border cursor-pointer select-none transition-all hover:scale-105 shadow-sm text-[8px] font-black uppercase bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30"
-                                title={order.isRegisteredInBling ? 'Lançado no Bling' : 'Falta Lançar no Bling'}
-                            >
-                                <span className={`w-3 h-3 rounded flex items-center justify-center border flex-shrink-0 transition-all ${order.isRegisteredInBling
-                                    ? 'bg-emerald-500 border-emerald-500'
-                                    : 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700'
-                                    }`}>
-                                    {order.isRegisteredInBling && <i className="bi bi-check text-white" style={{ fontSize: '7px', lineHeight: 1 }} />}
-                                </span>
-                                <span>Bling</span>
-                                <input
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={!!order.isRegisteredInBling}
-                                    onChange={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
-                                />
-                            </label>
-                        </div>
-                    )}
-
-                    {order.stockProcessed && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/30 text-[8px] font-black uppercase">
-                            <i className="bi bi-box-seam-fill text-[8px]" />
-                            Saída
-                        </span>
-                    )}
-
-                    {order.shipping?.scheduling?.pendingScheduling && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/20 dark:border-orange-900/30 text-[8px] font-black uppercase">
-                            <i className="bi bi-clock-history text-[8px]" />
-                            Pend. Agend.
-                        </span>
-                    )}
-
-                    {hasAssemblyOutside && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded border bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
-                            <i className="bi bi-hammer text-[11px] text-white" />
-                        </span>
-                    )}
-
-                    {hasAssemblyDepot && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded border bg-orange-500 text-white border-orange-600 shadow-xs" title="Montagem no Depósito">
-                            <i className="bi bi-hammer text-[11px]" />
-                        </span>
-                    )}
-
-                    {order.orderType === 'assistance' && order.linkedOrderId && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
-                            className="flex items-center gap-1 text-[8px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-wider bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900/30"
-                            title="Filtrar por pedido vinculado"
-                        >
-                            <i className="bi bi-link-45deg"></i>
-                            Vinc: #{order.linkedOrderId.slice(-6).toUpperCase()}
-                        </button>
-                    )}
-
-                    {hasTemporaryItems && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30 text-[8px] font-black uppercase" title="Este pedido possui produtos temporários">
-                            <i className="bi bi-clock-history text-[8px]" />
-                            Produtos Temporários
-                        </span>
-                    )}
-                </div>{/* fim da flex-wrap de badges */}
             </div>{/* fim do header colorido */}
 
             {/* Corpo neutro do card */}
             <div className="px-3 pt-2.5 pb-3">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                <h3 
+                    onClick={() => onEdit(order)}
+                    className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer w-fit"
+                    title="Clique para editar o pedido"
+                >
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
                 
@@ -481,12 +527,6 @@ const OrderHistoryCard = ({
                             >
                                 <i className="bi bi-arrow-counterclockwise text-lg" />
                             </button>
-                            <button
-                                onClick={() => onPermanentDelete(order.id!)}
-                                className="p-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 transition-colors"
-                            >
-                                <i className="bi bi-trash3-fill text-lg" />
-                            </button>
                         </>
                     ) : (
                         <>
@@ -573,17 +613,6 @@ const OrderHistoryCard = ({
                                                 </button>
                                                 )
                                             })}
-                                            <div className="border-t border-slate-50 dark:border-slate-800/50 my-1" />
-                                            <button
-                                                onClick={() => {
-                                                    onDelete(order.id!);
-                                                    setShowMenu(false);
-                                                }}
-                                                className="flex items-center gap-3 w-full p-2.5 rounded-lg transition-all hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
-                                            >
-                                                <i className="bi bi-trash-fill text-base" />
-                                                <span className="text-[9px] font-black uppercase tracking-widest">Lixeira</span>
-                                            </button>
                                         </div>
                                     </div>,
                                     document.body

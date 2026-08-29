@@ -13,10 +13,12 @@ interface Props {
     deliveryMethod: 'delivery' | 'pickup',
     errors: ValidationErrors,
     onSelectProduct: (idx: number, product: any, variation?: any) => void,
-    isBudget?: boolean
+    isBudget?: boolean,
+    /** Se true, destaca visualmente os itens sem produto real vinculado */
+    highlightTemporaryItems?: boolean
 }
 
-const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct, isBudget }: Props) => {
+const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct, isBudget, highlightTemporaryItems }: Props) => {
     const addItem = () => {
         setItems((prev: Item[]) => {
             return ([
@@ -40,7 +42,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
         return (
             <div className="flex flex-col gap-3 p-0 h-full">
                 <div className="grid grid-cols-1 gap-3">
-                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} />
+                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} highlightTemporaryItems={highlightTemporaryItems} />
                 </div>
 
                 <div className="mt-2 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
@@ -74,7 +76,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                     </th>
                 </tr>
             </thead>
-            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} />
+            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} highlightTemporaryItems={highlightTemporaryItems} />
             <Footer summary={summary} isBudget={isBudget} />
         </table>
     );

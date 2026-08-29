@@ -1,6 +1,7 @@
 import React, { forwardRef, useImperativeHandle } from "react";
 import ProductTable from "./ProductTable";
 import { useProducts } from "./useProducts";
+import { useVariationExitFlags } from "./useVariationExitFlags";
 import Product, { ProductVisibilitySettings } from "../../../types/product.type";
 import { toast } from "react-toastify";
 
@@ -50,6 +51,8 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
         deactivateCatalog,
         refresh
     } = useProducts(filters);
+
+    const { exitedVariationIds } = useVariationExitFlags();
 
     // Auto-scroll to top when page changes
     React.useEffect(() => {
@@ -152,6 +155,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                     categoryTree={categoryTree}
                     onRefresh={() => { refresh(); onRefresh?.(); }}
                     onDuplicate={onDuplicate}
+                    exitedVariationIds={exitedVariationIds}
                 />
 
                 {/* Pagination */}

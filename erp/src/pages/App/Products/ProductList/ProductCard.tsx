@@ -67,6 +67,7 @@ interface ProductCardProps {
     categoryTree?: any;
     onRefresh?: () => void;
     onDuplicate?: (product: Product) => void;
+    exitedVariationIds?: Set<string>;
 }
 
 const ProductCard = ({
@@ -84,7 +85,8 @@ const ProductCard = ({
     onToggleSelection,
     categoryTree,
     onRefresh,
-    onDuplicate
+    onDuplicate,
+    exitedVariationIds
 }: ProductCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
@@ -96,6 +98,8 @@ const ProductCard = ({
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
+    const isDraft = Boolean(product.isDraft) || product.status === 'draft';
+    const canManageCatalog = !isDraft && product.active !== false;
     const isCatalogActive = product.status === 'published';
 
     const [oppName, setOppName] = React.useState<string | null>(
@@ -156,26 +160,67 @@ const ProductCard = ({
                   isVariation ? 'border-slate-200 dark:border-slate-800 ml-2.5 sm:ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
                   'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
         >
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-center mb-2 gap-2 flex-wrap">
+                {/* Lado Esquerdo: Código do Produto */}
                 <div className="flex items-center gap-2">
                     {product.code ? (
                         <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
                             {product.code}
                         </span>
                     ) : null}
+                </div>
+
+                {/* Canto Superior Direito: Todos os Selos + Botões de Ação */}
+                <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto" onClick={(e) => e.stopPropagation()}>
+                    {/* 1. Selo de Desativado */}
+                    {(product.active === false || product.deleted) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-800 select-none">
+                            <i className="bi bi-x-circle-fill text-red-500 text-[9px]" />
+                            Desativado
+                        </span>
+                    )}
+
+                    {/* 2. Selo de Rascunho */}
+                    {isDraft && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 select-none">
+                            <i className="bi bi-file-earmark-text text-amber-600 text-[9px]" />
+                            Rascunho
+                        </span>
+                    )}
+
+                    {/* 3. Selo de Oportunidade */}
+                    {!isVariation && oppName && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 select-none shadow-2xs">
+                            <i className="bi bi-fire text-amber-600 dark:text-amber-400 text-[9px]" />
+                            {oppName}
+                        </span>
+                    )}
+
+                    {/* 4. Selo de Tipo (Produto / Serviço) */}
                     {!isVariation && (
                         <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${product.itemType === 'service' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>
                             {product.itemType === 'service' ? 'Serviço' : 'Produto'}
                         </span>
                     )}
-                </div>
 
-                <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
+                    {/* 5. Selo de Catálogo */}
+                    {!isParent && canManageCatalog && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} 
+                            title="Clique para alternar status no Catálogo Digital" 
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 transition-opacity ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
+                        </button>
+                    )}
+
+                    {/* Botões de Ação */}
                     {!showTrash && (
-                        <div className="relative flex items-center gap-1">
+                        <div className="relative flex items-center gap-1 ml-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(product); }}
-                                className="w-8 h-8 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0"
+                                className="w-7 h-7 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0"
                                 title="Editar Produto"
                             >
                                 <i className="bi bi-pencil text-xs" />
@@ -184,7 +229,7 @@ const ProductCard = ({
                             <button
                                 ref={menuAnchorRef}
                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border shrink-0 ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shrink-0 ${isMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
                                 title="Opções"
                             >
                                 <i className="bi bi-three-dots text-xs" />
@@ -247,19 +292,19 @@ const ProductCard = ({
                                         </button>
                                     )}
 
-                                     <button
-                                         onClick={(e) => {
-                                             e.stopPropagation();
-                                             setIsMenuOpen(false);
-                                             const pPrice = Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice) ? product.promoPrice : product.unitPrice;
-                                             const msg = `*${product.name || product.title || product.description}*\n*Código/SKU:* ${product.sku || product.code || 'S/REF'}\n*Preço:* ${formatCurrency(pPrice || 0)}\n\nConfira mais detalhes em nosso catálogo oficial!`;
-                                             setWhatsAppModal({ open: true, message: msg });
-                                         }}
-                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
-                                     >
-                                         <i className="bi bi-whatsapp text-emerald-600 dark:text-emerald-400" />
-                                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Enviar por WhatsApp</span>
-                                     </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsMenuOpen(false);
+                                            const pPrice = Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice) ? product.promoPrice : product.unitPrice;
+                                            const msg = `*${product.name || product.title || product.description}*\n*Código/SKU:* ${product.sku || product.code || 'S/REF'}\n*Preço:* ${formatCurrency(pPrice || 0)}\n\nConfira mais detalhes em nosso catálogo oficial!`;
+                                            setWhatsAppModal({ open: true, message: msg });
+                                        }}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
+                                    >
+                                        <i className="bi bi-whatsapp text-emerald-600 dark:text-emerald-400" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Enviar por WhatsApp</span>
+                                    </button>
 
                                     {product.itemType !== 'service' && !product.isParent && (
                                         <button
@@ -274,7 +319,7 @@ const ProductCard = ({
                                         </button>
                                     )}
 
-                                    {product.active !== false && !showTrash ? (
+                                    {canManageCatalog && product.status === 'published' && !showTrash ? (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -287,7 +332,7 @@ const ProductCard = ({
                                             <i className="bi bi-slash-circle text-amber-500" />
                                             <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Desativar Produto</span>
                                         </button>
-                                    ) : (
+                                    ) : (product.active === false || showTrash) ? (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -300,7 +345,7 @@ const ProductCard = ({
                                             <i className="bi bi-check-circle-fill text-emerald-500" />
                                             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Reativar Produto</span>
                                         </button>
-                                    )}
+                                    ) : null}
                                 </div>
                             </DropdownPortal>
                         </div>
@@ -340,11 +385,6 @@ const ProductCard = ({
                             ? (variationName || product.name || product.title || "-")
                             : (product.name || product.title || (product.description ? product.description.split('\n')[0].substring(0, 120) : "-"))}
                     </h3>
-                    {(product.active === false || product.deleted) && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 mt-0.5">
-                            <i className="bi bi-x-circle-fill text-red-500"></i> Desativado
-                        </span>
-                    )}
                     {!isVariation && (
                         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 leading-relaxed">
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">
@@ -361,29 +401,6 @@ const ProductCard = ({
                             )}
                         </div>
                     )}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2 w-full">
-                        {!isVariation && oppName && (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 select-none shadow-2xs">
-                                <i className="bi bi-fire text-amber-600 dark:text-amber-400 text-[9px]" />
-                                {oppName}
-                            </span>
-                        )}
-                        {product.isDraft ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
-                                <i className="bi bi-file-earmark-text" /> Rascunho
-                            </span>
-                        ) : product.active === false ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800">
-                                <i className="bi bi-slash-circle" /> Desativado
-                            </span>
-                        ) : null}
-                        {!isParent && (
-                            <button onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} title="Clique para alternar status no Catálogo Digital" className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
-                            </button>
-                        )}
-                    </div>
                 </div>
             </div>
 
@@ -470,7 +487,14 @@ const ProductCard = ({
                                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
                                                 {varName}
                                             </span>
-                                            <div className="flex gap-1 shrink-0">
+                                            {/* Selo: Saída Lançada via Pedido */}
+                                            {exitedVariationIds?.has(String(v.variationId || v.id)) && (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-900/30 select-none shrink-0">
+                                                    <i className="bi bi-box-arrow-right text-orange-500 dark:text-orange-400" />
+                                                    Saída Lançada
+                                                </span>
+                                            )}
+                                            {canManageCatalog && <div className="flex gap-1 shrink-0">
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(targetVarCatalogId); }} 
                                                     title="Clique para alternar status desta variação no Catálogo"
@@ -479,7 +503,7 @@ const ProductCard = ({
                                                     <span className={`w-1 h-1 rounded-full ${v.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                                     Catálogo · {v.status === 'published' ? 'Publicado' : 'Ocultado'}
                                                 </button>
-                                            </div>
+                                            </div>}
                                         </div>
                                         <span className="text-[9px] font-mono text-slate-400">
                                             {v.sku}

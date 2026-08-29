@@ -109,6 +109,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         setFormData({ ...formData, images: newImages });
                                     }}
                                     onDragEnd={() => setDraggedIndex(null)}
+                                    onClick={(event) => {
+                                        // Clique na foto não executa ação destrutiva. A remoção
+                                        // deve acontecer somente pelo botão da lixeira.
+                                        event.stopPropagation();
+                                    }}
                                     className={`group relative aspect-square w-full rounded-3xl overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
                                     title="Arraste para reordenar ou passe o mouse para obter opções"
                                 >
@@ -125,7 +130,10 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         <div className="flex gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => setCroppingIndex(index)}
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    setCroppingIndex(index);
+                                                }}
                                                 className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center"
                                                 title="Recortar foto em 1:1"
                                             >
@@ -153,7 +161,10 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                             {/* Apagar foto (Lixeira) */}
                                             <button 
                                                 type="button" 
-                                                onClick={() => removePhoto(url)} 
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    removePhoto(url);
+                                                }}
                                                 className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center" 
                                                 title="Apagar foto"
                                             >
@@ -164,7 +175,8 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                         {index !== 0 && (
                                             <button 
                                                 type="button" 
-                                                onClick={() => {
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
                                                     const updated = [...(formData.images || [])];
                                                     const item = updated.splice(index, 1)[0];
                                                     setFormData({ ...formData, images: [item, ...updated] });

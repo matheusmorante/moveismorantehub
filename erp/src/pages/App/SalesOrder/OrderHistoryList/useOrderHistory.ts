@@ -304,16 +304,21 @@ export const useOrderHistory = (filters?: any) => {
     const handleStatusUpdate = async (id: string, newStatus: Order['status']) => {
         // Find full order in local state to avoid a pre-fetch (which was returning 400)
         const currentOrder = orders.find(o => o.id === id);
+        const isAutoWithdrawal = (newStatus === 'scheduled' || newStatus === 'fulfilled' || getSettings().inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus || ''));
+        const hasTemporaryItems = currentOrder?.items?.some(item => !item.productId || item.productId.trim() === '');
+        const expectedStockProcessed = newStatus === 'cancelled' 
+            ? false 
+            : (isAutoWithdrawal && !hasTemporaryItems ? true : currentOrder?.stockProcessed);
 
         // Optimistic update
-        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stockProcessed: expectedStockProcessed } : o));
         try {
             // Pass currentOrder so updateOrder skips the SELECT entirely
             await updateOrder(id, { status: newStatus }, currentOrder);
             toast.success("Status do pedido atualizado!");
         } catch (error) {
             // Rollback on failure
-            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: currentOrder?.status } as Order : o));
+            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: currentOrder?.status, stockProcessed: currentOrder?.stockProcessed } as Order : o));
             console.error("Erro ao atualizar status:", error);
             toast.error("Erro ao atualizar status do pedido.");
         }

@@ -1,28 +1,67 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import StockLaunchModal from "./components/StockLaunchModal";
+import InventoryAuditModal from "./components/InventoryAuditModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
 import InventoryAudit from "./components/InventoryAudit";
 import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
-import QRScannerModal from "@/components/shared/QRScannerModal";
-import { toast } from "react-toastify";
-import { getProductByCode } from "@/pages/utils/productService";
 import Purchase from '../../types/purchase.type';
 import PurchaseStockEntryModal from './components/PurchaseStockEntryModal';
 
+const STORAGE_KEY = 'morante_stock_selected_product_filter';
+
 const StockPage = () => {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const location = useLocation();
     const navigate = useNavigate();
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
+    const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+    
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed?.product || null;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar produto selecionado do localStorage:", e);
+        }
+        return null;
+    });
+
+    const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed?.variation || undefined;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar variação selecionada do localStorage:", e);
+        }
+        return undefined;
+    });
+
     const [activeTab, setActiveTab] = useState<'history' | 'audit' | 'purchases'>(
         (searchParams.get('tab') as any) || 'history'
     );
-    const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [purchaseForStockEntry, setPurchaseForStockEntry] = useState<Purchase | null>(null);
+
+    const handleSelectProduct = (prod: Product | null, v?: Variation) => {
+        setSelectedProduct(prod);
+        setSelectedVariation(v);
+        try {
+            if (prod) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ product: prod, variation: v }));
+            } else {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        } catch (e) {
+            console.error("Erro ao salvar produto no localStorage:", e);
+        }
+    };
 
     useEffect(() => {
         const tab = searchParams.get('tab');
@@ -41,47 +80,44 @@ const StockPage = () => {
         navigate(`${location.pathname}?tab=history`, { replace: true, state: null });
     }, [location.pathname, location.state, navigate]);
 
-    const handleLaunch = (product?: Product, variation?: Variation) => {
-        setSelectedProduct(product || null);
-        setSelectedVariation(variation);
-        setIsLaunchModalOpen(true);
+    const handleOpenNewAudit = () => {
+        setIsAuditModalOpen(true);
     };
 
     return (
-        <div className="animate-fade-in space-y-3">
+        <div className="animate-fade-in space-y-2">
             {/* Main Content Area */}
             <div className="flex flex-col min-w-0">
-                {/* Header com ícone, título e botão + Nova */}
-                <div className="flex flex-row justify-between items-center mb-3 gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200/50 dark:shadow-none shrink-0">
-                            <i className="bi bi-arrow-left-right text-xl sm:text-2xl"></i>
+                {/* Header com ícone compacto, título e botão Novo */}
+                <div className="flex flex-row justify-between items-center mb-1.5 gap-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                            <i className="bi bi-journal-check text-xs sm:text-sm"></i>
                         </div>
-                        <div>
-                            <h1 className="text-xl sm:text-2xl xl:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Movimentações
-                            </h1>
-                            <p className="text-slate-400 dark:text-slate-500 font-medium text-xs hidden sm:block">
-                                Histórico de entradas, saídas e ajustes de estoque
-                            </p>
-                        </div>
+                        <h1 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
+                            Inventário
+                        </h1>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                         <button
-                            onClick={() => handleLaunch()}
-                            className="flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-black uppercase tracking-wider text-xs shadow-md shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95"
-                            title="Lançar Nova Movimentação de Estoque"
+                            onClick={handleOpenNewAudit}
+                            className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                            title="Abrir novo inventário de estoque"
                         >
-                            <i className="bi bi-plus-lg text-sm" />
-                            <span>Nova</span>
+                            <i className="bi bi-plus-lg text-xs" />
+                            <span>Novo</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
                     {activeTab === 'history' ? (
-                        <InventoryMovesHistory />
+                        <InventoryMovesHistory 
+                            selectedProduct={selectedProduct}
+                            selectedVariation={selectedVariation}
+                            onSelectProduct={handleSelectProduct}
+                        />
                     ) : activeTab === 'audit' ? (
                         <InventoryAudit />
                     ) : (
@@ -90,39 +126,26 @@ const StockPage = () => {
                 </div>
             </div>
 
-            {/* Launch Modal */}
+            {/* Modal de Novo Inventário */}
+            <InventoryAuditModal
+                isOpen={isAuditModalOpen}
+                onClose={() => setIsAuditModalOpen(false)}
+            />
+
+            {/* Launch Modal de Movimentação Individual */}
             <StockLaunchModal
                 isOpen={isLaunchModalOpen}
-                onClose={() => {
-                    setIsLaunchModalOpen(false);
-                    setSelectedProduct(null);
-                    setSelectedVariation(undefined);
-                }}
+                onClose={() => setIsLaunchModalOpen(false)}
                 targetProduct={selectedProduct}
                 targetVariation={selectedVariation}
             />
+
+            {/* Modal de Entrada de Compras */}
             <PurchaseStockEntryModal
                 purchase={purchaseForStockEntry}
                 isOpen={Boolean(purchaseForStockEntry)}
                 onClose={() => setPurchaseForStockEntry(null)}
             />
-            {isScannerOpen && (
-                <QRScannerModal 
-                    isOpen={isScannerOpen} 
-                    onClose={() => setIsScannerOpen(false)} 
-                    onScan={async (code) => {
-                        const result = await getProductByCode(code);
-                        if (result) {
-                            toast.success(`Produto localizado: ${result.product.description}`);
-                            handleLaunch(result.product, result.variation);
-                            setIsScannerOpen(false);
-                        } else {
-                            toast.error(`Produto com código "${code}" não encontrado.`);
-                        }
-                    }}
-                    title="Escanear Inventário"
-                />
-            )}
         </div>
     );
 };

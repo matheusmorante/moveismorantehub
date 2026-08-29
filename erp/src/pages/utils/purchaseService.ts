@@ -19,17 +19,31 @@ const notifyListeners = () => {
     });
 };
 
+const assignPurchaseNumbers = (rawPurchases: any[]): Purchase[] => {
+    // Ordena do mais antigo para o mais novo para atribuir números sequenciais 1, 2, 3...
+    const sortedAsc = [...rawPurchases].sort((a, b) => {
+        const timeA = new Date(a.created_at || a.date).getTime();
+        const timeB = new Date(b.created_at || b.date).getTime();
+        return timeA - timeB;
+    });
+
+    const mapped = sortedAsc.map((p, index) => mapFromDB(p, index + 1));
+
+    // Retorna ordenado decrescente por data para a interface
+    return mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
 export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
     listeners.push(callback);
 
     const fetchAll = () => {
         supabase.from(TABLE_NAME)
             .select('*')
-            .order('date', { ascending: false })
+            .order('created_at', { ascending: true })
             .then((response: any) => {
                 const { data, error } = response;
                 if (data && !error) {
-                    currentPurchases = data.map(mapFromDB);
+                    currentPurchases = assignPurchaseNumbers(data);
                     notifyListeners();
                 } else if (error) {
                     console.error("Erro ao buscar compras iniciais:", error);
@@ -44,21 +58,8 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
     fetchAll();
 
     const channel = supabase.channel(`purchases_changes_${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
-            const id = String((payload.new || payload.old)?.id || '');
-            if (payload.eventType === 'DELETE') {
-                currentPurchases = currentPurchases.filter(purchase => purchase.id !== id);
-                notifyListeners();
-                return;
-            }
-            if (!payload.new) return;
-            const changedPurchase = mapFromDB(payload.new);
-            const exists = currentPurchases.some(purchase => purchase.id === changedPurchase.id);
-            currentPurchases = exists
-                ? currentPurchases.map(purchase => purchase.id === changedPurchase.id ? changedPurchase : purchase)
-                : [changedPurchase, ...currentPurchases];
-            currentPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            notifyListeners();
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
+            fetchAll();
         })
         .subscribe();
 
@@ -69,20 +70,17 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
 };
 
 const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
-    const supplierName = purchase.supplierName || 'Fábrica';
     const formattedDate = formatToBRDate(purchase.date);
+    const purchaseNum = purchase.purchaseNumber || 1;
     const moveLabel = purchase.invoiceNumber 
         ? `Entrada NF-${purchase.invoiceNumber}` 
-        : `Entrada do Pedido da ${supplierName} (${formattedDate})`;
+        : `Entrada do Pedido #${purchaseNum} (${formattedDate})`;
 
     for (const item of purchase.items) {
-        // Fetch current stock
         const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
         const currentStockValue = p?.stock || 0;
 
-        // Use physical received quantity by default if available, fallback to ordered qty
         const qtyToMove = (item.receivedQuantity !== undefined) ? item.receivedQuantity : item.quantity;
-        
         if (qtyToMove <= 0) continue;
 
         await saveInventoryMove({
@@ -95,14 +93,13 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
             label: moveLabel,
             relatedEntityId: savedId,
             relatedEntityType: 'purchase_order',
-            observation: `Pedido de Compra #${savedId?.slice(-4)} | Fornecedor: ${supplierName}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''} | Data: ${formattedDate}`,
+            observation: `Pedido de Compra #${purchaseNum}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}${purchase.observation ? ` | ${purchase.observation}` : ''}`,
             unitCost: item.unitCost
         }, currentStockValue);
     }
     
     await supabase.from(TABLE_NAME).update({ stockProcessed: true }).eq('id', savedId);
 
-    // Atualizar estado em memória e notificar UI instantaneamente
     currentPurchases = currentPurchases.map(p => 
         p.id === savedId ? { ...p, stockProcessed: true } : p
     );
@@ -113,7 +110,6 @@ export const reverseInventoryMoves = async (purchaseId: string) => {
     const searchPattern = `%${purchaseId}%`;
     const shortPattern = purchaseId.length >= 4 ? `%#${purchaseId.slice(-4)}%` : searchPattern;
 
-    // Busca utilizando apenas colunas existentes no banco (order_id, observation, label)
     const { data: moves, error } = await supabase
         .from('inventory_moves')
         .select('id')
@@ -126,14 +122,12 @@ export const reverseInventoryMoves = async (purchaseId: string) => {
 
     if (moves && moves.length > 0) {
         for (const move of moves) {
-            await deleteInventoryMove(move.id);
+            await deleteInventoryMove(move.id, true);
         }
     }
 
-    // Marcar como não processado no banco
     await supabase.from(TABLE_NAME).update({ stockProcessed: false }).eq('id', purchaseId);
 
-    // Atualizar estado em memória e notificar UI instantaneamente
     currentPurchases = currentPurchases.map(p => 
         p.id === purchaseId ? { ...p, stockProcessed: false } : p
     );
@@ -157,7 +151,6 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
         throw error;
     }
 
-    // Atualizar estado em memória e notificar UI instantaneamente
     currentPurchases = currentPurchases.map(p => 
         p.id === purchase.id ? { ...p, status: 'cancelled' } : p
     );
@@ -170,15 +163,27 @@ export const toggleStockProcessing = async (purchase: Purchase): Promise<boolean
     if (purchase.stockProcessed) {
         await reverseInventoryMoves(purchase.id);
         return false;
-    } else {
-        await processInventoryMoves(purchase, purchase.id);
-        return true;
     }
+
+    const { data: savedPurchase, error } = await supabase
+        .from(TABLE_NAME)
+        .select('stockProcessed')
+        .eq('id', purchase.id)
+        .single();
+    if (error) throw error;
+    if (savedPurchase?.stockProcessed) return true;
+
+    await processInventoryMoves(purchase, purchase.id);
+    return true;
 };
 
 export const savePurchase = async (purchase: Purchase): Promise<string | undefined> => {
     try {
-        const dbPayload = mapToDB(purchase);
+        const nextNumber = currentPurchases.length + 1;
+        const dbPayload = {
+            ...mapToDB(purchase),
+            purchase_number: nextNumber
+        };
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .insert([dbPayload])
@@ -187,7 +192,7 @@ export const savePurchase = async (purchase: Purchase): Promise<string | undefin
         if (error) throw error;
         const savedRecord = data?.[0];
         if (savedRecord) {
-            const mapped = mapFromDB(savedRecord);
+            const mapped = mapFromDB(savedRecord, nextNumber);
             currentPurchases = [mapped, ...currentPurchases];
             notifyListeners();
             return String(savedRecord.id);
@@ -228,11 +233,9 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
 
         if (error) throw error;
 
-        // Atualizar estado em memória
         currentPurchases = currentPurchases.map(p => p.id === id ? merged : p);
         notifyListeners();
 
-        // Propagar alterações de custo se já estiver processado
         if (updates.items && merged.stockProcessed) {
             for (const item of updates.items) {
                 await supabase
@@ -267,8 +270,9 @@ const mapToDB = (p: Purchase) => ({
     created_at: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString()
 });
 
-const mapFromDB = (data: any): Purchase => ({
+const mapFromDB = (data: any, sequentialIndex?: number): Purchase => ({
     id: String(data.id),
+    purchaseNumber: data.purchase_number ? Number(data.purchase_number) : (sequentialIndex !== undefined ? sequentialIndex : undefined),
     supplierId: data.supplier_id,
     supplierName: data.supplier_name,
     date: data.date,

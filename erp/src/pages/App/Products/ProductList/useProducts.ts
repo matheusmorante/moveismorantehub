@@ -187,6 +187,7 @@ export const useProducts = (filters?: any) => {
                     allVars.push({
                         ...product,
                         id: `${product.id}_${varSku || index}`,
+                        variationId: v.id, // ID real da variação no banco (usado para inventory_moves)
                         sku: varSku,
                         code: varSku,
                         description: v.name,
@@ -213,6 +214,7 @@ export const useProducts = (filters?: any) => {
                     flattened.push({
                         ...product,
                         id: `${product.id}_${varSku || index}`,
+                        variationId: v.id, // ID real da variação no banco (usado para inventory_moves)
                         sku: varSku,
                         code: varSku,
                         description: v.name,

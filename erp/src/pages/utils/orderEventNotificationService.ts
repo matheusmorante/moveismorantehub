@@ -82,16 +82,14 @@ export const notifyNewSaleAndAssemblies = async ({
     scheduleText,
 }: NewOrderNotificationOptions) => {
     const customerName = order.customerData?.fullName || 'Cliente';
-    const total = Number(order.total || 0).toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-    });
+    const itemsCount = (order.items || []).length;
     const notifications: Promise<void>[] = [];
 
     if (!order.orderType || order.orderType === 'sale') {
         notifications.push(dispatchAppNotification({
             orderId,
             title: `🛒 Nova venda - ${customerName}`,
-            message: `Venda finalizada • Total: R$ ${total}`,
+            message: `Pedido #${orderId} cadastrado no sistema (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'}).`,
             type: 'order_created',
             scheduleText,
             orderData: order,

@@ -289,6 +289,10 @@ export const mapFromDB = (data: any, index?: number): Product => {
                 promoPrice: v.use_parent_promo_price ? Number(data.promo_price || 0) : Number(v.promo_price || 0),
                 costPrice: Number(data.cost_price || 0),
                 active: Boolean(data.active),
+                // O status da variação controla sua visibilidade individual no
+                // catálogo. Sem ele, a lista herda "published" do produto pai
+                // e mostra como publicado mesmo depois de ocultar.
+                status: (v.status || data.status || 'published') as 'draft' | 'published' | 'hidden',
                 condition: data.condition || 'novo',
                 attributes: attributesList,
                 images: varImages,

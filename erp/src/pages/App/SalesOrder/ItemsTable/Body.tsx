@@ -12,9 +12,10 @@ interface Props {
     isMobile?: boolean;
     onSelectProduct: (idx: number, product: any, variation?: any) => void;
     isBudget?: boolean;
+    highlightTemporaryItems?: boolean;
 }
 
-const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProduct, isBudget }: Props) => {
+const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProduct, isBudget, highlightTemporaryItems }: Props) => {
     const toggleDiscountType = (idx: number) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
@@ -38,11 +39,25 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProdu
     ) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
-            const isTemporaryProduct = key === 'description' && Boolean(String(value).trim());
+            const currentItem = newItems[idx];
+            
+            let extraUpdates: Partial<Item> = {};
+            if (key === 'description') {
+                const text = String(value).trim();
+                const isDifferent = text !== (currentItem?.description || '').trim();
+                if (isDifferent) {
+                    extraUpdates = {
+                        productId: undefined,
+                        variationId: undefined,
+                        isTemporaryProduct: Boolean(text)
+                    };
+                }
+            }
+
             const newItem = sanitizeItem({
-                ...newItems[idx],
+                ...currentItem,
                 [key]: value,
-                ...(key === 'description' ? { productId: undefined, variationId: undefined, isTemporaryProduct } : {})
+                ...extraUpdates
             });
             newItems[idx] = newItem;
             return newItems;
@@ -82,6 +97,7 @@ const Body = ({ items, setItems, deliveryMethod, errors, isMobile, onSelectProdu
             isMobile={isMobile}
             onSelectProduct={onSelectProduct}
             isBudget={isBudget}
+            highlightAsTemporary={highlightTemporaryItems && (!item.productId || item.productId.trim() === '')}
         />
     ));
 

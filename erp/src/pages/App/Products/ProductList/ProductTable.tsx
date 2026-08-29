@@ -31,6 +31,7 @@ interface ProductTableProps {
     categoryTree?: any;
     onRefresh?: () => void;
     onDuplicate?: (product: Product) => void;
+    exitedVariationIds?: Set<string>;
 }
 
 interface ColumnDef {
@@ -53,7 +54,7 @@ const ProductTable = ({
     products, onEdit, onShowHistory, onLaunchStock, onDelete, onRestore, onPermanentDelete, onToggleActive, onDeactivateCatalog,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedProducts, onToggleSelection, onSelectAll, onClearSelection,
-    onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate
+    onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate, exitedVariationIds
 }: ProductTableProps) => {
     const { width } = useWindowSize();
     const isMobile = width < 1280 || 
@@ -248,6 +249,7 @@ const ProductTable = ({
                                     categoryTree={categoryTree}
                                     onRefresh={onRefresh}
                                     onDuplicate={() => onDuplicate && onDuplicate(product)}
+                                    exitedVariationIds={exitedVariationIds}
                                 />
                             ))}
                         </tbody>
@@ -281,6 +283,7 @@ const ProductTable = ({
                                     categoryTree={categoryTree}
                                     onRefresh={onRefresh}
                                     onDuplicate={onDuplicate}
+                                    exitedVariationIds={exitedVariationIds}
                                 />
                             ))
                     )}

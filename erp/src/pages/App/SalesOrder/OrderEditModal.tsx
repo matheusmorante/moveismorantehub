@@ -16,9 +16,13 @@ interface OrderEditModalProps {
     orderId?: string;
     onClose?: () => void;
     onSaveSuccess?: (id?: string, order?: Order) => void;
+    /** Abre o formulário diretamente neste step (1=Info, 2=Itens, 3=Cliente, etc.) */
+    initialStep?: number;
+    /** Se true, destaca visualmente os itens temporários na tabela de itens */
+    highlightTemporaryItems?: boolean;
 }
 
-const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: propOnSaveSuccess }: OrderEditModalProps) => {
+const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, initialStep, highlightTemporaryItems }: OrderEditModalProps) => {
     const { id: paramId } = useParams();
     const navigate = useNavigate();
 
@@ -178,8 +182,12 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         if (effectiveOrder && effectiveOrder.id && loadedOrderIdRef.current !== effectiveOrder.id) {
             loadedOrderIdRef.current = effectiveOrder.id;
             form.actions.loadOrderForEditing(effectiveOrder);
+            // Navegar para o step inicial solicitado (ex: step 2 = Itens)
+            if (initialStep && initialStep > 1) {
+                form.actions.jumpToStep(initialStep);
+            }
         }
-    }, [effectiveOrder, form.actions]);
+    }, [effectiveOrder, form.actions, initialStep]);
 
     const handleUpdate = useCallback(async (e?: React.MouseEvent) => {
         e?.preventDefault();
@@ -352,6 +360,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                         onLoadJSON={handleLoadJSON}
                         onOpenSellerSearch={() => setIsSellerSearchOpen(true)}
                         sellerRef={sellerRef}
+                        highlightTemporaryItems={highlightTemporaryItems}
                     />
                 ) : (
                     <OrderStatusTimeline orderId={effectiveOrder.id!} />

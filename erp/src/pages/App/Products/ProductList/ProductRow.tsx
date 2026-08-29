@@ -44,6 +44,7 @@ interface ProductRowProps {
     categoryTree?: any;
     onRefresh?: () => void;
     onDuplicate?: (product: Product) => void;
+    exitedVariationIds?: Set<string>;
 }
 
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
@@ -63,13 +64,15 @@ const ProductRow = ({
     orderedColumnKeys,
     categoryTree,
     onRefresh,
-    onDuplicate
+    onDuplicate,
+    exitedVariationIds
 }: ProductRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({ open: false, type: 'identification' });
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
     const [whatsAppModal, setWhatsAppModal] = React.useState<{ open: boolean; message: string }>({ open: false, message: '' });
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
+    const canManageCatalog = product.status !== 'draft' && !product.isDraft && product.active !== false;
 
     const [oppName, setOppName] = React.useState<string | null>(
         product.opportunityName || product.opportunity?.name || null
@@ -177,6 +180,12 @@ const ProductRow = ({
                                         {isChildVariation && (
                                             <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-955/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider border border-blue-200 dark:border-blue-800/80 shadow-xs">
                                                 <i className="bi bi-arrow-return-right"></i> VARIANTE
+                                            </span>
+                                        )}
+                                        {/* Selo: Saída Lançada via Pedido */}
+                                        {isChildVariation && exitedVariationIds?.has(String((product as any).variationId)) && (
+                                            <span className="flex items-center gap-1 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-orange-200 dark:border-orange-900/30 select-none">
+                                                <i className="bi bi-box-arrow-right"></i> Saída Lançada
                                             </span>
                                         )}
                                         {product.isDraft && (
@@ -303,7 +312,7 @@ const ProductRow = ({
 
                 return (
                     <td key="status" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
-                        {!product.isParent && (
+                        {!product.isParent && canManageCatalog && (
                             <div className="flex items-center justify-center">
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(targetCatalogId); }} 
@@ -438,7 +447,7 @@ const ProductRow = ({
                                                     </>
                                                 )}
 
-                                                {product.active !== false && !showTrash ? (
+                                                {canManageCatalog && product.status === 'published' && !showTrash ? (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -451,7 +460,7 @@ const ProductRow = ({
                                                         <i className="bi bi-slash-circle text-amber-500" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Desativar Produto</span>
                                                     </button>
-                                                ) : (
+                                                ) : (product.active === false || showTrash) ? (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -464,7 +473,7 @@ const ProductRow = ({
                                                         <i className="bi bi-check-circle-fill text-emerald-500" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Reativar Produto</span>
                                                     </button>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </DropdownPortal>
                                     </div>

@@ -15,6 +15,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 const SalesOrder = () => {
     const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | 'return' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    const [editingInitialStep, setEditingInitialStep] = useState<number | undefined>(undefined);
+    const [editingHighlightTemporary, setEditingHighlightTemporary] = useState<boolean>(false);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
     const [returningOrder, setReturningOrder] = useState<Order | null>(null);
     const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
@@ -320,12 +322,10 @@ const SalesOrder = () => {
 
                             <div className="flex-1 min-w-0 flex flex-col">
                                 <OrderHistoryList
-                                    onEdit={(order) => {
-                                        if (order.orderType === 'assistance') {
-                                            setEditingOrder(order);
-                                        } else {
-                                            setEditingOrder(order); // Usamos editingOrder localmente para todas
-                                        }
+                                    onEdit={(order, initialStep, highlightTemporary) => {
+                                        setEditingInitialStep(initialStep);
+                                        setEditingHighlightTemporary(!!highlightTemporary);
+                                        setEditingOrder(order);
                                     }}
                                     filters={activeFilters}
                                     visibilitySettings={visibilitySettings}
@@ -377,12 +377,10 @@ const SalesOrder = () => {
                         <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-slate-50 dark:bg-slate-950">
                             <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                                 <OrderHistoryList
-                                    onEdit={(order) => {
-                                        if (order.orderType === 'assistance') {
-                                            setEditingOrder(order);
-                                        } else {
-                                            setEditingOrder(order);
-                                        }
+                                    onEdit={(order, initialStep, highlightTemporary) => {
+                                        setEditingInitialStep(initialStep);
+                                        setEditingHighlightTemporary(!!highlightTemporary);
+                                        setEditingOrder(order);
                                     }}
                                     filters={trashFilters}
                                     visibilitySettings={visibilitySettings}
@@ -503,13 +501,19 @@ const SalesOrder = () => {
                 <OrderEditModal
                     order={editingOrder}
                     orderId={editingOrder.id}
+                    initialStep={editingInitialStep}
+                    highlightTemporaryItems={editingHighlightTemporary}
                     onClose={() => {
                         setEditingOrder(null);
+                        setEditingInitialStep(undefined);
+                        setEditingHighlightTemporary(false);
                         orderListRef.current?.refresh();
                         draftsListRef.current?.refresh();
                     }}
                     onSaveSuccess={(id, order) => {
                         setEditingOrder(null);
+                        setEditingInitialStep(undefined);
+                        setEditingHighlightTemporary(false);
                         if (id) {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();

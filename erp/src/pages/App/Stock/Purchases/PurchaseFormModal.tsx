@@ -5,7 +5,7 @@ import Product from "../../../types/product.type";
 import Person from "../../../types/person.type";
 import { subscribeToProducts } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { savePurchase, updatePurchase } from "../../../utils/purchaseService";
+import { savePurchase, toggleStockProcessing, updatePurchase } from "../../../utils/purchaseService";
 import { toast } from "react-toastify";
 import { formatCurrency } from "../../../utils/formatters";
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
@@ -263,14 +263,33 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                 freightPercent
             };
 
-            if (activePurchase?.id || draftId) {
-                await updatePurchase(activePurchase?.id || draftId!, purchasePayload);
-                toast.success("Pedido de compra atualizado com sucesso! ✨");
+            const purchaseId = activePurchase?.id || draftId;
+            const hasOnlyRegisteredProducts = processedItems.every(item =>
+                products.some(product => String(product.id) === String(item.productId))
+            );
+            let stockLaunched = false;
+
+            if (purchaseId) {
+                await updatePurchase(purchaseId, purchasePayload);
+                const wasAlreadyProcessed = Boolean(activePurchase?.stockProcessed);
+                if (hasOnlyRegisteredProducts && !wasAlreadyProcessed) {
+                    await toggleStockProcessing({ ...purchasePayload, id: purchaseId, stockProcessed: false });
+                    stockLaunched = true;
+                }
+                toast.success(stockLaunched
+                    ? "Pedido atualizado e entrada no estoque registrada! 📦"
+                    : "Pedido de compra atualizado com sucesso! ✨");
             } else {
-                await savePurchase(purchasePayload);
-                let message = "Pedido de compra salvo!";
-                if (status === 'ordered') message = "Pedido confirmado e estoque atualizado! 📦";
-                if (status === 'fulfilled') message = "Pedido atendido e estoque atualizado! ✨";
+                const savedId = await savePurchase(purchasePayload);
+                if (savedId && hasOnlyRegisteredProducts) {
+                    await toggleStockProcessing({ ...purchasePayload, id: savedId, stockProcessed: false });
+                    stockLaunched = true;
+                }
+                let message = stockLaunched
+                    ? "Pedido confirmado e entrada no estoque registrada! 📦"
+                    : "Pedido confirmado!";
+                if (!hasOnlyRegisteredProducts) message += " Há item temporário; o estoque não foi lançado automaticamente.";
+                if (status === 'fulfilled' && stockLaunched) message = "Pedido atendido e entrada no estoque registrada! ✨";
                 toast.success(message);
             }
             onClose();
@@ -294,7 +313,7 @@ const PurchaseFormModal = ({ isOpen, onClose, purchase, initialPurchase }: Props
                     <div className="min-w-0">
                         <div className="flex items-center gap-2.5 flex-wrap">
                             <h2 className="text-base sm:text-lg xl:text-xl font-black tracking-tight uppercase truncate">
-                                {activePurchase?.id ? `Editar Pedido #${activePurchase.id.slice(-4)}` : 'Novo Pedido de Compra'}
+                                {activePurchase?.id ? `Editar Pedido #${activePurchase.purchaseNumber || activePurchase.id.slice(-4)}` : 'Novo Pedido de Compra'}
                             </h2>
                             {activePurchase?.status && (
                                 <span className={`px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${

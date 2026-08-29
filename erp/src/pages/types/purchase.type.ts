@@ -12,6 +12,7 @@ export type PurchaseItem = {
 
 export type Purchase = {
     id?: string;
+    purchaseNumber?: number;
     supplierId: string;
     supplierName: string;
     date: string;

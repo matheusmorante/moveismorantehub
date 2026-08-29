@@ -1,29 +1,36 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from 'react-router-dom';
 import InventoryMove from "../../../types/inventoryMove.type";
 import Product, { Variation } from "../../../types/product.type";
 import { subscribeToInventoryMoves, deleteInventoryMove } from '@/pages/utils/inventoryService';
-import { formatToBRDate } from "../../../utils/formatters";
+import { formatDateTime } from "../../../utils/formatters";
 import ProductAutocomplete from "@/components/ProductAutocomplete";
-import { getProductByCode } from "@/pages/utils/productService";
 import { toast } from "react-toastify";
-import QRScannerModal from "@/components/shared/QRScannerModal";
 import InventoryMoveDeleteModal from './InventoryMoveDeleteModal';
-import PurchaseEntryLockedModal from './PurchaseEntryLockedModal';
-import SalesWithdrawalLockedModal from './SalesWithdrawalLockedModal';
+import InventoryMoveEditModal from './InventoryMoveEditModal';
 
-const InventoryMovesHistory = () => {
-    const navigate = useNavigate();
+interface InventoryMovesHistoryProps {
+    selectedProduct?: Product | null;
+    selectedVariation?: Variation;
+    onSelectProduct?: (product: Product | null, variation?: Variation) => void;
+}
+
+const InventoryMovesHistory = ({
+    selectedProduct: externalSelectedProduct,
+    selectedVariation: externalSelectedVariation,
+    onSelectProduct: externalOnSelectProduct
+}: InventoryMovesHistoryProps) => {
     const [moves, setMoves] = useState<InventoryMove[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
+    const [internalProduct, setInternalProduct] = useState<Product | null>(null);
+    const [internalVariation, setInternalVariation] = useState<Variation | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState("");
-    const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [moveToDelete, setMoveToDelete] = useState<InventoryMove | null>(null);
+    const [editingMove, setEditingMove] = useState<InventoryMove | null>(null);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [lockedPurchaseMove, setLockedPurchaseMove] = useState<InventoryMove | null>(null);
-    const [lockedSalesMove, setLockedSalesMove] = useState<InventoryMove | null>(null);
+
+    const selectedProduct = externalSelectedProduct !== undefined ? externalSelectedProduct : internalProduct;
+    const selectedVariation = externalSelectedVariation !== undefined ? externalSelectedVariation : internalVariation;
 
     useEffect(() => {
         const unsubscribe = subscribeToInventoryMoves((data) => {
@@ -31,6 +38,12 @@ const InventoryMovesHistory = () => {
             setLoading(false);
         });
         return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        const handleDocClick = () => setOpenMenuId(null);
+        document.addEventListener('click', handleDocClick);
+        return () => document.removeEventListener('click', handleDocClick);
     }, []);
 
     const getDisplayName = (prod: Product, variation?: Variation) => {
@@ -45,56 +58,128 @@ const InventoryMovesHistory = () => {
     };
 
     const handleSelectProduct = (product: Product, variation?: Variation) => {
-        setSelectedProduct(product);
-        setSelectedVariation(variation);
+        try {
+            localStorage.setItem('morante_stock_selected_product_filter', JSON.stringify({ product, variation }));
+        } catch (e) {
+            console.error("Erro ao salvar produto no localStorage:", e);
+        }
+
+        if (externalOnSelectProduct) {
+            externalOnSelectProduct(product, variation);
+        } else {
+            setInternalProduct(product);
+            setInternalVariation(variation);
+        }
         const name = getDisplayName(product, variation);
         setSearchQuery(name);
     };
 
     const handleClearSelection = () => {
-        setSelectedProduct(null);
-        setSelectedVariation(undefined);
+        try {
+            localStorage.removeItem('morante_stock_selected_product_filter');
+        } catch (e) {
+            console.error("Erro ao remover produto do localStorage:", e);
+        }
+
+        if (externalOnSelectProduct) {
+            externalOnSelectProduct(null, undefined);
+        } else {
+            setInternalProduct(null);
+            setInternalVariation(undefined);
+        }
         setSearchQuery("");
     };
 
     const currentStock = useMemo(() => {
         if (!selectedProduct) return 0;
+
+        // Calcula dinamicamente: Saldo = Entradas - Saídas + Ajustes
+        const relevantMoves = moves.filter(m => {
+            if (m.status === 'cancelled') return false;
+            if (m.productId !== selectedProduct.id) return false;
+            if (selectedVariation && m.variationId) {
+                return String(m.variationId) === String(selectedVariation.id);
+            }
+            return true;
+        });
+
+        if (relevantMoves.length > 0) {
+            return relevantMoves.reduce((acc, m) => {
+                if (m.type === 'entry') return acc + Number(m.quantity || 0);
+                if (m.type === 'withdrawal') return acc - Number(m.quantity || 0);
+                if (m.type === 'balance' || (m.type as any) === 'adjustment') return acc + Number(m.quantity || 0);
+                return acc;
+            }, 0);
+        }
+
         if (selectedVariation !== undefined) {
             return Number(selectedVariation.stock || 0);
         }
         return Number(selectedProduct.stock || 0);
-    }, [selectedProduct, selectedVariation]);
+    }, [selectedProduct, selectedVariation, moves]);
 
     const filtered = useMemo(() => {
+        // Se NENHUM produto estiver selecionado, não exibe movimentações
+        if (!selectedProduct) return [];
+
         return moves.filter(m => {
-            // 1. Se um produto/variação foi selecionado
-            if (selectedProduct) {
-                if (m.productId !== selectedProduct.id) return false;
-                if (selectedVariation && m.variationId) {
-                    return String(m.variationId) === String(selectedVariation.id);
-                }
-                return true;
+            if (m.productId !== selectedProduct.id) return false;
+            if (selectedVariation && m.variationId) {
+                return String(m.variationId) === String(selectedVariation.id);
             }
-
-            // 2. Se há texto digitado na busca
-            if (searchQuery.trim().length > 0) {
-                const q = searchQuery.toLowerCase().trim();
-                const name = (m.productName || "").toLowerCase();
-                const desc = (m.productDescription || "").toLowerCase();
-                const label = (m.label || "").toLowerCase();
-                const obs = (m.observation || "").toLowerCase();
-                return name.includes(q) || desc.includes(q) || label.includes(q) || obs.includes(q);
-            }
-
             return true;
         });
-    }, [moves, selectedProduct, selectedVariation, searchQuery]);
+    }, [moves, selectedProduct, selectedVariation]);
 
-    const isPurchaseEntry = (move: InventoryMove) => move.relatedEntityType === 'purchase_order' || move.label?.startsWith('Entrada a partir do Pedido') === true;
+    const isPurchaseEntry = (move: InventoryMove) => move.relatedEntityType === 'purchase_order' || /^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(move.label || '');
+    const isOrderLinked = (move: InventoryMove) => move.relatedEntityType === 'sales_order' || isPurchaseEntry(move);
+    const getCleanObservation = (move: InventoryMove) => {
+        // 1. Se for pedido de venda
+        if (move.relatedEntityType === 'sales_order' || /^Saída - Pedido\s*#/i.test(move.label || '') || /^Pedido\s*#/i.test(move.label || '')) {
+            const rawId = move.relatedEntityId || move.label?.replace(/^(Saída - )?Pedido\s*#/i, '') || '';
+            const orderNum = rawId.replace(/[^0-9]/g, '') || rawId;
+            return `Pedido de venda #${orderNum}`.trim();
+        }
+
+        // 2. Se for pedido de compra ou entrada de pedido
+        if (move.relatedEntityType === 'purchase_order' || /^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(move.label || '') || /Pedido de Compra\s*#/i.test(move.observation || '')) {
+            const match = (move.observation || move.label || '').match(/Pedido (?:de Compra )?#(\d+)/i);
+            if (match && match[1]) {
+                return `Pedido de compra #${match[1]}`.trim();
+            }
+            const cleanText = (move.observation || move.label || '')
+                .replace(/\|\s*Fornecedor:[^|]+/gi, '')
+                .replace(/Fornecedor:[^|]+/gi, '')
+                .replace(/\|\s*Data do pedido:[^|]+/gi, '')
+                .replace(/\|\s*Data:[^|]+/gi, '')
+                .trim();
+            return cleanText || 'Pedido de compra';
+        }
+
+        // 3. Se for estoque inicial
+        if (move.label === 'ESTOQUE INICIAL') {
+            return 'Estoque Inicial';
+        }
+
+        // 4. Se for observação/motivo avulso
+        let text = move.observation || move.label || '';
+        if (!text) return '';
+
+        text = text
+            .replace(/\|\s*Fornecedor:[^|]+/gi, '')
+            .replace(/Fornecedor:[^|]+/gi, '')
+            .replace(/\|\s*Data do pedido:[^|]+/gi, '')
+            .replace(/\|\s*Data:[^|]+/gi, '')
+            .trim()
+            .replace(/\|\s*$/, '')
+            .trim();
+
+        return text;
+    };
 
     const handleDelete = (move: InventoryMove) => {
-        if (move.relatedEntityType === 'sales_order') {
-            toast.warning("Esta movimentação pertence a um Pedido de Venda e não pode ser excluída manualmente.");
+        if (isOrderLinked(move)) {
+            toast.warning("Esta movimentação pertence a um pedido e não pode ser excluída manualmente.");
             return;
         }
         setMoveToDelete(move);
@@ -150,55 +235,52 @@ const InventoryMovesHistory = () => {
 
     return (
         <div className="flex flex-col">
-            {/* Barra Superior: Busca de Produto e Saldo de Estoque */}
-            <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-35 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            {/* Barra Superior: Busca de Produto / Rótulo Selecionado e Saldo de Estoque */}
+            <div className="p-3 sm:p-3.5 border-b border-slate-100 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-35 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex-1 max-w-xl flex items-center gap-2">
-                    <div className="relative flex-1">
-                        <ProductAutocomplete
-                            value={searchQuery}
-                            onChange={(val) => {
-                                setSearchQuery(val);
-                                if (!val) {
-                                    setSelectedProduct(null);
-                                    setSelectedVariation(undefined);
-                                }
-                            }}
-                            onSelect={handleSelectProduct}
-                            placeholder="Buscar produto"
-                            className="w-full"
-                        />
-                    </div>
-                    {selectedProduct && (
-                        <button
-                            type="button"
-                            onClick={handleClearSelection}
-                            className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded-xl transition-all"
-                            title="Limpar seleção"
-                        >
-                            <i className="bi bi-x-lg text-xs"></i>
-                        </button>
+                    {selectedProduct ? (
+                        <div className="flex-1 flex items-center justify-between gap-2 px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-500/60 dark:border-emerald-500/50 rounded-xl min-h-[42px] transition-all shadow-2xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                                    <i className="bi bi-box-seam text-xs" />
+                                </div>
+                                <span className="text-xs font-bold text-emerald-950 dark:text-emerald-100 truncate">
+                                    {getDisplayName(selectedProduct, selectedVariation)}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleClearSelection}
+                                className="p-1 hover:bg-emerald-200/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-md transition-all shrink-0 cursor-pointer"
+                                title="Desmarcar produto"
+                            >
+                                <i className="bi bi-x-lg text-xs" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="relative flex-1">
+                            <ProductAutocomplete
+                                value={searchQuery}
+                                onChange={(val) => {
+                                    setSearchQuery(val);
+                                    if (!val) {
+                                        handleClearSelection();
+                                    }
+                                }}
+                                onSelect={handleSelectProduct}
+                                placeholder="Buscar produto..."
+                                className="w-full"
+                            />
+                        </div>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => setIsScannerOpen(true)}
-                        className="p-2.5 bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-900/20 text-slate-500 hover:text-blue-600 rounded-xl transition-all"
-                        title="Escanear Código de Barras"
-                    >
-                        <i className="bi bi-qr-code-scan text-sm"></i>
-                    </button>
                 </div>
 
-                {/* Nome do Produto e Saldo do Estoque */}
+                {/* Saldo do Estoque quando houver produto selecionado */}
                 {selectedProduct && (
-                    <div className="flex items-center gap-3 self-start md:self-center flex-wrap">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs font-bold">
-                            <i className="bi bi-box-seam" />
-                            <span>{getDisplayName(selectedProduct, selectedVariation)}</span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold">
-                            <i className="bi bi-stack text-emerald-500" />
-                            <span>Saldo do Estoque: <strong className="font-black text-sm text-emerald-600 dark:text-emerald-400">{currentStock} un</strong></span>
+                    <div className="flex items-center gap-2 self-start md:self-center flex-wrap shrink-0">
+                        <div className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-200/50 dark:shadow-none">
+                            <i className="bi bi-stack text-emerald-200 text-sm" />
+                            <span>Saldo em Estoque: <strong className="font-black text-sm text-white">{currentStock} un</strong></span>
                         </div>
                     </div>
                 )}
@@ -210,7 +292,7 @@ const InventoryMovesHistory = () => {
                     <table className="w-full text-left border-collapse whitespace-nowrap">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-955/50 border-b border-slate-100 dark:border-slate-800/50">
-                                <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Data</th>
+                                <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Data e Horário</th>
                                 <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Produto e Detalhes</th>
                                 <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo</th>
                                 <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Qtd.</th>
@@ -222,37 +304,20 @@ const InventoryMovesHistory = () => {
                                 <tr key={move.id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors ${
                                     move.status === 'cancelled' ? 'opacity-40 bg-slate-50/40 dark:bg-slate-950/40' : ''
                                 }`}>
-                                    <td className="px-5 py-3.5 text-xs font-semibold text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                                        {formatToBRDate(move.date)}
+                                    <td className="px-5 py-3.5 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                        {formatDateTime(move.date)}
                                     </td>
                                     <td className="px-5 py-3.5">
-                                        <div className="flex flex-col gap-1 max-w-xl">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
-                                                    {move.productName || move.productDescription || 'Produto Desconhecido'}
-                                                </span>
-                                                {/* Badge de Rótulo / Origem */}
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                                                    move.label === 'ESTOQUE INICIAL' 
-                                                        ? 'bg-amber-50 text-amber-600 border border-amber-100/55 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30' 
-                                                        : move.relatedEntityType === 'sales_order' 
-                                                        ? 'bg-blue-50 text-blue-600 border border-blue-100/55 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30' 
-                                                        : move.relatedEntityType === 'purchase_order' 
-                                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100/55 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' 
-                                                        : 'bg-slate-100 text-slate-600 border border-slate-200/50 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700/55'
-                                                }`}>
-                                                    {formatMoveLabel(move)}
-                                                </span>
-                                            {move.relatedEntityId && move.relatedEntityType !== 'purchase_order' && !move.label?.startsWith('Entrada a partir do Pedido') && (
-                                                    <span className="text-[9px] font-black bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
-                                                        #{move.relatedEntityId.slice(-4)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {move.observation && move.relatedEntityType !== 'purchase_order' && !move.label?.startsWith('Entrada a partir do Pedido') && !move.observation.startsWith('Pedido de Compra #') && (
-                                                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                        <div className="flex flex-col gap-0.5 max-w-xl">
+                                            <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                                                {move.productName || move.productDescription || 'Produto Desconhecido'}
+                                            </span>
+
+                                            {/* Observação / Vínculo exclusivo e limpo embaixo */}
+                                            {getCleanObservation(move) && (
+                                                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                                                     <i className="bi bi-chat-left-text text-[9px] text-slate-400"></i>
-                                                    {move.observation}
+                                                    {getCleanObservation(move)}
                                                 </span>
                                             )}
                                         </div>
@@ -263,45 +328,77 @@ const InventoryMovesHistory = () => {
                                                 ? 'bg-slate-100 text-slate-400 dark:bg-slate-800/40 dark:text-slate-500' 
                                                 : move.type === 'entry' 
                                                 ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-955/20 dark:text-emerald-400' 
-                                                : move.type === 'withdrawal' 
+                                                : move.type === 'withdrawal' || move.type === 'exit'
                                                 ? 'bg-rose-100/50 text-rose-600 dark:bg-rose-955/20 dark:text-rose-400' 
-                                                : 'bg-blue-100/50 text-blue-600 dark:bg-blue-955/20 dark:text-blue-400'
+                                                : 'bg-amber-500/15 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-500/20'
                                         }`}>
                                             {move.type === 'entry' ? (
-                                                <><i className="bi bi-arrow-up-right-circle-fill text-xs"></i> Entrada</>
-                                            ) : move.type === 'withdrawal' ? (
-                                                <><i className="bi bi-arrow-down-left-circle-fill text-xs"></i> Saída</>
+                                                <><i className="bi bi-box-arrow-up text-xs"></i> Entrada</>
+                                            ) : move.type === 'withdrawal' || move.type === 'exit' ? (
+                                                <><i className="bi bi-box-arrow-down text-xs"></i> Saída</>
                                             ) : (
-                                                <><i className="bi bi-sliders text-xs"></i> Ajuste</>
+                                                <><span className="inline-flex items-center gap-0.5"><i className="bi bi-box-seam text-xs"></i><i className="bi bi-wrench text-[9px]"></i></span> Ajuste</>
                                             )}
                                         </span>
                                     </td>
                                     <td className={`px-5 py-3.5 font-black text-xs text-center ${
                                         move.type === 'entry' ? 'text-emerald-600 dark:text-emerald-400' :
-                                        move.type === 'withdrawal' ? 'text-rose-600 dark:text-rose-400' :
-                                        'text-blue-600 dark:text-blue-400'
+                                        move.type === 'withdrawal' || move.type === 'exit' ? 'text-rose-600 dark:text-rose-400' :
+                                        'text-amber-600 dark:text-amber-400'
                                     }`}>
-                                        {move.type === 'withdrawal' ? '-' : move.type === 'entry' ? '+' : ''}{move.quantity}
+                                        {move.type === 'withdrawal' || move.type === 'exit'
+                                            ? `-${Math.abs(move.quantity)}` 
+                                            : move.type === 'entry' 
+                                            ? `+${move.quantity}` 
+                                            : (Number(move.quantity) > 0 ? `+${move.quantity}` : move.quantity)}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                         {move.status === 'cancelled' ? (
-                                             <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest select-none">Cancelado</span>
-                                         ) : isPurchaseEntry(move) ? (
-                                             <button onClick={() => setLockedPurchaseMove(move)} className="rounded-xl p-2 text-slate-300 transition-all hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Entrada vinculada ao pedido de compra">
-                                                 <i className="bi bi-trash"></i>
-                                             </button>
-                                         ) : move.relatedEntityType === 'sales_order' ? (
-                                             <button onClick={() => setLockedSalesMove(move)} className="rounded-xl p-2 text-slate-300 transition-all hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20" title="Saída vinculada ao pedido de venda"><i className="bi bi-trash"></i></button>
-                                         ) : (
-                                             <button 
-                                                 onClick={() => handleDelete(move)}
-                                                 className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-955/10 rounded-xl transition-all"
-                                                 title="Excluir Lançamento Avulso"
-                                             >
-                                                 <i className="bi bi-trash"></i>
-                                             </button>
-                                         )}
-                                     </td>
+                                    <td className="px-6 py-4 text-right relative">
+                                        {move.status === 'cancelled' ? (
+                                            <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest select-none">Cancelado</span>
+                                        ) : isOrderLinked(move) ? (
+                                            <span className="inline-flex rounded-xl p-2 text-slate-300 dark:text-slate-600" title="Movimentação vinculada ao pedido: ações manuais bloqueadas">
+                                                <i className="bi bi-lock-fill"></i>
+                                            </span>
+                                        ) : (
+                                            <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setOpenMenuId(openMenuId === move.id ? null : move.id)}
+                                                    className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                                                    title="Mais Ações"
+                                                >
+                                                    <i className="bi bi-three-dots-vertical text-sm"></i>
+                                                </button>
+
+                                                {openMenuId === move.id && (
+                                                    <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditingMove(move);
+                                                                setOpenMenuId(null);
+                                                            }}
+                                                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center gap-2 transition-colors cursor-pointer"
+                                                        >
+                                                            <i className="bi bi-pencil text-slate-400 text-xs"></i>
+                                                            Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleDelete(move);
+                                                                setOpenMenuId(null);
+                                                            }}
+                                                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2 transition-colors cursor-pointer"
+                                                        >
+                                                            <i className="bi bi-trash text-xs"></i>
+                                                            Excluir
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -310,39 +407,21 @@ const InventoryMovesHistory = () => {
             ) : (
                 <div className="p-16 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-slate-300 dark:text-slate-700 mb-4">
-                        <i className="bi bi-inboxes-fill text-2xl"></i>
+                        <i className={`bi ${selectedProduct ? 'bi-inboxes-fill' : 'bi-search'} text-2xl`}></i>
                     </div>
                     <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        {selectedProduct ? "Nenhuma movimentação para este produto" : "Nenhuma movimentação encontrada"}
+                        {selectedProduct ? "Nenhuma movimentação para este produto" : "Selecione um produto"}
                     </h3>
                     <p className="text-xs text-slate-400 max-w-sm">
                         {selectedProduct 
                             ? "Não foram localizadas entradas, saídas ou ajustes para este produto."
-                            : "Busque um produto acima para visualizar seu histórico de movimentações."}
+                            : "Busque um produto no campo acima para visualizar seu histórico de movimentações."}
                     </p>
                 </div>
             )}
 
-            {isScannerOpen && (
-                <QRScannerModal 
-                    isOpen={isScannerOpen} 
-                    onClose={() => setIsScannerOpen(false)} 
-                    onScan={async (code) => {
-                        const result = await getProductByCode(code);
-                        if (result) {
-                            handleSelectProduct(result.product, result.variation);
-                            toast.success(`Produto localizado: ${getDisplayName(result.product, result.variation)}`);
-                        } else {
-                            toast.error(`Produto com código "${code}" não encontrado.`);
-                        }
-                        setIsScannerOpen(false);
-                    }}
-                    title="Escanear Código de Barras"
-                />
-            )}
             <InventoryMoveDeleteModal move={moveToDelete} isPurchaseEntry={moveToDelete ? isPurchaseEntry(moveToDelete) : false} isDeleting={isDeleting} onClose={() => !isDeleting && setMoveToDelete(null)} onConfirm={confirmDelete} />
-            <PurchaseEntryLockedModal move={lockedPurchaseMove} onClose={() => setLockedPurchaseMove(null)} onOpenPurchase={purchaseId => navigate('/stock?tab=purchases', { state: { purchaseIdToOpen: purchaseId } })} />
-            <SalesWithdrawalLockedModal move={lockedSalesMove} onClose={() => setLockedSalesMove(null)} onOpenSale={saleId => navigate('/sales-order', { state: { saleOrderIdToOpen: saleId } })} />
+            <InventoryMoveEditModal move={editingMove} isOpen={Boolean(editingMove)} onClose={() => setEditingMove(null)} />
         </div>
     );
 };

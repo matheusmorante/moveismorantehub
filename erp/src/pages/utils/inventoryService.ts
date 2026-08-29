@@ -17,6 +17,10 @@ const notifyListeners = () => {
     });
 };
 
+const isEntryType = (t: string) => t === 'entry';
+const isExitType = (t: string) => t === 'exit' || t === 'withdrawal';
+const isAdjustmentType = (t: string) => t === 'adjustment' || t === 'balance';
+
 export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => void) => {
     listeners.push(callback);
 
@@ -67,21 +71,23 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
         let newTotalStock = Number(p.stock || 0);
         let updatedVariations = p.variations ? [...p.variations] : [];
 
+        // Saldo = Entradas - Saídas + Ajustes (ajustes podem ser positivos ou negativos)
+        const qty = Number(move.quantity || 0);
         if (move.variationId && updatedVariations.length > 0) {
             const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
             if (vIdx !== -1) {
                 let vStock = Number(updatedVariations[vIdx].stock || 0);
-                if (move.type === 'entry') vStock += move.quantity;
-                else if (move.type === 'withdrawal') vStock -= move.quantity;
-                else if (move.type === 'balance') vStock = move.quantity;
+                if (isEntryType(move.type)) vStock += qty;
+                else if (isExitType(move.type)) vStock -= qty;
+                else if (isAdjustmentType(move.type)) vStock += qty;
                 
                 updatedVariations[vIdx].stock = vStock;
             }
             newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
         } else {
-            if (move.type === 'entry') newTotalStock += move.quantity;
-            else if (move.type === 'withdrawal') newTotalStock -= move.quantity;
-            else if (move.type === 'balance') newTotalStock = move.quantity;
+            if (isEntryType(move.type)) newTotalStock += qty;
+            else if (isExitType(move.type)) newTotalStock -= qty;
+            else if (isAdjustmentType(move.type)) newTotalStock += qty;
         }
 
         await updateProduct(move.productId, { 
@@ -94,12 +100,17 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
     }
 };
 
-export const deleteInventoryMove = async (id: string): Promise<void> => {
+export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = false): Promise<void> => {
     try {
         const { data: moveData } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
         if (!moveData) return;
 
         const move = mapFromDB(moveData);
+        if (!allowLinkedOrderMove && move.relatedEntityId && (
+            move.relatedEntityType === 'sales_order' || move.relatedEntityType === 'purchase_order'
+        )) {
+            throw new Error('Movimentações vinculadas a pedidos não podem ser excluídas por aqui. Faça o estorno pelo pedido vinculado.');
+        }
 
         const { error } = await supabase
             .from(TABLE_NAME)
@@ -116,6 +127,7 @@ export const deleteInventoryMove = async (id: string): Promise<void> => {
         const { data: p } = await supabase.from('products').select('*').eq('id', move.productId).single();
         if (!p) return;
 
+        const qty = Number(move.quantity || 0);
         let newTotalStock = Number(p.stock || 0);
         let updatedVariations = p.variations ? [...p.variations] : [];
 
@@ -123,14 +135,16 @@ export const deleteInventoryMove = async (id: string): Promise<void> => {
             const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
             if (vIdx !== -1) {
                 let vStock = Number(updatedVariations[vIdx].stock || 0);
-                if (move.type === 'entry') vStock -= move.quantity;
-                else if (move.type === 'withdrawal') vStock += move.quantity;
+                if (isEntryType(move.type)) vStock -= qty;
+                else if (isExitType(move.type)) vStock += qty;
+                else if (isAdjustmentType(move.type)) vStock -= qty;
                 updatedVariations[vIdx].stock = vStock;
             }
             newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
         } else {
-            if (move.type === 'entry') newTotalStock -= move.quantity;
-            else if (move.type === 'withdrawal') newTotalStock += move.quantity;
+            if (isEntryType(move.type)) newTotalStock -= qty;
+            else if (isExitType(move.type)) newTotalStock += qty;
+            else if (isAdjustmentType(move.type)) newTotalStock -= qty;
         }
 
         await updateProduct(move.productId, { 
@@ -153,6 +167,9 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
         if (!oldMove) throw new Error("Move not found");
 
         const dbUpdates: any = {};
+        if (updates.type !== undefined) {
+            dbUpdates.type = isExitType(updates.type) ? 'exit' : isAdjustmentType(updates.type) ? 'adjustment' : 'entry';
+        }
         if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
         if (updates.unitCost !== undefined) dbUpdates.unit_cost = updates.unitCost;
         if (updates.observation !== undefined) dbUpdates.observation = updates.observation;
@@ -170,30 +187,37 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
         currentMoves = currentMoves.map(m => m.id === id ? { ...m, ...updates } : m);
         notifyListeners();
 
-        // Se a quantidade mudou, recalcular estoque do produto
-        if (updates.quantity !== undefined && Number(updates.quantity) !== Number(oldMove.quantity)) {
+        // Se a quantidade ou tipo mudou, recalcular estoque do produto
+        const oldQty = Number(oldMove.quantity || 0);
+        const newQty = updates.quantity !== undefined ? Number(updates.quantity) : oldQty;
+        const oldType = oldMove.type;
+        const newType = updates.type || oldType;
+
+        if (newQty !== oldQty || newType !== oldType) {
             const { data: p } = await supabase.from('products').select('*').eq('id', oldMove.product_id).single();
             if (!p) return;
 
-            const diff = Number(updates.quantity) - Number(oldMove.quantity);
-            let newTotalStock = Number(p.stock || 0);
+            // Reverter efeito anterior
+            let delta = 0;
+            if (isEntryType(oldType)) delta -= oldQty;
+            else if (isExitType(oldType)) delta += oldQty;
+            else if (isAdjustmentType(oldType)) delta -= oldQty;
+
+            // Aplicar novo efeito
+            if (isEntryType(newType)) delta += newQty;
+            else if (isExitType(newType)) delta -= newQty;
+            else if (isAdjustmentType(newType)) delta += newQty;
+
+            let newTotalStock = Number(p.stock || 0) + delta;
             let updatedVariations = p.variations ? [...p.variations] : [];
 
             if (oldMove.variation_id && updatedVariations.length > 0) {
                 const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(oldMove.variation_id));
                 if (vIdx !== -1) {
-                    let vStock = Number(updatedVariations[vIdx].stock || 0);
-                    if (oldMove.type === 'entry') vStock += diff;
-                    else if (oldMove.type === 'withdrawal') vStock -= diff;
-                    else if (oldMove.type === 'balance') vStock = Number(updates.quantity);
-                    
+                    let vStock = Number(updatedVariations[vIdx].stock || 0) + delta;
                     updatedVariations[vIdx].stock = vStock;
                 }
                 newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
-            } else {
-                if (oldMove.type === 'entry') newTotalStock += diff;
-                else if (oldMove.type === 'withdrawal') newTotalStock -= diff;
-                else if (oldMove.type === 'balance') newTotalStock = Number(updates.quantity);
             }
 
             await updateProduct(oldMove.product_id, { 
@@ -219,7 +243,7 @@ export const cancelInventoryMovesByRelatedEntity = async (relatedEntityId: strin
 
         if (moves && moves.length > 0) {
             for (const move of moves) {
-                await deleteInventoryMove(move.id);
+                await deleteInventoryMove(move.id, true);
             }
         }
     } catch (error) {
@@ -276,37 +300,50 @@ export const getAvailableLots = async (productId: string, variationId?: string):
     }
 };
 
-const mapToDB = (move: InventoryMove) => ({
-    product_id: move.productId,
-    variation_id: move.variationId || null,
-    product_description: move.productDescription,
-    type: move.type,
-    quantity: move.quantity,
-    date: move.date,
-    label: move.label || null,
-    unit_cost: move.unitCost || 0,
-    unit_price: move.unitPrice || 0,
-    observation: move.observation || null,
-    order_id: move.relatedEntityId || null
-});
+const mapToDB = (move: InventoryMove) => {
+    // Validação estrita dos tipos aceitos pela constraint do banco: 'entry' | 'exit' | 'adjustment'
+    const dbType = isExitType(move.type) ? 'exit' : isAdjustmentType(move.type) ? 'adjustment' : 'entry';
 
-const mapFromDB = (data: any): InventoryMove => ({
-    id: String(data.id),
-    productId: data.product_id,
-    variationId: data.variation_id,
-    productDescription: data.product_description,
-    type: data.type,
-    quantity: Number(data.quantity),
-    date: data.date,
-    label: data.label,
-    unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
-    unitPrice: data.unit_price ? Number(data.unit_price) : undefined,
-    observation: data.observation,
-    relatedEntityId: data.order_id,
-    relatedEntityType: data.label?.startsWith('Entrada a partir do Pedido')
-        ? 'purchase_order'
-        : data.type === 'withdrawal' && (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || ''))
-            ? 'sales_order'
-            : undefined,
-    createdAt: data.created_at
-});
+    return {
+        product_id: move.productId,
+        variation_id: move.variationId || null,
+        product_description: move.productDescription,
+        type: dbType,
+        quantity: move.quantity,
+        date: move.date,
+        label: move.label || null,
+        unit_cost: move.unitCost || 0,
+        unit_price: move.unitPrice || 0,
+        observation: move.observation || null,
+        order_id: move.relatedEntityId || null
+    };
+};
+
+const mapFromDB = (data: any): InventoryMove => {
+    // Normalizar tipos retornados do banco para compatibilidade da UI
+    const normalizedType = isExitType(data.type) ? 'withdrawal' : isAdjustmentType(data.type) ? 'balance' : 'entry';
+
+    return {
+        id: String(data.id),
+        productId: data.product_id,
+        variationId: data.variation_id,
+        productDescription: data.product_description,
+        type: normalizedType,
+        quantity: Number(data.quantity),
+        date: data.date,
+        label: data.label,
+        unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
+        unitPrice: data.unit_price ? Number(data.unit_price) : undefined,
+        observation: data.observation,
+        relatedEntityId: data.order_id,
+        relatedEntityType: data.order_id && (
+            /^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(data.label || '') ||
+            /Pedido de Compra\s*#/i.test(data.observation || '')
+        )
+            ? 'purchase_order'
+            : data.order_id && isExitType(data.type) && (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || ''))
+                ? 'sales_order'
+                : undefined,
+        createdAt: data.created_at
+    };
+};

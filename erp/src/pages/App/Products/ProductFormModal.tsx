@@ -1251,10 +1251,9 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (!enteredName) {
                 errors.name = true;
             }
-            const hasVars = Boolean(formData.hasVariations);
-            if (!hasVars && (!formData.unitPrice || Number(formData.unitPrice) <= 0)) {
-                errors.unitPrice = true;
-            }
+            const hasVars = Boolean(formData.hasVariations) && Array.isArray(formData.variations) && formData.variations.length > 0;
+            if (!hasVars) errors.variations = true;
+            if (!formData.images || formData.images.length === 0) errors.images = true;
             if (!formData.categoryIds || formData.categoryIds.length === 0) {
                 errors.categoryIds = true;
             }
@@ -1274,12 +1273,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 setValidationErrors(errors);
                 if (errors.name || errors.categoryIds) {
                     setActiveTab('geral');
-                } else if (errors.unitPrice || errors.mainSupplierId) {
+                } else if (errors.mainSupplierId) {
                     setActiveTab('estoque');
-                } else if (errors.variationsImages || errors.variationsAttributes) {
+                } else if (errors.variations || errors.variationsImages || errors.variationsAttributes) {
                     setActiveTab('variacoes');
+                } else if (errors.images) {
+                    setActiveTab('ecommerce');
                 }
-                toast.error(errors.variationsAttributes ? "Da Variação 2 em diante, informe pelo menos um atributo." : errors.variationsImages ? "Cada variação adicional deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione o fornecedor principal." : "Preencha todos os campos obrigatórios.");
+                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.images ? "Adicione pelo menos uma foto ao produto." : errors.variationsAttributes ? "Da Variação 2 em diante, informe pelo menos um atributo." : errors.variationsImages ? "Cada variação adicional deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});
@@ -1322,12 +1323,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 ...formData, 
                 name: enteredName || formData.name || 'Produto',
                 isDraft: actualSaveAsDraft,
-                active: actualSaveAsDraft ? false : (formData.active !== undefined ? formData.active : true),
+                // Ao concluir um produto que estava em rascunho, ele passa a ser
+                // ativo no ERP. Produtos já cadastrados preservam sua ativação.
+                active: actualSaveAsDraft ? false : (formData.isDraft ? true : (formData.active !== undefined ? formData.active : true)),
                 status: actualSaveAsDraft ? 'draft' : (formData.status && formData.status !== 'draft' ? formData.status : 'published')
             } as Product;
 
             await saveProduct(normalizedData);
-            setFormData(prev => ({ ...prev, isDraft: actualSaveAsDraft }));
+            setFormData(prev => ({ ...prev, isDraft: actualSaveAsDraft, active: normalizedData.active, status: normalizedData.status }));
             hasChanged.current = false;
             
             if (showResult) {

@@ -623,32 +623,14 @@ export const updateOrder = async (
             }
 
             const { inventoryAutomation } = getSettings();
+            const isAutoWithdrawalStatus = inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus) || ['scheduled', 'fulfilled'].includes(newStatus);
 
-            // Auto-withdrawal: new status triggers stock deduction and stock wasn't processed yet
-            if (!merged.stockProcessed && inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus)) {
+            // Auto-reversal: order is being cancelled (always wipe out linked moves and set stockProcessed: false)
+            if (newStatus === 'cancelled') {
                 try {
-                    const updatedOrder = await handleStockAndBusinessRules(id, { ...merged, status: newStatus });
-                    if (updatedOrder.stockProcessed) {
-                        await supabase
-                            .from(TABLE_NAME)
-                            .update({ 
-                                order_data: { ...merged, status: newStatus, stockProcessed: true }, 
-                                updated_at: new Date().toISOString() 
-                            })
-                            .eq('id', id);
-                    }
-                } catch (stockErr) {
-                    console.error("[OrderUpdate] Erro ao processar estoque automática (saída):", stockErr);
-                }
-            }
-
-            // Auto-reversal: order is being cancelled and stock was already processed
-            if (newStatus === 'cancelled' && merged.stockProcessed) {
-                try {
-                    // New logic: just cancel the movements, it reverts stock automatically inside
                     await cancelInventoryMovesByRelatedEntity(id, 'sales_order');
+                    merged.stockProcessed = false;
                     
-                    // Mark as unprocessed after reversal/cancellation
                     await supabase
                         .from(TABLE_NAME)
                         .update({ 
@@ -658,6 +640,24 @@ export const updateOrder = async (
                         .eq('id', id);
                 } catch (reversalErr) {
                     console.error("[OrderUpdate] Erro ao cancelar movimentações de estoque:", reversalErr);
+                }
+            } 
+            // Auto-withdrawal: new status triggers stock deduction and order is in compliance
+            else if (isAutoWithdrawalStatus && (!merged.stockProcessed || oldStatus === 'cancelled')) {
+                try {
+                    const updatedOrder = await handleStockAndBusinessRules(id, { ...merged, status: newStatus, stockProcessed: false }, true);
+                    if (updatedOrder.stockProcessed) {
+                        merged.stockProcessed = true;
+                        await supabase
+                            .from(TABLE_NAME)
+                            .update({ 
+                                order_data: { ...merged, status: newStatus, stockProcessed: true }, 
+                                updated_at: new Date().toISOString() 
+                            })
+                            .eq('id', id);
+                    }
+                } catch (stockErr) {
+                    console.error("[OrderUpdate] Erro ao processar estoque automático (saída):", stockErr);
                 }
             }
         } else if (!merged.stockProcessed) {

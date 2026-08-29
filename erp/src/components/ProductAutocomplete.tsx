@@ -17,12 +17,11 @@ interface ProductAutocompleteProps {
     className?: string;
     inputClassName?: string;
     supplierId?: string;
+    onlyName?: boolean;
 }
-
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onSelect,
-    onSelectDescription,
     onChange,
     onSearch,
     onCreateNew,
@@ -31,13 +30,15 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     value = "",
     placeholder = "Digite o nome ou código do produto...",
     className = "",
-    supplierId
+    supplierId,
+    onlyName = false
 }) => {
     const [query, setQuery] = useState(value);
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         setQuery(value);
     }, [value]);
@@ -83,7 +84,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     if (variations.length > 0) {
                         variations.forEach(v => {
                             if (v.active !== false) {
-                                const baseName = p.name || p.title || p.description || '';
+                                const baseName = (p.name || p.title || '').trim();
                                 const fullName = v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName))
                                     ? v.name 
                                     : `${baseName} - ${v.name}`;
@@ -100,7 +101,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                             }
                         });
                     } else {
-                        const baseName = p.name || p.title || p.description || '';
+                        const baseName = (p.name || p.title || '').trim();
                         const matchesAll = searchNormWords.every((word) =>
                             normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
                         );
@@ -136,13 +137,23 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         }}
                         onFocus={() => setShowSuggestions(query.trim().length >= 2)}
                         placeholder={placeholder}
-                        className={`w-full px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium transition-all ${isTemporary ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-950/20 focus:border-amber-500 focus:ring-amber-500/20' : 'border-slate-200 dark:border-slate-800'} ${isSelected ? 'border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/10' : ''} ${className}`}
+                        className={`w-full px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl outline-none transition-all text-sm font-medium ${
+                            isTemporary 
+                                ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 text-amber-950 dark:text-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20' 
+                                : isSelected 
+                                    ? 'border-emerald-500 bg-emerald-50/25 dark:bg-emerald-950/20 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 pr-9'
+                                    : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        } ${className}`}
                     />
-                    {isLoading && (
+                    {isLoading ? (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                             <i className="bi bi-arrow-repeat animate-spin text-slate-400"></i>
                         </div>
-                    )}
+                    ) : isSelected ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" title="Produto vinculado ao catálogo">
+                            <i className="bi bi-check-circle-fill text-emerald-500 text-sm"></i>
+                        </div>
+                    ) : null}
                 </div>
                 
                 {onSearch && (
@@ -181,7 +192,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         </div>
                     ) : suggestions.map((item, index) => {
                         const { product: p, variation: v } = item;
-                        const baseName = p.name || p.title || p.description;
+                        const baseName = (p.name || p.title || '').trim();
                         const fullName = v 
                             ? (v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName)) ? v.name : `${baseName} - ${v.name}`)
                             : baseName;
@@ -198,31 +209,32 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 type="button"
                                 onClick={() => {
                                     onSelect(p, v);
-                                    if (onSelectDescription) onSelectDescription(fullName);
                                     setQuery(fullName);
                                     setShowSuggestions(false);
                                 }}
-                                className="w-full px-4 py-3 text-left hover:bg-blue-50/50 dark:hover:bg-slate-800/60 transition-all flex items-center justify-between gap-3 group"
+                                className="w-full px-4 py-2.5 text-left hover:bg-emerald-50/70 dark:hover:bg-slate-800/60 transition-all flex items-center justify-between gap-3 group"
                             >
                                 <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
                                         {renderHighlightedProductText(fullName, query)}
                                     </span>
-                                    {displayCode && (
+                                    {!onlyName && displayCode && (
                                         <span className="text-[10px] font-mono text-slate-400">
                                             Cód: {displayCode}
                                         </span>
                                     )}
                                 </div>
 
-                                <div className="flex items-center gap-3 shrink-0">
-                                    <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-sans">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(displayPrice)}
-                                    </span>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${displayStock > 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-red-50 dark:bg-red-900/30 text-red-500'}`}>
-                                        {displayStock > 0 ? `${displayStock} un` : 'Sem estoque'}
-                                    </span>
-                                </div>
+                                {!onlyName && (
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-sans">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(displayPrice)}
+                                        </span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${displayStock > 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-red-50 dark:bg-red-900/30 text-red-500'}`}>
+                                            {displayStock > 0 ? `${displayStock} un` : 'Sem estoque'}
+                                        </span>
+                                    </div>
+                                )}
                             </button>
                         );
                     })}

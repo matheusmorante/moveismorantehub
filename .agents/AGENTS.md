@@ -68,5 +68,37 @@ Este documento registra regras específicas e lógicas de funcionamento do Moran
   - Um produto desativado só aparece na lista de **"Produtos Desativados"**.
   - Um produto ativo só aparece na lista principal de **"Produtos Ativos"**.
 
+## 8. Saída de Estoque em Pedidos de Venda
+
+- **Lançamento Estritamente Automático**:
+  - No módulo de pedidos de venda, **NÃO** deve existir botão de "Lançar Saída" manualmente.
+  - A saída de estoque (`withdrawal` em `inventory_moves`) é disparada **exclusivamente de forma automática** no cadastro ou edição do pedido quando os requisitos forem cumpridos:
+    - O pedido atingir o status configurado de faturamento/baixa (ex: Agendado ou Atendido).
+    - O pedido **NÃO possuir itens temporários** (todos os itens devem possuir `productId` vinculado a um produto real do catálogo).
+- **Cancelamento e Estorno de Pedidos**:
+  - Ao cancelar um pedido de venda (`status: 'cancelled'`), todas as movimentações de saída vinculadas a esse pedido são automaticamente estornadas/excluídas do histórico e o saldo dos produtos é recomposto imediatamente (`stockProcessed: false`).
+- **Reativação de Pedidos Cancelados**:
+  - Ao alterar o status de um pedido cancelado novamente para um status ativo de baixa (ex: Agendado ou Atendido), o estoque é automaticamente reprocessado e lançado se o pedido estiver em conformidade (itens vinculados a produtos reais), atualizando `stockProcessed: true`.
+- **Indicador Visual de Saída (Card e Linha da Tabela)**:
+  - **Saída Lançada (`order.stockProcessed === true`)**: ícone `PackageCheck` na cor **verde** (`emerald`).
+  - **Saída Não Lançada (`order.stockProcessed === false` ou pendente)**: ícone `Package` (sem o check) na cor **cinza** (`slate`).
+
+## 9. Selos de Integração e Triagem (Etiquetado e Bling)
+
+- **Posicionamento Prioritário**:
+  - Os selos interativos clicáveis (**Etiquetado** e **Bling**) ficam posicionados no **início** da lista de rótulos/badges (antes dos badges informativos).
+- **Formato Visual (Sem Checkbox)**:
+  - Os selos **Bling** e **Etiquetado** nos cards e linhas de pedidos **não** utilizam caixas de seleção/checkboxes visíveis.
+  - **Quando `true` (Marcado / Concluído)**:
+    - **Etiquetado**: fundo **verde sólido** (`bg-emerald-600`) com ícone de etiqueta em **branco** (`text-white`).
+    - **Bling**: fundo **verde sólido** (`bg-emerald-600`) com texto em **branco** (`text-white`).
+  - **Quando `false` (Desmarcado / Pendente)**:
+    - Ficam em cor **cinza neutro** (`slate`), mantendo a interatividade (clique para alternar o status).
+
+
+
+
+
+
 
 

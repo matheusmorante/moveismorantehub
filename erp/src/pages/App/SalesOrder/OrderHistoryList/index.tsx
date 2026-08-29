@@ -6,7 +6,7 @@ import StockActionModal from "../OrderActions/StockActionModal";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 
 type OrderHistoryListProps = {
-    onEdit: (order: Order) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
     filters?: any;
     visibilitySettings: VisibilitySettings;
     onToggleColumn: (column: keyof VisibilitySettings) => void;

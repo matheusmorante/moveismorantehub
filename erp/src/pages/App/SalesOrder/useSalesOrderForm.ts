@@ -334,12 +334,14 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     }, [setShipping]);
 
     const handleSelectProduct = useCallback((idx: number, product: Product, variation?: Variation) => {
-        const normProductDesc = product.description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        // Prioriza estritamente o NOME do produto (product.name ou product.title), nunca a descrição técnica
+        const prodName = (product.name || product.title || '').trim();
+        const normProductDesc = prodName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
         const normVarName = variation?.name ? variation.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
 
         const fullName = variation 
-            ? (normVarName && normVarName.includes(normProductDesc) ? variation.name : `${product.description} - ${variation.name}`)
-            : product.description;
+            ? (normVarName && normVarName.includes(normProductDesc) ? variation.name : `${prodName} - ${variation.name}`)
+            : prodName;
 
         const selectedPrice = variation 
             ? (variation.promoPrice || variation.unitPrice || product.promoPrice || product.unitPrice || 0)
@@ -356,11 +358,11 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 productId: product.id,
                 variationId: variation?.id,
                 isTemporaryProduct: false,
-                code: variation?.sku || product.code,
+                code: variation?.sku || product.code || product.sku || '',
                 description: fullName,
                 unitPrice: Number(selectedPrice) || 0,
                 costPrice: Number(selectedCost) || 0,
-                handlingType: product.itemType === 'service' ? 'Execução no local' : (newItems[idx].handlingType || ''),
+                handlingType: (product as any).itemType === 'service' ? 'Execução no local' : (newItems[idx].handlingType || ''),
                 condition: variation?.condition || product.condition || 'novo'
             };
             return newItems;

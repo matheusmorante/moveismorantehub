@@ -197,54 +197,62 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
     }, [variation, isOpen, parentProduct]);
 
     const handleFastSaveAttribute = async () => {
-        if (!fastAttrName.trim()) {
+        const attributeName = fastAttrName.trim();
+        const values = Array.from(new Set(
+            [...fastAttrValues, fastAttrValInput]
+                .map(value => value.trim().replace(/,$/, ''))
+                .filter(Boolean)
+        ));
+
+        if (!attributeName) {
             toast.error("Preencha o nome do atributo!");
             return;
         }
-        if (fastAttrValues.length === 0) {
+        if (values.length === 0) {
             toast.error("Adicione pelo menos um valor!");
             return;
         }
 
         try {
-            if (editingAttrId) {
+            const existingAttribute = dbAttributes.find(attribute =>
+                attribute.name.trim().toLocaleLowerCase('pt-BR') === attributeName.toLocaleLowerCase('pt-BR')
+            );
+            const attributeId = editingAttrId || existingAttribute?.id;
+
+            if (attributeId) {
                 const { error: attrErr } = await supabase
                     .from("attributes")
-                    .update({ name: fastAttrName.trim() })
-                    .eq("id", editingAttrId);
+                    .update({ name: attributeName })
+                    .eq("id", attributeId);
 
                 if (attrErr) throw attrErr;
 
-                const { error: delErr } = await supabase
-                    .from("attribute_values")
-                    .delete()
-                    .eq("attribute_id", editingAttrId);
+                const existingValues = dbAttributeValues
+                    .filter(value => value.attribute_id === attributeId)
+                    .map(value => value.value.trim().toLocaleLowerCase('pt-BR'));
+                const newValues = values.filter(value => !existingValues.includes(value.toLocaleLowerCase('pt-BR')));
 
-                if (delErr) throw delErr;
+                if (newValues.length > 0) {
+                    const { error: valErr } = await supabase.from("attribute_values").insert(
+                        newValues.map(value => ({ attribute_id: attributeId, value }))
+                    );
+                    if (valErr) throw valErr;
+                }
 
-                const valuesToInsert = fastAttrValues.map(val => ({
-                    attribute_id: editingAttrId,
-                    value: val
-                }));
-                const { error: valErr } = await supabase.from("attribute_values").insert(valuesToInsert);
-                if (valErr) throw valErr;
-
-                toast.success("Atributo atualizado com sucesso!");
+                toast.success(newValues.length > 0 ? "Valores adicionados com sucesso!" : "Esses valores já estão cadastrados.");
                 await fetchDbAttributes();
             } else {
                 const { data: attr, error: attrErr } = await supabase
                     .from("attributes")
-                    .insert([{ name: fastAttrName.trim() }])
+                    .insert([{ name: attributeName }])
                     .select()
                     .single();
 
                 if (attrErr) throw attrErr;
 
-                const valuesToInsert = fastAttrValues.map(val => ({
-                    attribute_id: attr.id,
-                    value: val
-                }));
-                const { error: valErr } = await supabase.from("attribute_values").insert(valuesToInsert);
+                const { error: valErr } = await supabase.from("attribute_values").insert(
+                    values.map(value => ({ attribute_id: attr.id, value }))
+                );
                 if (valErr) throw valErr;
 
                 toast.success("Atributo criado com sucesso!");

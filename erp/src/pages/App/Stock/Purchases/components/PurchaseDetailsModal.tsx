@@ -37,7 +37,7 @@ const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
             <html>
                 <head>
                     <meta charset="utf-8" />
-                    <title>Pedido de Compra #${purchase.id?.slice(-6).toUpperCase()}</title>
+                    <title>Pedido de Compra #${purchase.purchaseNumber || purchase.id?.slice(-4)}</title>
                     <style>
                         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #0f172a; margin: 0; }
                         .header { border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
@@ -136,7 +136,7 @@ const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <h2 className="text-xl xl:text-2xl font-black tracking-tight uppercase">
-                                    Pedido de Compra #{purchase.id?.slice(-4)}
+                                    Pedido de Compra #{purchase.purchaseNumber || purchase.id?.slice(-4)}
                                 </h2>
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                     purchase.status === 'fulfilled' ? 'bg-emerald-500 text-white' :

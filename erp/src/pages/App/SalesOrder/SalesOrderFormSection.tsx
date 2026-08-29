@@ -20,9 +20,11 @@ type SalesOrderFormSectionProps = {
     onLoadJSON?: (data: any) => void;
     onOpenSellerSearch?: () => void;
     sellerRef?: React.RefObject<HTMLButtonElement>;
+    /** Se true, destaca visualmente os itens sem produto vinculado (temporários) */
+    highlightTemporaryItems?: boolean;
 };
 
-const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch, sellerRef }: SalesOrderFormSectionProps) => {
+const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch, sellerRef, highlightTemporaryItems }: SalesOrderFormSectionProps) => {
     const { state, actions } = form;
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
@@ -138,6 +140,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                     errors={state.errors}
                                     onSelectProduct={actions.handleSelectProduct}
                                     isBudget={isBudget}
+                                    highlightTemporaryItems={highlightTemporaryItems}
                                 />
                             </SectionCard>
                         </div>
