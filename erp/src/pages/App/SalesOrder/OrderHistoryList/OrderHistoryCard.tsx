@@ -249,7 +249,7 @@ const OrderHistoryCard = ({
                         const isAssis = order.orderType === 'assistance';
                         const isRet = order.orderType === 'return';
                         const isPick = order.shipping?.deliveryMethod === 'pickup';
-                        const typeIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck'));
+                        const typeIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-hand-index-fill' : 'bi-truck'));
                         return (
                             <div 
                                 className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
@@ -469,11 +469,11 @@ const OrderHistoryCard = ({
                     </div>
 
                     { (order.shipping?.scheduling?.date || order.shipping?.scheduling?.pendingScheduling) && (
-                        <div className="flex flex-col">
+                        <div className="flex flex-col items-end text-right">
                             <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
                                 {order.shipping?.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
                             </span>
-                            <div className={`flex items-center gap-1.5 font-bold ${order.shipping?.scheduling?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-blue-500 dark:text-blue-400'}`}>
+                            <div className={`flex items-center justify-end gap-1.5 font-bold ${order.shipping?.scheduling?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-blue-500 dark:text-blue-400'}`}>
                                 <i className={`bi ${order.shipping?.scheduling?.pendingScheduling ? 'bi-clock-history text-orange-500' : 'bi-truck'} text-[11px]`} />
                                 <span className="text-[10px]">
                                     {order.shipping?.scheduling?.pendingScheduling 
@@ -497,7 +497,7 @@ const OrderHistoryCard = ({
                         }
                         if (!timeDisplay) return null;
                         return (
-                            <div className="col-span-2 mt-0.5">
+                            <div className="col-span-2 mt-0.5 flex justify-end">
                                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md border border-blue-100 dark:border-blue-900/30">
                                     <i className="bi bi-clock-history text-[10px]" />
                                     <span className="text-[9px] font-black uppercase tracking-widest">{timeDisplay}</span>

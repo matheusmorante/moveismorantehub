@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import InventoryMove from "../types/inventoryMove.type";
-import { updateProduct } from '@/pages/utils/productService';
+import { mapFromDB as mapProductFromDB, updateProduct } from '@/pages/utils/productService';
 
 const TABLE_NAME = "inventory_moves";
 
@@ -49,6 +49,16 @@ export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => 
     };
 };
 
+export const getNextInventoryCode = async (): Promise<string> => {
+    const { data, error } = await supabase.from(TABLE_NAME).select('observation').ilike('label', 'Inventário #%');
+    if (error) throw error;
+    const lastCode = (data || []).reduce((highest, move: any) => {
+        try { return Math.max(highest, Number(JSON.parse(move.observation || '{}').inventoryCode) || 0); }
+        catch { return highest; }
+    }, 0);
+    return String(lastCode + 1).padStart(6, '0');
+};
+
 export const saveInventoryMove = async (move: InventoryMove, currentProductStock: number): Promise<void> => {
     try {
         const payload = mapToDB(move);
@@ -65,11 +75,12 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
         }
 
         // Fetch latest product data to handle variations correctly
-        const { data: p } = await supabase.from('products').select('*').eq('id', move.productId).single();
+        const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();
         if (!p) return;
 
-        let newTotalStock = Number(p.stock || 0);
-        let updatedVariations = p.variations ? [...p.variations] : [];
+        const product = mapProductFromDB(p);
+        let newTotalStock = Number(product.stock || 0);
+        let updatedVariations = product.variations ? [...product.variations] : [];
 
         // Saldo = Entradas - Saídas + Ajustes (ajustes podem ser positivos ou negativos)
         const qty = Number(move.quantity || 0);
@@ -106,6 +117,9 @@ export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = fal
         if (!moveData) return;
 
         const move = mapFromDB(moveData);
+        if (move.label?.startsWith('Inventário #') || move.label?.startsWith('Ajuste lançado pelo inventário #')) {
+            throw new Error('Movimentações de inventário confirmado são imutáveis. Crie um novo inventário para gerar outro ajuste.');
+        }
         if (!allowLinkedOrderMove && move.relatedEntityId && (
             move.relatedEntityType === 'sales_order' || move.relatedEntityType === 'purchase_order'
         )) {
@@ -124,12 +138,13 @@ export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = fal
         notifyListeners();
 
         // Reverter saldo do estoque do produto
-        const { data: p } = await supabase.from('products').select('*').eq('id', move.productId).single();
+        const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();
         if (!p) return;
 
         const qty = Number(move.quantity || 0);
-        let newTotalStock = Number(p.stock || 0);
-        let updatedVariations = p.variations ? [...p.variations] : [];
+        const product = mapProductFromDB(p);
+        let newTotalStock = Number(product.stock || 0);
+        let updatedVariations = product.variations ? [...product.variations] : [];
 
         if (move.variationId && updatedVariations.length > 0) {
             const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
@@ -194,7 +209,7 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
         const newType = updates.type || oldType;
 
         if (newQty !== oldQty || newType !== oldType) {
-            const { data: p } = await supabase.from('products').select('*').eq('id', oldMove.product_id).single();
+            const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', oldMove.product_id).single();
             if (!p) return;
 
             // Reverter efeito anterior
@@ -208,8 +223,9 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
             else if (isExitType(newType)) delta -= newQty;
             else if (isAdjustmentType(newType)) delta += newQty;
 
-            let newTotalStock = Number(p.stock || 0) + delta;
-            let updatedVariations = p.variations ? [...p.variations] : [];
+            const product = mapProductFromDB(p);
+            let newTotalStock = Number(product.stock || 0) + delta;
+            let updatedVariations = product.variations ? [...product.variations] : [];
 
             if (oldMove.variation_id && updatedVariations.length > 0) {
                 const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(oldMove.variation_id));

@@ -230,8 +230,17 @@ const Products: React.FC = () => {
                                 onEdit={(p: any) => {
                                     if (p.isVariation) {
                                         setVariationParentProduct(p);
-                                        const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                        setEditingVariation(actualVariation || (p as any));
+                                        const varIdStr = p.variationId ? String(p.variationId).toLowerCase() : '';
+                                        const pSkuStr = p.sku ? String(p.sku).trim().toLowerCase() : '';
+                                        const actualVariation = p.variations?.find((v: Variation) => {
+                                            const vIdStr = v.id ? String(v.id).toLowerCase() : '';
+                                            const vSkuStr = v.sku ? String(v.sku).trim().toLowerCase() : '';
+                                            if (varIdStr && vIdStr && varIdStr === vIdStr) return true;
+                                            if (pSkuStr && vSkuStr && pSkuStr === vSkuStr) return true;
+                                            return false;
+                                        });
+                                        const realId = p.variationId || (p.id && p.id.includes('_') ? p.id.split('_').slice(1).join('_') : p.id);
+                                        setEditingVariation(actualVariation || { ...p, id: realId });
                                         setIsVariationModalOpen(true);
                                     } else {
                                         setEditingProduct(p);
@@ -241,8 +250,17 @@ const Products: React.FC = () => {
                                 onShowHistory={(p) => { setHistoryProduct(p); setIsHistoryModalOpen(true); }}
                                 onLaunchStock={(p: any) => {
                                     if (p.isVariation) {
-                                        const actualVariation = p.variations?.find((v: Variation) => v.sku === p.sku);
-                                        setStockLaunchTarget({ variation: actualVariation || p });
+                                        const varIdStr = p.variationId ? String(p.variationId).toLowerCase() : '';
+                                        const pSkuStr = p.sku ? String(p.sku).trim().toLowerCase() : '';
+                                        const actualVariation = p.variations?.find((v: Variation) => {
+                                            const vIdStr = v.id ? String(v.id).toLowerCase() : '';
+                                            const vSkuStr = v.sku ? String(v.sku).trim().toLowerCase() : '';
+                                            if (varIdStr && vIdStr && varIdStr === vIdStr) return true;
+                                            if (pSkuStr && vSkuStr && pSkuStr === vSkuStr) return true;
+                                            return false;
+                                        });
+                                        const realId = p.variationId || (p.id && p.id.includes('_') ? p.id.split('_').slice(1).join('_') : p.id);
+                                        setStockLaunchTarget({ variation: actualVariation || { ...p, id: realId } });
                                     } else {
                                         setStockLaunchTarget({ product: p });
                                     }

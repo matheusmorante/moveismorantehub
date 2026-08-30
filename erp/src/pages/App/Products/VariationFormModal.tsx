@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Product, { Variation, InitialStockEntry } from '../../types/product.type';
 import { saveVariation, generateVariationSku, parseVariationImages } from '@/pages/utils/productService';
+import { computeVariationName, normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import DropdownPortal from '@/components/shared/DropdownPortal';
@@ -160,7 +161,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 const parentCode = parentProduct.code || '000000';
                 setFormData({
                     id: crypto.randomUUID(),
-                    sku: generateVariationSku(parentCode, varIndex),
+                    sku: generateVariationSku(parentCode, parentProduct.variations || []),
                     name: getDefaultVariationName([]),
                     title: getDefaultVariationTitle([]),
                     marketplaceTitle: getDefaultVariationTitle([]),
@@ -403,13 +404,19 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
         e.preventDefault();
         if (!formData) return;
 
-        if (!formData.name.trim()) {
-            toast.error("O título da variação é obrigatório!");
+        const generatedName = computeVariationName(parentProduct.name || parentProduct.description || '', formData.attributes);
+        let finalVariation = {
+            ...formData,
+            name: generatedName || formData.name,
+            title: formData.title || generatedName || formData.name,
+            syncFiscal: true
+        };
+
+        if (!hasVariationAttribute(finalVariation)) {
+            toast.error("Informe pelo menos um atributo para a variação!");
             setActiveTab('identificacao');
             return;
         }
-
-        let finalVariation = { ...formData, syncFiscal: true };
 
         // Copiar valores do pai se as flags de sincronização estiverem ativas
         if (finalVariation.syncDescription) {
@@ -476,7 +483,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
                     <div>
                         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-                            {variation ? "Editar Variação" : "Criar Variação"}
+                            {variation ? "Editar Variação" : "Adicionar Variação"}
                             <span className="text-slate-400 text-xs font-normal">| {parentProduct.name || parentProduct.description || "Produto Pai"}</span>
                         </h2>
                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">
@@ -550,22 +557,12 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     </div>
                                     <input
                                         type="text"
+                                        readOnly
+                                        disabled
                                         placeholder="Nome interno da variação (ERP)..."
-                                        value={formData.name || ""}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                            onBlur={() => {
-                                                if (formData.name) {
-                                                    const formatted = toTitleCase(formData.name);
-                                                    if (formatted !== formData.name) {
-                                                        setFormData(prev => prev ? ({
-                                                            ...prev,
-                                                            name: formatted,
-                                                            ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {})
-                                                        }) : null);
-                                                    }
-                                                }
-                                            }}
-                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                                        value={computeVariationName(parentProduct.name || parentProduct.description || '', formData.attributes)}
+                                        className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-500 dark:text-slate-400 shadow-sm cursor-not-allowed font-mono"
+                                        title="O nome da variação é fixo e gerado automaticamente (Nome do Pai + Valoração dos Atributos)"
                                     />
                                 </div>
 

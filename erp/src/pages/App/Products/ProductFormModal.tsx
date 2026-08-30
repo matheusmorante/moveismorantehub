@@ -10,7 +10,7 @@ import { compressImage, compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { aiService } from '@/pages/utils/aiService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute, isDefaultVariation } from '@/pages/utils/productVariationDefaults';
+import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute, isDefaultVariation, normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 
 // Modular Components
 import SmartInput from "../../../components/SmartInput";
@@ -59,7 +59,7 @@ const VariationRow = React.memo(({ v, variationIndex, updateVariation, removeVar
     const finalPrice = promoPrice > 0 && promoPrice < regularPrice ? promoPrice : regularPrice;
     const hasDiscount = finalPrice < regularPrice;
     const fallbackSuffix = String((variationIndex ?? 0) + 1).padStart(2, '0');
-    const displaySku = v.sku || (parentSku ? `${parentSku}-${fallbackSuffix}` : '-');
+    const displaySku = normalizeVariationSku(v.sku) || (parentSku ? `${parentSku}-${fallbackSuffix}` : '-');
 
     return (
         <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
@@ -1022,9 +1022,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             return;
         }
         const baseName = formData.name || formData.description || "NOVA VARIAÇÃO";
-        const currentCount = (formData.variations || []).length;
         const parentCode = formData.code || '000000';
-        const newSku = generateVariationSku(parentCode, currentCount);
+        const newSku = generateVariationSku(parentCode, formData.variations || []);
 
         const newVar: Variation = {
             id: crypto.randomUUID(),
@@ -1123,7 +1122,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 const parentName = formData.name || formData.description || '';
                 const name = [parentName, attributeValues].filter(Boolean).join(' ');
                 const parentCode = formData.code || '000000';
-                const finalSku = generateVariationSku(parentCode, idx);
+                const finalSku = generateVariationSku(parentCode, formData.variations || [], idx);
                 
                 return {
                     id: crypto.randomUUID(),
@@ -1280,7 +1279,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 } else if (errors.images) {
                     setActiveTab('ecommerce');
                 }
-                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.images ? "Adicione pelo menos uma foto ao produto." : errors.variationsAttributes ? "Da Variação 2 em diante, informe pelo menos um atributo." : errors.variationsImages ? "Cada variação adicional deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
+                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.images ? "Adicione pelo menos uma foto ao produto." : errors.variationsAttributes ? "Todas as variações devem conter pelo menos um atributo." : errors.variationsImages ? "Cada variação adicional deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});
@@ -1302,7 +1301,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             }
             if (!actualSaveAsDraft && hasMissingRequiredAttributes(formData.variations)) {
                 setActiveTab('variacoes');
-                toast.error('Da Variação 2 em diante, informe pelo menos um atributo.');
+                toast.error('Todas as variações devem conter pelo menos um atributo.');
                 return false;
             }
         }

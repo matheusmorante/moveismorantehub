@@ -7,6 +7,7 @@ import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import ProductSalesModal from "../components/ProductSalesModal";
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 
 let oppCache: Record<string, string> | null = null;
 let oppPromise: Promise<Record<string, string>> | null = null;
@@ -466,7 +467,7 @@ const ProductCard = ({
                             ? Object.values(v.attributes).filter(Boolean).join(' ')
                             : v.displayName || v.name || '';
 
-                        const varSku = v.sku || `${product.sku || product.code}-${String(index + 1).padStart(2, '0')}`;
+                        const varSku = normalizeVariationSku(v.sku || `${product.sku || product.code}-${String(index + 1).padStart(2, '0')}`);
                         const targetVarCatalogId = `${product.id}_${varSku}`;
 
                         return (
@@ -506,7 +507,7 @@ const ProductCard = ({
                                             </div>}
                                         </div>
                                         <span className="text-[9px] font-mono text-slate-400">
-                                            {v.sku}
+                                            {normalizeVariationSku(v.sku)}
                                         </span>
                                     </div>
                                 </div>

@@ -3,7 +3,7 @@ import Product, { Variation } from "../types/product.type";
 import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
-import { ensureDefaultVariation, isDefaultVariation } from './productVariationDefaults';
+import { ensureDefaultVariation, isDefaultVariation, normalizeVariationSku } from './productVariationDefaults';
 
 const TABLE_NAME = "products";
 const LOCAL_STORAGE_KEY = 'local_products';
@@ -734,9 +734,13 @@ export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?
     const duplicates: { [sku: string]: string } = {};
     const products = getLocalProducts().filter(p => !p.deleted);
 
+    const exId = excludeProductId ? String(excludeProductId).toLowerCase() : '';
+    const legId = legacyId ? String(legacyId).toLowerCase() : '';
+
     products.forEach(p => {
-        if (excludeProductId && String(p.id) === String(excludeProductId)) return;
-        if (legacyId && String(p.id) === String(legacyId)) return;
+        const pId = String(p.id || '').toLowerCase();
+        if (exId && pId === exId) return;
+        if (legId && pId === legId) return;
 
         if (p.code && uniqueSkus.includes(p.code)) {
             duplicates[p.code] = p.description;
@@ -880,7 +884,8 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
 
                 const { data: existingVariations, error: existingVariationsError } = await supabase
                     .from("product_variations")
-                    .select("sku");
+                    .select("sku")
+                    .neq("product_id", product.id);
                 if (existingVariationsError) throw existingVariationsError;
                 const usedSkus = new Set((existingVariations || []).map((variation: any) => String(variation.sku || '')).filter(Boolean));
 
@@ -895,12 +900,20 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id);
                     const suffix = String(index + 1).padStart(2, '0');
                     const defaultSku = `${parentCode}-${suffix}`;
-                    const isAlreadyFormatted = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentCode}-`) && v.sku !== '000000-01';
-                    let resolvedSku = isAlreadyFormatted ? v.sku : defaultSku;
-                    // Evita colisões de SKUs legados de outros produtos. O ID da
-                    // variação torna o sufixo único sem alterar SKUs já válidos.
-                    if (usedSkus.has(resolvedSku)) resolvedSku = `${defaultSku}-${v.id?.slice(0, 6) || crypto.randomUUID().slice(0, 6)}`;
+                    const rawSku = v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
+                    let resolvedSku = rawSku || defaultSku;
+                    // Evita colisões de SKUs legados de outros produtos.
+                    if (usedSkus.has(resolvedSku)) {
+                        const varSuffix = v.id ? String(v.id).slice(0, 6) : crypto.randomUUID().slice(0, 6);
+                        let candidateSku = `${resolvedSku}-${varSuffix}`;
+                        let count = 1;
+                        while (usedSkus.has(candidateSku)) {
+                            candidateSku = `${resolvedSku}-${varSuffix}${count++}`;
+                        }
+                        resolvedSku = candidateSku;
+                    }
                     usedSkus.add(resolvedSku);
+                    v.sku = resolvedSku;
 
                     const effectiveImages = isDefaultVariation(v, index) ? (product.images || v.images || []) : (v.images || []);
                     return {
@@ -1393,21 +1406,56 @@ export const restoreProduct = async (id: string): Promise<void> => {
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
     try {
         const products = getLocalProducts();
-        const index = products.findIndex(p => String(p.id) === String(productId));
+        const index = products.findIndex(p => String(p.id).toLowerCase() === String(productId).toLowerCase());
         if (index === -1) throw new Error("Produto pai não encontrado.");
 
         const parent = products[index];
         const variations = parent.variations || [];
-        const varIndex = variations.findIndex((v: any) => v.id === variation.id);
+        const rawVarId = variation.variationId || variation.id;
+        const variationId = (rawVarId && String(rawVarId).includes('_') && String(rawVarId).startsWith(String(productId)))
+            ? String(rawVarId).split('_').slice(1).join('_')
+            : rawVarId;
+        const targetIdStr = variationId ? String(variationId).toLowerCase() : '';
+        const targetSkuStr = variation.sku ? String(variation.sku).trim().toLowerCase() : '';
+
+        let varIndex = variations.findIndex((v: any) => {
+            const vIdStr = v.id ? String(v.id).toLowerCase() : '';
+            const vSkuStr = v.sku ? String(v.sku).trim().toLowerCase() : '';
+            if (targetIdStr && vIdStr && targetIdStr === vIdStr) return true;
+            if (targetSkuStr && vSkuStr && targetSkuStr === vSkuStr) return true;
+            return false;
+        });
+
+        if (varIndex === -1 && variations.length === 1) {
+            varIndex = 0;
+        }
+
+        const variationToSave = { 
+            ...variation, 
+            id: variationId || (varIndex !== -1 ? variations[varIndex].id : crypto.randomUUID()) 
+        };
+        delete (variationToSave as any).variationId;
 
         let newVariations = [...variations];
         if (varIndex === -1) {
-            newVariations.push(variation);
+            newVariations.push(variationToSave);
         } else {
-            newVariations[varIndex] = variation;
+            newVariations[varIndex] = {
+                ...newVariations[varIndex],
+                ...variationToSave
+            };
         }
 
-        await updateProduct(productId, { variations: newVariations });
+        const seenIds = new Set<string>();
+        const deduplicatedVariations: any[] = [];
+        for (const v of newVariations) {
+            const idKey = String(v.id || '').toLowerCase();
+            if (idKey && seenIds.has(idKey)) continue;
+            if (idKey) seenIds.add(idKey);
+            deduplicatedVariations.push(v);
+        }
+
+        await updateProduct(productId, { variations: deduplicatedVariations });
     } catch (error) {
         console.error("Erro ao salvar variação: ", error);
         throw error;
@@ -1741,10 +1789,37 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
 
 /**
  * Gera o SKU da variação no formato {CodigoPai}-{01|02|03}
+ * Analisa todas as variações (ativas e desativadas) para garantir o sequencial correto.
  */
-export const generateVariationSku = (parentCode: string, index: number): string => {
+export const generateVariationSku = (
+    parentCode: string, 
+    indexOrVariations: number | any[], 
+    offset: number = 0
+): string => {
     const cleanParent = parentCode ? parentCode.trim() : '000000';
-    const suffix = String(index + 1).padStart(2, '0');
+
+    if (typeof indexOrVariations === 'number') {
+        const suffix = String(indexOrVariations + 1 + offset).padStart(2, '0');
+        return `${cleanParent}-${suffix}`;
+    }
+
+    const variations = Array.isArray(indexOrVariations) ? indexOrVariations : [];
+    let maxSuffix = variations.length;
+
+    variations.forEach(v => {
+        if (!v || !v.sku) return;
+        const skuStr = String(v.sku).trim();
+        const match = skuStr.match(/-(\d+)$/);
+        if (match && match[1]) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSuffix) {
+                maxSuffix = num;
+            }
+        }
+    });
+
+    const nextNumber = maxSuffix + 1 + offset;
+    const suffix = String(nextNumber).padStart(2, '0');
     return `${cleanParent}-${suffix}`;
 };
 

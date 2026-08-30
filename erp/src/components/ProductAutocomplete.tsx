@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product, { Variation } from '../pages/types/product.type';
-import { fetchProductsPage } from '../pages/utils/productService';
 import DropdownPortal from './shared/DropdownPortal';
-import { normalizeProductSearch, renderHighlightedProductText, SuggestionItem } from './productAutocompleteUtils';
+import { fetchAllProductSearchResults, getVariationDisplayName, normalizeProductSearch, renderHighlightedProductText, SuggestionItem } from './productAutocompleteUtils';
 
 interface ProductAutocompleteProps {
     onSelect: (product: Product, variation?: Variation) => void;
@@ -18,6 +17,9 @@ interface ProductAutocompleteProps {
     inputClassName?: string;
     supplierId?: string;
     onlyName?: boolean;
+    variationsOnly?: boolean;
+    products?: Product[];
+    clearOnSelect?: boolean;
 }
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -31,7 +33,10 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     placeholder = "Digite o nome ou código do produto...",
     className = "",
     supplierId,
-    onlyName = false
+    onlyName = false,
+    variationsOnly = false,
+    products: localProducts,
+    clearOnSelect = false
 }) => {
     const [query, setQuery] = useState(value);
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
@@ -64,11 +69,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             setIsLoading(true);
             try {
                 const words = trimmed.split(/\s+/).filter(w => w.length > 0);
-                const { data: productsData } = await fetchProductsPage(1, 30, {
-                    search: trimmed,
-                    activeOnly: true,
-                    supplierId: supplierId || undefined,
-                });
+                const productsData = localProducts?.length
+                    ? localProducts
+                    : await fetchAllProductSearchResults(trimmed, supplierId || undefined);
                 const items: SuggestionItem[] = [];
                 const searchNormWords = words.map(normalizeProductSearch);
 
@@ -82,12 +85,10 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     const variations = p.variations || [];
 
                     if (variations.length > 0) {
-                        variations.forEach(v => {
+                        variations.forEach((v) => {
+                            const baseName = (p.name || p.title || '').trim();
                             if (v.active !== false) {
-                                const baseName = (p.name || p.title || '').trim();
-                                const fullName = v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName))
-                                    ? v.name 
-                                    : `${baseName} - ${v.name}`;
+                                const fullName = getVariationDisplayName(p, v);
                                 const normFullName = normalizeProductSearch(fullName);
                                 const normSku = normalizeProductSearch(v.sku || '');
 
@@ -100,7 +101,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 }
                             }
                         });
-                    } else {
+                    } else if (!variationsOnly) {
                         const baseName = (p.name || p.title || '').trim();
                         const matchesAll = searchNormWords.every((word) =>
                             normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
@@ -109,7 +110,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     }
                 });
 
-                setSuggestions(items.slice(0, 10));
+                setSuggestions(items);
             } catch (error) {
                 console.error('Erro ao buscar sugestões:', error);
             } finally {
@@ -119,7 +120,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
         const timeoutId = setTimeout(fetchSuggestions, 250);
         return () => clearTimeout(timeoutId);
-    }, [query, supplierId]);
+    }, [query, supplierId, variationsOnly, localProducts]);
 
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>
@@ -192,10 +193,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         </div>
                     ) : suggestions.map((item, index) => {
                         const { product: p, variation: v } = item;
-                        const baseName = (p.name || p.title || '').trim();
-                        const fullName = v 
-                            ? (v.name && normalizeProductSearch(v.name).includes(normalizeProductSearch(baseName)) ? v.name : `${baseName} - ${v.name}`)
-                            : baseName;
+                        const fullName = getVariationDisplayName(p, v);
+                        const displayName = v?.name?.trim() || fullName;
 
                         const displayCode = v?.sku || p.code || '';
                         const displayPrice = v 
@@ -209,14 +208,19 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 type="button"
                                 onClick={() => {
                                     onSelect(p, v);
-                                    setQuery(fullName);
+                                    if (clearOnSelect) {
+                                        setQuery('');
+                                        onChange?.('');
+                                    } else {
+                                        setQuery(fullName);
+                                    }
                                     setShowSuggestions(false);
                                 }}
                                 className="w-full px-4 py-2.5 text-left hover:bg-emerald-50/70 dark:hover:bg-slate-800/60 transition-all flex items-center justify-between gap-3 group"
                             >
                                 <div className="flex flex-col min-w-0 flex-1">
                                     <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-                                        {renderHighlightedProductText(fullName, query)}
+                                        {renderHighlightedProductText(displayName, query)}
                                     </span>
                                     {!onlyName && displayCode && (
                                         <span className="text-[10px] font-mono text-slate-400">

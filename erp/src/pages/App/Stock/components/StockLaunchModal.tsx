@@ -75,9 +75,7 @@ const StockLaunchModal = ({
 
     if (!isOpen || !targetProduct) return null;
 
-    const fullDisplayName = variationName && variationName.trim().toLowerCase() !== productName.trim().toLowerCase()
-        ? `${productName} (${variationName})`
-        : productName;
+    const fullDisplayName = variationName && variationName.trim() ? variationName.trim() : productName;
 
     const adjustmentDiff = newDesiredStock !== '' ? Number(newDesiredStock) - currentStock : 0;
 

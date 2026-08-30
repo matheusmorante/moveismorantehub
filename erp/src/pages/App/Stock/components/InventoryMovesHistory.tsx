@@ -47,14 +47,8 @@ const InventoryMovesHistory = ({
     }, []);
 
     const getDisplayName = (prod: Product, variation?: Variation) => {
-        const baseName = prod.name || prod.title || prod.description || "Produto";
-        if (variation?.name) {
-            if (variation.name.toLowerCase().includes(baseName.toLowerCase())) {
-                return variation.name;
-            }
-            return `${baseName} - ${variation.name}`;
-        }
-        return baseName;
+        if (variation?.name) return variation.name;
+        return prod.name || prod.title || prod.description || "Produto";
     };
 
     const handleSelectProduct = (product: Product, variation?: Variation) => {

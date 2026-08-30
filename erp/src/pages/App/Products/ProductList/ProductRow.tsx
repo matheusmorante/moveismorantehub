@@ -7,6 +7,7 @@ import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import LabelPrintSelectionModal, { LabelPrintType } from "../components/LabelPrintSelectionModal";
 import ProductSalesModal from "../components/ProductSalesModal";
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 
 let oppCache: Record<string, string> | null = null;
 let oppPromise: Promise<Record<string, string>> | null = null;
@@ -114,7 +115,7 @@ const ProductRow = ({
                 return (
                     <td key="sku" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
                         <span className="font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
-                            {product.sku || product.code || "-"}
+                            {normalizeVariationSku(product.sku || product.code) || "-"}
                         </span>
                     </td>
                 );
@@ -122,7 +123,7 @@ const ProductRow = ({
                 return (
                     <td key="code" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
                         <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg inline-block font-mono">
-                            {product.sku || product.code || "-"}
+                            {normalizeVariationSku(product.sku || product.code) || "-"}
                         </span>
                     </td>
                 );

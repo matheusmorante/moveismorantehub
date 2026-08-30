@@ -13,6 +13,7 @@ import {
     bulkPermanentDeleteProducts,
     parseVariationImages
 } from '@/pages/utils/productService';
+import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { toast } from "react-toastify";
 import { supabase } from '@/pages/utils/supabaseConfig';
 
@@ -182,8 +183,7 @@ export const useProducts = (filters?: any) => {
             const allVars: any[] = [];
             if (hasJsonVariations) {
                 product.variations!.forEach((v: any, index: number) => {
-                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
-                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+                    const varSku = (v.sku && String(v.sku).trim()) ? normalizeVariationSku(String(v.sku).trim()) : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
                     allVars.push({
                         ...product,
                         id: `${product.id}_${varSku || index}`,
@@ -209,8 +209,7 @@ export const useProducts = (filters?: any) => {
 
             if (hasJsonVariations) {
                 product.variations!.forEach((v: any, index: number) => {
-                    const isStandardSku = v.sku && typeof v.sku === 'string' && v.sku.startsWith(`${parentSku}-`);
-                    const varSku = isStandardSku ? v.sku : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+                    const varSku = (v.sku && String(v.sku).trim()) ? normalizeVariationSku(String(v.sku).trim()) : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
                     flattened.push({
                         ...product,
                         id: `${product.id}_${varSku || index}`,

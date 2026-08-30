@@ -4,6 +4,9 @@ import StockLaunchModal from "./components/StockLaunchModal";
 import InventoryAuditModal from "./components/InventoryAuditModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
 import InventoryAudit from "./components/InventoryAudit";
+import type { InventorySnapshotItem } from "./components/InventoryAudit";
+import type { InventoryAuditSession } from "./components/InventoryAudit";
+import InventoryAuditDetailsModal from "./components/InventoryAuditDetailsModal";
 import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
 import Purchase from '../../types/purchase.type';
@@ -17,7 +20,10 @@ const StockPage = () => {
     const navigate = useNavigate();
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-    
+    const [copiedAuditItems, setCopiedAuditItems] = useState<InventorySnapshotItem[] | null>(null);
+    const [selectedAudit, setSelectedAudit] = useState<InventoryAuditSession | null>(null);
+    const [editingAuditSession, setEditingAuditSession] = useState<InventoryAuditSession | null>(null);
+
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -81,7 +87,25 @@ const StockPage = () => {
     }, [location.pathname, location.state, navigate]);
 
     const handleOpenNewAudit = () => {
+        setEditingAuditSession(null);
+        setCopiedAuditItems(null);
         setIsAuditModalOpen(true);
+    };
+
+    const handleCopyAudit = (items: InventorySnapshotItem[]) => {
+        setEditingAuditSession(null);
+        setCopiedAuditItems(items);
+        setIsAuditModalOpen(true);
+    };
+
+    const handleOpenAuditSession = (session: InventoryAuditSession) => {
+        if (session.status === 'in_progress') {
+            setEditingAuditSession(session);
+            setCopiedAuditItems(null);
+            setIsAuditModalOpen(true);
+        } else {
+            setSelectedAudit(session);
+        }
     };
 
     return (
@@ -95,7 +119,7 @@ const StockPage = () => {
                             <i className="bi bi-journal-check text-xs sm:text-sm"></i>
                         </div>
                         <h1 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                            Inventário
+                            Inventários
                         </h1>
                     </div>
 
@@ -119,7 +143,7 @@ const StockPage = () => {
                             onSelectProduct={handleSelectProduct}
                         />
                     ) : activeTab === 'audit' ? (
-                        <InventoryAudit />
+                        <InventoryAudit onCopy={handleCopyAudit} onOpen={handleOpenAuditSession} />
                     ) : (
                         <PurchasesIndex />
                     )}
@@ -129,8 +153,12 @@ const StockPage = () => {
             {/* Modal de Novo Inventário */}
             <InventoryAuditModal
                 isOpen={isAuditModalOpen}
-                onClose={() => setIsAuditModalOpen(false)}
+                copiedItems={copiedAuditItems}
+                editingSession={editingAuditSession}
+                onClose={() => { setIsAuditModalOpen(false); setCopiedAuditItems(null); setEditingAuditSession(null); }}
             />
+
+            <InventoryAuditDetailsModal session={selectedAudit} onClose={() => setSelectedAudit(null)} />
 
             {/* Launch Modal de Movimentação Individual */}
             <StockLaunchModal
