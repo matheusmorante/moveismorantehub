@@ -4,9 +4,12 @@ import { useOrderHistory } from "./useOrderHistory";
 import OrderHistoryTable from "./OrderHistoryTable";
 import StockActionModal from "../OrderActions/StockActionModal";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import ReturnFulfillmentConfirmModal from "./ReturnFulfillmentConfirmModal";
 
 type OrderHistoryListProps = {
     onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
+    onViewDetails?: (order: Order) => void;
+    onShowPostSaleActions?: (order: Order) => void;
     filters?: any;
     visibilitySettings: VisibilitySettings;
     onToggleColumn: (column: keyof VisibilitySettings) => void;
@@ -21,7 +24,7 @@ export interface OrderHistoryListRef {
 }
 
 
-const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId, onFilterByOrderId, onAction: onActionProp }, ref) => {
+const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, onViewDetails, onShowPostSaleActions, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId, onFilterByOrderId, onAction: onActionProp }, ref) => {
     const [confirmModal, setConfirmModal] = React.useState<{
         isOpen: boolean;
         title: string;
@@ -44,6 +47,9 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         handlePermanentDelete: onPermanentDelete,
         handleAction,
         handleStatusUpdate,
+        pendingReturnFulfillment,
+        confirmReturnFulfillment,
+        cancelReturnFulfillment,
         totalItems,
         hasMore,
         loadMore,
@@ -247,6 +253,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                 <OrderHistoryTable
                     orders={orders}
                     onEdit={onEdit}
+                    onViewDetails={onViewDetails}
+                    onShowPostSaleActions={onShowPostSaleActions}
                     onDelete={handleDelete}
                     onRestore={handleRestore}
                     onPermanentDelete={handlePermanentDelete}
@@ -371,6 +379,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onClose={() => setStockModal(null)}
                 />
             )}
+
+            {pendingReturnFulfillment && <ReturnFulfillmentConfirmModal order={pendingReturnFulfillment} onCancel={cancelReturnFulfillment} onConfirm={confirmReturnFulfillment} />}
 
             <ConfirmModal
                 isOpen={confirmModal.isOpen}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Product, { Variation, InitialStockEntry } from '../../types/product.type';
 import { saveVariation, generateVariationSku, parseVariationImages } from '@/pages/utils/productService';
-import { computeVariationName, normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { computeVariationName, getVariationAttributePairs, getVariationAttributeValuesInNameOrder, hasDuplicateVariationAttributeCombination, normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import DropdownPortal from '@/components/shared/DropdownPortal';
@@ -74,7 +74,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
         const parentName = (parentProduct.name || parentProduct.description || '').trim();
-        const attributeValues = attributes.map(attribute => attribute.value).filter(Boolean);
+        const attributeValues = getVariationAttributeValuesInNameOrder(attributes);
         if (attributeValues.length > 0) {
             return [parentName, ...attributeValues].filter(Boolean).join(' ');
         }
@@ -83,7 +83,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     const getDefaultVariationTitle = (attributes: Variation['attributes'] = []) => {
         const parentTitle = (parentProduct.title || parentProduct.marketplaceTitle || parentProduct.name || parentProduct.description || '').trim();
-        const attributeValues = attributes.map(attribute => attribute.value).filter(Boolean);
+        const attributeValues = getVariationAttributeValuesInNameOrder(attributes);
         if (attributeValues.length > 0) {
             return [parentTitle, ...attributeValues].filter(Boolean).join(' ');
         }
@@ -105,19 +105,18 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     useEffect(() => {
         if (isOpen) {
+            setAllParentImages([]);
             const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
             if (realParentId) {
                 supabase
                     .from('product_images')
-                    .select('url')
+                    .select('image_url')
                     .eq('product_id', realParentId)
                     .order('display_order', { ascending: true })
                     .then(({ data }) => {
-                        if (data && data.length > 0) {
-                            setAllParentImages(data.map(i => i.url));
-                        } else if (parentProduct?.images?.length) {
-                            setAllParentImages(parentProduct.images);
-                        }
+                        const databaseImages = (data || []).map(i => i.image_url).filter(Boolean);
+                        const formImages = (parentProduct?.images || []).filter(Boolean);
+                        setAllParentImages(Array.from(new Set([...databaseImages, ...formImages])));
                     });
             } else if (parentProduct?.images?.length) {
                 setAllParentImages(parentProduct.images);
@@ -412,8 +411,14 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
             syncFiscal: true
         };
 
-        if (!hasVariationAttribute(finalVariation)) {
+        if (getVariationAttributePairs(finalVariation).length === 0) {
             toast.error("Informe pelo menos um atributo para a variação!");
+            setActiveTab('identificacao');
+            return;
+        }
+
+        if (hasDuplicateVariationAttributeCombination(finalVariation, parentProduct.variations || [])) {
+            toast.error("Já existe outra variação com a mesma combinação de atributos e valores.");
             setActiveTab('identificacao');
             return;
         }
@@ -474,7 +479,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
     return createPortal(
         <>
-            <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
                 <div 
                     className="relative bg-white dark:bg-slate-900 w-full max-w-full h-full md:max-w-[96vw] md:h-[96vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800"
@@ -1445,7 +1450,7 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
             {/* Fast Create Attribute Modal */}
             {isFastCreateOpen && (
-                <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100001] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsFastCreateOpen(false)} />
                     <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2rem] p-6 shadow-2xl border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Gerenciar Atributo Global</h3>

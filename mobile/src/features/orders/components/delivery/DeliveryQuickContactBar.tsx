@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MessageCircle, UserCheck } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
+import { formatOrderCode } from '../../../../utils/orderUtils';
 
 interface Props {
   order: any;
@@ -12,7 +13,7 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
   const data = order.order_data || order;
   const customer = data.customerData || data.customer || {};
   const customerName = customer.fullName || customer.name || order.customer_name || 'Cliente';
-  const orderNumber = String(order.id || '').slice(-6).toUpperCase();
+  const orderNumber = formatOrderCode(order);
   
   const rawSellerName = order.seller || data.seller || data.sellerName || data.sellerData?.fullName || '';
   const [sellerPhone, setSellerPhone] = useState<string>(

@@ -8,6 +8,7 @@ import { subscribeToOrders } from '@/pages/utils/orderHistoryService';
 import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
 import { ShowcaseAssembly, getShowcaseAssemblies, deleteShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { getOrderTypeClasses } from '@/pages/utils/orderTypeColorUtils';
+import { formatOrderCode } from '@/pages/utils/orderCode';
 
 const AssemblyListPage = () => {
     const [assemblies, setAssemblies] = useState<any[]>([]);
@@ -58,7 +59,8 @@ const AssemblyListPage = () => {
                 id: order.id,
                 origin: 'order' as const,
                 title: order.customerData.fullName,
-                subtitle: `PEDIDO #${order.id?.slice(-8).toUpperCase()}`,
+                subtitle: `PEDIDO #${formatOrderCode(order)}`,
+                orderIndex: order.orderIndex,
                 date: order.shipping?.scheduling?.date || "",
                 timeInfo: order.shipping?.scheduling ? {
                     type: order.shipping.scheduling?.type,
@@ -87,9 +89,22 @@ const AssemblyListPage = () => {
         return () => unsubscribe();
     }, [settingsLoaded, settings]);
 
+    useEffect(() => {
+        const channel = supabase
+            .channel(`showroom-assemblies-list-${Date.now()}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, () => fetchAllAssemblies())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     const [orderTasks, setOrderTasks] = useState<any[]>([]);
+    const orderTasksRef = React.useRef<any[]>([]);
 
     const updateUnifiedList = (newOrderTasks: any[]) => {
+        orderTasksRef.current = newOrderTasks;
         setOrderTasks(newOrderTasks);
         fetchAllAssemblies(newOrderTasks);
     };
@@ -115,7 +130,7 @@ const AssemblyListPage = () => {
             yesterday.setHours(0, 0, 0, 0);
             const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-            const unified = [...(currentOrderTasks || orderTasks), ...showcaseTasks]
+            const unified = [...(currentOrderTasks || orderTasksRef.current), ...showcaseTasks]
                 .filter(item => !item.date || item.date >= yesterdayStr)
                 .sort((a, b) => {
                     if (a.date !== b.date) return a.date.localeCompare(b.date);

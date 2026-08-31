@@ -183,17 +183,17 @@ const OrderHistoryRow = ({
                         <div className="flex flex-col gap-1 items-start">
                             <div className="flex items-center gap-2">
                                 <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                                    {order.id?.slice(-8)}
+                                    {formatOrderCode(order)}
                                 </span>
                             </div>
-                            {order.orderType === 'assistance' && order.linkedOrderId && (
+                            {order.linkedOrderId && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
                                     className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md mt-0.5 w-fit"
                                     title="Filtrar por pedido vinculado"
                                 >
                                     <i className="bi bi-link-45deg"></i>
-                                    Vinc: {order.linkedOrderId.slice(-8)}
+                                    Vinc: #{formatOrderCode({ id: order.linkedOrderId })}
                                 </button>
                             )}
                         </div>
@@ -358,7 +358,7 @@ const OrderHistoryRow = ({
                             
                             <div className="flex flex-wrap items-center gap-1">
                                 {/* 1. Stock Check Badge — Selo de Etiquetado (Clicável: Bg Verde + Ícone Branco + Check no canto quando true) */}
-                                {!showTrash && order.orderType !== 'assistance' && (
+                                {!showTrash && order.orderType !== 'assistance' && order.orderType !== 'return' && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             type="button"
@@ -381,7 +381,7 @@ const OrderHistoryRow = ({
                                 )}
 
                                 {/* 2. Bling Status Badge — Selo do Bling (Clicável: Bg Verde + Texto Branco + Check no canto quando true) */}
-                                {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                                {order.orderType !== 'assistance' && order.orderType !== 'return' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             type="button"
@@ -405,7 +405,7 @@ const OrderHistoryRow = ({
 
                                 {/* 3. Demais Badges Informativos */}
                                 {/* Tráfego Pago Badge (Fundo Laranja Sólido + Ícone Branco) */}
-                                {isPaidTraffic && (
+                                {isPaidTraffic && order.orderType !== 'return' && (
                                     <div 
                                         className="flex items-center justify-center h-6 w-6 rounded-md bg-orange-500 text-white border border-orange-600 shadow-2xs"
                                         title="Gerado por Tráfego Pago"

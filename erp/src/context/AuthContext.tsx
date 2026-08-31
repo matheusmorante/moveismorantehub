@@ -8,6 +8,7 @@ export interface Profile {
     id: string;
     email: string;
     role: UserRole;
+    roles?: UserRole[];
     full_name?: string;
     avatar_url?: string;
     position?: string;
@@ -75,10 +76,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .maybeSingle();
 
                 data = upsertedData || newProfile;
-            } else if (isMasterEmail && data.role !== 'administrator') {
+            } else if (isMasterEmail && (data.role !== 'administrator' || !data.roles?.includes('administrator'))) {
                 // Se a conta master estiver como pending ou vendedora por engano no DB, promove para admin
                 console.log('[Auth] Promovendo conta Master para administrator...');
                 data.role = 'administrator';
+                data.roles = [...new Set([...(data.roles || []), 'administrator'])];
                 await supabase.from('profiles').update({ role: 'administrator' }).eq('id', user.id);
             }
 
@@ -262,9 +264,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         isAuthenticated: !!user,
         loading,
-        isAdmin: profile?.role === 'administrator',
-        isManager: profile?.role === 'manager' || profile?.role === 'administrator',
-        isPending: !loading && !!user && (!profile?.role || profile?.role === 'pending'),
+        isAdmin: profile?.roles?.some((role) => role === 'administrator' || role === 'manager') || profile?.role === 'administrator' || profile?.role === 'manager',
+        isManager: profile?.roles?.some((role) => role === 'manager' || role === 'administrator') || profile?.role === 'manager' || profile?.role === 'administrator',
+        isPending: !loading && !!user && !(profile?.roles?.length || (profile?.role && profile.role !== 'pending')),
         logout
     }), [user, profile, loading]);
 

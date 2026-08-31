@@ -4,6 +4,7 @@ import { dateNow } from "../../../utils/formatters";
 import { buttons, actionsMap } from "./orderActionsConfig";
 import { validateOrder } from "../../../utils/validations";
 import { toast } from "react-toastify";
+import { canGenerateReturn } from "../../../utils/returnPolicy";
 
 
 const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'form' | 'list' }) => {
@@ -53,6 +54,7 @@ const OrderActions = ({ order, context = 'list' }: { order: Order, context?: 'fo
   const visibleButtons = buttons.filter(btn => {
     // Basic order type restriction
     if (btn.orderTypes && !btn.orderTypes.includes(orderType)) return false;
+    if (btn.key === 'generateReturn' && !canGenerateReturn(order)) return false;
 
     // Form-specific restrictions
     if (context === 'form') {

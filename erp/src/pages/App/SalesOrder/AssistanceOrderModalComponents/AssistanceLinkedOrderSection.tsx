@@ -1,6 +1,7 @@
 import React from "react";
 import Order, { AssistanceItem } from "../../../types/order.type";
 import { formatToBRDate } from "../../../utils/formatters";
+import { formatOrderCode } from "../../../utils/orderCode";
 
 interface AssistanceLinkedOrderSectionProps {
     isLinked: boolean;
@@ -77,7 +78,7 @@ const AssistanceLinkedOrderSection = ({
                             </div>
                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Pedido Selecionado</p>
                             <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">
-                                #{currentLinkedOrder?.id?.slice(-8).toUpperCase()} — {currentLinkedOrder?.customerData.fullName}
+                                #{formatOrderCode(currentLinkedOrder)} — {currentLinkedOrder?.customerData.fullName}
                             </h4>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                                 Data da Venda: {formatToBRDate(currentLinkedOrder?.date)}

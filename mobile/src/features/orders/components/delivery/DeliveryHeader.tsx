@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react-native';
 interface Props {
   title: string;
   orderId: string;
+  orderCode?: string;
   isDarkMode: boolean;
   isInProgress: boolean;
   onBack: () => void;
@@ -15,6 +16,7 @@ interface Props {
 export const DeliveryHeader: React.FC<Props> = ({
   title,
   orderId,
+  orderCode,
   isDarkMode,
   isInProgress,
   onBack,
@@ -29,7 +31,7 @@ export const DeliveryHeader: React.FC<Props> = ({
         </TouchableOpacity>
         <View style={{ flexShrink: 1 }}>
           <Text numberOfLines={1} style={[styles.title, isDarkMode && styles.textLight]}>{title}</Text>
-          <Text style={styles.subtitle}>Pedido #{String(orderId).slice(-6).toUpperCase()}</Text>
+          <Text style={styles.subtitle}>Pedido #{orderCode || '—'}</Text>
         </View>
       </View>
 

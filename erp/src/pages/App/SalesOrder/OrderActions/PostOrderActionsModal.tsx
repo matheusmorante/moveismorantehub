@@ -1,6 +1,8 @@
 import React from 'react';
 import Order from "../../../types/order.type";
 import { buttons } from "./orderActionsConfig";
+import { updateOrder } from "../../../utils/orderHistoryService";
+import { POST_SALE_ACTION_KEYS } from "../../../utils/postSaleActions";
 
 interface PostOrderActionsModalProps {
     order: Order;
@@ -8,13 +10,9 @@ interface PostOrderActionsModalProps {
 }
 
 const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, onClose }) => {
-    // Filter the buttons exactly like OrderHistoryCard does: buttons that match the order type.
-    // REMOVED 'sendCustomerReviews' from post-sale modal as per user request (only for fulfilled orders)
-    // REMOVED return/devolution buttons from post-sale modal (generateReturn, undoReturn, printReturnOS)
-    const excludedKeys = ['sendCustomerReviews', 'generateReturn', 'undoReturn', 'printReturnOS'];
     const availableActions = buttons.filter(btn => 
-        btn.orderTypes && (btn.orderTypes.includes(order.orderType || 'sale') || btn.orderTypes.includes('all')) &&
-        !excludedKeys.includes(btn.key)
+        POST_SALE_ACTION_KEYS.has(btn.key) &&
+        (btn.key !== 'sendCustomerReviews' || (order.orderType === 'sale' && order.status === 'fulfilled' && !order.reviewRequested))
     );
 
     const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(order.isButtonsClicked || {});
@@ -65,11 +63,17 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                             return (
                                 <button
                                     key={btn.key}
-                                    onClick={() => {
+                                    onClick={async () => {
                                         setClickedButtons(prev => ({ ...prev, [btn.key]: true }));
-                                        import('./orderActionsConfig').then((module) => {
-                                            module.actionsMap[btn.action](order);
-                                        });
+                                        const module = await import('./orderActionsConfig');
+                                        module.actionsMap[btn.action](order);
+                                        if (order.id) {
+                                            const clicked = { ...(order.isButtonsClicked || {}), [btn.key]: true };
+                                            await updateOrder(order.id, {
+                                                isButtonsClicked: clicked,
+                                                ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {})
+                                            }, order);
+                                        }
                                     }}
                                     className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1 hover:shadow-lg relative min-h-[100px] ${baseColor} ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                                 >

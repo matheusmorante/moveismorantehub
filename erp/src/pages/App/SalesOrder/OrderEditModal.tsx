@@ -10,6 +10,7 @@ import OrderStepper from "./OrderStepper";
 import SellerSearchModal from "./SellerSearchModal";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
+import ItemMovementChangeConfirmModal, { getInventorySensitiveItemChanges } from "./ItemMovementChangeConfirmModal";
 
 interface OrderEditModalProps {
     order?: Order;
@@ -47,6 +48,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
     const [isCustomerRegistrationOpen, setIsCustomerRegistrationOpen] = useState(false);
     const [pendingCustomerData, setPendingCustomerData] = useState<any>(null);
     const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+    const [pendingUpdate, setPendingUpdate] = useState<Order | null>(null);
 
     const applyOrderData = useCallback((orderData: any) => {
         const migrated = migrateOrderHandlings(orderData);
@@ -189,19 +191,8 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         }
     }, [effectiveOrder, form.actions, initialStep]);
 
-    const handleUpdate = useCallback(async (e?: React.MouseEvent) => {
-        e?.preventDefault();
-
+    const persistUpdate = useCallback(async (updatedOrder: Order) => {
         if (!effectiveOrder) return false;
-        const updatedOrder = { ...form.state.currentOrder, id: effectiveOrder.id };
-
-        const validationErrors = form.actions.validateOrder(updatedOrder);
-        if (Object.keys(validationErrors).length > 0) {
-            form.actions.setErrors(validationErrors);
-            toast.error("Existem campos obrigatórios não preenchidos.");
-            return false;
-        }
-
         try {
             await updateOrder(effectiveOrder.id!, updatedOrder, effectiveOrder);
             toast.success("Edição salva com sucesso!");
@@ -214,6 +205,24 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
             return false;
         }
     }, [form.actions, form.state.currentOrder, effectiveOrder, onSaveSuccess, onClose]);
+
+    const handleUpdate = useCallback(async (e?: React.MouseEvent) => {
+        e?.preventDefault();
+        if (!effectiveOrder) return false;
+        const updatedOrder = { ...form.state.currentOrder, id: effectiveOrder.id } as Order;
+        const validationErrors = form.actions.validateOrder(updatedOrder);
+        if (Object.keys(validationErrors).length > 0) {
+            form.actions.setErrors(validationErrors);
+            toast.error("Existem campos obrigatórios não preenchidos.");
+            return false;
+        }
+        const needsConfirmation = ['scheduled', 'fulfilled'].includes(effectiveOrder.status || '') && getInventorySensitiveItemChanges(effectiveOrder, updatedOrder).length > 0;
+        if (needsConfirmation) {
+            setPendingUpdate(updatedOrder);
+            return false;
+        }
+        return persistUpdate(updatedOrder);
+    }, [effectiveOrder, form.actions, form.state.currentOrder, persistUpdate]);
 
     const handleFinalize = useCallback(async (e?: React.MouseEvent) => {
         const result = await form.actions.handleCompleteOrder(e);
@@ -366,6 +375,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                     <OrderStatusTimeline orderId={effectiveOrder.id!} />
                 )}
             </div>
+            {pendingUpdate && <ItemMovementChangeConfirmModal changes={getInventorySensitiveItemChanges(effectiveOrder!, pendingUpdate)} onCancel={() => setPendingUpdate(null)} onConfirm={() => { const orderToSave = pendingUpdate; setPendingUpdate(null); void persistUpdate(orderToSave); }} />}
         </div>
     );
 

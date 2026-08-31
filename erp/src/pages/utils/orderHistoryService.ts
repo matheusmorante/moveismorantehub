@@ -4,6 +4,10 @@ import { capitalizeOrder } from "./formatters";
 import { saveInventoryMove, getAvailableLots, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { formatOrderCode, getNextOrderIndex, getOrderIndex } from './orderCode';
+import { processReturnInventoryEntries } from './returnInventoryService';
+import { canMaintainSaleStock, getChangedSaleItems, hasCatalogSaleItem, reverseSaleItemMoves } from './saleItemInventorySync';
+import { splitNoticeTags } from './noticeTags';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
 import {
     getOrderAssemblyKinds,
@@ -98,7 +102,10 @@ export const fetchOrdersPage = async (
 
     const orders = (data || [])
         .filter(isValidOrderRow)
-        .map((row: any) => capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order));
+        .map((row: any) => {
+            const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber ?? (Number.isInteger(Number(row.id)) ? Number(row.id) : undefined);
+            return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order);
+        });
 
     return { orders, total: count || 0 };
 };
@@ -150,7 +157,8 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 console.log('[OrdersSync] Data received, count:', data.length);
                 currentOrders = data.filter(isValidOrderRow).map((row: any) => {
                     try {
-                        const rawData = { ...(row.order_data || {}), id: String(row.id) } as Order;
+                        const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber ?? (Number.isInteger(Number(row.id)) ? Number(row.id) : undefined);
+                        const rawData = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
                         // Inject marketing origin from people registry for legacy orders
                         const cInfo = rawData.customerData;
                         
@@ -171,9 +179,21 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                         if (rawData.marketingOrigin === 'Direto na Loja') rawData.marketingOrigin = 'organic';
                         if (rawData.marketingOrigin === 'Tráfego Pago') rawData.marketingOrigin = 'paid';
                         
+                        const resolvedIndex = getOrderIndex({ ...rawData, id: row.id });
+                        if (resolvedIndex && !rawData.orderIndex) {
+                            rawData.orderIndex = resolvedIndex;
+                            rawData.orderNumber = resolvedIndex;
+                        }
+
                         return capitalizeOrder(rawData);
                     } catch (_e) {
-                        return { ...(row.order_data || {}), id: String(row.id) } as Order;
+                        const raw = { ...(row.order_data || {}), id: String(row.id) } as Order;
+                        const idx = getOrderIndex(raw);
+                        if (idx && !raw.orderIndex) {
+                            raw.orderIndex = idx;
+                            raw.orderNumber = idx;
+                        }
+                        return raw;
                     }
                 });
                 callback(currentOrders);
@@ -201,6 +221,11 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 if (!isValidOrderRow(newRow)) return;
                 try {
                     const rawData = { ...(newRow.order_data || {}), id: String(newRow.id) } as Order;
+                    const resolvedIndex = getOrderIndex({ ...rawData, id: newRow.id });
+                    if (resolvedIndex && !rawData.orderIndex) {
+                        rawData.orderIndex = resolvedIndex;
+                        rawData.orderNumber = resolvedIndex;
+                    }
                     const formatted = capitalizeOrder(rawData);
                     currentOrders = [formatted, ...currentOrders];
                     callback(currentOrders);
@@ -217,6 +242,11 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 }
                 try {
                     const rawData = { ...(updatedRow.order_data || {}), id: String(updatedRow.id) } as Order;
+                    const resolvedIndex = getOrderIndex({ ...rawData, id: updatedRow.id });
+                    if (resolvedIndex && !rawData.orderIndex) {
+                        rawData.orderIndex = resolvedIndex;
+                        rawData.orderNumber = resolvedIndex;
+                    }
                     const formatted = capitalizeOrder(rawData);
                     currentOrders = currentOrders.map(o => o.id === formatted.id ? formatted : o);
                     callback(currentOrders);
@@ -253,6 +283,17 @@ export const saveOrder = async (order: Order): Promise<string> => {
         delete orderToSave.id;
         orderToSave.deleted = false;
         orderToSave.deletedAt = null;
+
+        // Garantir atribuição de código sequencial único de 6 dígitos
+        if (!orderToSave.orderIndex) {
+            try {
+                const nextIndex = await getNextOrderIndex();
+                orderToSave.orderIndex = nextIndex;
+                orderToSave.orderNumber = nextIndex;
+            } catch (idxErr) {
+                console.error("[OrderCreate] Erro ao obter próximo código sequencial:", idxErr);
+            }
+        }
 
         // Se o cliente não tem ID, mas tem nome e não é Consumidor Final, vamos cadastrá-lo no CRM.
         if (orderToSave.customerData && !orderToSave.customerData.id && orderToSave.customerData.fullName && orderToSave.customerData.fullName.toLowerCase().trim() !== 'consumidor final') {
@@ -353,21 +394,20 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
     // Don't process assistance orders or orders already processed (unless forced)
     if (order.orderType !== 'sale' || (order.stockProcessed && !force)) return orderToUpdate;
 
-    // Se houver algum item temporário no pedido, impede o faturamento automático ou manual de estoque
-    const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '');
-    if (hasTemporaryItems) {
-        return orderToUpdate;
-    }
-
     // Determine if stock should be subtracted based on new automation settings or force flag
     const shouldSubtractStock = force || (order.status && inventoryAutomation?.autoWithdrawalOnStatus?.includes(order.status));
 
     if (shouldSubtractStock && order.items) {
         let itemsProcessed = 0;
 
+        const orderCode = formatOrderCode(order);
+        const customerName = order.customerData?.fullName || (order as any).customerName || '';
+        const baseMoveLabel = customerName ? `Saída - Pedido #${orderCode} - ${customerName}` : `Saída - Pedido #${orderCode}`;
+        const baseMoveObs = `${customerName ? `Pedido de venda #${orderCode} - ${customerName}` : `Pedido de venda #${orderCode}`}${(order as any).inventoryMovementNote ? ` | ${(order as any).inventoryMovementNote}` : ''}`;
+
         // All checks passed, proceed with withdrawal
         for (const item of order.items) {
-            if (item.productId && item.productId.trim() !== '') {
+            if (item.productId && item.productId.trim() !== '' && !item.isTemporaryProduct) {
                 itemsProcessed++;
                 const { data: p } = await supabase.from('products').select('*').eq('id', item.productId).single();
                 if (!p) continue;
@@ -387,10 +427,11 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                             type: 'withdrawal',
                             quantity: comboItem.quantity * item.quantity,
                             date: new Date().toISOString(),
-                            label: `Pedido #${orderId}`,
+                            label: baseMoveLabel,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Parte do combo ${item.description}`
+                            observation: `${baseMoveObs} | Parte do combo ${item.description}`,
+                            status: 'effective'
                         }, currentPartStock);
                     }
                 }
@@ -408,11 +449,12 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                         type: 'withdrawal',
                         quantity: item.quantity,
                         date: new Date().toISOString(),
-                        label: `Pedido #${orderId}`,
+                        label: baseMoveLabel,
                         relatedEntityId: orderId,
                         relatedEntityType: 'sales_order',
-                        observation: `FIFO Fallback`,
-                        unitPrice: item.unitPrice
+                        observation: baseMoveObs,
+                        unitPrice: item.unitPrice,
+                        status: 'effective'
                     }, currentStock);
                 } else {
                     for (const lot of availableLots) {
@@ -426,13 +468,14 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                             type: 'withdrawal',
                             quantity: takeFromLot,
                             date: new Date().toISOString(),
-                            label: `Pedido #${orderId}`,
+                            label: baseMoveLabel,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Lote de ${new Date(lot.date).toLocaleDateString()}`,
+                            observation: `${baseMoveObs} | Lote de ${new Date(lot.date).toLocaleDateString()}`,
                             unitCost: lot.unitCost, // USE THE LOT COST!
                             parentMoveId: lot.id,   // LINK TO LOT
-                            unitPrice: item.unitPrice
+                            unitPrice: item.unitPrice,
+                            status: 'effective'
                         }, currentStock);
 
                         remainingToWithdraw -= takeFromLot;
@@ -447,11 +490,12 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                             type: 'withdrawal',
                             quantity: remainingToWithdraw,
                             date: new Date().toISOString(),
-                            label: `Pedido #${orderId}`,
+                            label: baseMoveLabel,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
-                            observation: `Quantidade acima dos lotes disponíveis`,
-                            unitPrice: item.unitPrice
+                            observation: `${baseMoveObs} | Quantidade acima dos lotes disponíveis`,
+                            unitPrice: item.unitPrice,
+                            status: 'effective'
                         }, currentStock);
                     }
                 }
@@ -514,6 +558,17 @@ export const updateOrder = async (
         // Ensure ID is removed from the JSONB data to avoid redundancy and potential issues
         if (merged.id) delete merged.id;
 
+        const previousStatus = previousOrderData?.status;
+        if (orderToUpdate.status === 'draft' && previousStatus && previousStatus !== 'draft') {
+            throw new Error('Um pedido já cadastrado não pode voltar para rascunho.');
+        }
+        if (previousStatus === 'cancelled' && orderToUpdate.status && orderToUpdate.status !== 'cancelled') {
+            throw new Error('Um pedido cancelado não pode ter o status alterado. Duplique o pedido para criar uma nova venda.');
+        }
+        if (previousOrderData?.orderType === 'return' && previousStatus === 'fulfilled' && orderToUpdate.status === 'cancelled') {
+            throw new Error("Uma devolução atendida não pode ser cancelada ou desfeita.");
+        }
+
         // Se o cliente não tem ID, mas tem nome e não é Consumidor Final, vamos cadastrá-lo no CRM.
         if (merged.customerData && !merged.customerData.id && merged.customerData.fullName && merged.customerData.fullName.toLowerCase().trim() !== 'consumidor final') {
             try {
@@ -552,8 +607,32 @@ export const updateOrder = async (
 
         if (error) throw error;
 
+        const changedItems = previousOrderData ? getChangedSaleItems(previousOrderData, merged) : [];
+        const shouldSynchronizeItems = previousOrderData && previousOrderData.stockProcessed && changedItems.length > 0;
+        if (shouldSynchronizeItems && merged.status !== 'cancelled') {
+            const orderCode = formatOrderCode(merged);
+            if (canMaintainSaleStock(merged)) {
+                for (const change of changedItems) {
+                    if (change.previous) {
+                        await reverseSaleItemMoves(id, change.previous, `Item alterado no pedido de venda #${orderCode}.`);
+                    }
+                    if (change.current?.productId && !change.current.isTemporaryProduct) {
+                        const updated = await handleStockAndBusinessRules(id, {
+                            ...merged,
+                            items: [change.current],
+                            stockProcessed: false,
+                            inventoryMovementNote: `Item alterado no pedido de venda #${orderCode}.`,
+                        } as any, true);
+                        merged.stockProcessed = Boolean(updated.stockProcessed);
+                    }
+                }
+                merged.stockProcessed = hasCatalogSaleItem(merged);
+                await supabase.from(TABLE_NAME).update({ order_data: { ...merged, stockProcessed: merged.stockProcessed }, updated_at: new Date().toISOString() }).eq('id', id);
+            }
+        }
+
         // Disparar notificações de atualização / agendamento
-        const oldStatus = previousOrderData?.status;
+        const oldStatus = previousStatus;
         const newStatus = orderToUpdate.status || merged.status || oldStatus;
         const customerName = merged.customerData?.fullName || 'Cliente';
         const shortId = String(id).slice(-6).toUpperCase();
@@ -622,19 +701,66 @@ export const updateOrder = async (
                 console.error("[OrderUpdate] Erro ao gravar histórico de status:", historyErr);
             }
 
+            if (newStatus === 'cancelled') {
+                try {
+                    await dispatchAppNotification({
+                        orderId: String(id),
+                        title: `Venda cancelada - ${customerName}`,
+                        message: `O pedido #${formatOrderCode(merged)} foi cancelado e a saída de estoque será estornada.`,
+                        type: 'order_edited',
+                        scheduleText: schedText,
+                        orderData: merged,
+                    });
+                } catch (notificationErr) {
+                    console.error('[OrderUpdate] Erro ao notificar cancelamento:', notificationErr);
+                }
+            }
+
             const { inventoryAutomation } = getSettings();
             const isAutoWithdrawalStatus = inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus) || ['scheduled', 'fulfilled'].includes(newStatus);
 
-            // Auto-reversal: order is being cancelled (always wipe out linked moves and set stockProcessed: false)
-            if (newStatus === 'cancelled') {
+            // Uma devolução só retorna o estoque quando é efetivamente atendida.
+            if (merged.orderType === 'return' && newStatus === 'fulfilled' && !merged.returnStockProcessed) {
                 try {
-                    await cancelInventoryMovesByRelatedEntity(id, 'sales_order');
+                    const processed = await processReturnInventoryEntries(id, merged);
+                    if (processed) {
+                        merged.returnStockProcessed = true;
+                        await supabase
+                            .from(TABLE_NAME)
+                            .update({
+                                order_data: { ...merged, status: newStatus, returnStockProcessed: true },
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', id);
+                    }
+                } catch (returnStockErr) {
+                    console.error("[OrderUpdate] Erro ao lançar entrada da devolução:", returnStockErr);
+                    throw returnStockErr;
+                }
+            }
+            // Auto-reversal: order is being cancelled (always wipe out linked moves and set stockProcessed: false)
+            else if (newStatus === 'cancelled') {
+                try {
+                    const orderCode = formatOrderCode(merged);
+                    const customerName = merged.customerData?.fullName || (merged as any).customerName || '';
+                    const cancelReason = customerName
+                        ? `Cancelamento da venda #${orderCode} - ${customerName}`
+                        : `Cancelamento da venda #${orderCode}`;
+                    await cancelInventoryMovesByRelatedEntity(id, 'sales_order', cancelReason);
                     merged.stockProcessed = false;
+                    if (merged.orderType === 'return') {
+                        merged.returnStockProcessed = false;
+                    }
                     
                     await supabase
                         .from(TABLE_NAME)
                         .update({ 
-                            order_data: { ...merged, status: newStatus, stockProcessed: false }, 
+                            order_data: {
+                                ...merged,
+                                status: newStatus,
+                                stockProcessed: false,
+                                ...(merged.orderType === 'return' ? { returnStockProcessed: false } : {})
+                            },
                             updated_at: new Date().toISOString() 
                         })
                         .eq('id', id);
@@ -799,6 +925,17 @@ export const undoReturn = async (order: Order): Promise<void> => {
             returnOrder = { ...returnRow.order_data, id: String(returnRow.id) } as Order;
         }
 
+        if (returnOrder.status === 'fulfilled' || returnOrder.returnStockProcessed) {
+            throw new Error("Uma devolução atendida não pode ser desfeita. Gere um novo pedido de venda para corrigir a operação.");
+        }
+
+        // Devoluções do fluxo atual não alteram os itens nem o status da venda original.
+        // Ao desfazê-las, basta remover a devolução (e estornar sua entrada, se já atendida).
+        if (returnOrder.returnStockProcessed !== undefined) {
+            await permanentDeleteOrder(returnOrder.id!);
+            return;
+        }
+
         // 1. Merge items back
         const restoredItems = [...originalOrder.items];
         returnOrder.items.forEach(retItem => {
@@ -883,7 +1020,7 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
         data?.forEach((row: any) => {
             const observation = row.order_data?.observation;
             if (observation) {
-                const tags = observation.split(';').map((t: string) => t.trim()).filter((t: string) => t !== "");
+                const tags = splitNoticeTags(observation);
                 tags.forEach((tag: string) => {
                     frequency[tag] = (frequency[tag] || 0) + 1;
                 });

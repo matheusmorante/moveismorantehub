@@ -2,6 +2,7 @@ import React, { useState, KeyboardEvent, FocusEvent, useEffect, useMemo } from '
 import { getNoticeFrequency } from '../pages/utils/orderHistoryService';
 import DropdownPortal from './shared/DropdownPortal';
 import { useRef } from 'react';
+import { joinNoticeTags, splitNoticeTags } from '../pages/utils/noticeTags';
 
 interface NoticeInputProps {
     value: string;
@@ -19,8 +20,7 @@ const NoticeInput = ({ value, onChange, placeholder = "Adicionar aviso...", clas
     const [editingValue, setEditingValue] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Split string into array of tags
-    const tags = useMemo(() => value ? value.split(';').map(t => t.trim()).filter(t => t !== "") : [], [value]);
+    const tags = useMemo(() => splitNoticeTags(value), [value]);
 
     useEffect(() => {
         const loadFrequencies = async () => {
@@ -42,7 +42,7 @@ const NoticeInput = ({ value, onChange, placeholder = "Adicionar aviso...", clas
         const trimmedTag = tag.trim();
         if (trimmedTag && !tags.includes(trimmedTag)) {
             const newTags = [...tags, trimmedTag];
-            onChange(newTags.join('; '));
+            onChange(joinNoticeTags(newTags));
         }
         setInputValue("");
         setShowSuggestions(false);
@@ -50,7 +50,7 @@ const NoticeInput = ({ value, onChange, placeholder = "Adicionar aviso...", clas
 
     const removeTag = (indexToRemove: number) => {
         const newTags = tags.filter((_, index) => index !== indexToRemove);
-        onChange(newTags.join('; '));
+        onChange(joinNoticeTags(newTags));
     };
 
     const startEditing = (index: number, text: string) => {
@@ -64,7 +64,7 @@ const NoticeInput = ({ value, onChange, placeholder = "Adicionar aviso...", clas
             if (trimmed) {
                 const newTags = [...tags];
                 newTags[editingIndex] = trimmed;
-                onChange(newTags.join('; '));
+                onChange(joinNoticeTags(newTags));
             } else {
                 removeTag(editingIndex);
             }
@@ -80,9 +80,6 @@ const NoticeInput = ({ value, onChange, placeholder = "Adicionar aviso...", clas
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
-            e.preventDefault();
-            if (inputValue) addTag(inputValue);
-        } else if (e.key === ',' || e.key === ';') {
             e.preventDefault();
             if (inputValue) addTag(inputValue);
         } else if (e.key === 'Backspace' && !inputValue && tags.length > 0) {

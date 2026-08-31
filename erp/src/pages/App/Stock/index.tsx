@@ -112,42 +112,53 @@ const StockPage = () => {
         <div className="animate-fade-in space-y-2">
             {/* Main Content Area */}
             <div className="flex flex-col min-w-0">
-                {/* Header com ícone compacto, título e botão Novo */}
-                <div className="flex flex-row justify-between items-center mb-1.5 gap-2">
-                    <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
-                            <i className="bi bi-journal-check text-xs sm:text-sm"></i>
+                {/* Header com ícone compacto, título e botão Novo (oculto em compras pois PurchasesIndex já tem header próprio) */}
+                {activeTab !== 'purchases' && (
+                    <div className="flex flex-row justify-between items-center mb-1.5 gap-2">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                <i className={`bi ${activeTab === 'audit' ? 'bi-journal-check' : 'bi-arrow-left-right'} text-xs sm:text-sm`}></i>
+                            </div>
+                            <h1 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
+                                {activeTab === 'audit' ? 'Inventários' : 'Movimentações'}
+                            </h1>
                         </div>
-                        <h1 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                            Inventários
-                        </h1>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                        <button
-                            onClick={handleOpenNewAudit}
-                            className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-                            title="Abrir novo inventário de estoque"
-                        >
-                            <i className="bi bi-plus-lg text-xs" />
-                            <span>Novo</span>
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {activeTab === 'audit' ? (
+                                <button
+                                    onClick={handleOpenNewAudit}
+                                    className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                                    title="Iniciar contagem"
+                                >
+                                    <i className="bi bi-plus-lg text-xs" />
+                                    <span>Iniciar contagem</span>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => setIsLaunchModalOpen(true)}
+                                    className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                                    title="Lançar Movimentação"
+                                >
+                                    <i className="bi bi-plus-lg text-xs" />
+                                    <span>Lançar Movimentação</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all">
-                    {activeTab === 'history' ? (
-                        <InventoryMovesHistory 
-                            selectedProduct={selectedProduct}
-                            selectedVariation={selectedVariation}
-                            onSelectProduct={handleSelectProduct}
-                        />
-                    ) : activeTab === 'audit' ? (
-                        <InventoryAudit onCopy={handleCopyAudit} onOpen={handleOpenAuditSession} />
-                    ) : (
-                        <PurchasesIndex />
-                    )}
-                </div>
+                {activeTab === 'history' ? (
+                    <InventoryMovesHistory 
+                        selectedProduct={selectedProduct}
+                        selectedVariation={selectedVariation}
+                        onSelectProduct={handleSelectProduct}
+                    />
+                ) : activeTab === 'audit' ? (
+                    <InventoryAudit onCopy={handleCopyAudit} onOpen={handleOpenAuditSession} />
+                ) : (
+                    <PurchasesIndex />
+                )}
             </div>
 
             {/* Modal de Novo Inventário */}

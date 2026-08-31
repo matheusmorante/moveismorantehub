@@ -15,6 +15,7 @@ export interface Filters {
     searchId?: string;
     isBudgetView?: boolean;
     isAssistanceView?: boolean;
+    isReturnView?: boolean;
 }
 
 interface OrderFiltersProps {
@@ -118,7 +119,7 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
                 {filters.searchId && (
                     <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Filtrando por ID:</span>
+                            <span className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Filtrando por Código:</span>
                             <span className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono">{filters.searchId.slice(-8)}</span>
                         </div>
                         <button

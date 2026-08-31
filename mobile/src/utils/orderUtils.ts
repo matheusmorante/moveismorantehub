@@ -1,5 +1,23 @@
 // Helpers de formatação e utilitários de pedidos
 
+export const formatOrderCode = (order: any): string => {
+  if (!order) return '—';
+  const data = order?.order_data || order || {};
+  const rawValue = 
+    data.orderIndex ?? 
+    order.orderIndex ?? 
+    order.order_index ?? 
+    data.order_index ?? 
+    order.orderNumber ?? 
+    data.orderNumber ?? 
+    order.id;
+
+  const value = Number(rawValue);
+  return Number.isInteger(value) && value > 0 && value <= 999999
+    ? String(value).padStart(6, '0')
+    : '—';
+};
+
 export const getOrderTotalValue = (item: any): number => {
   if (!item) return 0;
   const orderData = item.order_data || {};

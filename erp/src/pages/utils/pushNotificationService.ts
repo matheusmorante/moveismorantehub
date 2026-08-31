@@ -62,20 +62,41 @@ export async function dispatchAppNotification(payload: AppNotificationPayload): 
             },
         }));
 
-        const expoResponse = await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Accept-encoding': 'gzip, deflate',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(pushMessages),
-        });
+        const pushEndpoints = [
+            typeof window !== 'undefined' && window.location.origin.includes('localhost')
+                ? 'http://localhost:3001/api/push-notification'
+                : '/api/push-notification',
+            'https://morantehub.vercel.app/api/push-notification',
+            'https://exp.host/--/api/v2/push/send'
+        ];
 
-        const expoData = await expoResponse.json();
-        console.log('[PushNotificationService] Expo Push enviado com sucesso:', expoData);
+        let sent = false;
+        for (const endpoint of pushEndpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(pushMessages),
+                });
+                if (response.ok) {
+                    const resData = await response.json();
+                    console.log(`[PushNotificationService] Push enviado com sucesso via ${endpoint}:`, resData);
+                    sent = true;
+                    break;
+                }
+            } catch (networkErr) {
+                // Tenta o próximo endpoint
+            }
+        }
+
+        if (!sent) {
+            console.log('[PushNotificationService] Notificação gravada em app_notifications (disparo direto em background).');
+        }
     } catch (err) {
-        console.error('[PushNotificationService] Erro ao despachar notificação push:', err);
+        console.warn('[PushNotificationService] Notificação push não pôde ser entregue neste ambiente:', err);
     }
 }
 

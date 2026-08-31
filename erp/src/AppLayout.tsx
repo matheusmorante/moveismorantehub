@@ -161,6 +161,10 @@ export default function AppLayout() {
                       <i className="bi bi-person-circle text-lg"></i>
                       Meu Perfil
                     </Link>
+                    <Link to="/system-docs" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
+                      <i className="bi bi-book-half text-lg"></i>
+                      Documentações
+                    </Link>
 
                     {isAdmin && (
                       <>

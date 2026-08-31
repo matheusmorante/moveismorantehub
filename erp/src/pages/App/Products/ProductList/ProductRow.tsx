@@ -489,11 +489,14 @@ const ProductRow = ({
     };
 
     const isChildVar = product.isVariation || !!product.parentId;
+    const isDeactivated = product.active === false || product.status === 'hidden';
 
     return (
         <tr
             className={`transition-colors group cursor-pointer ${
-                product.isParent 
+                isDeactivated
+                    ? 'bg-slate-100/90 dark:bg-slate-800/70'
+                    : product.isParent 
                     ? 'bg-blue-50/30 dark:bg-blue-900/10' 
                     : isChildVar 
                     ? 'bg-slate-50/40 dark:bg-slate-900/40' 

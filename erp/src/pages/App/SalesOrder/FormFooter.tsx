@@ -28,7 +28,8 @@ const FormFooter = ({
     buttonLabel, 
     colorScheme = 'emerald' 
 }: FormFooterProps) => {
-    const isLastStep = currentStep === 6;
+    const isBudget = currentOrder.orderType === 'budget';
+    const isLastStep = isBudget ? currentStep === 4 : currentStep === 5;
 
     return (
         <div className="border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md py-4 px-6 transition-all duration-300 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none shrink-0 z-50">

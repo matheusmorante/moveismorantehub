@@ -5,6 +5,7 @@ import { stringifyFullAddressWithObservation, formatCurrency, formatDate } from 
 import { getOrderTypeClasses, resolveOrderColor, getPrimaryHandlingInfo } from "../../../utils/orderTypeColorUtils";
 import { calcItemTotalValue } from "../../../utils/calculations";
 import { updateOrder } from "../../../utils/orderHistoryService";
+import { splitNoticeTags } from "../../../utils/noticeTags";
 import { toast } from "react-toastify";
 
 import { OrderTypeFilter } from "../useDeliverySchedule";
@@ -127,7 +128,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
     return (
         <div
             onClick={() => onOrderClick(order)}
-            className={`group border rounded-2xl shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-0.5 hover:shadow-md ${order.status === 'cancelled' ? 'opacity-50 grayscale hover:grayscale-0' : ''}`}
+            className={`group border rounded-2xl shadow-sm overflow-hidden transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:-translate-y-0.5 hover:shadow-md`}
         >
             {/* Card Header: Type & Link Indicator */}
             <div className={`px-3.5 py-2 border-b dark:border-slate-800 flex justify-between items-center ${hasOutsideAssembly ? 'bg-red-50/50 dark:bg-red-950/20' : hasInternalAssembly || isAssemblyTask ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-slate-50/50 dark:bg-slate-900/10'}`}>
@@ -233,7 +234,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                             <div className="fixed inset-0 z-10" onClick={() => setShowStatusPicker(false)} />
                             <div className="absolute top-full right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-2 flex flex-col gap-1 animate-slide-up">
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Status do Pedido</p>
-                                {statuses.map((s) => (
+                                {statuses.filter((s) => ['scheduled', 'fulfilled', 'cancelled'].includes(s.id)).map((s) => (
                                     <button
                                         key={s.id}
                                         onClick={async (e) => {
@@ -366,7 +367,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                         <div className="flex flex-col gap-1.5 w-full">
                             <strong className="uppercase font-black text-[9px] tracking-widest text-red-600 dark:text-red-500">Observações:</strong>
                             <div className="flex flex-wrap gap-1.5 w-full">
-                                {order.observation.split(';').filter((t: string) => t.trim() !== "").map((tag: string, i: number) => (
+                                {splitNoticeTags(order.observation).map((tag: string, i: number) => (
                                     <span key={i} className="px-2 py-0.5 bg-red-100/50 dark:bg-red-900/40 text-[10px] font-bold rounded-lg border border-red-200/50 dark:border-red-800/50 text-red-800 dark:text-red-200 uppercase tracking-tight">
                                         {tag}
                                     </span>

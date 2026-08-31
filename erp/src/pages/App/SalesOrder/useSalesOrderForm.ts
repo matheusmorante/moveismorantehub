@@ -143,7 +143,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             assistanceItems: s.assistanceItems,
             assistanceServiceValue: s.assistanceServiceValue,
             assistanceCost: s.assistanceCost,
-            linkedOrderId: s.linkedOrderId,
+            linkedOrderId: s.linkedOrderId || undefined,
         };
     }, []);
 
@@ -410,7 +410,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
 
-        const orderData = getOrderData('draft'); // Save as draft
+        const savedStatus = latestState.current.currentOrderId && latestState.current.status !== 'draft'
+            ? latestState.current.status
+            : 'draft';
+        const orderData = getOrderData(savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled');
         const validationErrors = validateOrder(orderData); // Get actual error object
 
         if (Object.keys(validationErrors).length > 0) {
@@ -428,8 +431,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             if (!latestState.current.currentOrderId && savedId) {
                 setCurrentOrderId(savedId);
             }
-            setStatus('draft');
-            toast.success("Pedido salvo como rascunho!");
+            setStatus(savedStatus);
+            toast.success(savedStatus === 'draft' ? "Pedido salvo como rascunho!" : "Alterações do pedido salvas!");
             return savedId;
         } catch (error: any) {
             toast.error(error?.message || "Erro ao salvar pedido como rascunho.");

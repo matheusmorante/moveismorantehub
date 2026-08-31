@@ -1,7 +1,7 @@
 import Order from "../../types/order.type";
 import ModalHeader from "./OrderDetailsModalComponents/ModalHeader";
 import { CustomerSection, ShippingSection, SchedulingSection } from "./OrderDetailsModalComponents/CustomerShippingInfo";
-import { ItemsTable, FinancialSummary } from "./OrderDetailsModalComponents/ItemsFinancialInfo";
+import { ItemsTable, FinancialSummary, PaymentDetails } from "./OrderDetailsModalComponents/ItemsFinancialInfo";
 import MapRoute from "../SalesOrder/ShippingComponents/MapRoute";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 import { autoCalculateRouteDistance } from "../../utils/maps";
 import { updateOrder } from "../../utils/orderHistoryService";
 import { toast } from "react-toastify";
+import { formatOrderCode } from "../../utils/orderCode";
 import { useState, useEffect } from "react";
 
 const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }: Props) => {
@@ -58,26 +59,31 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
 
     return (
         <div
-            className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in transition-colors duration-300"
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/70 p-0 backdrop-blur-md animate-fade-in transition-colors duration-300 xl:p-6"
             onClick={onClose}
         >
             <div
-                className="bg-white dark:bg-slate-900 w-full h-full sm:w-auto sm:h-auto sm:max-w-4xl max-h-none sm:max-h-[90vh] rounded-none sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 sm:border border-slate-100 dark:border-slate-800 transition-colors duration-300"
+                className="flex h-full w-full flex-col overflow-hidden border-0 bg-white shadow-2xl animate-slide-up transition-colors duration-300 dark:bg-slate-900 xl:h-auto xl:max-h-[92vh] xl:w-[min(94vw,1280px)] xl:rounded-[2.5rem] xl:border xl:border-slate-100 xl:dark:border-slate-800"
                 onClick={(e) => e.stopPropagation()}
             >
                 <ModalHeader
-                    reference={order.id?.slice(-8).toUpperCase() || "N/A"}
+                    reference={formatOrderCode(order)}
                     onClose={onClose}
                     onEdit={onEdit ? () => onEdit(order) : undefined}
                 />
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-10 custom-scrollbar">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 xl:p-8 custom-scrollbar">
+                    <div className="space-y-8 xl:space-y-10">
+                    <div className="grid grid-cols-1 gap-8 xl:grid-cols-2 xl:gap-12">
                         {/* Left Column: Customer & Shipping */}
                         <div className="space-y-8 sm:space-y-10">
                             <CustomerSection
                                 fullName={order.customerData?.fullName}
                                 phone={order.customerData?.phone}
+                                noPhone={order.customerData?.noPhone}
+                                email={order.customerData?.email}
+                                cpfCnpj={order.customerData?.cpfCnpj}
+                                observations={order.customerData?.observations}
                                 additionalContacts={order.customerData?.additionalContacts}
                             />
 
@@ -85,7 +91,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                             {!isPickup && (
                                 <div className="relative group/shipping">
                                     <ShippingSection
-                                        fullAddress={order.customerData?.fullAddress}
+                                        fullAddress={order.shipping?.deliveryAddress || order.customerData?.fullAddress}
                                         destinationCoords={order.shipping?.destinationCoords}
                                         distance={order.shipping?.distance}
                                         durationMinutes={order.shipping?.durationMinutes}
@@ -105,26 +111,33 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                             />
                         </div>
 
-                        {/* Right Column: Items & Summary */}
+                        {/* Resumo financeiro e pagamentos */}
                         <div className="space-y-10">
-                            <ItemsTable items={[
-                                ...(order.items || []),
-                                ...(order.assistanceItems || []).map(ai => ({
-                                    ...ai,
-                                    unitPrice: 0,
-                                    isAssistanceItem: true
-                                }))
-                            ]} />
                             <FinancialSummary
                                 itemsSummary={order.itemsSummary}
                                 shippingValue={order.shipping?.value || 0}
                                 totalValue={order.paymentsSummary?.totalOrderValue || 0}
                             />
+                            <PaymentDetails
+                                payments={order.payments}
+                                totalPaid={order.paymentsSummary?.totalAmountPaid}
+                                amountRemaining={order.paymentsSummary?.amountRemaining}
+                            />
                         </div>
                     </div>
 
+                    <ItemsTable items={[
+                        ...(order.items || []),
+                        ...(order.assistanceItems || []).map(ai => ({
+                            ...ai,
+                            unitPrice: 0,
+                            isAssistanceItem: true
+                        }))
+                    ]} />
+                    </div>
+
                     {order.observation && (
-                        <div className="mt-12 p-8 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-[2rem] transition-colors duration-300">
+                        <div className="mt-8 p-6 sm:p-8 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-[2rem] transition-colors duration-300">
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-3 flex items-center gap-2">
                                 <i className="bi bi-chat-left-dots-fill" /> Observações Internas
                             </h4>
@@ -135,7 +148,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                     )}
                 </div>
 
-                <div className="px-10 py-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/20 flex justify-center transition-colors duration-300">
+                <div className="px-4 py-4 sm:px-10 sm:py-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/20 flex justify-center transition-colors duration-300">
                     <p className="text-[9px] font-black uppercase text-slate-300 dark:text-slate-500 tracking-[0.3em]">
                         ERP Móveis Morante • Logística v2.0
                     </p>

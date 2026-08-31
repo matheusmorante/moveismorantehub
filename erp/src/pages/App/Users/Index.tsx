@@ -1,187 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth, UserRole } from '../../../context/AuthContext';
+import { getPrimaryRole, getProfileRoles, roleLabel } from '@/pages/utils/accessRoles';
+import UserRolesModal, { AccessProfile } from './UserRolesModal';
 import { toast } from 'react-toastify';
 
-interface Profile {
-    id: string;
-    email: string;
-    role: UserRole;
-    full_name: string | null;
-    position: string | null;
-}
+interface Profile extends AccessProfile { role: UserRole; roles?: UserRole[]; }
+
+const UserRow = ({ profile, onClick }: { profile: AccessProfile; onClick: () => void }) => <button type="button" onClick={onClick} className="flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition-colors hover:bg-blue-50/50 dark:border-slate-800 dark:hover:bg-slate-800/40"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-sm font-black uppercase text-blue-600 dark:bg-blue-900/30">{(profile.full_name || profile.email)[0]}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-700 dark:text-slate-200">{profile.full_name || 'Usuário'}</p><p className="truncate text-xs text-slate-400">{profile.email}</p></div>{profile.roles.length > 0 && <div className="hidden flex-wrap justify-end gap-1 sm:flex">{profile.roles.map((role) => <span key={role} className="rounded-md bg-blue-50 px-2 py-1 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950/30">{roleLabel(role)}</span>)}</div>}<i className="bi bi-chevron-right text-slate-400" /></button>;
 
 const UsersManagement = () => {
     const { isAdmin } = useAuth();
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const fetchProfiles = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .order('email');
-
-            if (error) throw error;
-            setProfiles(data);
-        } catch (error: any) {
-            toast.error('Erro ao carregar usuários.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [selected, setSelected] = useState<Profile | null>(null);
 
     useEffect(() => {
-        if (isAdmin) {
-            fetchProfiles();
-        }
+        if (!isAdmin) return;
+        void supabase.from('profiles').select('id,email,full_name,role').order('email').then(({ data, error }) => {
+            if (error) toast.error('Erro ao carregar as contas.'); else setProfiles((data || []) as Profile[]);
+            setLoading(false);
+        });
     }, [isAdmin]);
 
-    const handleRoleChange = async (userId: string, newRole: UserRole) => {
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ role: newRole })
-                .eq('id', userId);
-
-            if (error) throw error;
-
-            // Optional: Also update position if it matches a standard role
-            const roleMap: Record<string, string> = {
-                'seller': 'Vendedor',
-                'manager': 'Gerente',
-                'administrator': 'Gerente',
-                'deliverer': 'Entregador / Montador'
-            };
-
-            const positionToSet = roleMap[newRole];
-            if (positionToSet) {
-                await supabase.from('profiles').update({ position: positionToSet }).eq('id', userId);
-            }
-
-            setProfiles((prev: any) => prev.map((p: any) => p.id === userId ? { ...p, role: newRole, position: positionToSet || p.position } : p));
-            toast.success('Perfil atualizado com sucesso!');
-        } catch (error: any) {
-            toast.error('Erro ao atualizar perfil.');
-        }
+    const normalizedProfiles = useMemo(() => profiles.map((profile) => ({ ...profile, roles: getProfileRoles(profile) })), [profiles]);
+    const assigned = normalizedProfiles.filter((profile) => profile.roles.length > 0);
+    const unassigned = normalizedProfiles.filter((profile) => profile.roles.length === 0);
+    const saveRoles = async (roles: UserRole[]) => {
+        if (!selected) return;
+        const role = getPrimaryRole(roles);
+        const { error } = await supabase.from('profiles').update({ role }).eq('id', selected.id);
+        if (error) { toast.error('Não foi possível salvar os cargos.'); throw error; }
+        setProfiles((items) => items.map((item) => item.id === selected.id ? { ...item, roles, role } : item));
+        toast.success('Cargos atualizados.');
     };
 
-    const handlePositionChange = async (userId: string, newPosition: string) => {
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ position: newPosition })
-                .eq('id', userId);
+    if (!isAdmin) return <div className="flex min-h-[60vh] items-center justify-center text-center"><div><i className="bi bi-shield-lock-fill mb-6 block text-6xl text-slate-200" /><h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Acesso restrito</h2></div></div>;
+    const list = (title: string, description: string, rows: AccessProfile[]) => <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900"><header className="border-b border-slate-100 bg-slate-50/60 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/30"><h2 className="text-sm font-black text-slate-800 dark:text-slate-100">{title} <span className="text-slate-400">({rows.length})</span></h2><p className="mt-1 text-xs text-slate-400">{description}</p></header>{rows.length ? rows.map((profile) => <UserRow key={profile.id} profile={profile} onClick={() => setSelected(profile as Profile)} />) : <p className="p-8 text-center text-sm font-bold text-slate-400">Nenhuma conta nesta lista.</p>}</section>;
 
-            if (error) throw error;
-
-            setProfiles((prev: any) => prev.map((p: any) => p.id === userId ? { ...p, position: newPosition } : p));
-            toast.success('Cargo atualizado com sucesso!');
-        } catch (error: any) {
-            toast.error('Erro ao atualizar cargo.');
-        }
-    };
-
-    if (!isAdmin) {
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="text-center">
-                    <i className="bi bi-shield-lock-fill text-6xl text-slate-200 mb-6 block" />
-                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Acesso Restrito</h2>
-                    <p className="text-slate-500 mt-2">Apenas administradores podem gerenciar perfis.</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="max-w-6xl mx-auto p-4 animate-slide-up">
-            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Gestão de Acessos</h1>
-                    <p className="text-sm text-slate-500 mt-1 font-bold">Gerencie os perfis e permissões dos usuários do sistema.</p>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/50">
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuário</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo Principal</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Perfil Atual</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={4} className="px-8 py-12 text-center">
-                                        <div className="w-8 h-8 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mx-auto" />
-                                    </td>
-                                </tr>
-                            ) : (profiles as any).map((profile: any) => (
-                                <tr key={profile.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                                                <span className="text-blue-600 dark:text-blue-400 font-black text-sm uppercase">
-                                                    {(profile.full_name || profile.email)[0]}
-                                                </span>
-                                            </div>
-                                            <span className="font-bold text-slate-700 dark:text-slate-200">{profile.full_name || 'Usuário'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5 text-sm text-slate-500 font-bold">{profile.email}</td>
-                                    <td className="px-8 py-5">
-                                        <select
-                                            value={profile.position || ""}
-                                            onChange={(e: any) => handlePositionChange(profile.id, e.target.value)}
-                                            className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none w-full appearance-none"
-                                        >
-                                            <option value="">Nenhum</option>
-                                            <option value="Vendedor">Vendedor</option>
-                                            <option value="Gerente">Gerente</option>
-                                            <option value="Entregador / Montador">Entregador / Montador</option>
-                                            {profile.position && !['Vendedor', 'Gerente', 'Entregador / Montador'].includes(profile.position) && (
-                                                <option value={profile.position}>{profile.position}</option>
-                                            )}
-                                        </select>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border 
-                                            ${profile.role === 'administrator' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                profile.role === 'manager' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                    profile.role === 'deliverer' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                                                        profile.role === 'seller' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                            profile.role === 'pending' ? 'bg-slate-50 text-slate-600 border-slate-200' :
-                                                                'bg-amber-50 text-amber-600 border-amber-100'}`}>
-                                            {profile.role === 'pending' ? 'Pendente' : profile.role}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <select
-                                            value={profile.role}
-                                            onChange={(e: any) => handleRoleChange(profile.id, e.target.value as UserRole)}
-                                            className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-2 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-                                        >
-                                            <option value="pending">Pendente (Aprov)</option>
-                                            <option value="administrator">Administrador</option>
-                                            <option value="manager">Gerente</option>
-                                            <option value="seller">Vendedor</option>
-                                            <option value="deliverer">Entregador / Montador</option>
-                                            <option value="accountant">Contador</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
+    return <div className="mx-auto max-w-6xl animate-slide-up p-4"><header className="mb-5"><h1 className="text-2xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">Gestão de acessos</h1><p className="mt-1 text-sm font-bold text-slate-500">Clique em uma conta para ver os detalhes e definir seus cargos.</p></header><div className="space-y-5">{loading ? <div className="py-16 text-center"><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-600/30 border-t-blue-600" /></div> : <>{list('Usuários com cargo', 'Contas que já têm acesso ao sistema.', assigned)}{list('Usuários sem cargo', 'Contas aguardando a atribuição de acesso.', unassigned)}</>}</div>{selected && <UserRolesModal profile={selected} onClose={() => setSelected(null)} onSave={saveRoles} />}</div>;
 };
 
 export default UsersManagement;

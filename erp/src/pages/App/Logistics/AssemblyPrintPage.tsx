@@ -4,6 +4,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getShowcaseAssemblies } from '@/pages/utils/showcaseAssemblyService';
 import { formatToBRDate } from '@/pages/utils/formatters';
+import { formatOrderCode } from '@/pages/utils/orderCode';
 import Order from '@/pages/types/order.type';
 
 const AssemblyPrintPage = () => {
@@ -42,6 +43,7 @@ const AssemblyPrintPage = () => {
                 });
             }).map(order => ({
                 id: order.id,
+                orderIndex: order.orderIndex,
                 type: 'PEDIDO',
                 title: order.customerData.fullName,
                 date: order.shipping?.scheduling?.date || "",
@@ -165,7 +167,7 @@ const AssemblyPrintPage = () => {
                                             <div className="flex flex-col">
                                                 <span className="text-xs font-bold tracking-tight uppercase">{item.title}</span>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    {item.type === 'PEDIDO' && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">#{item.id.slice(-8).toUpperCase()}</span>}
+                                                    {item.type === 'PEDIDO' && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">#{formatOrderCode(item)}</span>}
                                                     {item.time && <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1 rounded border border-blue-100 uppercase tracking-tighter italic">Janela: {item.time}</span>}
                                                 </div>
                                             </div>

@@ -545,6 +545,18 @@ export default function App() {
     return () => { active = false; clearTimeout(timeout); };
   }, [userProfile?.id, userProfile?.role]);
 
+  useEffect(() => {
+    if (!userProfile?.id) return;
+    const channel = supabase
+      .channel(`mobile-profile-${userProfile.id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userProfile.id}` }, async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) await syncAuthProfile(session);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [userProfile?.id]);
+
   // Telas de carregamento e autenticação
   if (loadingProfile) {
     return <>

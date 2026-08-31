@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { supabase } from '../../../services/supabaseClient';
-import { formatFullAddress } from '../../../utils/orderUtils';
+import { formatFullAddress, formatOrderCode } from '../../../utils/orderUtils';
 import { buildDeliveryChecklist } from '../utils/deliveryChecklist';
 import { DeliveryHeader } from '../components/delivery/DeliveryHeader';
 import { DeliveryPreparationStep } from '../components/delivery/DeliveryPreparationStep';
@@ -11,6 +11,7 @@ import { UnattendedModal } from '../components/delivery/UnattendedModal';
 import { DeliveryQuickContactBar } from '../components/delivery/DeliveryQuickContactBar';
 import { CancelDeliveryConfirmModal } from '../components/delivery/CancelDeliveryConfirmModal';
 import { DeliveryStepProgressIndicator } from '../components/delivery/DeliveryStepProgressIndicator';
+import { areDeliveryPaymentsPaid } from '../components/delivery/DeliveryPaymentSection';
 
 type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void };
 
@@ -21,6 +22,12 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   const [showUnattendedModal, setShowUnattendedModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
+  const [payments, setPayments] = useState<any[]>(() => {
+    const data = order.order_data || order;
+    if (Array.isArray(data.payments) && data.payments.length) return data.payments;
+    const amount = Number(data.paymentsSummary?.totalOrderValue || data.totalValue || 0);
+    return [{ method: data.paymentMethod || 'Pix', amount, status: 'Pendente', fee: 0, feeType: 'fixed' }];
+  });
 
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
   const data = deliveryData;
@@ -33,6 +40,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   const isInService = deliveryStatus === 'in_service' || Boolean(data.deliveryArrivedAt);
   const isInTransit = (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
   const isInProgress = isInTransit || isInService;
+  const paymentsConfirmed = areDeliveryPaymentsPaid(payments);
 
   const headerTitle = isInService
     ? 'Em Atendimento'
@@ -86,10 +94,18 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   // 3. Finalizar Entrega (Atendido / Sucesso)
   const handleFinishDelivery = async () => {
     if (saving) return;
+    if (!paymentsConfirmed) {
+      Alert.alert('Pagamento pendente', 'Confirme todos os pagamentos como pagos antes de finalizar a entrega.');
+      return;
+    }
     setSaving(true);
     const now = new Date().toISOString();
+    const paidAmount = payments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
+    const totalValue = Number(data.paymentsSummary?.totalOrderValue || paidAmount);
     const updatedData = {
       ...data,
+      payments,
+      paymentsSummary: { ...data.paymentsSummary, totalOrderValue: totalValue, totalPaid: paidAmount, totalAmountPaid: paidAmount, amountRemaining: Math.max(0, totalValue - paidAmount) },
       status: 'fulfilled',
       deliveryStatus: 'completed',
       deliveryFinishedAt: now,
@@ -230,6 +246,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       <DeliveryHeader
         title={headerTitle}
         orderId={order.id}
+        orderCode={formatOrderCode(order)}
         isDarkMode={isDarkMode}
         isInProgress={isInProgress}
         onBack={() => onBack()}
@@ -256,6 +273,9 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
             onFinishDelivery={handleFinishDelivery}
             onStepBackToRoute={handleStepBackToRoute}
             finishing={saving}
+            payments={payments}
+            onPaymentsChange={setPayments}
+            paymentsConfirmed={paymentsConfirmed}
           />
         ) : isInTransit ? (
           <DeliveryRouteStep
@@ -297,7 +317,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
         onConfirm={handleConfirmCancelDelivery}
         loading={cancelling}
         isDarkMode={isDarkMode}
-        orderNumber={String(order.id || '').slice(-6).toUpperCase()}
+        orderNumber={formatOrderCode(order)}
       />
     </View>
   );

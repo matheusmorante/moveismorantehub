@@ -4,6 +4,8 @@ import PaymentsTable from "./PaymentsTable";
 import ShippingData from "./ShippingData";
 import { useEffect } from "react";
 import { formatToBRDate } from "../utils/formatters";
+import { formatOrderCode } from "../utils/orderCode";
+import { splitNoticeTags } from "../utils/noticeTags";
 import logoMorante from "../../assets/logo.jpeg";
 
 const OrderPage = () => {
@@ -13,9 +15,9 @@ const OrderPage = () => {
     const isBudget = queryParams.get('type') === 'budget' || order?.orderType === 'budget';
 
     const allObs: string[] = [];
-    if (order?.observation) allObs.push(...order.observation.split(';'));
+    if (order?.observation) allObs.push(...splitNoticeTags(order.observation));
     if (order?.shipping?.deliveryAddress?.observation) {
-        allObs.push(...order.shipping.deliveryAddress.observation.split(';'));
+        allObs.push(...splitNoticeTags(order.shipping.deliveryAddress.observation));
     }
     const tags = allObs.filter((t: string) => t.trim() !== "");
 
@@ -59,7 +61,7 @@ const OrderPage = () => {
                     </div>
                     <div className="text-[11px] font-black opacity-90 uppercase tracking-widest flex items-center justify-end gap-2">
                         <i className="bi bi-hash"></i>
-                        {order.id?.slice(-6).toUpperCase() || 'NOVO'}
+                        {formatOrderCode(order)}
                     </div>
                     <div className="text-[10px] font-bold opacity-75 mt-1 uppercase tracking-tight flex items-center justify-end gap-2">
                         <i className="bi bi-calendar3"></i>

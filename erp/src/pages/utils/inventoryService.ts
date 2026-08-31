@@ -59,7 +59,7 @@ export const getNextInventoryCode = async (): Promise<string> => {
     return String(lastCode + 1).padStart(6, '0');
 };
 
-export const saveInventoryMove = async (move: InventoryMove, currentProductStock: number): Promise<void> => {
+export const saveInventoryMove = async (move: InventoryMove, currentProductStock: number): Promise<InventoryMove | undefined> => {
     try {
         const payload = mapToDB(move);
         const { data, error } = await supabase
@@ -76,7 +76,7 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
 
         // Fetch latest product data to handle variations correctly
         const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();
-        if (!p) return;
+        if (!p) return data?.[0] ? mapFromDB(data[0]) : undefined;
 
         const product = mapProductFromDB(p);
         let newTotalStock = Number(product.stock || 0);
@@ -105,19 +105,22 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
             stock: newTotalStock,
             variations: updatedVariations.length > 0 ? updatedVariations : undefined
         });
+        return data?.[0] ? mapFromDB(data[0]) : undefined;
     } catch (error) {
         console.error("Erro ao salvar lançamento de estoque: ", error);
         throw error;
     }
 };
 
-export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = false): Promise<void> => {
+export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = false, allowDraftAuditDelete = false): Promise<void> => {
     try {
         const { data: moveData } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
         if (!moveData) return;
 
         const move = mapFromDB(moveData);
-        if (move.label?.startsWith('Inventário #') || move.label?.startsWith('Ajuste lançado pelo inventário #')) {
+        let isDraftAudit = false;
+        try { isDraftAudit = JSON.parse(move.observation || '{}').status === 'in_progress'; } catch { }
+        if ((move.label?.startsWith('Inventário #') || move.label?.startsWith('Ajuste lançado pelo inventário #')) && !(allowDraftAuditDelete && isDraftAudit)) {
             throw new Error('Movimentações de inventário confirmado são imutáveis. Crie um novo inventário para gerar outro ajuste.');
         }
         if (!allowLinkedOrderMove && move.relatedEntityId && (
@@ -172,8 +175,103 @@ export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = fal
     }
 };
 
-export const cancelInventoryMove = async (id: string): Promise<void> => {
-    return deleteInventoryMove(id);
+export const reverseInventoryMove = async (
+    id: string, 
+    reason: string = 'Estorno de movimentação', 
+    allowLinkedOrderMove = false
+): Promise<void> => {
+    try {
+        const { data: moveData } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
+        if (!moveData) return;
+
+        const move = mapFromDB(moveData);
+        if (move.status === 'reversed' || move.status === 'cancelled') {
+            return;
+        }
+
+        if (!allowLinkedOrderMove && move.relatedEntityId && (
+            move.relatedEntityType === 'sales_order' || move.relatedEntityType === 'purchase_order'
+        )) {
+            throw new Error('Movimentações vinculadas a pedidos não podem ser estornadas manualmente. O estorno ocorre pelo status do pedido.');
+        }
+
+        const reversedAt = new Date().toISOString();
+        let existingMeta: any = {};
+        try {
+            existingMeta = JSON.parse(moveData.observation || '{}');
+            if (typeof existingMeta !== 'object' || existingMeta === null) {
+                existingMeta = { note: moveData.observation };
+            }
+        } catch {
+            existingMeta = { note: moveData.observation };
+        }
+
+        const updatedObservation = JSON.stringify({
+            ...existingMeta,
+            status: 'reversed',
+            reversalReason: reason,
+            reversedAt: reversedAt
+        });
+
+        // Atualizar no banco usando reason e observation (compatibilidade universal)
+        const updatePayload: any = {
+            reason: reason,
+            observation: updatedObservation
+        };
+
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .update(updatePayload)
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Atualizar estado em memória
+        currentMoves = currentMoves.map(m => m.id === id ? { 
+            ...m, 
+            status: 'reversed', 
+            reversalReason: reason, 
+            reversedAt: reversedAt 
+        } : m);
+        notifyListeners();
+
+        // Recompor o saldo de estoque do produto/variação (inverso da movimentação)
+        const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();
+        if (!p) return;
+
+        const qty = Number(move.quantity || 0);
+        const product = mapProductFromDB(p);
+        let newTotalStock = Number(product.stock || 0);
+        let updatedVariations = product.variations ? [...product.variations] : [];
+
+        if (move.variationId && updatedVariations.length > 0) {
+            const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
+            if (vIdx !== -1) {
+                let vStock = Number(updatedVariations[vIdx].stock || 0);
+                if (isEntryType(move.type)) vStock -= qty;
+                else if (isExitType(move.type)) vStock += qty;
+                else if (isAdjustmentType(move.type)) vStock -= qty;
+                updatedVariations[vIdx].stock = vStock;
+            }
+            newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
+        } else {
+            if (isEntryType(move.type)) newTotalStock -= qty;
+            else if (isExitType(move.type)) newTotalStock += qty;
+            else if (isAdjustmentType(move.type)) newTotalStock += qty;
+        }
+
+        await updateProduct(move.productId, { 
+            stock: newTotalStock,
+            variations: updatedVariations.length > 0 ? updatedVariations : undefined
+        });
+    } catch (error) {
+        console.error("Erro ao estornar lançamento de estoque: ", error);
+        throw error;
+    }
+};
+
+export const cancelInventoryMove = async (id: string, reason?: string): Promise<void> => {
+    return reverseInventoryMove(id, reason || 'Estorno manual');
 };
 
 export const updateInventoryMove = async (id: string, updates: Partial<InventoryMove>): Promise<void> => {
@@ -247,19 +345,26 @@ export const updateInventoryMove = async (id: string, updates: Partial<Inventory
     }
 };
 
-export const cancelInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
+export const cancelInventoryMovesByRelatedEntity = async (
+    relatedEntityId: string, 
+    relatedEntityType: string,
+    reason: string = `Cancelamento de ${relatedEntityType} #${relatedEntityId}`
+): Promise<void> => {
     try {
         const searchPattern = `%${relatedEntityId}%`;
         const { data: moves, error } = await supabase
             .from(TABLE_NAME)
-            .select('id')
+            .select('id, observation, reason')
             .or(`order_id.eq.${relatedEntityId},observation.ilike.${searchPattern},label.ilike.${searchPattern}`);
 
         if (error) throw error;
 
         if (moves && moves.length > 0) {
             for (const move of moves) {
-                await deleteInventoryMove(move.id, true);
+                const parsedMove = mapFromDB(move);
+                if (parsedMove.status !== 'reversed' && parsedMove.status !== 'cancelled') {
+                    await reverseInventoryMove(move.id, reason, true);
+                }
             }
         }
     } catch (error) {
@@ -268,8 +373,12 @@ export const cancelInventoryMovesByRelatedEntity = async (relatedEntityId: strin
     }
 };
 
-export const deleteInventoryMovesByRelatedEntity = async (relatedEntityId: string, relatedEntityType: string): Promise<void> => {
-    return cancelInventoryMovesByRelatedEntity(relatedEntityId, relatedEntityType);
+export const deleteInventoryMovesByRelatedEntity = async (
+    relatedEntityId: string, 
+    relatedEntityType: string,
+    reason?: string
+): Promise<void> => {
+    return cancelInventoryMovesByRelatedEntity(relatedEntityId, relatedEntityType, reason);
 };
 
 export const getInventoryMoveById = async (id: string): Promise<InventoryMove | null> => {
@@ -304,10 +413,9 @@ export const getAvailableLots = async (productId: string, variationId?: string):
         if (entryError) throw entryError;
 
         const availableLots = (entries || [])
-            .map((e: any) => {
-                const move = mapFromDB(e);
-                return { ...move, balance: move.quantity };
-            });
+            .map((e: any) => mapFromDB(e))
+            .filter((move) => move.status !== 'reversed' && move.status !== 'cancelled')
+            .map((move) => ({ ...move, balance: move.quantity }));
 
         return availableLots;
     } catch (error) {
@@ -319,6 +427,29 @@ export const getAvailableLots = async (productId: string, variationId?: string):
 const mapToDB = (move: InventoryMove) => {
     // Validação estrita dos tipos aceitos pela constraint do banco: 'entry' | 'exit' | 'adjustment'
     const dbType = isExitType(move.type) ? 'exit' : isAdjustmentType(move.type) ? 'adjustment' : 'entry';
+    const resolvedStatus = move.status === 'reversed' || move.status === 'cancelled' ? 'reversed' : 'effective';
+
+    let observationPayload: string | null = null;
+    if (move.observation && (move.observation.startsWith('{') || move.observation.startsWith('['))) {
+        try {
+            const parsed = JSON.parse(move.observation);
+            observationPayload = JSON.stringify({
+                ...parsed,
+                status: resolvedStatus,
+                reversalReason: move.reversalReason || parsed.reversalReason || null,
+                reversedAt: move.reversedAt || parsed.reversedAt || null
+            });
+        } catch {
+            observationPayload = move.observation;
+        }
+    } else if (move.observation || resolvedStatus === 'reversed' || move.reversalReason) {
+        observationPayload = JSON.stringify({
+            note: move.observation || '',
+            status: resolvedStatus,
+            reversalReason: move.reversalReason || null,
+            reversedAt: move.reversedAt || null
+        });
+    }
 
     return {
         product_id: move.productId,
@@ -330,14 +461,35 @@ const mapToDB = (move: InventoryMove) => {
         label: move.label || null,
         unit_cost: move.unitCost || 0,
         unit_price: move.unitPrice || 0,
-        observation: move.observation || null,
-        order_id: move.relatedEntityId || null
+        observation: observationPayload,
+        order_id: move.relatedEntityId || null,
+        reason: move.reversalReason || move.label || null
     };
 };
 
 const mapFromDB = (data: any): InventoryMove => {
     // Normalizar tipos retornados do banco para compatibilidade da UI
     const normalizedType = isExitType(data.type) ? 'withdrawal' : isAdjustmentType(data.type) ? 'balance' : 'entry';
+
+    let meta: any = {};
+    let cleanObservation = data.observation;
+    if (data.observation && (data.observation.startsWith('{') || data.observation.startsWith('['))) {
+        try {
+            meta = JSON.parse(data.observation);
+            cleanObservation = meta.note || meta.observation || data.observation;
+        } catch { }
+    }
+
+    const isReversed = 
+        data.status === 'reversed' || 
+        data.status === 'cancelled' ||
+        meta.status === 'reversed' ||
+        meta.status === 'cancelled' ||
+        (typeof data.reason === 'string' && data.reason.startsWith('Cancelamento da venda'));
+
+    const normalizedStatus = isReversed ? 'reversed' : 'effective';
+    const reversalReason = data.reversal_reason || meta.reversalReason || (isReversed ? data.reason : undefined);
+    const reversedAt = data.reversed_at || meta.reversedAt;
 
     return {
         id: String(data.id),
@@ -350,16 +502,19 @@ const mapFromDB = (data: any): InventoryMove => {
         label: data.label,
         unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
         unitPrice: data.unit_price ? Number(data.unit_price) : undefined,
-        observation: data.observation,
+        observation: cleanObservation,
         relatedEntityId: data.order_id,
-        relatedEntityType: data.order_id && (
+        relatedEntityType: (data.order_id && (
             /^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(data.label || '') ||
             /Pedido de Compra\s*#/i.test(data.observation || '')
-        )
+        ))
             ? 'purchase_order'
-            : data.order_id && isExitType(data.type) && (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || ''))
+            : (data.order_id && isExitType(data.type) && (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || '')))
                 ? 'sales_order'
                 : undefined,
+        status: normalizedStatus,
+        reversalReason: reversalReason,
+        reversedAt: reversedAt,
         createdAt: data.created_at
     };
 };

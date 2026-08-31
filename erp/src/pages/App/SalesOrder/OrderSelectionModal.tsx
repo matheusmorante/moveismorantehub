@@ -6,9 +6,11 @@ interface OrderSelectionModalProps {
     orders: Order[];
     onSelect: (order: Order) => void;
     onClose: () => void;
+    title?: string;
+    subtitle?: string;
 }
 
-const OrderSelectionModal = ({ orders, onSelect, onClose }: OrderSelectionModalProps) => {
+const OrderSelectionModal = ({ orders, onSelect, onClose, title = "Selecionar Pedido Original", subtitle = "Busque a venda que originou a assistência" }: OrderSelectionModalProps) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [sortField, setSortField] = useState<"id" | "date" | "customer">("date");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -43,8 +45,8 @@ const OrderSelectionModal = ({ orders, onSelect, onClose }: OrderSelectionModalP
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Selecionar Pedido Original</h2>
-                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-0.5">Busque a venda que originou a assistência</p>
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{title}</h2>
+                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-0.5">{subtitle}</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                         <i className="bi bi-x-lg text-xl" />
@@ -57,7 +59,7 @@ const OrderSelectionModal = ({ orders, onSelect, onClose }: OrderSelectionModalP
                         <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Buscar por ID ou Nome do Cliente..."
+                            placeholder="Buscar por Código ou Nome do Cliente..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-slate-950 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 transition-all"

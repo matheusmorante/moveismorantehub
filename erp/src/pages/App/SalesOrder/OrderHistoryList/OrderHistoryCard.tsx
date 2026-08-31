@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Order from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
+import { formatOrderCode } from "../../../utils/orderCode";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { buttons } from "../OrderActions/orderActionsConfig";
 import { PackageCheck, Package } from "lucide-react";
@@ -192,14 +193,14 @@ const OrderHistoryCard = ({
                         className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                     />
                     <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
-                        #{order.id?.slice(-6).toUpperCase()}
+                        #{formatOrderCode(order)}
                     </span>
                 </div>
 
                 {/* Canto Superior Direito: Todos os Selos + Status Picker */}
                 <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto">
                     {/* 1. Selo de Etiquetado (Clicável: Bg Verde + Ícone Branco + Check no canto quando true) */}
-                    {!showTrash && order.orderType !== 'assistance' && (
+                    {!showTrash && order.orderType !== 'assistance' && order.orderType !== 'return' && (
                         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                             <button
                                 type="button"
@@ -222,7 +223,7 @@ const OrderHistoryCard = ({
                     )}
 
                     {/* 2. Selo do Bling (Clicável: Bg Verde + Texto Branco + Check no canto quando true) */}
-                    {order.orderType !== 'assistance' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
+                    {order.orderType !== 'assistance' && order.orderType !== 'return' && !showTrash && order.status !== 'draft' && order.status !== 'cancelled' && (
                         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                             <button
                                 type="button"
@@ -269,7 +270,7 @@ const OrderHistoryCard = ({
                     })()}
 
                     {/* 4. Tráfego Pago / Ads */}
-                    {isPaidTraffic && (
+                    {isPaidTraffic && order.orderType !== 'return' && (
                         <div 
                             className="flex items-center justify-center h-6 w-6 rounded-md bg-orange-500 text-white border border-orange-600 shadow-2xs"
                             title="Gerado por Tráfego Pago"
@@ -330,14 +331,14 @@ const OrderHistoryCard = ({
                         </span>
                     )}
 
-                    {order.orderType === 'assistance' && order.linkedOrderId && (
+                    {order.linkedOrderId && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
                             className="flex h-6 items-center gap-1 text-[8px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-wider bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-2 rounded-md border border-blue-100 dark:border-blue-900/30"
                             title="Filtrar por pedido vinculado"
                         >
                             <i className="bi bi-link-45deg"></i>
-                            Vinc: #{order.linkedOrderId.slice(-6).toUpperCase()}
+                            Vinc: #{formatOrderCode({ id: order.linkedOrderId })}
                         </button>
                     )}
 

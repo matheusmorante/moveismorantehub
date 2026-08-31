@@ -18,8 +18,7 @@ const steps: Step[] = [
     { step: 2, icon: 'bi-box-seam', label: 'Itens' },
     { step: 3, icon: 'bi-person-badge', label: 'Cliente' },
     { step: 4, icon: 'bi-truck', label: 'Logística' },
-    { step: 5, icon: 'bi-credit-card-2-front', label: 'Pagamento' },
-    { step: 6, icon: 'bi-check2-circle', label: 'Resumo' }
+    { step: 5, icon: 'bi-credit-card-2-front', label: 'Pagamento' }
 ];
 
 const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }: OrderStepperProps) => {
@@ -31,8 +30,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
             3: errorKeys.some(k => k.startsWith('customer_')),
             4: errorKeys.some(k => k.startsWith('shipping_')),
             5: errorKeys.some(k => k.startsWith('payment_') || k === 'payments_summary'),
-            6: false
-        }[step as 1 | 2 | 3 | 4 | 5 | 6];
+        }[step as 1 | 2 | 3 | 4 | 5];
 
         if (hasError) return 'error';
         if (step === currentStep) return 'active';

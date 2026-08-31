@@ -10,7 +10,7 @@ import { compressImage, compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { aiService } from '@/pages/utils/aiService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute, isDefaultVariation, normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute, normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 
 // Modular Components
 import SmartInput from "../../../components/SmartInput";
@@ -200,6 +200,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     const [isDraggingPhoto, setIsDraggingPhoto] = useState(0);
     const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
     const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
+    const pendingNewVariationIdRef = useRef<string | null>(null);
     const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [availableCategories, setAvailableCategories] = useState<any[]>([]);
@@ -1049,6 +1050,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             comboItems: []
         };
         setFormData(prev => ({ ...prev, variations: [...(prev.variations || []), newVar], hasVariations: true }));
+        pendingNewVariationIdRef.current = newVar.id;
         setEditingVariationId(newVar.id);
     };
 
@@ -1167,7 +1169,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 hasVariations: true
             }));
             setIsGeneratingBulk(false);
-            setIsCartesianModalOpen(false);
             toast.success(`${newVars.length} variações geradas com sucesso!`);
         }, 800);
     };
@@ -1231,6 +1232,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const isExistingRegisteredProduct = Boolean(product?.id && product.isDraft !== true && product.status !== 'draft');
+    const isProductCreation = !product?.id;
 
     const getEnteredProductName = (data: Partial<Product>) => {
         return (data.name || data.title || data.marketplaceTitle || data.description || '').trim();
@@ -1260,7 +1262,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 errors.mainSupplierId = true;
             }
 
-            const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some((v, index) => !isDefaultVariation(v, index) && (!v.images || v.images.length === 0));
+            const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some(v => !v.images || v.images.length === 0);
             if (hasVarsWithMissingPhoto) {
                 errors.variationsImages = true;
             }
@@ -1279,7 +1281,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 } else if (errors.images) {
                     setActiveTab('ecommerce');
                 }
-                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.images ? "Adicione pelo menos uma foto ao produto." : errors.variationsAttributes ? "Todas as variações devem conter pelo menos um atributo." : errors.variationsImages ? "Cada variação adicional deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
+                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.images ? "Adicione pelo menos uma foto ao produto." : errors.variationsAttributes ? "Todas as variações devem conter pelo menos um atributo." : errors.variationsImages ? "Cada variação deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});
@@ -1293,7 +1295,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
         const hasVars = Boolean(formData.hasVariations);
         if (hasVars && Array.isArray(formData.variations) && formData.variations.length > 0) {
-            const varWithoutImage = formData.variations.find((v, index) => !isDefaultVariation(v, index) && (!v.images || v.images.length === 0));
+            const varWithoutImage = formData.variations.find(v => !v.images || v.images.length === 0);
             if (varWithoutImage) {
                 setActiveTab('variacoes');
                 toast.error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
@@ -1357,8 +1359,8 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
      * Usa isSavingDraftRef como guard para evitar chamadas concorrentes.
      */
     const autoSaveDraft = useCallback(async (data: Partial<Product>) => {
-        // REGRA: Produto já cadastrado no ERP NUNCA vira rascunho
-        if (isExistingRegisteredProduct) return;
+        // REGRA: Somente um produto novo pode receber autosave de rascunho.
+        if (!isProductCreation) return;
 
         // REGRA: Só vira rascunho se tiver pelo menos o nome preenchido
         const draftTitle = getEnteredProductName(data);
@@ -1386,11 +1388,11 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             isSavingDraftRef.current = false;
             setIsSavingDraft(false);
         }
-    }, [isExistingRegisteredProduct]);
+    }, [isProductCreation]);
 
-    // Durante a criação ou edição de rascunho, cada alteração é salva automaticamente após 800ms
+    // Durante a criação de um produto novo, cada alteração é salva automaticamente após 800ms.
     useEffect(() => {
-        if (isExistingRegisteredProduct) return;
+        if (!isProductCreation || editingVariationId) return;
 
         const enteredName = getEnteredProductName(formData);
         if (!isOpen || !enteredName || !hasChanged.current) return;
@@ -1400,7 +1402,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }, 800);
 
         return () => window.clearTimeout(timer);
-    }, [formData, isOpen, isExistingRegisteredProduct, autoSaveDraft]);
+    }, [formData, isOpen, isProductCreation, editingVariationId, autoSaveDraft]);
 
     const handleSaveAndClose = async () => {
         const isDraftProduct = !isExistingRegisteredProduct;
@@ -1409,7 +1411,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
     };
 
     const handleCloseWithAutoSave = async () => {
-        if (!isExistingRegisteredProduct && hasChanged.current && !loading && !isSavingDraftRef.current) {
+        if (isProductCreation && hasChanged.current && !loading && !isSavingDraftRef.current) {
             const enteredName = getEnteredProductName(formData);
             if (enteredName) {
                 await autoSaveDraft(formData);
@@ -1686,11 +1688,22 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 {editingVariationId && formData.variations?.some(v => v.id === editingVariationId) && (
                     <VariationFormModal
                         isOpen={!!editingVariationId}
-                        onClose={() => setEditingVariationId(null)}
+                        onClose={() => {
+                            const pendingVariationId = pendingNewVariationIdRef.current;
+                            if (pendingVariationId) {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    variations: prev.variations?.filter(v => v.id !== pendingVariationId)
+                                }));
+                                pendingNewVariationIdRef.current = null;
+                            }
+                            setEditingVariationId(null);
+                        }}
                         parentId={formData.id}
                         parentProduct={formData as any}
                         variation={formData.variations?.find(v => v.id === editingVariationId) || null}
                         onSave={(updatedVar) => {
+                            pendingNewVariationIdRef.current = null;
                             setFormData(prev => ({
                                 ...prev,
                                 variations: prev.variations?.map(v => v.id === updatedVar.id ? updatedVar : v)

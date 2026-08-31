@@ -381,7 +381,7 @@ export const useProducts = (filters?: any) => {
     };
 
     const toggleSelection = (id: string) => {
-        const product = transformedProducts.find(p => p.id === id);
+        const product = serverTransformed.find(p => p.id === id);
 
         setSelectedProducts(prev => {
             let next = [...prev];
@@ -389,7 +389,7 @@ export const useProducts = (filters?: any) => {
 
             if (product?.isParent) {
                 // Cascading selection for parent
-                const childIds = transformedProducts.filter(p => p.parentId === id).map(p => p.id!);
+                const childIds = serverTransformed.filter(p => p.parentId === id).map(p => p.id!);
                 if (isSelected) {
                     next = next.filter(sid => sid !== id && !childIds.includes(sid));
                 } else {
@@ -404,7 +404,7 @@ export const useProducts = (filters?: any) => {
                 } else {
                     next.push(id);
                     // Select parent if ALL children are selected
-                    const siblingIds = transformedProducts.filter(p => p.parentId === product.parentId).map(p => p.id!);
+                    const siblingIds = serverTransformed.filter(p => p.parentId === product.parentId).map(p => p.id!);
                     const allSiblingsSelected = siblingIds.every(sid => next.includes(sid));
                     if (allSiblingsSelected) {
                         next.push(product.parentId);

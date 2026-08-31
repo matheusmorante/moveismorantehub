@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshCo
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Hammer, RefreshCw, ChevronRight, ChevronDown, ChevronUp, Calendar, Clock, MapPin, Navigation, Package, Truck, AlertCircle, Check } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
+import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isCancelledOrder, isDateInPeriod } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
@@ -77,6 +78,11 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
   useEffect(() => {
     fetchAssemblies();
     fetchSettings();
+
+    return subscribeToLogisticsChanges(() => {
+      fetchAssemblies();
+      fetchSettings();
+    });
   }, []);
 
   const onRefresh = () => {

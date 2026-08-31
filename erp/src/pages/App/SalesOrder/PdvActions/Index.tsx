@@ -4,6 +4,7 @@ import { dateNow } from "../../../utils/formatters";
 import { buttons, actionsMap } from "./orderActionsConfig";
 import { validateOrder, validateAssistanceOrder } from "../../../utils/validations";
 import { toast } from "react-toastify";
+import { canGenerateReturn } from "../../../utils/returnPolicy";
 
 
 const OrderActions = ({ order }: { order: Order }) => {
@@ -51,8 +52,8 @@ const OrderActions = ({ order }: { order: Order }) => {
             (order.order_data as any)?.status === 'returned'
         );
 
-        if (btn.key === 'generateReturn' && hasReturn) return false;
-        if (btn.key === 'undoReturn' && !hasReturn) return false;
+        if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order))) return false;
+        if (btn.key === 'undoReturn') return false;
 
         return true;
       }).map((btn, idx) => {

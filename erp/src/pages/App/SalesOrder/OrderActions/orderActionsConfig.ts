@@ -1,5 +1,6 @@
 import Order, { OrderAction, IsButtonsClicked } from "../../../types/order.type";
 import { toast } from "react-toastify";
+import { formatOrderCode } from "../../../utils/orderCode";
 
 import { 
     shippingOrderWhatsappUrl, 
@@ -114,7 +115,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>ORDEM DE SERVIÇO - ${order.id}</title>
+                    <title>ORDEM DE SERVIÇO - ${formatOrderCode(order)}</title>
                     <style>
                         body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
                         .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
@@ -132,7 +133,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                                 <img src="/lizandro.png" style="width: 90px; height: 90px; border-radius: 15px; border: 3px solid rgba(255,255,255,0.3);" />
                                 <div>
                                     <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px;">Ordem de Serviço</h1>
-                                    <div style="color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 800;">ASSISTÊNCIA #${order.id?.slice(-8).toUpperCase()}</div>
+                                    <div style="color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 800;">ASSISTÊNCIA #${formatOrderCode(order)}</div>
                                 </div>
                             </div>
                             <div style="text-align: right;">
@@ -241,7 +242,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>COMPROVANTE DE DEVOLUÇÃO - ${order.id}</title>
+                    <title>COMPROVANTE DE DEVOLUÇÃO - ${formatOrderCode(order)}</title>
                     <style>
                         body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
                         .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
@@ -257,7 +258,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                                 <img src="/lizandro.png" style="width: 90px; height: 90px; border-radius: 15px; border: 3px solid rgba(255,255,255,0.3);" />
                                 <div>
                                     <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">OS de Devolução</h1>
-                                    <div style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 800;">ID: #${order.id}</div>
+                                    <div style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 800;">PEDIDO: #${formatOrderCode(order)}</div>
                                 </div>
                             </div>
                             <div style="text-align: right;">
@@ -400,7 +401,7 @@ export const buttons: OrderButton[] = [
         key: "generateReturn",
         icon: "bi-arrow-return-left",
         action: "GENERATE_RETURN",
-        label: "Gerar Devolução",
+        label: "Gerar Pedido de Devolução",
         color: "text-amber-600 hover:bg-amber-50",
         tooltip: "Criar uma devolução baseada neste pedido",
         orderTypes: ['sale', 'showroom'] 
@@ -472,9 +473,9 @@ export const buttons: OrderButton[] = [
         key: "duplicateOrder",
         icon: "bi-files",
         action: "DUPLICATE_ORDER",
-        label: "Duplicar Pedido",
+        label: "Copiar Pedido",
         color: "text-emerald-600 hover:bg-emerald-50",
-        tooltip: "Criar um novo pedido idêntico a este",
+        tooltip: "Criar uma cópia deste pedido",
         // applies to all types
     },
     {

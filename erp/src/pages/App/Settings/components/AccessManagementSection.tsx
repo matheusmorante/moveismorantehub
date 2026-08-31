@@ -4,7 +4,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { UserRole, useAuth } from '@/context/AuthContext';
 import { AppSettings } from '@/pages/utils/settingsService';
 
-type Profile = { id: string; email: string; full_name?: string | null; role: UserRole };
+type Profile = { id: string; email: string; full_name?: string | null; role: UserRole; position?: string | null };
 const roles: Array<[UserRole, string]> = [['administrator', 'Administrador'], ['manager', 'Gestor'], ['seller', 'Vendedor'], ['deliverer', 'Entregador / Montador'], ['pending', 'Sem acesso']];
 const areas = [
   ['manualStockMovement', 'Movimentação de estoque'], ['productConfig', 'Produtos e cadastros'],
@@ -15,13 +15,14 @@ export default function AccessManagementSection({ settings, onChange }: { settin
   const { isAdmin } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]); const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null); const [loading, setLoading] = useState(true);
-  const load = async () => { setLoading(true); const { data, error } = await supabase.from('profiles').select('id,email,full_name,role').order('email'); if (error) toast.error('Não foi possível carregar as contas.'); else setProfiles(data as Profile[]); setLoading(false); };
+  const load = async () => { setLoading(true); const { data, error } = await supabase.from('profiles').select('id,email,full_name,role,position').order('email'); if (error) toast.error('Não foi possível carregar as contas.'); else setProfiles(data as Profile[]); setLoading(false); };
   useEffect(() => { if (isAdmin) void load(); }, [isAdmin]);
   const visibleProfiles = useMemo(() => profiles.filter(p => `${p.full_name || ''} ${p.email}`.toLowerCase().includes(search.toLowerCase())), [profiles, search]);
   const setRole = async (profile: Profile, role: UserRole) => {
-    const { error } = await supabase.from('profiles').update({ role }).eq('id', profile.id);
+    const rolePositions: Partial<Record<UserRole, string>> = { manager: 'Gerente', seller: 'Vendedor', deliverer: 'Entregador / Montador' };
+    const { error } = await supabase.from('profiles').update({ role, position: rolePositions[role] || null }).eq('id', profile.id);
     if (error) return toast.error('Não foi possível atualizar o cargo.');
-    setProfiles(items => items.map(item => item.id === profile.id ? { ...item, role } : item)); setOpenMenu(null); toast.success('Acesso atualizado.');
+    setProfiles(items => items.map(item => item.id === profile.id ? { ...item, role, position: rolePositions[role] || null } : item)); setOpenMenu(null); toast.success('Acesso atualizado e incluído na lista de funcionários.');
   };
   const togglePermission = (area: string, role: UserRole) => {
     if (role === 'administrator') return;

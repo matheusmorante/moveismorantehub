@@ -7,6 +7,7 @@ import { getNextInventoryCode, saveInventoryMove, updateInventoryMove } from '@/
 import ProductAutocomplete from "@/components/ProductAutocomplete";
 import SupplierAutocomplete from "@/components/SupplierAutocomplete";
 import InventoryAuditCards from "./InventoryAuditCards";
+import InventoryResponsibleSelect, { getEmployeeDisplayName } from "./InventoryResponsibleSelect";
 import { toast } from "react-toastify";
 import InventoryMove from "../../../types/inventoryMove.type";
 import { getVariationDisplayName } from "@/components/productAutocompleteUtils";
@@ -34,7 +35,10 @@ export interface AuditItem {
 const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClose, copiedItems, editingSession }) => {
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [suppliers, setSuppliers] = useState<Person[]>([]);
+    const [employees, setEmployees] = useState<Person[]>([]);
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
+    const [selectedResponsibleId, setSelectedResponsibleId] = useState("");
+    const [responsibleError, setResponsibleError] = useState(false);
     const [productSearch, setProductSearch] = useState("");
     const [selectedPendingProduct, setSelectedPendingProduct] = useState<{ product: Product, variation?: Variation } | null>(null);
     const [items, setItems] = useState<AuditItem[]>([]);
@@ -42,13 +46,19 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
     const createItemId = () => crypto.randomUUID();
     const appliedCopyRef = useRef<string | null>(null);
     const appliedEditingRef = useRef<string | null>(null);
+    const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string }>({});
+    const lastSavedSignatureRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
         const unsubscribe = subscribeToProducts((data) => {
             setAllProducts(data.filter((product) => product.itemType === 'product' && !product.deleted));
         }, true);
-        fetchPersons('suppliers').then(setSuppliers);
+        Promise.all([fetchPersons('suppliers'), fetchPersons('employees')])
+            .then(([supplierList, employeeList]) => {
+                setSuppliers(supplierList);
+                setEmployees(employeeList);
+            });
         return () => unsubscribe();
     }, [isOpen]);
 
@@ -59,7 +69,15 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
             }
             appliedCopyRef.current = null;
             appliedEditingRef.current = null;
+            draftRef.current = {
+                id: editingSession?.id,
+                code: editingSession?.inventoryCode,
+                markerMoveId: editingSession?.markerMoveId,
+            };
+            lastSavedSignatureRef.current = null;
             setSelectedSupplierId("");
+            setSelectedResponsibleId(editingSession?.responsibleId || "");
+            setResponsibleError(false);
             setProductSearch("");
             setSelectedPendingProduct(null);
         }
@@ -90,6 +108,7 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
         setItems(editingSession.items.map((source) => {
             const product = allProducts.find((item) => String(item.id) === String(source.productId));
             const variation = product?.variations?.find((item) => String(item.id) === String(source.variationId));
+            if (!variation?.id) return null;
             return {
                 id: createItemId(),
                 key: `${source.productId}-${source.variationId || 'main'}`,
@@ -101,7 +120,7 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                 physicalCount: source.physicalCount,
                 unit: product?.unit || 'UN',
             };
-        }));
+        }).filter((item): item is AuditItem => item !== null));
         appliedEditingRef.current = editingSession.id;
     }, [isOpen, editingSession, allProducts, suppliers]);
 
@@ -112,6 +131,7 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
         setItems(copiedItems.map((source) => {
             const product = allProducts.find((item) => String(item.id) === String(source.productId));
             const variation = product?.variations?.find((item) => String(item.id) === String(source.variationId));
+            if (!variation?.id) return null;
             return {
                 id: createItemId(), key: `${source.productId}-${source.variationId || 'main'}`,
                 productId: source.productId, variationId: source.variationId,
@@ -120,15 +140,17 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                 systemStock: Number(source.variationId ? variation?.stock ?? 0 : product?.stock ?? 0),
                 physicalCount: source.physicalCount, unit: product?.unit || 'UN',
             };
-        }));
+        }).filter((item): item is AuditItem => item !== null));
         appliedCopyRef.current = copyKey;
     }, [isOpen, copiedItems, allProducts, suppliers]);
-
-    if (!isOpen) return null;
 
     const handleAddIndividualProduct = () => {
         if (!selectedPendingProduct) return;
         const { product, variation } = selectedPendingProduct;
+        if (!variation?.id) {
+            toast.warn("Selecione uma variação do produto.");
+            return;
+        }
         const key = `${product.id}-${variation?.id || 'main'}`;
         const existingIndex = items.findIndex((item) => item.key === key);
 
@@ -192,20 +214,6 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                         });
                     }
                 }
-            } else {
-                const key = `${product.id}-main`;
-                if (!items.some((item) => item.key === key)) {
-                    newItemsToAdd.push({
-                        id: createItemId(),
-                        key,
-                        productId: String(product.id),
-                        name: getProductName(product),
-                        supplierNames: getSupplierNames(product),
-                        systemStock: Number(product.stock ?? 0),
-                        physicalCount: 0,
-                        unit: product.unit || 'UN',
-                    });
-                }
             }
         }
 
@@ -234,89 +242,112 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
         setItems((prev) => prev.filter((item) => item.id !== id));
     };
 
-    const handleSaveInProgress = async () => {
-        if (items.length === 0) {
-            onClose();
-            return;
+    const requireResponsible = () => {
+        if (selectedResponsibleId) return true;
+        setResponsibleError(true);
+        toast.error("Selecione o responsável para finalizar a contagem.");
+        return false;
+    };
+
+    const saveDraft = async (closeAfterSave = false) => {
+        const draft = draftRef.current;
+        if (!items.length && !draft.markerMoveId) {
+            if (closeAfterSave) onClose();
+            return true;
+        }
+        if (!selectedResponsibleId) {
+            if (closeAfterSave) requireResponsible();
+            return false;
         }
 
         setIsSaving(true);
         try {
-            const auditId = editingSession?.id || crypto.randomUUID();
-            const code = editingSession?.inventoryCode || await getNextInventoryCode();
+            const auditId = draft.id || crypto.randomUUID();
+            const code = draft.code || await getNextInventoryCode();
             const auditDate = editingSession?.date || new Date().toISOString();
+            const responsible = employees.find((employee) => String(employee.id) === selectedResponsibleId);
             const auditObservation = JSON.stringify({
                 inventoryAudit: true,
                 inventoryCode: code,
                 status: 'in_progress',
+                responsibleId: selectedResponsibleId,
+                responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,
                 items: items.map(({ productId, variationId, name, systemStock, physicalCount }) => ({ productId, variationId, name, systemStock, physicalCount })),
             });
-            const auditMarker = items[0];
 
-            if (editingSession?.markerMoveId) {
-                await updateInventoryMove(editingSession.markerMoveId, {
-                    date: auditDate,
-                    observation: auditObservation,
-                    label: `Inventário #${code}`
-                });
+            if (draft.markerMoveId) {
+                await updateInventoryMove(draft.markerMoveId, { date: auditDate, observation: auditObservation, label: `Inventário #${code}` });
             } else {
-                await saveInventoryMove({
+                const auditMarker = items[0];
+                const savedMarker = await saveInventoryMove({
                     productId: auditMarker.productId,
                     variationId: auditMarker.variationId,
-                    productDescription: 'Sessão de inventário',
-                    type: 'adjustment',
-                    quantity: 0,
-                    date: auditDate,
-                    label: `Inventário #${code}`,
-                    observation: auditObservation,
-                    relatedEntityId: auditId,
+                    productDescription: 'Sessão de inventário', type: 'adjustment', quantity: 0,
+                    date: auditDate, label: `Inventário #${code}`, observation: auditObservation, relatedEntityId: auditId,
                 }, auditMarker.systemStock);
+                draft.markerMoveId = savedMarker?.id;
             }
-
-            toast.info(`Inventário #${code} salvo em andamento! ⏳`);
-            onClose();
-        } catch (error: any) {
-            console.error("Erro ao salvar inventário em andamento:", error);
-            toast.error("Erro ao salvar inventário em andamento.");
+            draft.id = auditId;
+            draft.code = code;
+            lastSavedSignatureRef.current = JSON.stringify({ selectedResponsibleId, items });
+            if (closeAfterSave) onClose();
+            return true;
+        } catch (error) {
+            console.error("Erro ao salvar rascunho da contagem:", error);
+            toast.error("Não foi possível salvar a contagem automaticamente.");
+            return false;
         } finally {
             setIsSaving(false);
         }
     };
+
+    const handleClose = () => { void saveDraft(true); };
+
+    useEffect(() => {
+        const signature = JSON.stringify({ selectedResponsibleId, items });
+        if (!isOpen || isSaving || !items.length || !selectedResponsibleId || signature === lastSavedSignatureRef.current) return;
+        const timeoutId = window.setTimeout(() => { void saveDraft(); }, 500);
+        return () => window.clearTimeout(timeoutId);
+    }, [isOpen, isSaving, items, selectedResponsibleId, saveDraft]);
 
     const handleFinalize = async () => {
         if (items.length === 0) {
             toast.warn("Adicione pelo menos um produto para realizar o inventário.");
             return;
         }
+        if (!requireResponsible()) return;
 
         const itemsWithAdjustment = items.filter((item) => item.physicalCount !== item.systemStock);
 
         const confirmed = window.confirm(
-            `Concluir inventário? ${items.length} item(ns) desta lista serão registrados; ${itemsWithAdjustment.length} terão ajuste de estoque alterado no saldo real.`
+            `Finalizar contagem? ${items.length} item(ns) desta lista serão registrados; ${itemsWithAdjustment.length} terão ajuste de estoque alterado no saldo real.`
         );
         if (!confirmed) return;
 
         setIsSaving(true);
         try {
-            const auditId = editingSession?.id || crypto.randomUUID();
-            const code = editingSession?.inventoryCode || await getNextInventoryCode();
+            const auditId = draftRef.current.id || crypto.randomUUID();
+            const code = draftRef.current.code || await getNextInventoryCode();
             const auditDate = new Date().toISOString();
+            const responsible = employees.find((employee) => String(employee.id) === selectedResponsibleId);
             const auditObservation = JSON.stringify({
                 inventoryAudit: true,
                 inventoryCode: code,
                 status: 'completed',
+                responsibleId: selectedResponsibleId,
+                responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,
                 items: items.map(({ productId, variationId, name, systemStock, physicalCount }) => ({ productId, variationId, name, systemStock, physicalCount })),
             });
             const auditMarker = items[0];
 
-            if (editingSession?.markerMoveId) {
-                await updateInventoryMove(editingSession.markerMoveId, {
+            if (draftRef.current.markerMoveId) {
+                await updateInventoryMove(draftRef.current.markerMoveId, {
                     date: auditDate,
                     observation: auditObservation,
                     label: `Inventário #${code}`
                 });
             } else {
-                await saveInventoryMove({
+                const savedMarker = await saveInventoryMove({
                     productId: auditMarker.productId,
                     variationId: auditMarker.variationId,
                     productDescription: 'Sessão de inventário',
@@ -327,7 +358,10 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                     observation: auditObservation,
                     relatedEntityId: auditId,
                 }, auditMarker.systemStock);
+                draftRef.current.markerMoveId = savedMarker?.id;
             }
+            draftRef.current.id = auditId;
+            draftRef.current.code = code;
 
             for (const item of itemsWithAdjustment) {
                 const diff = item.physicalCount - item.systemStock;
@@ -346,7 +380,7 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                 await saveInventoryMove(move, item.systemStock);
             }
 
-            toast.success(`Inventário #${code} concluído! ${items.length} produto(s) registrados e ${itemsWithAdjustment.length} ajuste(s) lançados no estoque. ✨`);
+            toast.success(`Contagem #${code} finalizada! ${items.length} produto(s) registrados e ${itemsWithAdjustment.length} ajuste(s) lançados no estoque. ✨`);
             onClose();
         } catch (error) {
             console.error("Erro ao salvar inventário:", error);
@@ -356,29 +390,34 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
         }
     };
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 z-[999999] flex">
-            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-fade-in" onClick={handleSaveInProgress} />
+            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-fade-in" onClick={handleClose} />
 
             <div className="relative h-full w-full flex flex-col bg-white dark:bg-slate-900 overflow-hidden animate-slide-up">
                 {/* Header Enxuto de Altura Mínima Sem Subtítulo */}
-                <header className="flex shrink-0 items-center justify-between px-6 py-3.5 bg-emerald-600 text-white shadow-sm">
+                <header className="flex shrink-0 items-center justify-between gap-4 px-6 py-3.5 bg-emerald-600 text-white shadow-sm">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
                             <i className="bi bi-clipboard-check text-lg" />
                         </div>
                         <h2 className="text-base font-black tracking-tight">
-                            {editingSession ? `Editar Inventário #${editingSession.inventoryCode}` : 'Contagem / Inventário de Estoque'}
+                            {editingSession ? `Editar Inventário #${editingSession.inventoryCode}` : 'Contagem'}
                         </h2>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleSaveInProgress}
-                        className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
-                        title="Salvar e fechar"
-                    >
-                        <i className="bi bi-x-lg text-sm" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <InventoryResponsibleSelect employees={employees} value={selectedResponsibleId} hasError={responsibleError} onChange={(value) => { setSelectedResponsibleId(value); setResponsibleError(false); }} />
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+                            title="Fechar contagem (salvamento automático)"
+                        >
+                            <i className="bi bi-x-lg text-sm" />
+                        </button>
+                    </div>
                 </header>
 
                 <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden max-w-7xl mx-auto w-full gap-4">
@@ -389,15 +428,26 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                 1. Adicionar todos os produtos de um fornecedor
                             </label>
-                            <SupplierAutocomplete
-                                suppliers={suppliers}
-                                value={selectedSupplierId}
-                                onChange={(val) => {
-                                    setSelectedSupplierId(val);
-                                    handleAddSupplierProducts(val);
-                                }}
-                                placeholder="Buscar fornecedor..."
-                            />
+                            <div className="flex items-end gap-2">
+                                <div className="flex-1">
+                                    <SupplierAutocomplete
+                                        suppliers={suppliers}
+                                        selectedSupplierId={selectedSupplierId}
+                                        onSelect={setSelectedSupplierId}
+                                        placeholder="Buscar fornecedor..."
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleAddSupplierProducts(selectedSupplierId)}
+                                    disabled={!selectedSupplierId}
+                                    className="h-10 w-10 shrink-0 rounded-xl bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800"
+                                    title="Adicionar produtos do fornecedor"
+                                    aria-label="Adicionar produtos do fornecedor"
+                                >
+                                    <i className="bi bi-plus-lg" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* 2. Selecionar por Produto Individual */}
@@ -405,27 +455,29 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                 2. Adicionar produto individual
                             </label>
-                            <div className="flex gap-2">
+                            <div className="mt-5 flex items-end gap-2">
                                 <div className="flex-1">
                                     <ProductAutocomplete
-                                        products={allProducts}
                                         value={productSearch}
-                                        onChange={(e) => setProductSearch(e.target.value)}
-                                        onSelectProduct={(product, variation) => {
+                                        onChange={(val) => setProductSearch(val)}
+                                        onSelect={(product, variation) => {
                                             setSelectedPendingProduct({ product, variation });
                                             setProductSearch(getVariationDisplayName(product, variation));
                                         }}
                                         placeholder="Buscar por nome, SKU ou código..."
+                                        variationsOnly
+                                        inputClassName="w-full border-0 border-b border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none transition-all focus:border-blue-600 focus:ring-0 focus:shadow-sm dark:border-slate-800 dark:text-slate-300 dark:focus:border-blue-500"
                                     />
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleAddIndividualProduct}
                                     disabled={!selectedPendingProduct}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                                    className="h-10 w-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                                    title="Adicionar produto"
+                                    aria-label="Adicionar produto"
                                 >
                                     <i className="bi bi-plus-lg" />
-                                    <span>Adicionar</span>
                                 </button>
                             </div>
                         </div>
@@ -464,7 +516,7 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                                         onUpdateCount={handleUpdateCount}
                                         onIncrement={handleIncrement}
                                         onDecrement={handleDecrement}
-                                        onRemoveItem={handleRemoveItem}
+                                        onRemove={handleRemoveItem}
                                     />
 
                                     {/* Exibição em Tabela em Telas Maiores */}
@@ -557,27 +609,17 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <button
                                 type="button"
-                                onClick={handleSaveInProgress}
-                                disabled={isSaving || items.length === 0}
-                                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
-                                title="Salva o inventário em andamento sem alterar o saldo do estoque no banco"
-                            >
-                                <i className="bi bi-clock-history text-sm" />
-                                <span>Salvar Em Andamento</span>
-                            </button>
-                            <button
-                                type="button"
                                 onClick={handleFinalize}
                                 disabled={isSaving || items.length === 0}
                                 className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
-                                title="Conclui o inventário e lança as movimentações de ajuste no estoque real"
+                                title="Finaliza a contagem e lança as movimentações de ajuste no estoque real"
                             >
                                 {isSaving ? (
                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 ) : (
                                     <>
                                         <i className="bi bi-check2 text-sm" />
-                                        <span>Concluir Inventário</span>
+                                        <span>Finalizar contagem</span>
                                     </>
                                 )}
                             </button>

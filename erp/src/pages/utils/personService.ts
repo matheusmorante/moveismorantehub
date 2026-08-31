@@ -116,11 +116,16 @@ const mapFromDB = (data: any): Person => {
 };
 
 const mapProfileToPerson = (prof: any): Person => {
+    const rolePositions: Record<string, string> = {
+        manager: 'Gerente',
+        seller: 'Vendedor',
+        deliverer: 'Entregador / Montador',
+    };
     return {
         id: prof.id,
-        fullName: prof.full_name || '',
+        fullName: prof.full_name || prof.email || 'Conta sem nome',
         email: prof.email || '',
-        position: prof.position || '',
+        position: prof.position || rolePositions[prof.role] || '',
         active: true,
         isDraft: false,
         fullAddress: { street: '' },
@@ -152,22 +157,19 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
         let employees: Person[] = (peopleData || []).map(mapFromDB);
 
         if (collectionName === 'employees') {
-            const { data: profilesData } = await supabase.from('profiles').select('*').not('position', 'is', null).neq('position', '');
+            const { data: profilesData } = await supabase
+                .from('profiles')
+                .select('*')
+                .or('position.not.is.null,role.in.(manager,seller,deliverer)');
             if (profilesData) {
                 const profileEmployees = profilesData.map(mapProfileToPerson);
-                const { data: allPeopleEmails } = await supabase.from(TABLE_NAME).select('email, deleted');
-                const emailsToExclude = new Set<string>();
-                
-                if (allPeopleEmails) {
-                    (allPeopleEmails as any[]).forEach(row => {
-                        if (row.email) {
-                            emailsToExclude.add(row.email.toLowerCase());
-                        }
-                    });
-                }
+                const employeeIdentifiers = new Set(employees.flatMap((employee) => [
+                    String(employee.id || ''),
+                    employee.email?.toLowerCase() || '',
+                ]).filter(Boolean));
 
                 profileEmployees.forEach((pe: Person) => {
-                    if (pe.email && !emailsToExclude.has(pe.email.toLowerCase())) {
+                    if (!employeeIdentifiers.has(String(pe.id)) && !employeeIdentifiers.has(pe.email?.toLowerCase() || '')) {
                         employees.push(pe);
                     }
                 });

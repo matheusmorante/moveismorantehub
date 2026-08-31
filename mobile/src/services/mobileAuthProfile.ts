@@ -19,7 +19,16 @@ export const resolveMobileUserProfile = async (session: any) => {
   const response: any = await withTimeout(
     Promise.resolve(supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle()),
   );
-  const profile = response?.data;
+  let profile = response?.data;
+  if (!profile) {
+    const { data } = await supabase.from('profiles').upsert({
+      id: session.user.id,
+      email: session.user.email || '',
+      full_name: googleName || session.user.email?.split('@')[0] || 'Novo usuário',
+      role: 'pending',
+    }).select('*').maybeSingle();
+    profile = data;
+  }
   if (profile && googleName && profile.full_name !== googleName) {
     await supabase.from('profiles').update({ full_name: googleName }).eq('id', session.user.id);
   }
@@ -29,6 +38,7 @@ export const resolveMobileUserProfile = async (session: any) => {
     fullName: googleName || profile?.full_name || session.user.email?.split('@')[0] || 'Usuário',
     email: profile?.email || session.user.email,
     role: profile?.role || 'pending',
+    roles: profile?.roles || (profile?.role && profile.role !== 'pending' ? [profile.role] : []),
     active: true,
   };
 };

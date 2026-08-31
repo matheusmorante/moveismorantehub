@@ -5,7 +5,7 @@ import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderType
 
 type AdditionalContact = { name?: string; phone?: string };
 
-export const CustomerSection = ({ fullName, phone, noPhone, additionalContacts = [] }: { fullName?: string, phone?: string, noPhone?: boolean, additionalContacts?: AdditionalContact[] }) => (
+export const CustomerSection = ({ fullName, phone, noPhone, email, cpfCnpj, observations, additionalContacts = [] }: { fullName?: string, phone?: string, noPhone?: boolean, email?: string, cpfCnpj?: string, observations?: string, additionalContacts?: AdditionalContact[] }) => (
     <section>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
             <i className="bi bi-person-badge-fill" /> Cliente
@@ -19,6 +19,12 @@ export const CustomerSection = ({ fullName, phone, noPhone, additionalContacts =
                     <i className="bi bi-telephone-fill text-blue-400" />
                     {noPhone ? "Sem Telefone" : (phone || "Telefone não informado")}
                 </p>
+                {(email || cpfCnpj) && (
+                    <div className="mt-3 grid grid-cols-1 gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+                        {email && <span className="flex min-w-0 items-center gap-2"><i className="bi bi-envelope-fill text-blue-400" /><span className="truncate">{email}</span></span>}
+                        {cpfCnpj && <span className="flex items-center gap-2"><i className="bi bi-person-vcard-fill text-blue-400" />{cpfCnpj}</span>}
+                    </div>
+                )}
                 {additionalContacts.filter(contact => contact.name || contact.phone).length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                         {additionalContacts.filter(contact => contact.name || contact.phone).map((contact, index) => (
@@ -28,6 +34,11 @@ export const CustomerSection = ({ fullName, phone, noPhone, additionalContacts =
                             </div>
                         ))}
                     </div>
+                )}
+                {observations && (
+                    <p className="mt-4 border-t border-slate-200 pt-4 text-xs font-medium italic leading-relaxed text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        {observations}
+                    </p>
                 )}
             </div>
             {phone && !noPhone && (
@@ -144,7 +155,7 @@ export const SchedulingSection = ({ scheduling, isPickup }: { scheduling: any, i
                     <div className="flex justify-between items-center">
                         <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">Data</span>
                         <span className="text-sm font-black text-blue-700 dark:text-blue-400">
-                            {formatToBRDate(scheduling?.date)}
+                            {scheduling?.date ? `${formatToBRDate(scheduling.date)}${scheduling.dateType === 'range' && scheduling.endDate ? ` até ${formatToBRDate(scheduling.endDate)}` : ''}` : 'Não informado'}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">

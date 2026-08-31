@@ -1,361 +1,49 @@
 import React, { useState } from "react";
-import Order, { Item } from "../../../types/order.type";
-import { saveOrder, updateOrder } from "../../../utils/orderHistoryService";
-import { dateNow } from "../../../utils/formatters";
-import { toast } from "react-toastify";
-import Agendamento from "../ShippingComponents/Agendamento";
+import Order from "../../../types/order.type";
+import { Item } from "../../../types/items.type";
 import Shipping from "../../../types/Shipping.type";
+import { saveOrder } from "../../../utils/orderHistoryService";
+import { dateNow } from "../../../utils/formatters";
+import { formatOrderCode } from "../../../utils/orderCode";
+import { toast } from "react-toastify";
+import { Undo2 } from "lucide-react";
+import ReturnItemsSelection from "./ReturnItemsSelection";
+import ReturnCollectionSection from "./ReturnCollectionSection";
 
-interface ReturnOrderModalProps {
-    order: Order;
-    onClose: () => void;
-    onSuccess: (newOrderId: string) => void;
-}
+type Props = { order: Order; onClose: () => void; onSuccess: (id: string) => void };
+const EMPTY_SCHEDULING: Shipping["scheduling"] = { dateType: "fixed", date: "", endDate: "", time: "", type: "fixed", startTime: "", endTime: "", notInformed: false };
 
-const EMPTY_SCHEDULING: Shipping["scheduling"] = {
-    dateType: 'fixed',
-    date: '',
-    endDate: '',
-    type: 'fixed',
-    startTime: '',
-    endTime: '',
-    notInformed: false
-};
-
-const ReturnOrderModal: React.FC<ReturnOrderModalProps> = ({ order, onClose, onSuccess }) => {
-    // State for selected quantities: { [itemId]: quantity }
-    const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
+const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
+    const [quantities, setQuantities] = useState<Record<string, number>>({});
     const [collectAtAddress, setCollectAtAddress] = useState(false);
     const [scheduling, setScheduling] = useState<Shipping["scheduling"]>(EMPTY_SCHEDULING);
-    const [collectionObservation, setCollectionObservation] = useState('');
+    const [observations, setObservations] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const selectedTotal = order.items.reduce((total, item) => total + ((quantities[item.productId || item.description] || 0) * item.unitPrice), 0);
 
-    const toggleItem = (itemId: string, maxQty: number) => {
-        setSelectedQuantities(prev => {
-            const next = { ...prev };
-            if (next[itemId]) {
-                delete next[itemId];
-            } else {
-                next[itemId] = maxQty;
-            }
-            return next;
-        });
-    };
-
-    const updateQuantity = (itemId: string, qty: number, maxQty: number) => {
-        const validQty = Math.max(1, Math.min(qty, maxQty));
-        setSelectedQuantities(prev => ({
-            ...prev,
-            [itemId]: validQty
-        }));
-    };
-
-    const handleGenerateReturn = async () => {
-        const itemIds = Object.keys(selectedQuantities);
-        if (itemIds.length === 0) {
-            toast.warning("Selecione pelo menos um item para devolver.");
-            return;
-        }
-
+    const toggleItem = (id: string, max: number) => setQuantities((current) => current[id] ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)) : { ...current, [id]: max });
+    const updateQuantity = (id: string, quantity: number, max: number) => setQuantities((current) => ({ ...current, [id]: Math.max(1, Math.min(quantity, max)) }));
+    const generateReturn = async () => {
+        if (!Object.keys(quantities).length) return toast.warning("Selecione pelo menos um item para devolver.");
+        const items = order.items.reduce<Item[]>((selected, item) => { const quantity = quantities[item.productId || item.description]; return quantity ? [...selected, { ...item, quantity }] : selected; }, []);
+        const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+        const returnOrder: Order = {
+            ...order, id: undefined, orderType: "return", status: "scheduled", returnStockProcessed: false, date: dateNow(), items, linkedOrderId: order.id,
+            observation: `Devolução vinculada ao pedido #${formatOrderCode(order)}. ${order.observation || ""}`, collectionObservation: collectAtAddress ? observations.join("\n") : undefined,
+            itemsSummary: { totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0), itemsSubtotal: total, totalFixedDiscount: 0, itemsTotalValue: total, totalItemsCost: items.reduce((sum, item) => sum + item.quantity * (item.costPrice || 0), 0) },
+            shipping: { ...order.shipping, scheduling: collectAtAddress ? scheduling : order.shipping.scheduling }, payments: [], paymentsSummary: { totalPaymentsFee: 0, totalOrderValue: total, totalPaid: 0, totalAmountPaid: 0, amountRemaining: total }
+        };
         setSubmitting(true);
-        try {
-            const itemsToReturn: Item[] = [];
-            const remainingItems: Item[] = [];
-
-            order.items.forEach(item => {
-                const itemId = item.productId || item.description;
-                const returnQty = selectedQuantities[itemId];
-
-                if (returnQty) {
-                    // Create returned item
-                    itemsToReturn.push({
-                        ...item,
-                        quantity: returnQty,
-                        totalValue: returnQty * item.unitPrice
-                    });
-
-                    // If partial return, keep a part in the original order
-                    const remainingQty = item.quantity - returnQty;
-                    if (remainingQty > 0) {
-                        remainingItems.push({
-                            ...item,
-                            quantity: remainingQty,
-                            totalValue: remainingQty * item.unitPrice
-                        });
-                    }
-                } else {
-                    // Item not returned, keep it all
-                    remainingItems.push(item);
-                }
-            });
-
-            // 1. Create Return Order
-            const totalReturnItemsValue = itemsToReturn.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-            
-            const returnOrder: Order = {
-                ...order,
-                id: undefined,
-                orderType: 'return',
-                status: 'finalized',
-                date: dateNow(),
-                items: itemsToReturn,
-                linkedOrderId: order.id,
-                observation: `Devolução vinculada ao pedido #${order.id}. ${order.observation || ''}`,
-                collectionObservation: collectAtAddress ? collectionObservation : undefined,
-                itemsSummary: {
-                    totalItems: itemsToReturn.length,
-                    totalQuantity: itemsToReturn.reduce((acc, curr) => acc + curr.quantity, 0),
-                    totalValue: totalReturnItemsValue
-                },
-                shipping: collectAtAddress ? {
-                    ...order.shipping,
-                    scheduling: scheduling
-                } : undefined,
-                payments: [], 
-                paymentsSummary: {
-                    totalOrderValue: totalReturnItemsValue,
-                    totalPaid: 0,
-                    remainingValue: totalReturnItemsValue
-                }
-            };
-
-            const newId = await saveOrder(returnOrder);
-
-            // 2. Update Original Order
-            const totalRemainingItemsValue = remainingItems.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-            const originalSubtotal = totalRemainingItemsValue + (order.shipping?.value || 0);
-            const originalTotalOrderValue = originalSubtotal - (order.paymentsSummary?.discount || 0);
-
-            const originalUpdate: Partial<Order> = {
-                items: remainingItems,
-                itemsSummary: {
-                    totalItems: remainingItems.length,
-                    totalQuantity: remainingItems.reduce((acc, curr) => acc + curr.quantity, 0),
-                    totalValue: totalRemainingItemsValue
-                },
-                paymentsSummary: {
-                    ...order.paymentsSummary,
-                    totalItemsValue: totalRemainingItemsValue,
-                    subtotal: originalSubtotal,
-                    totalOrderValue: originalTotalOrderValue,
-                },
-                returnOrderId: newId
-            };
-
-            if (remainingItems.length === 0) {
-                originalUpdate.status = 'cancelled';
-                originalUpdate.observation = `${order.observation || ''}\n[CANCELADO POR DEVOLUÇÃO TOTAL]`;
-            } else {
-                const returnedDesc = itemsToReturn.map(i => `${i.quantity}x ${i.description}`).join(', ');
-                originalUpdate.observation = `${order.observation || ''}\n[ITENS DEVOLVIDOS: ${returnedDesc}]`;
-            }
-
-            await updateOrder(order.id!, originalUpdate, order);
-
-            toast.success("Devolução gerada com sucesso!");
-            onSuccess(newId);
-        } catch (error) {
-            console.error("Erro ao gerar devolução:", error);
-            toast.error("Erro ao processar devolução.");
-        } finally {
-            setSubmitting(false);
-        }
+        try { const id = await saveOrder(returnOrder); toast.success("Pedido de devolução gerado com sucesso!"); onSuccess(id); }
+        catch (error) { console.error("Erro ao gerar devolução:", error); toast.error("Erro ao processar devolução."); }
+        finally { setSubmitting(false); }
     };
 
-    const totalReturnItemsValue = order.items
-        .filter(i => !!selectedQuantities[i.productId || i.description])
-        .reduce((acc, i) => acc + (selectedQuantities[i.productId || i.description] * i.unitPrice), 0);
-
-    return (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col max-h-[90vh]">
-                <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                            <i className="bi bi-arrow-return-left text-xl" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Gerar Devolução</h2>
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-0.5">Pedido #{order.id} • {order.customerData?.fullName}</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors flex items-center justify-center">
-                        <i className="bi bi-x-lg text-lg" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-                    {/* Items Section */}
-                    <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-4 ml-1">Itens do Pedido</span>
-                        <div className="space-y-3">
-                            {order.items.map((item, idx) => {
-                                const itemId = item.productId || item.description;
-                                const isSelected = !!selectedQuantities[itemId];
-                                return (
-                                    <div 
-                                        key={idx}
-                                        className={`flex flex-col p-4 rounded-3xl border transition-all ${
-                                            isSelected 
-                                            ? 'bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/40 shadow-premium-sm' 
-                                            : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between gap-4">
-                                            <button 
-                                                onClick={() => toggleItem(itemId, item.quantity)}
-                                                className="flex items-center gap-3 flex-1 text-left outline-none"
-                                            >
-                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                                                    isSelected 
-                                                    ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' 
-                                                    : 'border-slate-200 dark:border-slate-700'
-                                                }`}>
-                                                    {isSelected && <i className="bi bi-check-lg text-xs" />}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className={`text-[11px] font-black uppercase tracking-wide leading-tight ${isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                                        {item.description}
-                                                    </span>
-                                                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
-                                                        Total Original: {item.quantity} {item.unit || 'un'}
-                                                    </span>
-                                                </div>
-                                            </button>
-
-                                            <div className="text-right">
-                                                <div className={`text-xs font-black ${isSelected ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>
-                                                    R$ {((isSelected ? selectedQuantities[itemId] : item.quantity) * item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {isSelected && (
-                                            <div className="mt-4 pt-4 border-t border-amber-200/50 dark:border-amber-900/20 flex items-center justify-between gap-4">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/70">Quantidade a Devolver:</span>
-                                                <div className="flex items-center gap-1 bg-white dark:bg-slate-950 p-1 rounded-2xl border border-amber-100 dark:border-amber-900/40">
-                                                    <button 
-                                                        onClick={() => updateQuantity(itemId, selectedQuantities[itemId] - 1, item.quantity)}
-                                                        className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-slate-600 dark:text-slate-400 transition-all active:scale-90"
-                                                    >
-                                                        <i className="bi bi-dash-lg" />
-                                                    </button>
-                                                    <input 
-                                                        type="number"
-                                                        value={selectedQuantities[itemId]}
-                                                        onChange={(e) => updateQuantity(itemId, parseInt(e.target.value) || 1, item.quantity)}
-                                                        className="w-12 text-center bg-transparent font-black text-sm text-slate-700 dark:text-slate-200 outline-none"
-                                                    />
-                                                    <button 
-                                                        onClick={() => updateQuantity(itemId, selectedQuantities[itemId] + 1, item.quantity)}
-                                                        className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-slate-600 dark:text-slate-400 transition-all active:scale-90"
-                                                    >
-                                                        <i className="bi bi-plus-lg" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Logistics Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                                    <i className="bi bi-truck text-xl" />
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 tracking-tight">Coleta no Endereço</span>
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Retirar itens na casa do cliente</span>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setCollectAtAddress(!collectAtAddress)}
-                                className={`w-14 h-7 rounded-full p-1 transition-all duration-300 flex items-center ${collectAtAddress ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}
-                            >
-                                <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${collectAtAddress ? 'translate-x-7' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
-
-                        {collectAtAddress && (
-                            <div className="animate-fade-in space-y-4">
-                                <Agendamento 
-                                    scheduling={scheduling}
-                                    onChangeScheduling={(k, v) => setScheduling(prev => ({ ...prev, [k]: v }))}
-                                    errors={{}}
-                                    isPickup={true}
-                                />
-                                
-                                <div className="p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2 px-1">Observações sobre a Coleta</label>
-                                    <textarea 
-                                        value={collectionObservation}
-                                        onChange={(e) => setCollectionObservation(e.target.value)}
-                                        placeholder="Ex: Tocar interfone 102, portão lateral, etc..."
-                                        className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-sm font-medium text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all placeholder:text-slate-400 min-h-[100px] resize-none uppercase"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
-                    <div className="flex items-center justify-between mb-6 px-2">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Total da Devolução</span>
-                            <div className="text-2xl font-black text-amber-600">
-                                R$ {totalReturnItemsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </div>
-                        </div>
-                        <div className="text-right">
-                             <div className="flex items-center gap-2 justify-end">
-                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">{Object.keys(selectedQuantities).length} Itens Selecionados</span>
-                             </div>
-                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Vínculo: Pedido #{order.id}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                        <button
-                            onClick={onClose}
-                            disabled={submitting}
-                            className="flex-1 py-4 px-6 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-slate-200 dark:border-slate-800"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleGenerateReturn}
-                            disabled={submitting || Object.keys(selectedQuantities).length === 0}
-                            className={`flex-1 py-4 px-6 rounded-2xl font-black uppercase tracking-widest text-[10px] text-white shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${
-                                submitting || Object.keys(selectedQuantities).length === 0 
-                                ? 'bg-slate-300 cursor-not-allowed shadow-none' 
-                                : 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/20'
-                            }`}
-                        >
-                            {submitting ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Processando...
-                                </>
-                            ) : (
-                                <>
-                                    <i className="bi bi-arrow-return-left" />
-                                    Confirmar Devolução
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+    return <div className="fixed inset-0 z-[999999] flex items-stretch justify-center bg-slate-900/60 p-0 backdrop-blur-sm animate-fade-in xl:items-center xl:p-4"><div className="flex h-full w-full max-w-none flex-col overflow-hidden border border-slate-100 bg-white shadow-2xl animate-slide-up dark:border-slate-800 dark:bg-slate-900 xl:h-auto xl:max-h-[90vh] xl:max-w-2xl xl:rounded-3xl">
+        <header className="flex shrink-0 items-center justify-between border-b border-slate-50 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-900/30"><Undo2 className="h-5 w-5" /></div><div><h2 className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-white">Gerar pedido de devolução</h2><p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Pedido #{formatOrderCode(order)} • {order.customerData?.fullName}</p></div></div><button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i className="bi bi-x-lg text-lg" /></button></header>
+        <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto p-6"><ReturnItemsSelection order={order} quantities={quantities} onToggle={toggleItem} onQuantityChange={updateQuantity} /><ReturnCollectionSection collectAtAddress={collectAtAddress} onCollectChange={setCollectAtAddress} scheduling={scheduling} onSchedulingChange={(key, value) => setScheduling((current) => ({ ...current, [key]: value }))} observations={observations} onObservationsChange={setObservations} /></div>
+        <footer className="shrink-0 border-t border-slate-100 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"><div className="mb-6 flex items-center justify-between px-2"><div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Total da devolução</span><div className="text-2xl font-black text-amber-600">R$ {selectedTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></div><div className="text-right text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">{Object.keys(quantities).length} itens selecionados<span className="mt-1 block text-[9px] text-slate-400">Vínculo: #{formatOrderCode(order)}</span></div></div><div className="flex gap-3"><button type="button" onClick={onClose} disabled={submitting} className="flex-1 rounded-2xl border border-slate-200 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800">Cancelar</button><button type="button" onClick={generateReturn} disabled={submitting || !Object.keys(quantities).length} className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-amber-500/20 transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">{submitting ? "Processando..." : <><Undo2 className="h-4 w-4" />Gerar pedido de devolução</>}</button></div></footer>
+    </div></div>;
 };
 
 export default ReturnOrderModal;
-

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Order from "../../../types/order.type";
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from "react-toastify";
+import { formatOrderCode } from '@/pages/utils/orderCode';
 
 interface Props {
     isOpen: boolean;
@@ -27,23 +28,23 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
             return;
         }
 
-        const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '');
-        if (type === 'withdrawal' && hasTemporaryItems) {
-            toast.error("Não é possível lançar saída de estoque para pedidos que contêm produtos temporários. Por favor, edite o pedido e selecione produtos reais.");
+        const catalogItems = order.items.filter(item => Boolean(item.productId?.trim()) && !item.isTemporaryProduct);
+        if (catalogItems.length === 0) {
+            toast.error("Não há itens vinculados ao catálogo para movimentar no estoque.");
             return;
         }
 
         setIsSaving(true);
         try {
             // Record a move for each item in the order
-            const moves = order.items.map(item => ({
+            const moves = catalogItems.map(item => ({
                 productId: item.productId,
                 variationId: item.variationId,
                 productDescription: item.description,
                 type: type, // 'withdrawal' or 'entry'
                 quantity: item.quantity,
                 date: new Date().toISOString(),
-                label: type === 'withdrawal' ? `Saída - Pedido #${order.id?.slice(-8)}` : `Estorno - Pedido #${order.id?.slice(-8)}`,
+                label: type === 'withdrawal' ? `Saída - Pedido #${formatOrderCode(order)}` : `Estorno - Pedido #${formatOrderCode(order)}`,
                 observation: observation,
                 unitPrice: item.unitPrice,
                 relatedEntityId: order.id,
@@ -75,7 +76,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
                         </div>
                         <div>
                             <h2 className="text-xl font-black tracking-tight">{title}</h2>
-                            <p className="text-[10px] uppercase font-bold opacity-70 tracking-widest mt-0.5">Pedido #{order.id?.slice(-8)}</p>
+                            <p className="text-[10px] uppercase font-bold opacity-70 tracking-widest mt-0.5">Pedido #{formatOrderCode(order)}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">

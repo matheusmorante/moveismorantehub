@@ -10,13 +10,15 @@ import OrderFilters, { Filters } from "./OrderFilters";
 import { OrderHistoryListRef } from "./OrderHistoryList";
 import PostOrderActionsModal from "./OrderActions/PostOrderActionsModal";
 import ReturnOrderModal from "./OrderActions/ReturnOrderModal";
+import OrderDetailsModal from "../DeliverySchedule/OrderDetailsModal";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const SalesOrder = () => {
-    const [orderModalType, setOrderModalType] = useState<'sale' | 'pickup' | 'assistance' | 'budget' | 'return' | null>(null);
+    const [orderModalType, setOrderModalType] = useState<'sale' | 'assistance' | 'budget' | 'return' | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [editingInitialStep, setEditingInitialStep] = useState<number | undefined>(undefined);
     const [editingHighlightTemporary, setEditingHighlightTemporary] = useState<boolean>(false);
+    const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
     const [returningOrder, setReturningOrder] = useState<Order | null>(null);
     const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
@@ -80,6 +82,7 @@ const SalesOrder = () => {
     }, [window.location.search]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    // Legado de lixeira mantido apenas para compatibilidade interna; não há mais acesso na interface.
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -190,20 +193,8 @@ const SalesOrder = () => {
                         <div className="flex items-center justify-between w-full sm:w-auto gap-2 flex-wrap sm:flex-nowrap">
                             {/* Action Buttons Group */}
                             <div className="ml-auto flex items-center gap-2 shrink-0">
-                                {/* Lixeira Button */}
-                                {!isReturnRoute && (
-                                    <button
-                                        onClick={() => setIsTrashOpen(true)}
-                                        className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500 active:scale-95"
-                                        title="Lixeira"
-                                    >
-                                        <i className="bi bi-trash3 text-sm"></i>
-                                        <span>Lixeira</span>
-                                    </button>
-                                )}
-
                                 {/* Visualizacao Dropdown */}
-                                <div className="relative hidden lg:block">
+                                {!isReturnRoute && <div className="relative hidden lg:block">
                                     <button
                                         onClick={() => setShowSettings(!showSettings)}
                                         className={`flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider active:scale-95 ${
@@ -250,10 +241,10 @@ const SalesOrder = () => {
                                             </div>
                                         </>
                                     )}
-                                </div>
+                                </div>}
 
                                 {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores. */}
-                                <button
+                                {!isReturnRoute && <button
                                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                                     className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${isSidebarOpen
                                         ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
@@ -263,7 +254,7 @@ const SalesOrder = () => {
                                 >
                                     <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
                                     <span>Filtros</span>
-                                </button>
+                                </button>}
 
                                 {/* Main Create Button */}
                                 {isBudgetRoute && (
@@ -290,7 +281,7 @@ const SalesOrder = () => {
                                         className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
                                     >
                                         <i className="bi bi-arrow-return-left text-sm" />
-                                        <span>Nova Devolução</span>
+                                        <span>Nova devolução sem venda vinculada</span>
                                     </button>
                                 )}
                                 {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
@@ -310,15 +301,15 @@ const SalesOrder = () => {
                 <div className="flex flex-col gap-3 flex-1">
                     <div className="bg-transparent transition-colors flex-1 flex flex-col overflow-visible">
                         <div className="flex flex-1 min-w-0 gap-4 items-start">
-                            <div className={`transition-all duration-300 ease-in-out border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full rounded-2xl ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'} min-[1701px]:!sticky min-[1701px]:!top-20 min-[1701px]:!inset-auto min-[1701px]:!z-auto min-[1701px]:!w-80 min-[1701px]:!opacity-100 min-[1701px]:!overflow-hidden min-[1701px]:!border min-[1701px]:!shadow-none min-[1701px]:!shrink-0`}>
+                            {!isReturnRoute && <div className={`transition-all duration-300 ease-in-out border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full rounded-2xl ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'} min-[1701px]:!sticky min-[1701px]:!top-20 min-[1701px]:!inset-auto min-[1701px]:!z-auto min-[1701px]:!w-80 min-[1701px]:!opacity-100 min-[1701px]:!overflow-hidden min-[1701px]:!border min-[1701px]:!shadow-none min-[1701px]:!shrink-0`}>
                                 <div className="lg:hidden flex justify-end p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                                     <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 p-2">
                                         <i className="bi bi-x-lg text-xl" />
                                     </button>
                                 </div>
                                 <OrderFilters filters={filters} setFilters={setFilters} />
-                            </div>
-                            {isSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
+                            </div>}
+                            {!isReturnRoute && isSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
                             <div className="flex-1 min-w-0 flex flex-col">
                                 <OrderHistoryList
@@ -327,6 +318,7 @@ const SalesOrder = () => {
                                         setEditingHighlightTemporary(!!highlightTemporary);
                                         setEditingOrder(order);
                                     }}
+                                    onViewDetails={setDetailsOrder}
                                     filters={activeFilters}
                                     visibilitySettings={visibilitySettings}
                                     onToggleColumn={toggleVisibility}
@@ -335,6 +327,7 @@ const SalesOrder = () => {
                                     ref={orderListRef}
                                     onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
                                     onAction={handleOrderAction}
+                                    onShowPostSaleActions={setPostOrderDetails}
                                 />
                             </div>
                         </div>
@@ -575,6 +568,14 @@ const SalesOrder = () => {
                 />
             )}
 
+            {detailsOrder && (
+                <OrderDetailsModal
+                    order={detailsOrder}
+                    isReadOnly
+                    onClose={() => setDetailsOrder(null)}
+                />
+            )}
+
             {returningOrder && (
                 <ReturnOrderModal
                     order={returningOrder}
@@ -587,6 +588,7 @@ const SalesOrder = () => {
                     }}
                 />
             )}
+
         </div>
     );
 };

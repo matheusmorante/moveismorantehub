@@ -32,6 +32,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     value = "",
     placeholder = "Digite o nome ou código do produto...",
     className = "",
+    inputClassName,
     supplierId,
     onlyName = false,
     variationsOnly = false,
@@ -138,7 +139,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         }}
                         onFocus={() => setShowSuggestions(query.trim().length >= 2)}
                         placeholder={placeholder}
-                        className={`w-full px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl outline-none transition-all text-sm font-medium ${
+                        className={inputClassName || `w-full px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl outline-none transition-all text-sm font-medium ${
                             isTemporary 
                                 ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 text-amber-950 dark:text-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20' 
                                 : isSelected 

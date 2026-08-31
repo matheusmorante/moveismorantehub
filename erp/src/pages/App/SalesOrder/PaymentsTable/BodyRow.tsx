@@ -210,7 +210,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                             >
                                 <option value="" disabled>Selecionar status...</option>
                                 <option value="Pago">Pago</option>
-                                <option value="Pendente">Pendente</option>
+                                <option value="Pendente">Pendente - no ato da entrega</option>
                                 <option value="Verificar">Verificar</option>
                                 {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
                                     <option value={payment.status}>{payment.status}</option>
@@ -369,7 +369,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                     >
                         <option value="" disabled className="text-slate-400">Status...</option>
                         <option value="Pago">Pago</option>
-                        <option value="Pendente">Pendente</option>
+                        <option value="Pendente">Pendente - no ato da entrega</option>
                         <option value="Verificar">Verificar</option>
                         {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
                             <option value={payment.status}>{payment.status}</option>

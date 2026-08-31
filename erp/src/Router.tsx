@@ -181,7 +181,7 @@ function Router() {
             <Route path='/finance/settings' element={<AdminRoute><FinanceSettings /></AdminRoute>} />
             <Route path='/logistics/assembly-list' element={<AssemblyListPage />} />
             <Route path='/mobile-app' element={<MobileAppLanding />} />
-            <Route path='/system-docs' element={<AdminRoute><SystemDocs /></AdminRoute>} />
+            <Route path='/system-docs' element={<SystemDocs />} />
           </Route>
         </Routes>
       </BrowserRouter>

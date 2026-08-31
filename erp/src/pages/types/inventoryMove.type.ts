@@ -15,7 +15,9 @@ export type InventoryMove = {
     relatedEntityId?: string; // e.g., orderId, purchaseId
     relatedEntityType?: 'sales_order' | 'purchase_order' | 'adjustment' | 'manual';
     observation?: string;
-    status?: 'active' | 'cancelled';
+    status?: 'effective' | 'reversed' | 'active' | 'cancelled';
+    reversalReason?: string;
+    reversedAt?: string;
     productName?: string;
     createdAt?: string;
 };

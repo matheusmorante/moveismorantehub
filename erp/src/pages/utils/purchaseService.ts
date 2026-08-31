@@ -69,12 +69,15 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
     };
 };
 
+import { saveInventoryMove, reverseInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+
 const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
     const formattedDate = formatToBRDate(purchase.date);
     const purchaseNum = purchase.purchaseNumber || 1;
+    const supplierName = purchase.supplierName || (purchase as any).supplier?.name || (purchase as any).supplier?.tradeName || '';
     const moveLabel = purchase.invoiceNumber 
-        ? `Entrada NF-${purchase.invoiceNumber}` 
-        : `Entrada do Pedido #${purchaseNum} (${formattedDate})`;
+        ? `Entrada NF-${purchase.invoiceNumber}${supplierName ? ` - ${supplierName}` : ''}` 
+        : `Entrada do Pedido #${purchaseNum}${supplierName ? ` - ${supplierName}` : ''} (${formattedDate})`;
 
     for (const item of purchase.items) {
         const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
@@ -93,8 +96,9 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
             label: moveLabel,
             relatedEntityId: savedId,
             relatedEntityType: 'purchase_order',
-            observation: `Pedido de Compra #${purchaseNum}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}${purchase.observation ? ` | ${purchase.observation}` : ''}`,
-            unitCost: item.unitCost
+            observation: `Pedido de Compra #${purchaseNum}${supplierName ? ` - ${supplierName}` : ''}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}${purchase.observation ? ` | ${purchase.observation}` : ''}`,
+            unitCost: item.unitCost,
+            status: 'effective'
         }, currentStockValue);
     }
     
@@ -106,25 +110,16 @@ const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
     notifyListeners();
 };
 
-export const reverseInventoryMoves = async (purchaseId: string) => {
-    const searchPattern = `%${purchaseId}%`;
-    const shortPattern = purchaseId.length >= 4 ? `%#${purchaseId.slice(-4)}%` : searchPattern;
+export const reverseInventoryMoves = async (purchaseOrId: Purchase | string, customReason?: string) => {
+    const purchaseId = typeof purchaseOrId === 'string' ? purchaseOrId : purchaseOrId.id!;
+    const purchase = typeof purchaseOrId === 'object' ? purchaseOrId : currentPurchases.find(p => p.id === purchaseId);
+    const supplierName = purchase?.supplierName || (purchase as any)?.supplier?.name || (purchase as any)?.supplier?.tradeName || '';
+    const purchaseNum = purchase?.purchaseNumber || 1;
+    const reason = customReason || (supplierName 
+        ? `Cancelamento do pedido de compra #${purchaseNum} - ${supplierName}`
+        : `Cancelamento do pedido de compra #${purchaseNum}`);
 
-    const { data: moves, error } = await supabase
-        .from('inventory_moves')
-        .select('id')
-        .or(`order_id.eq.${purchaseId},observation.ilike.${searchPattern},label.ilike.${searchPattern},observation.ilike.${shortPattern}`);
-
-    if (error) {
-        console.error("Erro ao buscar lançamentos para estorno:", error);
-        throw error;
-    }
-
-    if (moves && moves.length > 0) {
-        for (const move of moves) {
-            await deleteInventoryMove(move.id, true);
-        }
-    }
+    await cancelInventoryMovesByRelatedEntity(purchaseId, 'purchase_order', reason);
 
     await supabase.from(TABLE_NAME).update({ stockProcessed: false }).eq('id', purchaseId);
 
@@ -141,9 +136,13 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
         throw new Error("Este pedido de compra já está cancelado.");
     }
 
+    if (purchase.stockProcessed) {
+        await reverseInventoryMoves(purchase);
+    }
+
     const { error } = await supabase
         .from(TABLE_NAME)
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled', stockProcessed: false })
         .eq('id', purchase.id);
 
     if (error) {
@@ -152,7 +151,7 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
     }
 
     currentPurchases = currentPurchases.map(p => 
-        p.id === purchase.id ? { ...p, status: 'cancelled' } : p
+        p.id === purchase.id ? { ...p, status: 'cancelled', stockProcessed: false } : p
     );
     notifyListeners();
 };

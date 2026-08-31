@@ -54,9 +54,8 @@ const processOrders = (
         const isBudget = o.orderType === 'budget';
         if (isBudget) return;
 
-        if (!isAssistance && !isShowroom) {
-            if (o.status !== 'scheduled' && o.status !== 'fulfilled' && o.status !== 'draft') return;
-        }
+        // Rascunhos só entram quando já possuem agendamento; ainda não movimentam estoque.
+        if (!['draft', 'scheduled'].includes(o.status || '')) return;
 
         const rawDateStr = isAssistance
             ? (o as any).scheduledDate || o.shipping?.scheduling?.date
@@ -64,13 +63,10 @@ const processOrders = (
 
         const isPending = !!o.shipping?.scheduling?.pendingScheduling;
 
-        // Pedidos em Rascunho (draft) só devem aparecer no cronograma se tiverem agendamento preenchido
-        if (o.status === 'draft' && !rawDateStr && !isPending) return;
-
         if (!rawDateStr && !isPending) return;
         const orderDateStr = rawDateStr ? toISO(rawDateStr) : "";
 
-        // Apply period filter (only for scheduled orders)
+        // Apply period filter to every pedido que já tenha um agendamento.
         if (!isPending) {
             if (filter === 'default' && orderDateStr < yesterdayStr) return;
             if (filter === 'week' && (orderDateStr < getLocalISODate(startOfWeek) || orderDateStr > getLocalISODate(endOfWeek))) return;
@@ -243,8 +239,13 @@ export const useDeliverySchedule = () => {
         };
         fetchShowroom();
 
+        const channel = supabase
+            .channel(`showroom-assemblies-schedule-${Date.now()}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, fetchShowroom)
+            .subscribe();
+
         return () => {
-            // Realtime desabilitado para economizar conexões e tráfego
+            supabase.removeChannel(channel);
         };
     }, []);
 

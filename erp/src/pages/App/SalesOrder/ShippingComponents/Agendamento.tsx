@@ -7,9 +7,10 @@ interface AgendamentoProps {
     onChangeScheduling: (key: keyof Shipping["scheduling"], value: string | Date | boolean) => void;
     errors: ValidationErrors;
     isPickup?: boolean;
+    hideSchedulingShortcuts?: boolean;
 }
 
-const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: AgendamentoProps) => {
+const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSchedulingShortcuts }: AgendamentoProps) => {
     if (!scheduling) return null;
     const hasError = errors['shipping_date'] || errors['shipping_time'];
 
@@ -20,7 +21,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                     {isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega'}
                 </label>
                 
-                <div className="flex items-center gap-2">
+                {!hideSchedulingShortcuts && <div className="flex items-center gap-2">
                     <button
                         type="button"
                         onClick={() => {
@@ -66,7 +67,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup }: Agend
                             <i className="bi bi-lightning-fill" /> Retirada Imediata
                         </button>
                     )}
-                </div>
+                </div>}
             </div>
 
             <div className={`bg-white dark:bg-slate-900 border p-4 sm:p-5 lg:p-6 rounded-3xl sm:rounded-[2rem] shadow-sm w-full transition-all ${scheduling.pendingScheduling ? 'border-orange-200 bg-orange-50/20 ring-4 ring-orange-500/5' : (hasError ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800')}`}>

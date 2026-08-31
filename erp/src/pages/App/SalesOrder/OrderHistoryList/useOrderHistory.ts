@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
-import { subscribeToOrders, moveToTrash, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { subscribeToOrders, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { getSettings } from "../../../utils/settingsService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
@@ -16,6 +17,7 @@ export const useOrderHistory = (filters?: any) => {
     const [refreshSignal, setRefreshSignal] = useState(0);
     const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
     const { width } = useWindowSize();
     const isMobile = width < CARD_VIEW_BREAKPOINT;
     // Cards view uses infinite scroll (mobile + desktop cards), table view uses classic pagination
@@ -215,8 +217,13 @@ export const useOrderHistory = (filters?: any) => {
     }, [filteredOrders, currentPage, useInfiniteScroll]);
 
     const handleDelete = async (id: string) => {
-        await moveToTrash(id);
-        toast.info("Pedido movido para a lixeira.");
+        const order = orders.find((item) => item.id === id);
+        if (order?.status !== 'draft') {
+            toast.warning("Somente pedidos em rascunho podem ser excluídos.");
+            return;
+        }
+        await permanentDeleteOrder(id);
+        toast.success("Rascunho excluído permanentemente.");
         refresh();
     };
 
@@ -236,10 +243,15 @@ export const useOrderHistory = (filters?: any) => {
 
     const handleBulkTrash = async () => {
         if (selectedOrders.length === 0) return;
+        const selected = orders.filter((order) => selectedOrders.includes(order.id || ''));
+        if (selected.some((order) => order.status !== 'draft')) {
+            toast.warning("Somente pedidos em rascunho podem ser excluídos.");
+            return;
+        }
         setLoading(true);
         try {
-            await Promise.all(selectedOrders.map(id => moveToTrash(id)));
-            toast.info(`${selectedOrders.length} pedido(s) movido(s) para a lixeira.`);
+            await Promise.all(selectedOrders.map(id => permanentDeleteOrder(id)));
+            toast.success(`${selectedOrders.length} rascunho(s) excluído(s) permanentemente.`);
             setSelectedOrders([]);
             refresh();
         } catch (error) {
@@ -301,27 +313,56 @@ export const useOrderHistory = (filters?: any) => {
 
     const clearSelection = () => setSelectedOrders([]);
 
-    const handleStatusUpdate = async (id: string, newStatus: Order['status']) => {
-        // Find full order in local state to avoid a pre-fetch (which was returning 400)
-        const currentOrder = orders.find(o => o.id === id);
+    const commitStatusUpdate = async (currentOrder: Order, newStatus: Order['status']) => {
+        const id = currentOrder.id!;
+        const isReturn = currentOrder.orderType === 'return';
         const isAutoWithdrawal = (newStatus === 'scheduled' || newStatus === 'fulfilled' || getSettings().inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus || ''));
-        const hasTemporaryItems = currentOrder?.items?.some(item => !item.productId || item.productId.trim() === '');
-        const expectedStockProcessed = newStatus === 'cancelled' 
+        const hasCatalogItems = currentOrder?.items?.some(item => Boolean(item.productId?.trim()) && !item.isTemporaryProduct);
+        const expectedStockProcessed = isReturn ? currentOrder.stockProcessed : newStatus === 'cancelled'
             ? false 
-            : (isAutoWithdrawal && !hasTemporaryItems ? true : currentOrder?.stockProcessed);
+            : (isAutoWithdrawal && hasCatalogItems ? true : currentOrder?.stockProcessed);
 
         // Optimistic update
-        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stockProcessed: expectedStockProcessed } : o));
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stockProcessed: expectedStockProcessed, ...(isReturn && newStatus === 'fulfilled' ? { returnStockProcessed: true } : {}) } : o));
         try {
             // Pass currentOrder so updateOrder skips the SELECT entirely
             await updateOrder(id, { status: newStatus }, currentOrder);
             toast.success("Status do pedido atualizado!");
         } catch (error) {
             // Rollback on failure
-            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: currentOrder?.status, stockProcessed: currentOrder?.stockProcessed } as Order : o));
+            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: currentOrder.status, stockProcessed: currentOrder.stockProcessed, returnStockProcessed: currentOrder.returnStockProcessed } : o));
             console.error("Erro ao atualizar status:", error);
             toast.error("Erro ao atualizar status do pedido.");
         }
+    };
+
+    const handleStatusUpdate = async (id: string, newStatus: Order['status']) => {
+        const currentOrder = orders.find(order => order.id === id);
+        if (!currentOrder) return;
+        if (currentOrder.status === 'draft') {
+            toast.warning("Pedidos em rascunho devem ter seu cadastro finalizado através do formulário para serem agendados.");
+            return;
+        }
+        if (currentOrder.status === 'cancelled' && newStatus !== 'cancelled') {
+            toast.warning("Pedido cancelado não pode ser reaberto. Duplique-o para criar uma nova venda.");
+            return;
+        }
+        if (currentOrder.orderType === 'return' && currentOrder.status === 'fulfilled' && newStatus === 'cancelled') {
+            toast.warning("Uma devolução atendida não pode ser cancelada ou desfeita.");
+            return;
+        }
+        if (currentOrder.orderType === 'return' && currentOrder.status === 'scheduled' && newStatus === 'fulfilled') {
+            setPendingReturnFulfillment(currentOrder);
+            return;
+        }
+        await commitStatusUpdate(currentOrder, newStatus);
+    };
+
+    const confirmReturnFulfillment = async () => {
+        if (!pendingReturnFulfillment) return;
+        const order = pendingReturnFulfillment;
+        setPendingReturnFulfillment(null);
+        await commitStatusUpdate(order, 'fulfilled');
     };
 
     const handleAction = async (actionKey: string, order: Order) => {
@@ -436,6 +477,9 @@ export const useOrderHistory = (filters?: any) => {
         handlePermanentDelete,
         handleAction,
         handleStatusUpdate,
+        pendingReturnFulfillment,
+        confirmReturnFulfillment,
+        cancelReturnFulfillment: () => setPendingReturnFulfillment(null),
         selectedOrders,
         toggleSelection,
         selectAll,

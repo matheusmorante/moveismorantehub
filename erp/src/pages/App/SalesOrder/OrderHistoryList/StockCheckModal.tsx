@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Order from "../../../types/order.type";
+import { formatOrderCode } from "../../../utils/orderCode";
 
 interface Props {
     isOpen: boolean;
@@ -73,7 +74,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
                         </div>
                         <div>
                             <h2 className="text-xl font-black tracking-tight">Etiquetar Itens</h2>
-                            <p className="text-[10px] uppercase font-bold opacity-70 tracking-widest mt-0.5">Pedido #{order.id?.slice(-8).toUpperCase()}</p>
+                            <p className="text-[10px] uppercase font-bold opacity-70 tracking-widest mt-0.5">Pedido #{formatOrderCode(order)}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">

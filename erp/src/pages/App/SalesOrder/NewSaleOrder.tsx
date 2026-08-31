@@ -214,10 +214,10 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                         </div>
                         <div>
                             <h2 className={`text-sm sm:text-base font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
-                                {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova Devolução' : 'Novo Pedido'}
+                                {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova devolução sem venda vinculada' : 'Novo Pedido'}
                             </h2>
                             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                {isBudget ? 'Simulação de Venda' : isReturn ? 'Devolução de Itens' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
+                                {isBudget ? 'Simulação de Venda' : isReturn ? 'Informe cliente e itens devolvidos; este pedido não terá vínculo com uma venda.' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
                             </p>
                         </div>
                     </div>

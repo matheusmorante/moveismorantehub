@@ -33,6 +33,7 @@ export type Order = {
     scheduledDate?: string,
     scheduledTime?: string,
     linkedOrderId?: string | null,
+    collectionObservation?: string,
     assistanceItems?: AssistanceItem[],
     deleted?: boolean,
     deletedAt?: string | null,
@@ -43,7 +44,8 @@ export type Order = {
     isRegisteredInBling?: boolean,
     isStockChecked?: boolean,
     isButtonsClicked?: IsButtonsClicked,
-    returnOrderId?: string
+    returnOrderId?: string,
+    returnStockProcessed?: boolean
 }
 
 export type OrderAction =

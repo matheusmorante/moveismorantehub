@@ -1148,8 +1148,30 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
         // recebidos para não sobrescrever colunas obrigatórias, como price.
         const dbUpdate = mapToDB({ ...productToUpdate, id: resolvedId });
         delete dbUpdate.id;
+        delete dbUpdate.variations;
+        delete dbUpdate.brand;
+        delete dbUpdate.category;
+        delete dbUpdate.ecommerce_description;
+        delete dbUpdate.whatsapp_description;
+        delete dbUpdate.whatsapp_template;
+        delete dbUpdate.ecommerce_template;
+        delete dbUpdate.initial_stock_entries;
+        delete dbUpdate.meta_title;
+        delete dbUpdate.meta_description;
+        delete dbUpdate.seo_description;
+
         const { data, error } = await supabase.from(TABLE_NAME).update(dbUpdate).eq('id', resolvedId).select('*').single();
         if (error) throw error;
+
+        if (Array.isArray(productToUpdate.variations) && productToUpdate.variations.length > 0) {
+            for (const v of productToUpdate.variations) {
+                if (v.id && v.stock !== undefined) {
+                    await supabase.from("product_variations").update({
+                        stock: parseInt(String(v.stock), 10)
+                    }).eq("id", v.id);
+                }
+            }
+        }
         const fullProduct = mapFromDB(data) as Product;
         const currentProducts = getLocalProducts();
         currentProducts.push(fullProduct);

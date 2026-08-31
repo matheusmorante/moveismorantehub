@@ -1,104 +1,156 @@
 # Regras e Comportamentos do Sistema - Morante Hub
 
-Este documento registra regras específicas e lógicas de funcionamento do Morante Hub para evitar regressões nas modificações do agente.
+Este documento registra as regras e comportamentos **implementados** no sistema, organizados por modulo, para evitar regressoes.
 
-## 1. Cadastro de Variações de Produtos
+---
 
-- **Herança de Informações Técnicas e Preços**: 
-  - Ao criar uma nova variação de produto (Modal de Criação / Edição), os campos de **Informações Técnicas** (Descrição, Largura, Altura, Profundidade e Peso) e **Precificação** (Preço de Venda, Promocional, etc.) devem vir marcados para **Herdar do Pai** por padrão (`syncDescription: true`, `syncWidth: true`, `syncHeight: true`, `syncDepth: true`, `syncWeight: true`).
-- **Nomenclatura de Botões na Aba de Identificação**:
-  - O botão para adicionar um novo atributo à variação (vínculo de atributo) deve se chamar **"Adicionar"** (e não "+ Vínculo").
-  - O botão para abrir o modal de gerenciamento/criação global de atributos deve se chamar **"Gerenciar Atributos"** (e não "+ Criar Atributo").
+## REGRAS GERAIS DO AGENTE
 
-## 2. Sincronização do Catálogo Meta (Facebook / Instagram / WhatsApp)
+- **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
+- **Modularizacao**: Arquivos acima de 500 linhas ou com mais de uma responsabilidade devem ser divididos. Aplicar apos cada tarefa.
+- **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
 
-- **Fluxo do Feed CSV**: 
-  - Ao criar ou editar um produto/variação no ERP, não é realizada chamada síncrona à API da Meta. O Meta Commerce Manager lê e atualiza os produtos automaticamente através do arquivo de **Feed CSV (`/api/facebook-catalog.csv`)**, que é gerado dinamicamente a partir dos produtos gravados no Supabase.
+---
 
-## 3. Controle de Git Push
+## MODULO: PRODUTOS
 
-- **Permissão de Push**: Não execute `git push` automaticamente nas alterações efetuadas. Realize apenas as modificações necessárias no código e aguarde a solicitação explícita do usuário para enviar as alterações para o repositório remoto.
+### Ciclo de Vida do Produto (3 Estados Mutuamente Exclusivos)
 
-## 4. Modularização e Código Limpo (Limite de 200 Linhas por Arquivo)
+| Estado | Condicao no Banco |
+|---|---|
+| **Produto Ativo** | `is_draft: false`, `active: true`, `deleted: false` |
+| **Produto Desativado** | `is_draft: false`, `active: false`, `deleted: false` |
+| **Rascunho** | `is_draft: true` ou `status == 'draft'` |
 
-- **Regra de Ouro de Modularização e Responsabilidade unica**:
-  - Sempre que criar ou editar um arquivo de código no projeto, se o arquivo ultrapassar **500 linhas ou ter mais de uma responsabilidade**, ele deve ser modularizado (dividido em arquivos menores, sub-componentes ou helpers em pastas dedicadas).
-  - Após concluir qualquer tarefa, verifique os arquivos modificados e aplique a refatoração necessária para manter o código limpo, legível, com responsabilidade unica, fácil de depurar e bem organizado.
+- Rascunhos so aparecem no filtro dedicado de Rascunhos. **Nunca** na lista Ativa nem Desativada.
+- Produto concluido (`is_draft: false`) **NUNCA** volta para rascunho. Transita apenas entre Ativo e Desativado.
+- Rascunho so e criado se o usuario preencher ao menos o nome e nao finalizar. Fechar sem nome = nenhum rascunho criado.
+- Ao editar produto ja concluido, o auto-save de rascunho e desativado.
 
-## 5. Terminologia de Produtos: ERP vs Catálogo Digital
+### Variacoes de Produtos
 
-- **No ERP (Gestão de Produtos, Listagens e Pedidos)**:
-  - Os termos corretos para o ciclo de vida do produto no sistema são **"Produtos Ativos"** (`active: true`) e **"Produtos Desativados"** (`active: false`).
-  - As ações no ERP são **"Desativar Produto"** e **"Ativar / Reativar Produto"**.
-- **No Catálogo Digital (E-commerce / Catálogo Online)**:
-  - O status para o catálogo público é **"Publicado no Catálogo"** (`status: 'published'`) e **"Ocultado do Catálogo"** (`status: 'hidden'`).
+- Ao criar variacao, campos de Informacoes Tecnicas e Precificacao chegam com **Herdar do Pai marcado** por padrao (`syncDescription`, `syncWidth`, `syncHeight`, `syncDepth`, `syncWeight: true`).
+- Botao de adicionar atributo a variacao: chama-se **Adicionar** (nao `+ Vinculo`).
+- Botao de gerenciar atributos globais: chama-se **Gerenciar Atributos** (nao `+ Criar Atributo`).
 
-## 6. Versionamento Semântico do Aplicativo Mobile (Expo / EAS)
+### Catalogo Meta (Facebook / Instagram / WhatsApp)
 
-- **Regra de Versionamento Automático (`MAJOR.MINOR.PATCH`)**:
-  - Sempre que uma nova atualização, build ou modificação for efetuada no projeto `mobile`:
-    - **PATCH (`x.x.+1`)**: Incrementar para correções de bugs, ajustes de layout, refinamentos de UI/UX ou pequenas melhorias de estabilidade.
-    - **MINOR (`x.+1.0`)**: Incrementar para adição de novas telas, novos módulos, novas integrações de destaque ou novas funcionalidades.
-    - **MAJOR (`+1.0.0`)**: Incrementar para grandes reestruturações do app ou breaking changes de arquitetura.
-  - Ao incrementar a versão no arquivo `mobile/app.json`, o agente deve sincronizar automaticamente:
-    - `"version"` (ex: `"1.0.1"`, `"1.0.2"`...)
-    - `"runtimeVersion"` (ex: `"1.0.1"`, `"1.0.2"`...)
-    - `"versionCode"` em `android` (incrementar número inteiro de versão: `1`, `2`, `3`...)
+- Ao criar/editar produto, **nao** e feita chamada sincrona a API da Meta.
+- O Meta Commerce Manager consome o Feed CSV gerado dinamicamente em `/api/facebook-catalog.csv` a partir dos dados do Supabase.
 
-## 7. Ciclo de Vida e Estados Exclusivos de Produtos no ERP
+---
 
-- **3 Estados Mutuamente Exclusivos**:
-  - Todo produto no ERP pertence a **EXATAMENTE UM** dos três estados a seguir:
-    1. **Produto Ativo**: Cadastro 100% concluído (`is_draft: false`, `status != 'draft'`), habilitado para vendas e operações (`active: true`, `deleted: false`).
-    2. **Produto Desativado**: Cadastro 100% concluído (`is_draft: false`, `status != 'draft'`), mas inativado pelo usuário (`active: false`, `deleted: false`).
-    3. **Rascunho de Produto**: Cadastro em andamento / incompleto (`is_draft: true` ou `status == 'draft'`).
-- **Regras de Criação de Rascunho**:
-  - Para um produto virar rascunho, é obrigatório:
-    - O formulário ter sido aberto para cadastro (novo produto ou rascunho em edição).
-    - Ter preenchido **pelo menos o nome do produto**.
-    - **NÃO ter finalizado o cadastro** (salvando silenciosamente via auto-save ou fechando o modal).
-  - Se o usuário abrir o modal de cadastro e fechar sem preencher o nome, **nenhum rascunho é criado**.
-- **Imutabilidade Pós-Cadastro (Produto Concluído NUNCA volta a ser rascunho)**:
-  - Uma vez que o produto teve seu cadastro concluído (`is_draft: false`), ele transita apenas entre **Ativo** e **Desativado**.
-  - **NÃO pode virar rascunho de volta**.
-  - Ao editar um produto existente já cadastrado, o auto-save de rascunho é desativado e o produto nunca tem seu status rebaixado para rascunho.
-- **Regras de Isolamento**:
-  - **Rascunhos NUNCA devem aparecer na lista de Produtos Desativados** nem na lista de **Produtos Ativos**.
-  - Rascunhos só aparecem na visão / filtro dedicado de **"Rascunhos"**.
-  - Um produto desativado só aparece na lista de **"Produtos Desativados"**.
-  - Um produto ativo só aparece na lista principal de **"Produtos Ativos"**.
+## MODULO: PEDIDOS DE VENDA (SalesOrder)
 
-## 8. Saída de Estoque em Pedidos de Venda
+### Status e Restricoes de Rascunho
 
-- **Lançamento Estritamente Automático**:
-  - No módulo de pedidos de venda, **NÃO** deve existir botão de "Lançar Saída" manualmente.
-  - A saída de estoque (`withdrawal` em `inventory_moves`) é disparada **exclusivamente de forma automática** no cadastro ou edição do pedido quando os requisitos forem cumpridos:
-    - O pedido atingir o status configurado de faturamento/baixa (ex: Agendado ou Atendido).
-    - O pedido **NÃO possuir itens temporários** (todos os itens devem possuir `productId` vinculado a um produto real do catálogo).
-- **Cancelamento e Estorno de Pedidos**:
-  - Ao cancelar um pedido de venda (`status: 'cancelled'`), todas as movimentações de saída vinculadas a esse pedido são automaticamente estornadas/excluídas do histórico e o saldo dos produtos é recomposto imediatamente (`stockProcessed: false`).
-- **Reativação de Pedidos Cancelados**:
-  - Ao alterar o status de um pedido cancelado novamente para um status ativo de baixa (ex: Agendado ou Atendido), o estoque é automaticamente reprocessado e lançado se o pedido estiver em conformidade (itens vinculados a produtos reais), atualizando `stockProcessed: true`.
-- **Indicador Visual de Saída (Card e Linha da Tabela)**:
-  - **Saída Lançada (`order.stockProcessed === true`)**: ícone `PackageCheck` na cor **verde** (`emerald`).
-  - **Saída Não Lançada (`order.stockProcessed === false` ou pendente)**: ícone `Package` (sem o check) na cor **cinza** (`slate`).
+- Status possiveis: `draft`, `scheduled`, `fulfilled`, `cancelled` (e outros customizados via `settings.orderStatuses`).
+- **Restricoes de Rascunho (`status: 'draft'`)**:
+  - Pedidos em rascunho **nao** podem ter o status alterado diretamente via menu ou seletor de status nos cards e linhas.
+  - O seletor de status fica desabilitado para rascunhos, exibindo o aviso de que o cadastro precisa ser finalizado.
+  - Para um pedido em rascunho tornar-se agendado (`scheduled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Concluir Pedido**.
+  - Acoes de **Gerar Devolucao** e **Desfazer Devolucao** sao ocultadas para rascunhos.
+- As acoes de mudanca de status ficam no menu de 3 pontos de cada pedido (`OrderHistoryCard` / `OrderHistoryRow`).
 
-## 9. Selos de Integração e Triagem (Etiquetado e Bling)
+### Selos de Triagem nos Cards e Linhas
 
-- **Posicionamento Prioritário**:
-  - Os selos interativos clicáveis (**Etiquetado** e **Bling**) ficam posicionados no **início** da lista de rótulos/badges (antes dos badges informativos).
-- **Formato Visual (Sem Checkbox)**:
-  - Os selos **Bling** e **Etiquetado** nos cards e linhas de pedidos **não** utilizam caixas de seleção/checkboxes visíveis.
-  - **Quando `true` (Marcado / Concluído)**:
-    - **Etiquetado**: fundo **verde sólido** (`bg-emerald-600`) com ícone de etiqueta em **branco** (`text-white`).
-    - **Bling**: fundo **verde sólido** (`bg-emerald-600`) com texto em **branco** (`text-white`).
-  - **Quando `false` (Desmarcado / Pendente)**:
-    - Ficam em cor **cinza neutro** (`slate`), mantendo a interatividade (clique para alternar o status).
+- **Etiquetado** (`isStockChecked`): verde solido (`bg-emerald-600`) quando marcado; cinza slate quando nao marcado. Nao aparece para pedidos do tipo `assistance`.
+- **Bling** (`isRegisteredInBling`): verde solido (`bg-emerald-600`) quando marcado; cinza slate quando nao marcado. Nao aparece para pedidos `draft`, cancelados ou `assistance`.
+- Os selos ficam **antes** dos badges informativos na lista de badges.
+- Sao botoes clicaveis sem checkbox visivel que alternam o valor diretamente.
 
+### Itens Temporarios (Produto sem Cadastro no Banco)
 
+- Item e temporario quando nao tem `productId` ou tem `isTemporaryProduct: true`.
+- O aviso visual `TemporaryProductAlert` e a prop `highlightAsTemporary` (`BodyRow.tsx`) aparecem **exclusivamente** em itens temporarios.
+- Itens com produto cadastrado **nao** recebem aviso.
+- Itens temporarios **nao** geram movimentacao de estoque.
+- Criterio de item valido para estoque: `item.productId` valido e `!item.isTemporaryProduct`.
 
+### Devolucoes de Pedidos
 
+- Gera novo pedido `orderType: 'return'` vinculado ao original via `returnOrderId`.
+- **Gerar Devolucao** (`generateReturn`): visivel apenas se nao ha devolucao ja gerada (`!hasReturn`), o pedido nao for rascunho e `canGenerateReturn(order)` retornar `true` (status `fulfilled`).
+- **Desfazer Devolucao** (`undoReturn`): visivel apenas se `hasReturn === true` e nao for rascunho.
+- Os dois botoes sao mutuamente exclusivos na exibicao.
 
+---
 
+## MODULO: ESTOQUE (Stock > Movimentacoes)
 
+### Tabela Central: `inventory_moves`
 
+Toda movimentacao de estoque e registrada em `inventory_moves` com:
+- `type`: `'entry'` (entrada) ou `'withdrawal'` (saida)
+- `relatedEntityType`: `'sales_order'` | `'purchase_order'` | `'adjustment'` | `'manual'`
+- `relatedEntityId`: ID da entidade de origem
+- `status`: `'effective'`, `'reversed'`, `'cancelled'`
+
+### Comunicacao Entre Modulos e Movimentacoes de Estoque
+
+| Evento no Sistema | Tipo de Movimentacao | Funcao Responsavel |
+|---|---|---|
+| Pedido agendado (`scheduled`) | **Saida** (`withdrawal`) | `handleStockAndBusinessRules()` em `orderHistoryService.ts` |
+| Pedido atendido (`fulfilled`) | **Saida** (`withdrawal`) | `handleStockAndBusinessRules()` em `orderHistoryService.ts` |
+| Pedido cancelado (`cancelled`) | **Estorno** das saidas | `cancelInventoryMovesByRelatedEntity()` em `inventoryService.ts` |
+| Item do pedido editado (pos estoque lancado) | **Estorno item anterior + nova saida** | `getChangedSaleItems()` + `reverseSaleItemMoves()` em `saleItemInventorySync.ts` |
+| Devolucao atendida (`return fulfilled`) | **Entrada** (`entry`) | `processReturnInventoryEntries()` em `returnInventoryService.ts` |
+| Recebimento confirmado (`received`) | **Entrada** (`entry`) | `goodsReceiptService.ts` ao confirmar recebimento |
+| Recebimento estornado (`estornado`) | **Estorno** das entradas | `goodsReceiptService.ts` ao estornar recebimento |
+| Ajuste ou lancamento manual no Estoque | `entry` ou `withdrawal` | `StockLaunchModal.tsx` ou `InventoryAuditModal.tsx` |
+
+### Rastreamento de Estoque por Pedido
+
+- `stockProcessed: boolean` (dentro de `order_data`): rastreia se a saida ja foi lancada. `true` = lancada; `false` = pendente.
+- Saidas sao geradas por FIFO (ordem dos lotes de entrada), item a item.
+- Ao cancelar pedido: estorno automatico de todas as saidas; `stockProcessed` volta a `false`.
+- Ao editar item de pedido ja processado: estorno do item anterior + nova saida do item corrigido.
+
+### Arquivo Central de Estoque
+
+`inventoryService.ts` e o ponto de entrada para toda movimentacao. Todos os modulos importam `saveInventoryMove()` deste arquivo.
+
+---
+
+## MODULO: RECEBIMENTO DE MERCADORIAS (Stock > Recebimentos)
+
+- **Rascunho** (`status: 'draft'`): auto-salvo silenciosamente ao adicionar fornecedor + 1 item.
+- **Confirmado** (`status: 'received'`): botao **Confirmar Recebimento** — lanca entradas (`type: 'entry'`) em `inventory_moves`.
+- **Estornado** (`status: 'estornado'`): reverte todas as entradas lancadas no estoque.
+- Botao de exclusao (lixeira): aparece **exclusivamente para rascunhos**.
+- Chave de acesso NF-e: max 44 digitos numericos, formatada em blocos de 4 (`XXXX XXXX ...`). Determina badge **Com NF** vs **Sem NF**.
+- Fornecedor selecionado no filtro e persistido em `localStorage` por dispositivo.
+
+---
+
+## MODULO: APLICATIVO MOBILE (Expo / EAS)
+
+### Versionamento Semantico (MAJOR.MINOR.PATCH)
+
+- **PATCH (`x.x.+1`)**: correcoes de bug, ajustes de layout, melhorias de estabilidade.
+- **MINOR (`x.+1.0`)**: novas telas, novos modulos, novas integracoes, novas funcionalidades.
+- **MAJOR (`+1.0.0`)**: grandes reestruturacoes ou breaking changes de arquitetura.
+
+Ao incrementar versao em `mobile/app.json`, sincronizar:
+- `"version"` (ex: `"1.0.1"`)
+- `"runtimeVersion"` (ex: `"1.0.1"`)
+- `"versionCode"` em android (inteiro sequencial: 1, 2, 3...)
+
+---
+
+## MAPA DE ARQUIVOS CRITICOS
+
+| Arquivo | Modulo | Responsabilidade |
+|---|---|---|
+| `erp/src/pages/utils/orderHistoryService.ts` | Pedidos | CRUD, status, estoque automatico, notificacoes |
+| `erp/src/pages/utils/saleItemInventorySync.ts` | Pedidos | Helpers de sync de estoque por item |
+| `erp/src/pages/utils/inventoryService.ts` | Estoque | CRUD central de `inventory_moves`, FIFO, estorno |
+| `erp/src/pages/utils/returnInventoryService.ts` | Devolucoes | Entrada de estoque de devolucoes atendidas |
+| `erp/src/pages/utils/goodsReceiptService.ts` | Recebimentos | Confirmacao e estorno, lancamento de entradas |
+| `erp/src/pages/utils/purchaseService.ts` | Compras | Pedidos de compra e entradas via `purchase_order` |
+| `erp/src/pages/App/SalesOrder/ItemsTable/BodyRow.tsx` | Pedidos | Renderizacao de item com aviso de temporario |
+| `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryCard.tsx` | Pedidos | Card de pedido (visao cards) |
+| `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryRow.tsx` | Pedidos | Linha de pedido (visao tabela) |
+| `erp/src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts` | Pedidos | Configuracao dos botoes de acao |
+| `erp/src/pages/App/Stock/components/InventoryMovesHistory.tsx` | Estoque | Listagem e filtros de movimentacoes |
+| `erp/src/pages/App/Stock/components/InventoryAuditModal.tsx` | Estoque | Auditoria e correcao manual de estoque |

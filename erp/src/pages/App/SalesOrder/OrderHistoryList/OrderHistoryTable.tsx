@@ -9,6 +9,7 @@ import { useWindowSize } from "../../../../hooks/useWindowSize";
 interface OrderHistoryTableProps {
     orders: Order[];
     onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
+    onViewDetails?: (order: Order) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
@@ -30,6 +31,7 @@ interface OrderHistoryTableProps {
     onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
     highlightOrderId?: string | null;
     onFilterByOrderId?: (id: string) => void;
+    onShowPostSaleActions?: (order: Order) => void;
 }
 
 interface ColumnDef {
@@ -39,7 +41,7 @@ interface ColumnDef {
 }
 
 const COLUMNS_DEF: ColumnDef[] = [
-    { key: 'id', label: 'ID' },
+    { key: 'id', label: 'Código' },
     { key: 'orderDate', label: (trash?: boolean) => trash ? 'Excluído em' : 'Data' },
     { key: 'deliveryDate', label: 'Agendado' },
     { key: 'customer', label: 'Cliente' },
@@ -48,13 +50,14 @@ const COLUMNS_DEF: ColumnDef[] = [
 ];
 
 const OrderHistoryTable = ({
-    orders, onEdit, onDelete, onRestore, onPermanentDelete, onAction, onStatusUpdate,
+    orders, onEdit, onViewDetails, onDelete, onRestore, onPermanentDelete, onAction, onStatusUpdate,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection,
     onBlingUpdate,
     onStockCheckUpdate,
     highlightOrderId,
-    onFilterByOrderId
+    onFilterByOrderId,
+    onShowPostSaleActions
 }: OrderHistoryTableProps) => {
     const { width } = useWindowSize();
     const isMobile = width < 1024 || 
@@ -250,6 +253,7 @@ const OrderHistoryTable = ({
                                     key={order.id}
                                     order={order}
                                     onEdit={onEdit}
+                                    onViewDetails={onViewDetails}
                                     onDelete={onDelete}
                                     onRestore={onRestore}
                                     onPermanentDelete={onPermanentDelete}
@@ -265,6 +269,7 @@ const OrderHistoryTable = ({
                                     isHighlighted={highlightOrderId === order.id}
                                     id={`order-row-${order.id}`}
                                     onFilterByOrderId={onFilterByOrderId}
+                                    onShowPostSaleActions={onShowPostSaleActions}
                                 />
                             ))}
                         </tbody>
@@ -283,6 +288,7 @@ const OrderHistoryTable = ({
                                 key={order.id}
                                 order={order}
                                 onEdit={onEdit}
+                                onViewDetails={onViewDetails}
                                 onDelete={onDelete}
                                 onRestore={onRestore}
                                 onPermanentDelete={onPermanentDelete}
@@ -296,6 +302,7 @@ const OrderHistoryTable = ({
                                 isHighlighted={highlightOrderId === order.id}
                                 id={`order-card-${order.id}`}
                                 onFilterByOrderId={onFilterByOrderId}
+                                onShowPostSaleActions={onShowPostSaleActions}
                             />
                         ))
                     )}

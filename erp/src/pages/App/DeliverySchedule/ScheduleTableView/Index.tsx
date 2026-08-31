@@ -4,6 +4,7 @@ import TableCell from "../ScheduleTableViewComponents/TableCell";
 import { getHour, calculateLanes, getStartAndEnd } from "../ScheduleTableViewComponents/laneUtils";
 import { getSettings } from '@/pages/utils/settingsService';
 import { ORDER_TYPE_COLOR_OPTIONS } from "../../../utils/orderTypeColorUtils";
+import { formatOrderCode } from "../../../utils/orderCode";
 
 interface Props {
     schedule: Record<string, Order[]>;
@@ -306,7 +307,7 @@ const ScheduleTableView = ({ schedule, onOrderClick, isReadOnly, hasInitialScrol
                                 >
                                     <div className="flex justify-between items-start mb-2">
                                         <span className="text-[9px] font-black text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-lg border border-amber-100 dark:border-amber-800">
-                                            #{order.id?.slice(-6).toUpperCase()}
+                                            #{formatOrderCode(order)}
                                         </span>
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                             {new Date(order.date).toLocaleDateString('pt-BR')}

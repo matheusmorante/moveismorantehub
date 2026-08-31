@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Linking, Platform } from 'react-native';
 import { Clock, AlertTriangle, PackageCheck, MapPin, Navigation, User } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
+import { DeliveryPaymentSection } from './DeliveryPaymentSection';
 
 interface Props {
   order: any;
@@ -14,6 +15,9 @@ interface Props {
   onFinishDelivery: () => void;
   onStepBackToRoute: () => void;
   finishing: boolean;
+  payments: any[];
+  onPaymentsChange: (payments: any[]) => void;
+  paymentsConfirmed: boolean;
 }
 
 export const DeliveryServiceStep: React.FC<Props> = ({
@@ -27,6 +31,9 @@ export const DeliveryServiceStep: React.FC<Props> = ({
   onFinishDelivery,
   onStepBackToRoute,
   finishing,
+  payments,
+  onPaymentsChange,
+  paymentsConfirmed,
 }) => {
   const data = order.order_data || order;
   const customer = customCustomer || data.customerData || {};
@@ -115,13 +122,15 @@ export const DeliveryServiceStep: React.FC<Props> = ({
         <Text style={styles.unattendedButtonText}>Cliente Não Atendeu / Insucesso</Text>
       </TouchableOpacity>
 
+      <DeliveryPaymentSection payments={payments} onChange={onPaymentsChange} isDarkMode={isDarkMode} />
+
       {/* Finalizar Entrega (Slide 2x - Direita para Esquerda) */}
       <View style={{ marginTop: 8 }}>
         <Text style={styles.safetyText}>
-          Para confirmar a entrega realizada com sucesso, deslize 2 vezes da direita para a esquerda:
+          {paymentsConfirmed ? 'Para confirmar a entrega realizada com sucesso, deslize 2 vezes da direita para a esquerda:' : 'Confirme todos os pagamentos como pagos para liberar a finalização.'}
         </Text>
         <SlideHoldToStart
-          disabled={finishing}
+          disabled={finishing || !paymentsConfirmed}
           onComplete={onFinishDelivery}
           actionText="« Deslize para FINALIZAR"
           trackColor="#16a34a"

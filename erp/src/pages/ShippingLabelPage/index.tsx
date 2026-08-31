@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import Order from "../types/order.type";
 import logoMorante from "../../assets/logo.jpeg";
+import { formatOrderCode } from '../utils/orderCode';
 
 const ShippingLabelPage = () => {
     const storedOrder = sessionStorage.getItem('order');
@@ -53,7 +54,7 @@ const ShippingLabelPage = () => {
                     <img src={logoMorante} alt="Móveis Morante" className="w-12 h-12 rounded-full object-cover border-2 border-slate-50 shadow-sm" />
                     <div className="text-right">
                         <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">PEDIDO</div>
-                        <div className="text-2xl font-black text-slate-900">#{order.id?.slice(-8).toUpperCase()}</div>
+                        <div className="text-2xl font-black text-slate-900">#{formatOrderCode(order)}</div>
                     </div>
                 </div>
 

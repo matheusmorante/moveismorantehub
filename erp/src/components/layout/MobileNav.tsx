@@ -245,6 +245,13 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                             <i className="bi bi-person-circle text-lg"></i>
                             Meu Perfil
                         </button>
+                        <button
+                            onClick={() => handleLink('/system-docs')}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
+                        >
+                            <i className="bi bi-book-half text-lg"></i>
+                            Documentações
+                        </button>
 
                         {isAdmin && (
                             <>
