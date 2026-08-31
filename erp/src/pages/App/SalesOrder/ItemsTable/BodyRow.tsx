@@ -471,11 +471,11 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
 };
 
 const TemporaryProductAlert = () => (
-    <span className="relative inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 group/temp-alert" tabIndex={0} aria-label="Item temporário">
+    <span className="relative inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 group/temp-alert" tabIndex={0} aria-label="Produto sem cadastro">
         <i className="bi bi-exclamation-triangle-fill text-amber-500 text-xs cursor-help" />
-        <span>Item temporário</span>
+        <span>Produto sem cadastro</span>
         <span className="pointer-events-none absolute left-0 top-full z-[80] mt-1 hidden w-64 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
-            Item temporário: selecione um produto da lista de sugestões para vincular estoque, custos e saída automática.
+            Produto sem cadastro: selecione um produto da lista de sugestões para vinculá-lo ao catálogo.
         </span>
     </span>
 );

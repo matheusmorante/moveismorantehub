@@ -19,6 +19,7 @@ const SalesOrder = () => {
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [editingInitialStep, setEditingInitialStep] = useState<number | undefined>(undefined);
     const [editingHighlightTemporary, setEditingHighlightTemporary] = useState<boolean>(false);
+    const [editingReconciliationMode, setEditingReconciliationMode] = useState<boolean>(false);
     const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
     const [returningOrder, setReturningOrder] = useState<Order | null>(null);
@@ -314,9 +315,10 @@ const SalesOrder = () => {
 
                             <div className="flex-1 min-w-0 flex flex-col">
                                 <OrderHistoryList
-                                    onEdit={(order, initialStep, highlightTemporary) => {
+                                    onEdit={(order, initialStep, highlightTemporary, reconciliationMode) => {
                                         setEditingInitialStep(initialStep);
                                         setEditingHighlightTemporary(!!highlightTemporary);
+                                        setEditingReconciliationMode(!!reconciliationMode);
                                         setEditingOrder(order);
                                     }}
                                     onViewDetails={setDetailsOrder}
@@ -371,9 +373,10 @@ const SalesOrder = () => {
                         <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-slate-50 dark:bg-slate-950">
                             <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                                 <OrderHistoryList
-                                    onEdit={(order, initialStep, highlightTemporary) => {
+                                    onEdit={(order, initialStep, highlightTemporary, reconciliationMode) => {
                                         setEditingInitialStep(initialStep);
                                         setEditingHighlightTemporary(!!highlightTemporary);
+                                        setEditingReconciliationMode(!!reconciliationMode);
                                         setEditingOrder(order);
                                     }}
                                     filters={trashFilters}
@@ -514,10 +517,12 @@ const SalesOrder = () => {
                     orderId={editingOrder.id}
                     initialStep={editingInitialStep}
                     highlightTemporaryItems={editingHighlightTemporary}
+                    reconciliationMode={editingReconciliationMode}
                     onClose={() => {
                         setEditingOrder(null);
                         setEditingInitialStep(undefined);
                         setEditingHighlightTemporary(false);
+                        setEditingReconciliationMode(false);
                         orderListRef.current?.refresh();
                         draftsListRef.current?.refresh();
                     }}
@@ -525,6 +530,7 @@ const SalesOrder = () => {
                         setEditingOrder(null);
                         setEditingInitialStep(undefined);
                         setEditingHighlightTemporary(false);
+                        setEditingReconciliationMode(false);
                         if (id) {
                             setHighlightOrderId(id);
                             orderListRef.current?.refresh();

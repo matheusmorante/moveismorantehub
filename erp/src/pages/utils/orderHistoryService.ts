@@ -6,7 +6,7 @@ import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatOrderCode, getNextOrderIndex, getOrderIndex } from './orderCode';
 import { processReturnInventoryEntries } from './returnInventoryService';
-import { canMaintainSaleStock, getChangedSaleItems, hasCatalogSaleItem, reverseSaleItemMoves } from './saleItemInventorySync';
+import { canMaintainSaleStock, getChangedSaleItems, hasActualSaleExit, isTemporarySaleItemReconciliation, reverseSaleItemMoves, syncLinkedReturnProductReferences } from './saleItemInventorySync';
 import { splitNoticeTags } from './noticeTags';
 import { applyActualInventoryStatus } from './orderInventoryStatus';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
@@ -609,7 +609,12 @@ export const updateOrder = async (
 
         if (error) throw error;
 
-        const changedItems = previousOrderData ? getChangedSaleItems(previousOrderData, merged) : [];
+        const detectedItemChanges = previousOrderData ? getChangedSaleItems(previousOrderData, merged) : [];
+        const changedItems = detectedItemChanges.filter(({ previous, current }) => !isTemporarySaleItemReconciliation(previous, current));
+        const isOnlyTemporaryReconciliation = detectedItemChanges.length > 0 && changedItems.length === 0;
+        if (isOnlyTemporaryReconciliation && merged.orderType === 'sale') {
+            await syncLinkedReturnProductReferences(id, previousOrderData, merged);
+        }
         const shouldSynchronizeItems = previousOrderData && previousOrderData.stockProcessed && changedItems.length > 0;
         if (shouldSynchronizeItems && merged.status !== 'cancelled') {
             const orderCode = formatOrderCode(merged);
@@ -628,7 +633,7 @@ export const updateOrder = async (
                         merged.stockProcessed = Boolean(updated.stockProcessed);
                     }
                 }
-                merged.stockProcessed = hasCatalogSaleItem(merged);
+                merged.stockProcessed = await hasActualSaleExit(id);
                 await supabase.from(TABLE_NAME).update({ order_data: { ...merged, stockProcessed: merged.stockProcessed }, updated_at: new Date().toISOString() }).eq('id', id);
             }
         }
@@ -771,7 +776,7 @@ export const updateOrder = async (
                 }
             } 
             // Auto-withdrawal: new status triggers stock deduction and order is in compliance
-            else if (isAutoWithdrawalStatus && (!merged.stockProcessed || oldStatus === 'cancelled')) {
+            else if (!isOnlyTemporaryReconciliation && isAutoWithdrawalStatus && (!merged.stockProcessed || oldStatus === 'cancelled')) {
                 try {
                     const updatedOrder = await handleStockAndBusinessRules(id, { ...merged, status: newStatus, stockProcessed: false }, true);
                     if (updatedOrder.stockProcessed) {
@@ -788,7 +793,7 @@ export const updateOrder = async (
                     console.error("[OrderUpdate] Erro ao processar estoque automático (saída):", stockErr);
                 }
             }
-        } else if (!merged.stockProcessed) {
+        } else if (!merged.stockProcessed && !isOnlyTemporaryReconciliation) {
             // No status change but stock may still need processing (e.g. status was already 'scheduled' on save)
             try {
                 const updatedOrder = await handleStockAndBusinessRules(id, merged);

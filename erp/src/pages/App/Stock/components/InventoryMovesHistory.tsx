@@ -9,6 +9,7 @@ import InventoryMoveEditModal from "./InventoryMoveEditModal";
 import InventoryMoveCard from "./InventoryMoveCard";
 import InventoryMovesTable from "./InventoryMovesTable";
 import { useInventoryOrdersLookup } from "./useInventoryOrdersLookup";
+import { calculateInventoryTimelineBalance } from "@/pages/utils/inventoryTimelineBalance";
 
 interface InventoryMovesHistoryProps {
     selectedProduct?: Product | null;
@@ -97,14 +98,8 @@ const InventoryMovesHistory = ({
             return true;
         });
 
-        if (relevantMoves.length > 0) {
-            return relevantMoves.reduce((acc, m) => {
-                if (m.type === 'entry') return acc + Number(m.quantity || 0);
-                if (m.type === 'withdrawal') return acc - Number(m.quantity || 0);
-                if (m.type === 'balance' || (m.type as any) === 'adjustment') return acc + Number(m.quantity || 0);
-                return acc;
-            }, 0);
-        }
+        const timelineBalance = calculateInventoryTimelineBalance(relevantMoves);
+        if (timelineBalance !== null) return timelineBalance;
 
         if (selectedVariation !== undefined) {
             return Number(selectedVariation.stock || 0);

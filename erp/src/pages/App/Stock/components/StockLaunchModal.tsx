@@ -3,6 +3,7 @@ import Product, { Variation } from "../../../types/product.type";
 import { saveInventoryMove, subscribeToInventoryMoves } from '@/pages/utils/inventoryService';
 import { toast } from "react-toastify";
 import InventoryMove from "../../../types/inventoryMove.type";
+import { calculateInventoryTimelineBalance } from "@/pages/utils/inventoryTimelineBalance";
 
 interface StockLaunchModalProps {
     isOpen: boolean;
@@ -60,14 +61,8 @@ const StockLaunchModal = ({
             return true;
         });
 
-        if (relevantMoves.length > 0) {
-            return relevantMoves.reduce((acc, m) => {
-                if (m.type === 'entry') return acc + Number(m.quantity || 0);
-                if (m.type === 'withdrawal' || m.type === 'exit') return acc - Number(m.quantity || 0);
-                if (m.type === 'balance' || (m.type as any) === 'adjustment') return acc + Number(m.quantity || 0);
-                return acc;
-            }, 0);
-        }
+        const timelineBalance = calculateInventoryTimelineBalance(relevantMoves);
+        if (timelineBalance !== null) return timelineBalance;
 
         if (propCurrentStock !== undefined) return propCurrentStock;
         return Number(activeVariation?.stock !== undefined ? activeVariation.stock : (targetProduct.stock || 0));

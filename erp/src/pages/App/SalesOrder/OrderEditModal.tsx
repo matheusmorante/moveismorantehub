@@ -11,6 +11,8 @@ import SellerSearchModal from "./SellerSearchModal";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import ItemMovementChangeConfirmModal, { getInventorySensitiveItemChanges } from "./ItemMovementChangeConfirmModal";
+import ProductReconciliationItems from "./ProductReconciliationItems";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 interface OrderEditModalProps {
     order?: Order;
@@ -21,9 +23,11 @@ interface OrderEditModalProps {
     initialStep?: number;
     /** Se true, destaca visualmente os itens temporários na tabela de itens */
     highlightTemporaryItems?: boolean;
+    /** Restringe a edição à conciliação de produtos temporários em pedido atendido. */
+    reconciliationMode?: boolean;
 }
 
-const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, initialStep, highlightTemporaryItems }: OrderEditModalProps) => {
+const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, initialStep, highlightTemporaryItems, reconciliationMode }: OrderEditModalProps) => {
     const { id: paramId } = useParams();
     const navigate = useNavigate();
 
@@ -49,6 +53,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
     const [pendingCustomerData, setPendingCustomerData] = useState<any>(null);
     const [pendingOrderData, setPendingOrderData] = useState<any>(null);
     const [pendingUpdate, setPendingUpdate] = useState<Order | null>(null);
+    const [isReconciliationConfirmationOpen, setIsReconciliationConfirmationOpen] = useState(false);
 
     const applyOrderData = useCallback((orderData: any) => {
         const migrated = migrateOrderHandlings(orderData);
@@ -224,6 +229,19 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         return persistUpdate(updatedOrder);
     }, [effectiveOrder, form.actions, form.state.currentOrder, persistUpdate]);
 
+    const handleSaveReconciliation = useCallback(async () => {
+        if (!effectiveOrder) return;
+        const temporaryIndexes = (effectiveOrder.items || []).flatMap((item, index) =>
+            !item.productId?.trim() || item.isTemporaryProduct ? [index] : []
+        );
+        const hasMissingProduct = temporaryIndexes.some(index => !form.state.items[index]?.productId?.trim());
+        if (hasMissingProduct) {
+            toast.error("Selecione um produto cadastrado para todos os produtos sem cadastro.");
+            return;
+        }
+        await persistUpdate({ ...form.state.currentOrder, id: effectiveOrder.id } as Order);
+    }, [effectiveOrder, form.state.currentOrder, form.state.items, persistUpdate]);
+
     const handleFinalize = useCallback(async (e?: React.MouseEvent) => {
         const result = await form.actions.handleCompleteOrder(e);
         if (result && effectiveOrder) {
@@ -259,7 +277,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                             <i className="bi bi-pencil-square text-sm sm:text-base" />
                         </div>
                         <div>
-                            <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">Editar Pedido</h2>
+                            <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{reconciliationMode ? "Conciliar Produtos" : "Editar Pedido"}</h2>
                             <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
                                 Pedido de Venda
                             </p>
@@ -278,13 +296,9 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                 </div>
 
                 {/* Centro: Stepper de Etapas */}
-                <div className="w-full lg:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center min-w-0">
-                    <OrderStepper
-                        currentStep={form.state.currentStep}
-                        jumpToStep={form.actions.jumpToStep}
-                        errors={form.state.errors}
-                    />
-                </div>
+                {!reconciliationMode && <div className="w-full lg:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center min-w-0">
+                    <OrderStepper currentStep={form.state.currentStep} jumpToStep={form.actions.jumpToStep} errors={form.state.errors} />
+                </div>}
 
                 {/* Direita: Botão Fechar no Desktop */}
                 <div className="hidden lg:flex items-center shrink-0">
@@ -355,7 +369,15 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
 
             {/* Content */}
             <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 custom-scrollbar" ref={scrollContainerRef}>
-                {view === 'form' ? (
+                {reconciliationMode ? (
+                    <ProductReconciliationItems
+                        items={form.state.items}
+                        temporaryIndexes={(effectiveOrder.items || []).flatMap((item, index) => !item.productId?.trim() || item.isTemporaryProduct ? [index] : [])}
+                        isSaving={form.state.isSaving}
+                        onSelectProduct={form.actions.handleSelectProduct}
+                        onSave={() => setIsReconciliationConfirmationOpen(true)}
+                    />
+                ) : view === 'form' ? (
                     <SalesOrderFormSection
                         scrollRef={scrollContainerRef}
                         form={{
@@ -376,6 +398,15 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                 )}
             </div>
             {pendingUpdate && <ItemMovementChangeConfirmModal changes={getInventorySensitiveItemChanges(effectiveOrder!, pendingUpdate)} onCancel={() => setPendingUpdate(null)} onConfirm={() => { const orderToSave = pendingUpdate; setPendingUpdate(null); void persistUpdate(orderToSave); }} />}
+            <ConfirmModal
+                isOpen={isReconciliationConfirmationOpen}
+                onClose={() => setIsReconciliationConfirmationOpen(false)}
+                onConfirm={() => void handleSaveReconciliation()}
+                title="Confirmar conciliação?"
+                message="A conciliação somente vincula o produto cadastrado ao item deste pedido e à sua referência de devolução. Ela não gera saída de estoque na venda nem entrada de estoque na devolução."
+                confirmLabel="Confirmar conciliação"
+                type="info"
+            />
         </div>
     );
 

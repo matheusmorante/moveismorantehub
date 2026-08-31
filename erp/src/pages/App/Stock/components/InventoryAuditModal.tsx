@@ -364,16 +364,15 @@ const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClo
             draftRef.current.code = code;
 
             for (const item of itemsWithAdjustment) {
-                const diff = item.physicalCount - item.systemStock;
                 const move: InventoryMove = {
                     productId: item.productId,
                     variationId: item.variationId,
                     productDescription: item.name,
                     type: 'adjustment',
-                    quantity: diff,
+                    quantity: 0,
                     date: auditDate,
                     label: `Ajuste lançado pelo inventário #${code}`,
-                    observation: `Ajuste gerado pelo inventário #${code}`,
+                    observation: JSON.stringify({ note: `Saldo definido pelo inventário #${code}`, targetStock: item.physicalCount, source: 'inventory_audit' }),
                     relatedEntityId: auditId,
                 };
 

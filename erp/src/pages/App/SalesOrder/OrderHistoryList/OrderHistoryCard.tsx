@@ -11,7 +11,7 @@ import CancelledOrderBadge from "./CancelledOrderBadge";
 
 interface OrderHistoryCardProps {
     order: Order;
-    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
@@ -96,6 +96,7 @@ const OrderHistoryCard = ({
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const isDraft = order.status === 'draft';
     const isEditLocked = order.status === 'fulfilled' && ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
+    const canReconcileTemporaryProducts = order.status === 'fulfilled' && order.orderType === 'sale' && (order.items || []).some(item => !item.productId?.trim() || item.isTemporaryProduct);
     const cls = getOrderTypeClasses(isDraft ? 'slate' : colorKey as any);
 
     const allOptions = [
@@ -564,6 +565,12 @@ const OrderHistoryCard = ({
                                              style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
                                              onClick={(e) => e.stopPropagation()}
                                         >
+                                                {canReconcileTemporaryProducts && (
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }} className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30">
+                                                        <i className="bi bi-link-45deg text-base" />
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Realizar conciliação</span>
+                                                    </button>
+                                                )}
                                                 {buttons.filter(btn => {
                                                     if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                     if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;

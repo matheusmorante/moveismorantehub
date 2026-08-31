@@ -353,6 +353,20 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
         setItems(prev => {
             const newItems = [...prev];
+            const isHistoricalReconciliation = Boolean(latestState.current.currentOrderId)
+                && ['scheduled', 'fulfilled'].includes(latestState.current.status)
+                && (!newItems[idx].productId?.trim() || newItems[idx].isTemporaryProduct);
+
+            if (isHistoricalReconciliation) {
+                newItems[idx] = {
+                    ...newItems[idx],
+                    productId: product.id,
+                    variationId: variation?.id,
+                    isTemporaryProduct: false,
+                };
+                return newItems;
+            }
+
             newItems[idx] = {
                 ...newItems[idx],
                 productId: product.id,

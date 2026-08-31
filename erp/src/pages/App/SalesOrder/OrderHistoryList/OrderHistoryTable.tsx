@@ -8,7 +8,7 @@ import { useWindowSize } from "../../../../hooks/useWindowSize";
 
 interface OrderHistoryTableProps {
     orders: Order[];
-    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
     onViewDetails?: (order: Order) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;

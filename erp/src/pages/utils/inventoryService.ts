@@ -1,6 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import InventoryMove from "../types/inventoryMove.type";
 import { mapFromDB as mapProductFromDB, updateProduct } from '@/pages/utils/productService';
+import { recalculateInventoryAuditBalance } from "./inventoryAuditBalance";
 
 const TABLE_NAME = "inventory_moves";
 
@@ -74,6 +75,8 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
             notifyListeners();
         }
 
+        if (await recalculateInventoryAuditBalance(move.productId)) return data?.[0] ? mapFromDB(data[0]) : undefined;
+
         // Fetch latest product data to handle variations correctly
         const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();
         if (!p) return data?.[0] ? mapFromDB(data[0]) : undefined;
@@ -139,6 +142,8 @@ export const deleteInventoryMove = async (id: string, allowLinkedOrderMove = fal
         // Atualizar estado em memória
         currentMoves = currentMoves.filter(m => m.id !== id);
         notifyListeners();
+
+        if (await recalculateInventoryAuditBalance(move.productId)) return;
 
         // Reverter saldo do estoque do produto
         const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();
@@ -234,6 +239,8 @@ export const reverseInventoryMove = async (
             reversedAt: reversedAt 
         } : m);
         notifyListeners();
+
+        if (await recalculateInventoryAuditBalance(move.productId)) return;
 
         // Recompor o saldo de estoque do produto/variação (inverso da movimentação)
         const { data: p } = await supabase.from('products').select('*, product_variations(*)').eq('id', move.productId).single();

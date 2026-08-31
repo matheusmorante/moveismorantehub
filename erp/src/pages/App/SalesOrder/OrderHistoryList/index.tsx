@@ -7,7 +7,7 @@ import ConfirmModal from "@/components/shared/ConfirmModal";
 import ReturnFulfillmentConfirmModal from "./ReturnFulfillmentConfirmModal";
 
 type OrderHistoryListProps = {
-    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
     onViewDetails?: (order: Order) => void;
     onShowPostSaleActions?: (order: Order) => void;
     filters?: any;

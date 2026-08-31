@@ -15,7 +15,7 @@ import CancelledOrderBadge from "./CancelledOrderBadge";
 
 interface OrderHistoryRowProps {
     order: Order;
-    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean) => void;
+    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
     onDelete: (id: string) => void;
     onRestore: (id: string) => void;
     onPermanentDelete: (id: string) => void;
@@ -110,6 +110,7 @@ const OrderHistoryRow = ({
     const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
     const isDraft = order.status === 'draft';
     const isEditLocked = order.status === 'fulfilled' && ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
+    const canReconcileTemporaryProducts = order.status === 'fulfilled' && order.orderType === 'sale' && (order.items || []).some(item => !item.productId?.trim() || item.isTemporaryProduct);
     const cls = getOrderTypeClasses(isDraft ? 'slate' : rowColorKey as any);
     
     const allOptions = [
@@ -588,6 +589,15 @@ const OrderHistoryRow = ({
                                                 <div className={`absolute top-full right-0 pt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                         {/* Edit Button */}
+                                                        {canReconcileTemporaryProducts && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }}
+                                                                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                                            >
+                                                                <i className="bi bi-link-45deg text-lg" />
+                                                                <div className="flex flex-col text-left"><span className="text-xs font-black uppercase tracking-widest">Realizar conciliação</span><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vincular produtos sem cadastro</span></div>
+                                                            </button>
+                                                        )}
                                                         <button
                                                             disabled={isEditLocked}
                                                             onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); setShowMenu(false); }}
