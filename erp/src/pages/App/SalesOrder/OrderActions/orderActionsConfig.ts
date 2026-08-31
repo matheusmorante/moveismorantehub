@@ -319,7 +319,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'UNDO_RETURN': async (order) => {
         // This is complex and might need a refresh of the list, 
         // so we'll likely handle the logic in the component or passing a callback
-        console.log("Desfazendo devolução para o pedido:", order.id);
+        console.log("Cancelando devolução para o pedido:", order.id);
     },
     'DUPLICATE_ORDER': (order) => {
         // Handled by onAction prop in SalesOrder/Index.tsx
@@ -410,9 +410,9 @@ export const buttons: OrderButton[] = [
         key: "undoReturn",
         icon: "bi-arrow-counterclockwise",
         action: "UNDO_RETURN",
-        label: "Desfazer Devolução",
+        label: "Cancelar Devolução",
         color: "text-red-600 hover:bg-red-50",
-        tooltip: "Reverter a devolução e retornar os itens ao pedido original",
+        tooltip: "Cancelar a devolução antes do atendimento e da entrada no estoque",
         orderTypes: ['sale', 'showroom', 'return']
     },
     {

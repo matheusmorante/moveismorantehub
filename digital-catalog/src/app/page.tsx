@@ -86,55 +86,54 @@ function HomeContent() {
   }, [searchParams, categories, opportunities])
 
   const handleFilterChange = useCallback((newFilters: any) => {
+    const isProductSearch = typeof newFilters.search === "string" && newFilters.search.trim().length > 0
+    const nextFilters = isProductSearch ? { ...newFilters, envs: [], cats: [] } : newFilters
     const params = new URLSearchParams(searchParams.toString())
 
-    if (newFilters.search !== undefined) {
-      if (newFilters.search) {
-        params.set("search", newFilters.search)
-        // Se estiver iniciando uma nova pesquisa sem selecionar categoria/ambiente, limpa para busca ampla
-        if (newFilters.envs === undefined && newFilters.cats === undefined) {
-          params.delete("envs")
-          params.delete("cats")
-        }
+    if (nextFilters.search !== undefined) {
+      if (nextFilters.search) {
+        params.set("search", nextFilters.search)
+        params.delete("envs")
+        params.delete("cats")
       } else {
         params.delete("search")
       }
     }
-    if (newFilters.envs !== undefined) {
-      if (newFilters.envs.length > 0) {
-        const envSlugs = resolveSlugsFromCategoryIds(newFilters.envs, categories)
+    if (nextFilters.envs !== undefined) {
+      if (nextFilters.envs.length > 0) {
+        const envSlugs = resolveSlugsFromCategoryIds(nextFilters.envs, categories)
         params.set("envs", envSlugs.join(","))
       } else {
         params.delete("envs")
       }
       if (newFilters.cats === undefined) params.delete("cats")
     }
-    if (newFilters.cats !== undefined) {
-      if (newFilters.cats.length > 0) {
-        const catSlugs = resolveSlugsFromCategoryIds(newFilters.cats, categories)
+    if (nextFilters.cats !== undefined) {
+      if (nextFilters.cats.length > 0) {
+        const catSlugs = resolveSlugsFromCategoryIds(nextFilters.cats, categories)
         params.set("cats", catSlugs.join(","))
       } else {
         params.delete("cats")
       }
     }
-    if (newFilters.type !== undefined) {
-      if (newFilters.type && newFilters.type !== "all") {
-        const oppSlug = resolveSlugFromOpportunityId(newFilters.type, opportunities)
+    if (nextFilters.type !== undefined) {
+      if (nextFilters.type && nextFilters.type !== "all") {
+        const oppSlug = resolveSlugFromOpportunityId(nextFilters.type, opportunities)
         params.set("type", oppSlug)
       } else {
         params.delete("type")
       }
     }
-    if (newFilters.sortBy !== undefined) {
-      if (newFilters.sortBy && newFilters.sortBy !== "newest") params.set("sortBy", newFilters.sortBy)
+    if (nextFilters.sortBy !== undefined) {
+      if (nextFilters.sortBy && nextFilters.sortBy !== "newest") params.set("sortBy", nextFilters.sortBy)
       else params.delete("sortBy")
     }
-    if (newFilters.minPrice !== undefined) {
-      if (newFilters.minPrice > 0) params.set("minPrice", String(newFilters.minPrice))
+    if (nextFilters.minPrice !== undefined) {
+      if (nextFilters.minPrice > 0) params.set("minPrice", String(nextFilters.minPrice))
       else params.delete("minPrice")
     }
-    if (newFilters.maxPrice !== undefined) {
-      if (newFilters.maxPrice < 10000) params.set("maxPrice", String(newFilters.maxPrice))
+    if (nextFilters.maxPrice !== undefined) {
+      if (nextFilters.maxPrice < 10000) params.set("maxPrice", String(nextFilters.maxPrice))
       else params.delete("maxPrice")
     }
 
@@ -143,13 +142,13 @@ function HomeContent() {
 
     setFilters(prev => ({
       ...prev,
-      ...(newFilters.envs !== undefined && { envs: newFilters.envs }),
-      ...(newFilters.cats !== undefined && { cats: newFilters.cats }),
-      ...(newFilters.search !== undefined && { search: newFilters.search }),
-      ...(newFilters.type !== undefined && { type: newFilters.type }),
-      ...(newFilters.sortBy !== undefined && { sortBy: newFilters.sortBy }),
-      ...(newFilters.minPrice !== undefined && { minPrice: newFilters.minPrice }),
-      ...(newFilters.maxPrice !== undefined && { maxPrice: newFilters.maxPrice }),
+      ...(nextFilters.envs !== undefined && { envs: nextFilters.envs }),
+      ...(nextFilters.cats !== undefined && { cats: nextFilters.cats }),
+      ...(nextFilters.search !== undefined && { search: nextFilters.search }),
+      ...(nextFilters.type !== undefined && { type: nextFilters.type }),
+      ...(nextFilters.sortBy !== undefined && { sortBy: nextFilters.sortBy }),
+      ...(nextFilters.minPrice !== undefined && { minPrice: nextFilters.minPrice }),
+      ...(nextFilters.maxPrice !== undefined && { maxPrice: nextFilters.maxPrice }),
     }))
 
     router.push(targetUrl, { scroll: false })

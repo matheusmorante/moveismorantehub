@@ -2,6 +2,7 @@ import React from "react";
 import Order, { VisibilitySettings } from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
+import { formatOrderCode } from "../../../utils/orderCode";
 import { buttons } from "../OrderActions/orderActionsConfig";
 import { isOrderIncomplete } from "../../../utils/validations";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
@@ -9,7 +10,8 @@ import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
 import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoReturn } from "@/pages/utils/orderHistoryService";
 import { toast } from "react-toastify";
-import { PackageCheck, Package } from "lucide-react";
+import InventoryMovementBadge from "./InventoryMovementBadge";
+import CancelledOrderBadge from "./CancelledOrderBadge";
 
 interface OrderHistoryRowProps {
     order: Order;
@@ -26,6 +28,7 @@ interface OrderHistoryRowProps {
     onToggleSelection?: () => void;
     onBlingUpdate?: (id: string, value: boolean) => void;
     onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
+    onViewDetails?: (order: Order) => void;
     isHighlighted?: boolean;
     id?: string;
     onFilterByOrderId?: (id: string) => void;
@@ -48,7 +51,8 @@ const OrderHistoryRow = ({
     onStockCheckUpdate,
     isHighlighted,
     id,
-    onFilterByOrderId
+    onFilterByOrderId,
+    onViewDetails
 }: OrderHistoryRowProps) => {
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
@@ -59,6 +63,7 @@ const OrderHistoryRow = ({
     const settings = getSettings();
     const isIncomplete = isOrderIncomplete(order);
     const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '') || false;
+    const canViewDetails = ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '');
     
     // DEBUG: Confirming file loaded
     React.useEffect(() => {
@@ -104,6 +109,7 @@ const OrderHistoryRow = ({
     const rowColors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
     const isDraft = order.status === 'draft';
+    const isEditLocked = order.status === 'fulfilled' && ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
     const cls = getOrderTypeClasses(isDraft ? 'slate' : rowColorKey as any);
     
     const allOptions = [
@@ -164,6 +170,7 @@ const OrderHistoryRow = ({
 
     const statusKey = (order.status as string) === 'completed' ? 'scheduled' : (order.status || 'draft');
     const currentStatus = statusConfig[statusKey] || statusConfig.draft;
+    const isStatusBadgeReadOnly = ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
 
     const getStatusLabel = (id: string) => statuses.find(s => s.id === id)?.label || id;
 
@@ -193,7 +200,7 @@ const OrderHistoryRow = ({
                                     title="Filtrar por pedido vinculado"
                                 >
                                     <i className="bi bi-link-45deg"></i>
-                                    Vinc: #{formatOrderCode({ id: order.linkedOrderId })}
+                                    Vinc: #{order.linkedOrderCode || formatOrderCode(order)}
                                 </button>
                             )}
                         </div>
@@ -348,9 +355,9 @@ const OrderHistoryRow = ({
                     <td key={key} className={baseTdClass}>
                         <div className="flex flex-col py-1 group/name">
                             <span 
-                                onClick={(e) => { e.stopPropagation(); onEdit(order); }}
-                                className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400 transition-colors flex items-center gap-1.5 cursor-pointer w-fit"
-                                title="Clique para editar o pedido"
+                                onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); }}
+                                className={`text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate transition-colors flex items-center gap-1.5 w-fit ${isEditLocked ? 'cursor-default' : 'cursor-pointer group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400'}`}
+                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido'}
                             >
                                 {order.customerData?.fullName || "Não informado"}
                                 <i className="bi bi-pencil text-[10px] opacity-0 group-hover/name:opacity-50 transition-opacity" />
@@ -417,14 +424,14 @@ const OrderHistoryRow = ({
                                 {/* Status Picker Button (Fundo colorido sólido + Ícone Branco) */}
                                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                                        className={`flex items-center justify-center h-6 w-6 rounded-md ${currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')} text-white hover:brightness-110 active:scale-95 transition-all shadow-2xs border border-black/10`}
-                                        title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isRet ? 'Devolução' : (isPick ? 'Retirada' : 'Entrega'))}`}
+                                        onClick={(e) => { e.stopPropagation(); if (!isStatusBadgeReadOnly) setShowPicker(!showPicker); }}
+                                        className={`flex items-center justify-center h-6 w-6 rounded-md ${currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
+                                        title={`${isStatusBadgeReadOnly ? 'Status somente leitura' : 'Status'}: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isRet ? 'Devolução' : (isPick ? 'Retirada' : 'Entrega'))}`}
                                     >
                                         <i className={`bi ${sIcon} text-white text-[11px]`} />
                                     </button>
 
-                                    {showPicker && (
+                                    {!isStatusBadgeReadOnly && showPicker && (
                                         <>
                                             <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowPicker(false); }} />
                                             <div className="absolute top-full mt-1 left-0 w-40 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 z-[250] animate-slide-up">
@@ -452,6 +459,8 @@ const OrderHistoryRow = ({
                                     )}
                                 </div>
 
+                                {order.status === 'cancelled' && <CancelledOrderBadge />}
+
                                 {/* Transport Type Icon (Entrega = Bg Verde + Ícone Branco / Retirada = Bg Roxo + Ícone Branco / Assistência = Laranja / Devolução = Âmbar) */}
                                 <div 
                                     className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
@@ -469,22 +478,8 @@ const OrderHistoryRow = ({
                                 </div>
 
                                 {/* Stock Processed Indicator (Saída lançada = PackageCheck verde / Não lançada = Package cinza) */}
-                                {(order.orderType === 'sale' || order.orderType === 'showroom') && (
-                                    order.stockProcessed ? (
-                                        <div 
-                                            className="flex items-center justify-center h-6 w-6 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 shadow-sm" 
-                                            title="Saída de Estoque Lançada"
-                                        >
-                                            <PackageCheck className="w-3.5 h-3.5" />
-                                        </div>
-                                    ) : (
-                                        <div 
-                                            className="flex items-center justify-center h-6 w-6 bg-slate-50 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 rounded-md border border-slate-200/80 dark:border-slate-800 shadow-xs" 
-                                            title="Saída de Estoque Não Lançada"
-                                        >
-                                            <Package className="w-3.5 h-3.5" />
-                                        </div>
-                                    )
+                                {(order.orderType === 'sale' || order.orderType === 'showroom' || order.orderType === 'return') && (
+                                    <InventoryMovementBadge orderType={order.orderType} hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} />
                                 )}
 
                                 {/* Return Status Badge */}
@@ -525,7 +520,7 @@ const OrderHistoryRow = ({
                                 )}
 
                                 {/* Assembly Badges: mantidos por último na sequência dos rótulos */}
-                                {hasAssemblyDepot && (
+                                {order.orderType !== 'return' && hasAssemblyDepot && (
                                     <div
                                         className="flex h-6 w-6 items-center justify-center bg-amber-500 text-white rounded-md border border-amber-600 shadow-sm"
                                         title="MONTAGEM NO DEPÓSITO"
@@ -535,7 +530,7 @@ const OrderHistoryRow = ({
                                 )}
 
                                 {/* Montagem Fora */}
-                                {hasAssemblyOutside && (
+                                {order.orderType !== 'return' && hasAssemblyOutside && (
                                     <div
                                         className="flex h-6 w-6 items-center justify-center bg-red-600 text-white rounded-md border border-red-700 shadow-sm"
                                         title="MONTAGEM FORA (NA CASA DO CLIENTE)"
@@ -594,9 +589,10 @@ const OrderHistoryRow = ({
                                                     <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                         {/* Edit Button */}
                                                         <button
-                                                            onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
-                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}
-                                                            title={`Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
+                                                            disabled={isEditLocked}
+                                                            onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); setShowMenu(false); }}
+                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${isEditLocked ? 'cursor-not-allowed text-slate-400 dark:text-slate-600' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}`}
+                                                            title={isEditLocked ? 'Pedido atendido não pode ser editado' : `Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
                                                         >
                                                             <i className="bi bi-pencil-fill text-lg" />
                                                             <div className="flex flex-col text-left">
@@ -633,8 +629,6 @@ const OrderHistoryRow = ({
                                                         }).map((btn) => {
                                                             const isPrintReceipt = btn.key === 'printReceipt';
                                                             const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
-                                                            const isClicked = order.isButtonsClicked?.[btn.key];
-
                                                             return (
                                                             <button
                                                                 key={btn.key}
@@ -644,10 +638,10 @@ const OrderHistoryRow = ({
                                                                         if (disablePrintReceipt) return;
                                                                         
                                                                         if (btn.action === 'UNDO_RETURN') {
-                                                                            if (window.confirm("Deseja realmente desfazer a devolução deste pedido? Todos os itens serão retornados ao pedido original e o registro de devolução será excluído.")) {
+                                                                            if (window.confirm("Deseja realmente cancelar esta devolução? Ela ainda não foi atendida e não gerou entrada no estoque.")) {
                                                                                 try {
                                                                                     await undoReturn(order);
-                                                                                    toast.success("Devolução desfeita com sucesso!");
+                                                                                    toast.success("Devolução cancelada com sucesso!");
                                                                                     // Refresh happens via subscription or parent refresh
                                                                                 } catch (err: any) {
                                                                                     toast.error("Erro ao desfazer devolução: " + err.message);
@@ -667,9 +661,6 @@ const OrderHistoryRow = ({
                                                                         {typeof btn.label === 'function' ? btn.label(order) : btn.label}
                                                                     </span>
                                                                 </div>
-                                                                {isClicked && (
-                                                                    <i className="bi bi-check-circle-fill text-emerald-500 animate-in zoom-in-50 duration-300" />
-                                                                )}
                                                             </button>
                                                             )
                                                         })}
@@ -694,7 +685,8 @@ const OrderHistoryRow = ({
         <>
             <tr
             id={id}
-                className={`transition-colors group cursor-default border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${showMenu || showPicker ? 'relative z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''} ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''}`}
+                onClick={canViewDetails ? () => onViewDetails?.(order) : undefined}
+                className={`relative transition-colors group ${canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${showMenu || showPicker ? 'z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
         >
             {/* Row Checkbox */}
                 <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${cellBgClass}`}>

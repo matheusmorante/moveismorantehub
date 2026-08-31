@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
 import { subscribeToOrders, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
-import { getSettings } from "../../../utils/settingsService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
@@ -315,15 +314,10 @@ export const useOrderHistory = (filters?: any) => {
 
     const commitStatusUpdate = async (currentOrder: Order, newStatus: Order['status']) => {
         const id = currentOrder.id!;
-        const isReturn = currentOrder.orderType === 'return';
-        const isAutoWithdrawal = (newStatus === 'scheduled' || newStatus === 'fulfilled' || getSettings().inventoryAutomation?.autoWithdrawalOnStatus?.includes(newStatus || ''));
-        const hasCatalogItems = currentOrder?.items?.some(item => Boolean(item.productId?.trim()) && !item.isTemporaryProduct);
-        const expectedStockProcessed = isReturn ? currentOrder.stockProcessed : newStatus === 'cancelled'
-            ? false 
-            : (isAutoWithdrawal && hasCatalogItems ? true : currentOrder?.stockProcessed);
+        const expectedStockProcessed = currentOrder.stockProcessed;
 
         // Optimistic update
-        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stockProcessed: expectedStockProcessed, ...(isReturn && newStatus === 'fulfilled' ? { returnStockProcessed: true } : {}) } : o));
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stockProcessed: expectedStockProcessed } : o));
         try {
             // Pass currentOrder so updateOrder skips the SELECT entirely
             await updateOrder(id, { status: newStatus }, currentOrder);

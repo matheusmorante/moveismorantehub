@@ -33,11 +33,13 @@ export type Order = {
     scheduledDate?: string,
     scheduledTime?: string,
     linkedOrderId?: string | null,
+    linkedOrderCode?: string,
     collectionObservation?: string,
     assistanceItems?: AssistanceItem[],
     deleted?: boolean,
     deletedAt?: string | null,
     orderIndex?: number,
+    orderNumber?: number,
     reviewRequested?: boolean,
     marketingOrigin?: string,
     stockProcessed?: boolean,
@@ -45,6 +47,7 @@ export type Order = {
     isStockChecked?: boolean,
     isButtonsClicked?: IsButtonsClicked,
     returnOrderId?: string,
+    returnKind?: 'partial' | 'complete',
     returnStockProcessed?: boolean
 }
 

@@ -19,10 +19,11 @@ interface Props {
     onSelect: (customer: CustomerData) => void;
     onClose: () => void;
     onAddNew?: () => void;
+    initialSearch?: string;
 }
 
-const CustomerSearchModal = ({ onSelect, onClose, onAddNew }: Props) => {
-    const [search, setSearch] = useState("");
+const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }: Props) => {
+    const [search, setSearch] = useState(initialSearch);
     const [people, setPeople] = useState<Person[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [loadingPeople, setLoadingPeople] = useState(true);

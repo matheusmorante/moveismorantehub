@@ -3,6 +3,7 @@ import OrderHistoryList from "./OrderHistoryList";
 import OrderEditModal from "./OrderEditModal";
 import NewSaleOrder from "./NewSaleOrder";
 import AssistanceOrderModal from "./AssistanceOrderModal";
+import UnlinkedReturnOrderModal from "./UnlinkedReturnOrderModal";
 import NewOrderDropdown from "./NewOrderDropdown";
 import BudgetDropdown from "./BudgetDropdown";
 import Order, { VisibilitySettings } from "../../types/order.type";
@@ -447,7 +448,7 @@ const SalesOrder = () => {
                 </div>
             )}
 
-            {orderModalType && orderModalType !== 'assistance' && (
+            {orderModalType && orderModalType !== 'assistance' && orderModalType !== 'return' && (
                 <NewSaleOrder
                     orderType={orderModalType}
                     onClose={() => {
@@ -465,6 +466,23 @@ const SalesOrder = () => {
                             if (order && order.orderType === 'sale') {
                                 setPostOrderDetails(order);
                             }
+                            setTimeout(() => setHighlightOrderId(null), 5000);
+                        }
+                    }}
+                />
+            )}
+
+            {orderModalType === 'return' && (
+                <UnlinkedReturnOrderModal
+                    onClose={() => {
+                        setOrderModalType(null);
+                        orderListRef.current?.refresh();
+                        draftsListRef.current?.refresh();
+                    }}
+                    onSaveSuccess={(id) => {
+                        if (id) {
+                            setHighlightOrderId(id);
+                            orderListRef.current?.refresh();
                             setTimeout(() => setHighlightOrderId(null), 5000);
                         }
                     }}

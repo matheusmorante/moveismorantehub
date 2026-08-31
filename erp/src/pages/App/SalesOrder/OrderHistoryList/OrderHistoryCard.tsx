@@ -6,7 +6,8 @@ import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { formatOrderCode } from "../../../utils/orderCode";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { buttons } from "../OrderActions/orderActionsConfig";
-import { PackageCheck, Package } from "lucide-react";
+import InventoryMovementBadge from "./InventoryMovementBadge";
+import CancelledOrderBadge from "./CancelledOrderBadge";
 
 interface OrderHistoryCardProps {
     order: Order;
@@ -24,6 +25,7 @@ interface OrderHistoryCardProps {
     onFilterByOrderId?: (id: string) => void;
     onBlingUpdate?: (id: string, value: boolean) => void;
     onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
+    onViewDetails?: (order: Order) => void;
 }
 
 const OrderHistoryCard = ({
@@ -41,7 +43,8 @@ const OrderHistoryCard = ({
     onStockCheckUpdate,
     isHighlighted,
     id,
-    onFilterByOrderId
+    onFilterByOrderId,
+    onViewDetails
 }: OrderHistoryCardProps) => {
     const settings = getSettings();
     const [showMenu, setShowMenu] = React.useState(false);
@@ -49,6 +52,7 @@ const OrderHistoryCard = ({
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
     const [menuPosition, setMenuPosition] = React.useState({ top: 'auto' as number | string, bottom: 'auto' as number | string, right: 0 });
     const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+    const canViewDetails = ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '');
 
     React.useEffect(() => {
         if (showMenu) {
@@ -78,6 +82,7 @@ const OrderHistoryCard = ({
       .filter(s => s.id !== 'chargeback' && s.id !== 'disputed');
 
     const currentStatus = statuses.find(s => s.id === (order.status || 'draft')) || statuses[0];
+    const isStatusBadgeReadOnly = ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
 
     const sIcons: Record<string, string> = {
         draft: 'bi-clock',
@@ -90,6 +95,7 @@ const OrderHistoryCard = ({
     const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const isDraft = order.status === 'draft';
+    const isEditLocked = order.status === 'fulfilled' && ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
     const cls = getOrderTypeClasses(isDraft ? 'slate' : colorKey as any);
 
     const allOptions = [
@@ -177,7 +183,8 @@ const OrderHistoryCard = ({
     return (
         <div 
             id={id}
-            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${order.status === 'cancelled' ? 'opacity-50 brightness-75 grayscale-[0.2]' : ''} cursor-default`}
+            onClick={canViewDetails ? () => onViewDetails?.(order) : undefined}
+            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
         >
             {/* Card Header com faixa colorida + todos os badges alinhados no canto superior direito */}
             <div className={`${headerAccentClass} rounded-t-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap`}>
@@ -199,6 +206,7 @@ const OrderHistoryCard = ({
 
                 {/* Canto Superior Direito: Todos os Selos + Status Picker */}
                 <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto">
+                    {order.status === 'cancelled' && <CancelledOrderBadge tilted large />}
                     {/* 1. Selo de Etiquetado (Clicável: Bg Verde + Ícone Branco + Check no canto quando true) */}
                     {!showTrash && order.orderType !== 'assistance' && order.orderType !== 'return' && (
                         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
@@ -280,31 +288,18 @@ const OrderHistoryCard = ({
                     )}
 
                     {/* 5. Selo de Estoque */}
-                    {(order.orderType === 'sale' || order.orderType === 'showroom') && (
-                        order.stockProcessed ? (
-                            <div 
-                                className="flex items-center justify-center h-6 w-6 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 shadow-sm" 
-                                title="Saída de Estoque Lançada"
-                            >
-                                <PackageCheck className="w-3.5 h-3.5" />
-                            </div>
-                        ) : (
-                            <div 
-                                className="flex items-center justify-center h-6 w-6 bg-slate-50 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 rounded-md border border-slate-200/80 dark:border-slate-800 shadow-xs" 
-                                title="Saída de Estoque Não Lançada"
-                            >
-                                <Package className="w-3.5 h-3.5" />
-                            </div>
-                        )
+                    {(order.orderType === 'sale' || order.orderType === 'showroom' || order.orderType === 'return') && (
+                        <InventoryMovementBadge orderType={order.orderType} hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} />
                     )}
 
                     {/* 6. Return Status Badge */}
                     {order.returnOrderId && (
                         <div 
-                            className="flex items-center justify-center h-6 w-6 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md border border-amber-100 dark:border-amber-900/20 shadow-sm" 
-                            title="Este pedido possui uma devolução vinculada"
+                            className="flex h-6 items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 text-amber-700 shadow-sm dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-400"
+                            title={`Este pedido possui uma devolução ${order.returnKind === 'complete' ? 'completa' : 'parcial'} vinculada`}
                         >
                             <i className="bi bi-arrow-return-left text-[10px]" />
+                            <span className="text-[8px] font-black uppercase tracking-wider">Devolução {order.returnKind === 'complete' ? 'completa' : 'parcial'}</span>
                         </div>
                     )}
 
@@ -319,40 +314,29 @@ const OrderHistoryCard = ({
                         </div>
                     )}
 
-                    {hasAssemblyOutside && (
+                    {order.orderType !== 'return' && hasAssemblyOutside && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
                             <i className="bi bi-hammer text-[11px] text-white" />
                         </span>
                     )}
 
-                    {hasAssemblyDepot && (
+                    {order.orderType !== 'return' && hasAssemblyDepot && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-amber-500 text-white border-amber-600 shadow-xs" title="Montagem no Depósito">
                             <i className="bi bi-hammer text-[11px]" />
                         </span>
                     )}
 
-                    {order.linkedOrderId && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
-                            className="flex h-6 items-center gap-1 text-[8px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-wider bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-2 rounded-md border border-blue-100 dark:border-blue-900/30"
-                            title="Filtrar por pedido vinculado"
-                        >
-                            <i className="bi bi-link-45deg"></i>
-                            Vinc: #{formatOrderCode({ id: order.linkedOrderId })}
-                        </button>
-                    )}
-
                     {/* 8. Status Picker Button */}
                     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button 
-                            onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-                            className={`flex items-center justify-center h-6 w-6 rounded-md bg-${currentStatus.color}-500 text-white hover:brightness-110 active:scale-95 transition-all shadow-2xs border border-black/10`}
-                            title={`Status: ${currentStatus.label}`}
+                            onClick={(e) => { e.stopPropagation(); if (!isStatusBadgeReadOnly) setShowPicker(!showPicker); }}
+                            className={`flex items-center justify-center h-6 w-6 rounded-md bg-${currentStatus.color}-500 text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
+                            title={isStatusBadgeReadOnly ? `Status: ${currentStatus.label} (somente leitura)` : `Status: ${currentStatus.label}`}
                         >
                             <i className={`bi ${sIcon} text-white text-[11px]`} />
                         </button>
 
-                        {showPicker && (
+                        {!isStatusBadgeReadOnly && showPicker && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={(e) => setShowPicker(false)} />
                                 <div className="absolute top-full right-0 mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl z-[100] p-1.5 flex flex-col gap-1 animate-slide-up">
@@ -382,12 +366,24 @@ const OrderHistoryCard = ({
             {/* Corpo neutro do card */}
             <div className="px-3 pt-2.5 pb-3">
                 <h3 
-                    onClick={() => onEdit(order)}
-                    className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer w-fit"
-                    title="Clique para editar o pedido"
+                    onClick={isEditLocked ? undefined : () => onEdit(order)}
+                    className={`text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight transition-colors w-fit ${isEditLocked ? 'cursor-default' : 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400'}`}
+                    title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido'}
                 >
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
+
+                {order.linkedOrderId && (
+                    <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
+                        className="mt-2 flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-400"
+                        title="Abrir pedido de venda vinculado"
+                    >
+                        <i className="bi bi-link-45deg" />
+                        Pedido vinculado: #{order.linkedOrderCode || formatOrderCode(order)}
+                    </button>
+                )}
                 
                 {order.shipping?.scheduling?.pendingScheduling && (
                     <div className="mt-2 flex items-center gap-2 bg-orange-500 text-white p-2 rounded-lg border border-orange-600 shadow-sm">
@@ -472,7 +468,7 @@ const OrderHistoryCard = ({
                     { (order.shipping?.scheduling?.date || order.shipping?.scheduling?.pendingScheduling) && (
                         <div className="flex flex-col items-end text-right">
                             <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
-                                {order.shipping?.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}
+                                {order.orderType === 'return' ? 'Data de coleta' : (order.shipping?.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega')}
                             </span>
                             <div className={`flex items-center justify-end gap-1.5 font-bold ${order.shipping?.scheduling?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-blue-500 dark:text-blue-400'}`}>
                                 <i className={`bi ${order.shipping?.scheduling?.pendingScheduling ? 'bi-clock-history text-orange-500' : 'bi-truck'} text-[11px]`} />
@@ -512,7 +508,7 @@ const OrderHistoryCard = ({
             <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-800/50 px-3 pt-2.5 pb-3">
                 <div className="flex flex-col">
                     <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
-                        Total
+                        {order.orderType === 'return' ? 'Total devolvido' : 'Total'}
                     </span>
                     <span className="text-base font-black text-blue-600 dark:text-blue-400">
                         {formatCurrency(order.paymentsSummary?.totalOrderValue || 0)}
@@ -532,8 +528,10 @@ const OrderHistoryCard = ({
                     ) : (
                         <>
                             <button
-                                onClick={() => onEdit(order)}
-                                className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-colors"
+                                disabled={isEditLocked}
+                                onClick={() => { if (!isEditLocked) onEdit(order); }}
+                                className={`p-2 rounded-lg transition-colors ${isEditLocked ? 'cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400'}`}
+                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Editar pedido'}
                             >
                                 <i className="bi bi-pencil-fill text-lg" />
                             </button>
@@ -608,9 +606,6 @@ const OrderHistoryCard = ({
                                                             {typeof btn.label === 'function' ? btn.label(order) : btn.label}
                                                         </span>
                                                     </div>
-                                                    {order.isButtonsClicked?.[btn.key] && (
-                                                        <i className="bi bi-check-circle-fill text-emerald-500 animate-in zoom-in-50 duration-300" />
-                                                    )}
                                                 </button>
                                                 )
                                             })}

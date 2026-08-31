@@ -188,7 +188,9 @@ const OrderHistoryTable = ({
                                     </label>
                                 </th>
                                 {columnsToRender.map((col) => {
-                                    const labelText = typeof col.label === 'function' ? col.label(showTrash) : col.label;
+                                    const labelText = col.key === 'deliveryDate' && orders.length > 0 && orders.every(order => order.orderType === 'return')
+                                        ? 'Data de coleta'
+                                        : (typeof col.label === 'function' ? col.label(showTrash) : col.label);
                                     const isVisible = visibilitySettings[col.key] !== false;
                                     const sortableKeys = ['id', 'orderDate', 'deliveryDate', 'customer', 'totalValue', 'status'];
                                     const isSortable = sortableKeys.includes(col.key);

@@ -8,6 +8,7 @@ import { formatOrderCode, getNextOrderIndex, getOrderIndex } from './orderCode';
 import { processReturnInventoryEntries } from './returnInventoryService';
 import { canMaintainSaleStock, getChangedSaleItems, hasCatalogSaleItem, reverseSaleItemMoves } from './saleItemInventorySync';
 import { splitNoticeTags } from './noticeTags';
+import { applyActualInventoryStatus } from './orderInventoryStatus';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
 import {
     getOrderAssemblyKinds,
@@ -196,6 +197,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                         return raw;
                     }
                 });
+                currentOrders = await applyActualInventoryStatus(currentOrders);
                 callback(currentOrders);
             } else {
                 console.warn('[OrdersSync] No data or invalid format:', typeof data);
@@ -962,6 +964,7 @@ export const undoReturn = async (order: Order): Promise<void> => {
         const originalUpdate: Partial<Order> = {
             items: restoredItems,
             returnOrderId: undefined as any, // Limpa o vínculo
+            returnKind: undefined,
             paymentsSummary: {
                 ...originalOrder.paymentsSummary,
                 totalValue: totalItemsValue,

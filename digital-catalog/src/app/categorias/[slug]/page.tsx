@@ -38,7 +38,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   })
 
   const handleFilterChange = useCallback((newFilters: any) => {
-    setFilters(prev => ({ ...prev, ...newFilters }))
+    const clearsCategoryFilters = typeof newFilters.search === "string" && newFilters.search.trim().length > 0
+    setFilters(prev => ({ ...prev, ...newFilters, ...(clearsCategoryFilters && { envs: [], cats: [] }) }))
   }, [])
 
   useEffect(() => {

@@ -295,7 +295,10 @@ export function ProductGrid({ filters }: ProductGridProps) {
             .map(c => normalizeSearch(c.name))
 
           results = results.filter(p => {
-            const prodCatIds = p.product_categories?.map((pc: any) => pc.category_id) || []
+            const prodCatIds = [
+              p.category_id,
+              ...(p.product_categories?.map((pc: any) => pc.category_id) || [])
+            ].filter(Boolean)
             if (prodCatIds.some((catId: string) => allowedCategoryIds.includes(catId))) {
               return true
             }
@@ -351,20 +354,18 @@ export function ProductGrid({ filters }: ProductGridProps) {
             })
           })
 
-          // Categoria é um filtro exato: usa a tabela de vínculos em vez de
-          // inferir pelo ambiente ou pelo texto do produto.
+          // Categoria é um filtro exato. Produtos antigos podem ter somente
+          // category_id, enquanto os novos usam também product_categories.
           if (allCatTargetIds.size === 0) {
             results = []
           } else {
-            const { data: categoryLinks, error: categoryLinksError } = await supabase
-              .from("product_categories")
-              .select("product_id")
-              .in("category_id", [...allCatTargetIds])
-
-            if (categoryLinksError) throw categoryLinksError
-
-            const categoryProductIds = new Set((categoryLinks || []).map(link => link.product_id))
-            results = results.filter(product => categoryProductIds.has(product.realProductId || product.id))
+            results = results.filter(product => {
+              const productCategoryIds = [
+                product.category_id,
+                ...(product.product_categories?.map((link: any) => link.category_id) || [])
+              ].filter(Boolean)
+              return productCategoryIds.some(categoryId => allCatTargetIds.has(categoryId))
+            })
           }
         }
 
