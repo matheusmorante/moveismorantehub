@@ -42,7 +42,7 @@ const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDist
             </label>
             <div className="relative">
                 <NumericFormat
-                    className={`w-full bg-transparent border px-3 py-3 rounded-2xl transition-all text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300 ${errors['shipping_value'] ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                    className={`w-full bg-transparent border-0 border-b-2 px-3 py-2.5 rounded-none text-sm font-bold text-slate-800 dark:text-slate-100 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 ${errors['shipping_value'] ? 'border-red-500' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-0'}`}
                     value={value}
                     allowNegative={false}
                     thousandSeparator="."
@@ -78,7 +78,7 @@ const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDist
             </div>
             <input
                 type="text"
-                className="w-full bg-transparent border border-slate-100 dark:border-slate-800 px-3 py-3 rounded-2xl focus:border-blue-600 dark:focus:border-blue-500 transition-all text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300"
+                className="w-full bg-transparent border-0 border-b-2 border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-0 rounded-none px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none transition-all"
                 value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
                 onChange={(e) => onChangeDistance(e.target.value)}
                 placeholder="Ex: 5,5"

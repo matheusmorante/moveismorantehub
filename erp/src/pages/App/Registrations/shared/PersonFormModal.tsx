@@ -244,32 +244,27 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (collectionName !== 'suppliers' && requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
+        if (collectionName !== 'suppliers' && collectionName !== 'employees' && requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
             toast.error("O telefone é obrigatório.");
             return;
         }
 
-        if (collectionName !== 'suppliers' && requiredFields.customer?.cpfCnpj && (!formData.cpfCnpj || formData.cpfCnpj.trim() === '')) {
+        if (collectionName !== 'suppliers' && collectionName !== 'employees' && requiredFields.customer?.cpfCnpj && (!formData.cpfCnpj || formData.cpfCnpj.trim() === '')) {
             toast.error("O CPF/CNPJ é obrigatório.");
             return;
         }
 
-        if (collectionName !== 'suppliers' && requiredFields.customer?.email && (!formData.email || formData.email.trim() === '')) {
+        if (collectionName !== 'suppliers' && collectionName !== 'employees' && requiredFields.customer?.email && (!formData.email || formData.email.trim() === '')) {
             toast.error("O e-mail é obrigatório.");
             return;
         }
 
-        if (collectionName !== 'suppliers' && requiredFields.customer?.rgIe && (!(formData as any).rgIe || (formData as any).rgIe.trim() === '')) {
+        if (collectionName !== 'suppliers' && collectionName !== 'employees' && requiredFields.customer?.rgIe && (!(formData as any).rgIe || (formData as any).rgIe.trim() === '')) {
             toast.error("O RG/IE é obrigatório.");
             return;
         }
 
-        if (collectionName === 'employees' && requiredFields.customer?.position && (!formData.position || formData.position.trim() === '')) {
-            toast.error("O Cargo Principal é obrigatório.");
-            return;
-        }
-
-        if (collectionName !== 'suppliers' && !formData.noAddress) {
+        if (collectionName !== 'suppliers' && collectionName !== 'employees' && !formData.noAddress) {
             const addr = formData.fullAddress;
             if (!addr?.street || !addr?.number || !addr?.city) {
                 toast.error("Rua, Número e Cidade são obrigatórios no endereço.");
@@ -391,22 +386,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             </div>
                         )}
 
-                        {collectionName === 'employees' && (
-                            <div className="md:col-span-2">
-                                <SmartInput
-                                    label={`Cargo Principal ${settings.requiredFields.customer?.position ? '*' : ''}`}
-                                    value={formData.position || ""}
-                                    onValueChange={(val) => setFormData({ ...formData, position: val })}
-                                    patterns={['Vendedor', 'Gerente', 'Entregador', 'Montador', 'Auxiliar']}
-                                    tableName="people"
-                                    columnName="position"
-                                    placeholder="Ex: Vendedor, Gerente..."
-                                    icon="bi-person-badge"
-                                />
-                            </div>
-                        )}
-
-                        <div className={`${(formData.personType === 'PJ' && !isEmployee) ? 'md:col-span-1' : 'md:col-span-2'}`}>
+                         <div className={`${(formData.personType === 'PJ' && !isEmployee) ? 'md:col-span-1' : 'md:col-span-2'}`}>
                             <SmartInput
                                 label={(isEmployee ? 'Nome' : (formData.personType === 'PJ' ? 'Razão Social' : 'Nome Completo')) + ' *'}
                                 required

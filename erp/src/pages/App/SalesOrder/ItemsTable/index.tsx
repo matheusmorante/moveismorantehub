@@ -57,23 +57,14 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
             <thead className="bg-slate-50/50 dark:bg-slate-800/30">
                 <tr>
                     <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Produto <span className="text-red-500">*</span></th>
-                    {!isBudget && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio</th>}
-                    <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd. <span className="text-red-500">*</span></th>
+                    {!isBudget && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio <span className="text-red-500">*</span></th>}
+                    <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd.</th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Preço Un. <span className="text-red-500">*</span></th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Desc. R$</th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[85px]">Desc. %</th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]" title="Preço Unitário Líquido">Preço Un. Líq.</th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[105px]">Total</th>
-                    <th className="px-2 py-3 text-center border-none bg-transparent w-[50px]">
-                        <button
-                            type="button"
-                            onClick={addItem}
-                            className="w-8 h-8 mx-auto flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-500 transition-all shadow-sm border border-blue-100 dark:border-blue-800"
-                            title="Adicionar Item"
-                        >
-                            <i className="bi bi-plus-lg" />
-                        </button>
-                    </th>
+                    <th className="px-2 py-3 text-center border-none bg-transparent w-[50px]" />
                 </tr>
             </thead>
             <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} highlightTemporaryItems={highlightTemporaryItems} />

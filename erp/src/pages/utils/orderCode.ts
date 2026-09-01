@@ -24,7 +24,7 @@ export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): s
     if (orderIndex) {
         return String(orderIndex).padStart(6, '0');
     }
-    return '000000';
+    return 'SEM-CÓDIGO';
 };
 
 /**
@@ -39,18 +39,5 @@ export const getNextOrderIndex = async (): Promise<number> => {
         }
     } catch { }
 
-    const { data, error } = await supabase.from('orders').select('id, order_data');
-    if (error) {
-        console.error("Erro ao buscar pedidos para calcular próximo código:", error);
-        return 1;
-    }
-
-    const highestIndex = (data || []).reduce((highest, row: any) => {
-        const index = getOrderIndex({ ...row.order_data, id: row.id });
-        return index && index > highest ? index : highest;
-    }, 0);
-
-    const nextIndex = highestIndex + 1;
-    if (nextIndex > MAX_ORDER_CODE) throw new Error('O limite de 999999 códigos de pedido foi atingido.');
-    return nextIndex;
+    throw new Error('Não foi possível gerar o código sequencial do pedido com segurança. Verifique a função atômica next_order_index no banco antes de criar outro pedido.');
 };

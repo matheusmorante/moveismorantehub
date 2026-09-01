@@ -13,6 +13,7 @@ import PostOrderActionsModal from "./OrderActions/PostOrderActionsModal";
 import ReturnOrderModal from "./OrderActions/ReturnOrderModal";
 import OrderDetailsModal from "../DeliverySchedule/OrderDetailsModal";
 import { useLocation, useNavigate } from "react-router-dom";
+import { canGenerateReturn } from '../../utils/returnPolicy';
 
 const SalesOrder = () => {
     const [orderModalType, setOrderModalType] = useState<'sale' | 'assistance' | 'budget' | 'return' | null>(null);
@@ -141,6 +142,7 @@ const SalesOrder = () => {
 
     const handleOrderAction = (key: string, order: Order) => {
         if (key === 'generateReturn') {
+            if (!canGenerateReturn(order)) return;
             setReturningOrder(order);
         } else if (key === 'duplicateOrder') {
             const { deleted, deletedAt, ...cleanOrder } = order;

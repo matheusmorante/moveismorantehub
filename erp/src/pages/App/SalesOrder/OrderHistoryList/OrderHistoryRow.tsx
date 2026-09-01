@@ -12,6 +12,10 @@ import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoRet
 import { toast } from "react-toastify";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import CancelledOrderBadge from "./CancelledOrderBadge";
+import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
+import DeleteDraftActionButton from "./DeleteDraftActionButton";
+import CancelScheduledSaleButton from "./CancelScheduledSaleButton";
+import { canGenerateReturn } from '../../../utils/returnPolicy';
 
 interface OrderHistoryRowProps {
     order: Order;
@@ -103,7 +107,11 @@ const OrderHistoryRow = ({
     });
 
     // Fallbacks just in case
-    if (!statusConfig.draft) statusConfig.draft = { label: 'Rascunho', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' };
+    statusConfig.draft = {
+        ...(statusConfig.draft || { label: 'Rascunho', dot: 'bg-slate-400' }),
+        bg: 'bg-slate-600',
+        text: 'text-white',
+    };
     if (!statusConfig.fulfilled) statusConfig.fulfilled = { label: 'Atendido', bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500' };
 
     const rowColors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
@@ -355,13 +363,8 @@ const OrderHistoryRow = ({
                 return (
                     <td key={key} className={baseTdClass}>
                         <div className="flex flex-col py-1 group/name">
-                            <span 
-                                onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); }}
-                                className={`text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate transition-colors flex items-center gap-1.5 w-fit ${isEditLocked ? 'cursor-default' : 'cursor-pointer group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400'}`}
-                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido'}
-                            >
+                            <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate flex items-center gap-1.5 w-fit">
                                 {order.customerData?.fullName || "Não informado"}
-                                <i className="bi bi-pencil text-[10px] opacity-0 group-hover/name:opacity-50 transition-opacity" />
                             </span>
                             
                             <div className="flex flex-wrap items-center gap-1">
@@ -460,7 +463,7 @@ const OrderHistoryRow = ({
                                     )}
                                 </div>
 
-                                {order.status === 'cancelled' && <CancelledOrderBadge />}
+                                {order.status === 'cancelled' && <CancelledOrderBadge highContrast />}
 
                                 {/* Transport Type Icon (Entrega = Bg Verde + Ícone Branco / Retirada = Bg Roxo + Ícone Branco / Assistência = Laranja / Devolução = Âmbar) */}
                                 <div 
@@ -595,29 +598,47 @@ const OrderHistoryRow = ({
                                                                 className="flex w-full items-center gap-3 rounded-xl p-2.5 text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
                                                             >
                                                                 <i className="bi bi-link-45deg text-lg" />
-                                                                <div className="flex flex-col text-left"><span className="text-xs font-black uppercase tracking-widest">Realizar conciliação</span><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vincular produtos sem cadastro</span></div>
+                                                                <span className="text-xs font-black uppercase tracking-widest">Realizar conciliação</span>
                                                             </button>
                                                         )}
-                                                        <button
-                                                            disabled={isEditLocked}
-                                                            onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); setShowMenu(false); }}
-                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${isEditLocked ? 'cursor-not-allowed text-slate-400 dark:text-slate-600' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}`}
-                                                            title={isEditLocked ? 'Pedido atendido não pode ser editado' : `Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
-                                                        >
-                                                            <i className="bi bi-pencil-fill text-lg" />
-                                                            <div className="flex flex-col text-left">
-                                                                <span className="text-xs font-black uppercase tracking-widest">
-                                                                    {order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : order.orderType === 'return' ? 'Editar Devolução' : 'Editar Venda'}
-                                                                </span>
-                                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                                                    Alterar dados d{order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'o orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}
-                                                                </span>
-                                                            </div>
-                                                        </button>
+                                                        {order.orderType === 'sale' && ['draft', 'scheduled'].includes(order.status || '') && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
+                                                                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-emerald-600 transition-all hover:bg-slate-50 dark:text-emerald-400 dark:hover:bg-slate-800"
+                                                                title={isDraft ? 'Continuar cadastro' : 'Editar venda'}
+                                                            >
+                                                                <i className={`bi ${isDraft ? 'bi-play-circle-fill' : 'bi-pencil-fill'} text-lg`} />
+                                                                <span className="text-xs font-black uppercase tracking-widest">{isDraft ? 'Continuar cadastro' : 'Editar venda'}</span>
+                                                            </button>
+                                                        )}
+                                                        {order.orderType !== 'sale' && !isEditLocked && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
+                                                                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-blue-600 transition-all hover:bg-slate-50 dark:text-blue-400 dark:hover:bg-slate-800"
+                                                                title="Editar pedido"
+                                                            >
+                                                                <i className="bi bi-pencil-fill text-lg" />
+                                                                <span className="text-xs font-black uppercase tracking-widest">Editar pedido</span>
+                                                            </button>
+                                                        )}
+                                                        <DeleteDraftActionButton
+                                                            order={order}
+                                                            onDelete={onDelete}
+                                                            onCloseMenu={() => setShowMenu(false)}
+                                                        />
+                                                        <CancelScheduledSaleButton
+                                                            order={order}
+                                                            onStatusUpdate={onStatusUpdate}
+                                                            onCloseMenu={() => setShowMenu(false)}
+                                                        />
 
-                                                        <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
+                                                        <PostSaleActionMenuButton
+                                                            order={order}
+                                                            onCloseMenu={() => setShowMenu(false)}
+                                                        />
 
                                                         {buttons.filter(btn => {
+                                                            if (isPostSaleAction(btn.key)) return false;
                                                             if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
                                                             
@@ -632,7 +653,7 @@ const OrderHistoryRow = ({
                                                                 (order.order_data as any)?.status === 'returned'
                                                             );
 
-                                                            if (btn.key === 'generateReturn' && hasReturn) return false;
+                                                            if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order))) return false;
                                                             if (btn.key === 'undoReturn' && !hasReturn) return false;
                                                             
                                                             return true;

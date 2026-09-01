@@ -31,12 +31,7 @@ const PostSaleActionMenuButton = ({ order, onOpen, onCloseMenu }: PostSaleAction
             title="Abrir ações pós-vendas"
         >
             <ClipboardCheck className="h-[18px] w-[18px]" aria-hidden="true" />
-            <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black uppercase tracking-widest">Ações pós-vendas</span>
-                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                    Impressão, envios e avaliação
-                </span>
-            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest">Ações pós-vendas</span>
         </button>
         {isModalOpen && <PostOrderActionsModal order={order} onClose={() => setIsModalOpen(false)} />}
         </>

@@ -11,5 +11,5 @@ export const POST_SALE_ACTION_KEYS = new Set([
 
 export const canOpenPostSaleActions = (order: Order): boolean => {
     const status = String(order.status || "").trim().toLowerCase();
-    return (order.orderType || "sale") === "sale" && ["scheduled", "fulfilled"].includes(status);
+    return (order.orderType || "sale") === "sale" && status === "scheduled";
 };

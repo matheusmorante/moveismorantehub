@@ -22,9 +22,9 @@ export interface SaleItem {
     product: string;
     supplier: string;
     quantity: number;
-    cost: number;
+    cost?: number;
     salesValue: number;
-    profit: number;
+    profit?: number;
 }
 
 export const useSalesReport = () => {
@@ -76,8 +76,9 @@ export const useSalesReport = () => {
             
             const qty = Number(item.quantity ?? 0);
             const rev = Number(item.salesValue ?? 0);
-            const profit = Number(item.profit ?? 0);
-            const cost = Number(item.cost ?? 0);
+            const hasCost = typeof item.cost === 'number' && Number.isFinite(item.cost) && item.cost > 0;
+            const profit = hasCost ? Number(item.profit) : 0;
+            const cost = hasCost ? Number(item.cost) : 0;
 
             productStats[key].qty += qty;
             productStats[key].rev += rev;
@@ -316,8 +317,9 @@ export const useSalesReport = () => {
             order.items?.forEach((item: any) => {
                 const qty = Number(item.quantity) || 0;
                 const salesVal = Number(item.totalPrice) || 0;
-                const cost = Number(item.unitCost) || 0;
-                const profit = salesVal - (cost * qty);
+                const hasCost = Number.isFinite(Number(item.unitCost)) && Number(item.unitCost) > 0;
+                const cost = hasCost ? Number(item.unitCost) : undefined;
+                const profit = cost === undefined ? undefined : salesVal - (cost * qty);
 
                 items.push({
                     date,

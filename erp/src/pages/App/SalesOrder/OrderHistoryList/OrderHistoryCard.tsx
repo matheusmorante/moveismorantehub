@@ -8,6 +8,10 @@ import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderType
 import { buttons } from "../OrderActions/orderActionsConfig";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import CancelledOrderBadge from "./CancelledOrderBadge";
+import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
+import DeleteDraftActionButton from "./DeleteDraftActionButton";
+import CancelScheduledSaleButton from "./CancelScheduledSaleButton";
+import { canGenerateReturn } from '../../../utils/returnPolicy';
 
 interface OrderHistoryCardProps {
     order: Order;
@@ -176,7 +180,7 @@ const OrderHistoryCard = ({
                 : colorKey === 'green'
                     ? 'bg-emerald-200/90 dark:bg-emerald-950/80 border-b border-emerald-300 dark:border-emerald-800'
                     : colorKey === 'purple'
-                        ? 'bg-purple-50/80 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-900/30'
+                        ? 'bg-purple-300 dark:bg-purple-800 border-b border-purple-400 dark:border-purple-700'
                         : colorKey === 'orange'
                             ? 'bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30'
                             : 'bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-700';
@@ -331,7 +335,7 @@ const OrderHistoryCard = ({
                     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button 
                             onClick={(e) => { e.stopPropagation(); if (!isStatusBadgeReadOnly) setShowPicker(!showPicker); }}
-                            className={`flex items-center justify-center h-6 w-6 rounded-md bg-${currentStatus.color}-500 text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
+                            className={`flex items-center justify-center h-6 w-6 rounded-md ${order.status === 'draft' ? 'bg-slate-600' : `bg-${currentStatus.color}-500`} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
                             title={isStatusBadgeReadOnly ? `Status: ${currentStatus.label} (somente leitura)` : `Status: ${currentStatus.label}`}
                         >
                             <i className={`bi ${sIcon} text-white text-[11px]`} />
@@ -366,11 +370,7 @@ const OrderHistoryCard = ({
 
             {/* Corpo neutro do card */}
             <div className="px-3 pt-2.5 pb-3">
-                <h3 
-                    onClick={isEditLocked ? undefined : () => onEdit(order)}
-                    className={`text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight transition-colors w-fit ${isEditLocked ? 'cursor-default' : 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400'}`}
-                    title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido'}
-                >
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight w-fit">
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
 
@@ -528,15 +528,6 @@ const OrderHistoryCard = ({
                         </>
                     ) : (
                         <>
-                            <button
-                                disabled={isEditLocked}
-                                onClick={() => { if (!isEditLocked) onEdit(order); }}
-                                className={`p-2 rounded-lg transition-colors ${isEditLocked ? 'cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400'}`}
-                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Editar pedido'}
-                            >
-                                <i className="bi bi-pencil-fill text-lg" />
-                            </button>
-                            
                             <div className="relative">
                                 <button
                                     ref={menuButtonRef}
@@ -565,13 +556,49 @@ const OrderHistoryCard = ({
                                              style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
                                              onClick={(e) => e.stopPropagation()}
                                         >
+                                                {order.orderType === 'sale' && ['draft', 'scheduled'].includes(order.status || '') && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
+                                                        className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-emerald-600 transition-all hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                                                    >
+                                                        <i className={`bi ${isDraft ? 'bi-play-circle-fill' : 'bi-pencil-fill'} text-base`} />
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">{isDraft ? 'Continuar cadastro' : 'Editar venda'}</span>
+                                                    </button>
+                                                )}
+                                                {order.orderType !== 'sale' && !isEditLocked && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
+                                                        className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-blue-600 transition-all hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                                                    >
+                                                        <i className="bi bi-pencil-fill text-base" />
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Editar pedido</span>
+                                                    </button>
+                                                )}
                                                 {canReconcileTemporaryProducts && (
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }} className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30">
                                                         <i className="bi bi-link-45deg text-base" />
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Realizar conciliação</span>
                                                     </button>
                                                 )}
+                                                <DeleteDraftActionButton
+                                                    order={order}
+                                                    onDelete={onDelete}
+                                                    onCloseMenu={() => setShowMenu(false)}
+                                                />
+                                                <CancelScheduledSaleButton
+                                                    order={order}
+                                                    onStatusUpdate={onStatusUpdate}
+                                                    onCloseMenu={() => setShowMenu(false)}
+                                                />
+                                                <PostSaleActionMenuButton
+                                                    order={order}
+                                                    onCloseMenu={() => setShowMenu(false)}
+                                                />
+
                                                 {buttons.filter(btn => {
+                                                    if (isPostSaleAction(btn.key)) return false;
                                                     if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                     if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
 
@@ -586,7 +613,7 @@ const OrderHistoryCard = ({
                                                         (order.order_data as any)?.status === 'returned'
                                                     );
 
-                                                    if (btn.key === 'generateReturn' && hasReturn) return false;
+                                                    if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order))) return false;
                                                     if (btn.key === 'undoReturn' && !hasReturn) return false;
 
                                                     return true;

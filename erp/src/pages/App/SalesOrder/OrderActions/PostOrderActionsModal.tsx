@@ -12,7 +12,7 @@ interface PostOrderActionsModalProps {
 const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, onClose }) => {
     const availableActions = buttons.filter(btn => 
         POST_SALE_ACTION_KEYS.has(btn.key) &&
-        (btn.key !== 'sendCustomerReviews' || (order.orderType === 'sale' && order.status === 'fulfilled' && !order.reviewRequested))
+        (btn.key !== 'sendCustomerReviews' || !order.reviewRequested)
     );
 
     const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(order.isButtonsClicked || {});

@@ -234,7 +234,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                 </div>
 
                 {/* Centro: Stepper */}
-                <div className="w-full lg:flex-1 max-w-2xl px-1 sm:px-4 flex justify-center min-w-0">
+                <div className="w-full lg:flex-1 max-w-2xl xl:max-w-4xl 2xl:max-w-5xl px-1 sm:px-4 flex justify-center min-w-0">
                     <OrderStepper 
                         currentStep={form.state.currentStep} 
                         jumpToStep={form.actions.jumpToStep} 
@@ -336,7 +336,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
 
     return (
         <div
-            className="fixed inset-x-0 bottom-0 top-[64px] xl:top-[80px] z-[90] bg-slate-900/60 backdrop-blur-sm animate-fade-in flex"
+            className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm animate-fade-in flex"
             onClick={onClose}
         >
             {renderContent()}

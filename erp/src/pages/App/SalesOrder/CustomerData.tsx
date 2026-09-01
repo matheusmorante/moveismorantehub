@@ -230,9 +230,9 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
     }, [isEditCustomerModalOpen, customerData, customers, marketingOrigin]);
 
     const field = (hasError?: boolean, forceReadOnly?: boolean) =>
-        `w-full border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${forceReadOnly
-            ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent focus:ring-0'
-            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'} ${hasError && !forceReadOnly ? 'border-red-500 focus:ring-red-500/30 ring-4 ring-red-500/10' : ''}`;
+        `w-full bg-transparent border-0 border-b-2 px-3 py-2.5 rounded-none text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-0 transition-all ${forceReadOnly
+            ? 'bg-slate-100/40 dark:bg-slate-800/30 cursor-not-allowed opacity-80 border-slate-300 dark:border-slate-700'
+            : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-blue-600 dark:focus:border-blue-500'} ${hasError && !forceReadOnly ? 'border-red-500 focus:border-red-600' : ''}`;
 
     return (
         <div className="space-y-6" ref={wrapperRef}>
@@ -250,11 +250,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                     <div className="relative flex-1">
                         <input
                             type="text"
-                            className={`w-full bg-slate-50 dark:bg-slate-900 border px-4 py-3 rounded-2xl text-sm outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300 transition-all ${isNameError
-                                ? 'border-red-500 focus:border-red-600 ring-4 ring-red-500/10'
+                            className={`w-full bg-transparent border-0 border-b-2 px-3 py-2.5 rounded-none text-sm font-bold outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-100 focus:ring-0 transition-all ${isNameError
+                                ? 'border-red-500 focus:border-red-600'
                                 : (customerData.fullName && searchTerm === customerData.fullName)
-                                    ? 'border-blue-500 bg-blue-50/30 ring-4 ring-blue-500/10'
-                                    : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                                    ? 'border-blue-600 bg-blue-50/20'
+                                    : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-blue-600 dark:focus:border-blue-500'
                                 }`}
                             placeholder="Busque pelo Nome ou Telefone..."
                             value={searchTerm}
@@ -575,7 +575,7 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, isPickup, m
                                 Ponto de Referência / Observação
                             </label>
                             <input type="text"
-                                className={`w-full border px-3 py-2 rounded-xl text-sm font-bold outline-none transition-all ${isReadOnly || customerData.noAddress ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80 border-transparent text-slate-700 dark:text-slate-300' : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 text-slate-700 dark:text-amber-100 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder:text-amber-300 dark:placeholder:text-amber-700/50'}`}
+                                className={field(false, isReadOnly || customerData.noAddress)}
                                 placeholder="Ex: Casa verde em frente à padaria..."
                                 value={customerData.fullAddress?.observation || ''}
                                 onChange={e => updateAddress('observation', e.target.value)}

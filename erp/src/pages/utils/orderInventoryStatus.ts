@@ -1,5 +1,6 @@
 import Order from "../types/order.type";
 import { supabase } from "./supabaseConfig";
+import { isEffectiveInventoryMove } from './movingAverageCostRules';
 
 /** Atualiza flags visuais com base em movimentações efetivas vinculadas ao pedido. */
 export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order[]> => {
@@ -8,7 +9,7 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
 
     const { data, error } = await supabase
         .from('inventory_moves')
-        .select('order_id, type, status')
+        .select('order_id, type, observation, reason')
         .in('order_id', orderIds);
 
     if (error) {
@@ -19,7 +20,7 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
     const effectiveEntries = new Set<string>();
     const effectiveExits = new Set<string>();
     (data || []).forEach((move: any) => {
-        if (!move.order_id || ['reversed', 'cancelled'].includes(move.status)) return;
+        if (!move.order_id || !isEffectiveInventoryMove(move)) return;
         if (move.type === 'entry') effectiveEntries.add(String(move.order_id));
         if (move.type === 'exit' || move.type === 'withdrawal') effectiveExits.add(String(move.order_id));
     });

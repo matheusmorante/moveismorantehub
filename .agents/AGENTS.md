@@ -9,6 +9,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
 - **Modularizacao**: Arquivos acima de 500 linhas ou com mais de uma responsabilidade devem ser divididos. Aplicar apos cada tarefa.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
+- **Testes de ERP**: Para toda alteracao que possa afetar regras de negocio, banco, estoque, vendas, compras, recebimentos, devolucoes, inventarios, custos, relatorios, financeiro, entregas ou integracoes, consultar e seguir `.agents/skills/testes-seguros-erp/SKILL.md`. Nunca usar dados reais/preexistentes como massa de teste; toda persistencia de teste exige `testRunId` identificavel, cleanup e validacao do cleanup.
 
 ---
 
@@ -48,7 +49,10 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Restricoes de Rascunho (`status: 'draft'`)**:
   - Pedidos em rascunho **nao** podem ter o status alterado diretamente via menu ou seletor de status nos cards e linhas.
   - O seletor de status fica desabilitado para rascunhos, exibindo o aviso de que o cadastro precisa ser finalizado.
-  - Para um pedido em rascunho tornar-se agendado (`scheduled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Concluir Pedido**.
+- Para um pedido em rascunho tornar-se agendado (`scheduled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Concluir Pedido**.
+- Pedidos em rascunho exibem no menu de tres pontos a acao **Excluir rascunho**, com confirmacao e exclusao permanente. Nenhum outro status pode ser excluido por essa acao.
+- Vendas Agendadas exibem **Cancelar venda** no menu de tres pontos. O cancelamento muda o status para `cancelled` e estorna somente saídas de estoque vinculadas que existirem.
+- Ao concluir um novo pedido, o autosave de rascunho e interrompido: entrega e retirada agendada ficam `scheduled`; retirada marcada como **Retirada Imediata** fica `fulfilled`.
   - Acoes de **Gerar Devolucao** e **Desfazer Devolucao** sao ocultadas para rascunhos.
 - As acoes de mudanca de status ficam no menu de 3 pontos de cada pedido (`OrderHistoryCard` / `OrderHistoryRow`).
 
@@ -73,6 +77,21 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Gerar Devolucao** (`generateReturn`): visivel apenas se nao ha devolucao ja gerada (`!hasReturn`), o pedido nao for rascunho e `canGenerateReturn(order)` retornar `true` (status `fulfilled`).
 - **Desfazer Devolucao** (`undoReturn`): visivel apenas se `hasReturn === true` e nao for rascunho.
 - Os dois botoes sao mutuamente exclusivos na exibicao.
+- Devolucao `scheduled` nao movimenta estoque. Devolucao `fulfilled` cria entrada somente para item cadastrado; item temporario atendido permanece pendente.
+- Ao reconciliar item temporario no pedido de venda, propagar produto/variacao para a devolucao vinculada. Se ela ja estiver atendida, materializar sua entrada historica uma unica vez; se estiver agendada, aguardar o atendimento.
+- Devolucao preserva a saida da venda e usa o CMV historico materializado para valorizar a entrada quando disponivel. Custo desconhecido permanece nao apurado.
+
+### Acoes Pos-Venda
+
+- Para vendas com status **Agendado** (`scheduled`), o menu de tres pontos exibe apenas o atalho **Acoes pos-vendas** para impressao, envios, avaliacao e convite VIP.
+- Os botoes individuais dessas acoes nao aparecem no menu de tres pontos; ficam reunidos no modal de acoes pos-venda, que tambem e exibido ao concluir o cadastro.
+- O atalho nao aparece em rascunho, atendido, cancelado nem em outros tipos de pedido.
+
+### Estoque e CMV (CMPM)
+
+- O histórico válido de `inventory_moves` é a fonte da verdade para auditoria e reprocessamento cronológico.
+- `stock` e `costPrice` do produto/variação são o estado materializado usado nas entradas e saídas normais; o valor financeiro do saldo é derivado de `stock × costPrice`.
+- O CMV unitário é materializado no item e na movimentação da venda. Recebimentos históricos corrigidos reprocessam o SKU afetado e atualizam seu cache e CMVs posteriores.
 
 ---
 

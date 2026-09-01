@@ -96,10 +96,10 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     const handleDelete = (id: string) => {
         setConfirmModal({
             isOpen: true,
-            title: "Mover para Lixeira?",
-            message: "O pedido ficará inativo mas poderá ser restaurado futuramente a partir da lixeira.",
+            title: "Excluir rascunho?",
+            message: "Esta ação não pode ser desfeita. O rascunho será removido permanentemente.",
             onConfirm: () => onDelete(id),
-            type: 'warning'
+            type: 'danger'
         });
     };
 

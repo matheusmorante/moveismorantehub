@@ -202,10 +202,10 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     {!isBudget && !item.isComboItem && (
                         <div className="w-[240px] sm:w-[260px] shrink-0">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-                                Tipo de Manuseio
+                                Tipo de Manuseio <span className="text-red-500">*</span>
                             </label>
                             <select
-                                className={`w-full bg-transparent border-b-2 ${handlingError ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} focus:border-blue-600 px-3 py-2 shadow-sm outline-none transition-all text-xs font-bold text-slate-700 dark:text-slate-200`}
+                                className={`w-full bg-transparent border-0 border-b-2 ${handlingError ? 'border-red-500' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'} focus:border-blue-600 dark:focus:border-blue-500 focus:ring-0 px-1 py-2 rounded-none outline-none transition-all text-xs font-bold text-slate-800 dark:text-slate-100`}
                                 value={item.handlingType || ''}
                                 onChange={(e) => {
                                     const val = e.target.value;
@@ -242,7 +242,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     <div className="flex flex-wrap items-end gap-3 pt-1">
                         <div className="w-[85px] shrink-0">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-                                Qtd. <span className="text-red-500">*</span>
+                                Qtd.
                             </label>
                             <UnitInput
                                 value={item.quantity}
@@ -357,7 +357,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     {!item.isComboItem && (
                         <div className="relative group/hsel">
                             <select
-                                className={`w-full bg-white dark:bg-slate-950 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
+                                className={`w-full bg-transparent border-0 border-b-2 ${handlingError ? 'border-red-500' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'} focus:border-blue-600 dark:focus:border-blue-500 focus:ring-0 px-1 py-2 rounded-none outline-none transition-all text-xs font-bold text-slate-800 dark:text-slate-100`}
                                 value={item.handlingType || ''}
                                 onChange={(e) => {
                                     const val = e.target.value;

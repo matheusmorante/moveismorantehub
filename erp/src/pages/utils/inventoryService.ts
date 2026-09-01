@@ -83,6 +83,7 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
 
         const product = mapProductFromDB(p);
         let newTotalStock = Number(product.stock || 0);
+        let newAverageCost = Number(product.costPrice || 0);
         let updatedVariations = product.variations ? [...product.variations] : [];
 
         // Saldo = Entradas - Saídas + Ajustes (ajustes podem ser positivos ou negativos)
@@ -91,21 +92,40 @@ export const saveInventoryMove = async (move: InventoryMove, currentProductStock
             const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
             if (vIdx !== -1) {
                 let vStock = Number(updatedVariations[vIdx].stock || 0);
+                const previousStock = vStock;
                 if (isEntryType(move.type)) vStock += qty;
                 else if (isExitType(move.type)) vStock -= qty;
                 else if (isAdjustmentType(move.type)) vStock += qty;
-                
+                if (isEntryType(move.type) && move.unitCost !== undefined && vStock > 0) {
+                    const previousCost = Number(updatedVariations[vIdx].costPrice || 0);
+                    updatedVariations[vIdx].costPrice = previousStock <= 0
+                        ? move.unitCost
+                        : previousCost > 0
+                            ? ((previousStock * previousCost) + (qty * move.unitCost)) / vStock
+                            : 0;
+                }
                 updatedVariations[vIdx].stock = vStock;
             }
             newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);
+            const totalValue = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0) * Number(v.costPrice || 0), 0);
+            newAverageCost = newTotalStock > 0 ? totalValue / newTotalStock : 0;
         } else {
+            const previousStock = newTotalStock;
             if (isEntryType(move.type)) newTotalStock += qty;
             else if (isExitType(move.type)) newTotalStock -= qty;
             else if (isAdjustmentType(move.type)) newTotalStock += qty;
+            if (isEntryType(move.type) && move.unitCost !== undefined && newTotalStock > 0) {
+                newAverageCost = previousStock <= 0
+                    ? move.unitCost
+                    : newAverageCost > 0
+                        ? ((previousStock * newAverageCost) + (qty * move.unitCost)) / newTotalStock
+                        : 0;
+            }
         }
 
         await updateProduct(move.productId, { 
             stock: newTotalStock,
+            costPrice: newAverageCost,
             variations: updatedVariations.length > 0 ? updatedVariations : undefined
         });
         return data?.[0] ? mapFromDB(data[0]) : undefined;
@@ -466,7 +486,7 @@ const mapToDB = (move: InventoryMove) => {
         quantity: move.quantity,
         date: move.date,
         label: move.label || null,
-        unit_cost: move.unitCost || 0,
+        unit_cost: move.unitCost ?? null,
         unit_price: move.unitPrice || 0,
         observation: observationPayload,
         order_id: move.relatedEntityId || null,
@@ -507,7 +527,7 @@ const mapFromDB = (data: any): InventoryMove => {
         quantity: Number(data.quantity),
         date: data.date,
         label: data.label,
-        unitCost: data.unit_cost ? Number(data.unit_cost) : undefined,
+        unitCost: data.unit_cost === null || data.unit_cost === undefined ? undefined : Number(data.unit_cost),
         unitPrice: data.unit_price ? Number(data.unit_price) : undefined,
         observation: cleanObservation,
         relatedEntityId: data.order_id,

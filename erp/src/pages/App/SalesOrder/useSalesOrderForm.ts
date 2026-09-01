@@ -104,6 +104,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     // Auto-save control
     const autoSaveTimerRef = useRef<any>(null);
     const isInitialMount = useRef(true);
+    const isFinalizingRef = useRef(false);
 
     const itemsSummary = calcItemsSummary(items);
     const paymentsSummary = calcPaymentsSummary(payments, itemsSummary, shipping.value);
@@ -183,7 +184,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         const isSavingRef = { current: false };
 
         autoSaveTimerRef.current = setTimeout(async () => {
-            if (latestState.current.isSaving || latestState.current.isSavingDraft || isSavingRef.current) return;
+            if (isFinalizingRef.current || latestState.current.isSaving || latestState.current.isSavingDraft || isSavingRef.current) return;
             
             const currentStatus = latestState.current.status;
             // Only force 'draft' for new orders or those already in 'draft'
@@ -459,22 +460,31 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const handleCompleteOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
 
-        const orderData = getOrderData('scheduled');
+        if (isFinalizingRef.current || latestState.current.isSaving) return false;
+
+        isFinalizingRef.current = true;
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+        const isImmediatePickup = latestState.current.shipping.deliveryMethod === 'pickup'
+            && latestState.current.shipping.scheduling?.immediatePickup === true;
+        const finalStatus = isImmediatePickup ? 'fulfilled' : 'scheduled';
+        const orderData = getOrderData(finalStatus);
         const validationErrors = validateOrder(orderData);
 
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             toast.error("Existem campos obrigatórios não preenchidos.");
+            isFinalizingRef.current = false;
             return false;
         }
 
-        if (latestState.current.isSaving) return;
         setIsSaving(true);
         setErrors({});
 
         try {
             const savedId = await saveOrder(orderData);
-            setStatus('scheduled');
+            if (savedId) setCurrentOrderId(savedId);
+            setStatus(finalStatus);
             toast.success("Pedido FINALIZADO com sucesso!");
             return savedId;
         } catch (error: any) {
@@ -482,6 +492,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             return false;
         } finally {
             setIsSaving(false);
+            isFinalizingRef.current = false;
         }
     }, [getOrderData]);
 
