@@ -1,4 +1,5 @@
 import FullAddress from "./fullAddress.type";
+import { UserRole } from "@/context/AuthContext";
 
 export type Person = {
     id?: string;
@@ -22,7 +23,9 @@ export type Person = {
     defaultIpiPercent?: number; // Padrão de IPI p/ produtos
     defaultFreightType?: 'fixed' | 'percentage' | 'none'; // Taxa de frete padrão
     defaultFreightCost?: number; // Preço/Rate padrão do frete
-    position?: string; // Cargo do funcionário
+    position?: string; // Cargo/Função do funcionário
+    role?: UserRole; // Cargo principal no sistema ('administrator' | 'manager' | 'seller' | 'deliverer' | 'pending')
+    roles?: UserRole[]; // Lista de múltiplos cargos atribuídos ao colaborador
     deleted?: boolean;
     deletedAt?: string;
     createdAt?: string;
@@ -38,6 +41,7 @@ export type PersonVisibilitySettings = {
     email: boolean;
     phone: boolean;
     address: boolean;
+    position?: boolean;
     products: boolean;
     actions: boolean;
 };

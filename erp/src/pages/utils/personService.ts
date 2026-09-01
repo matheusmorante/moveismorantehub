@@ -26,8 +26,8 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     if (p.deleted !== undefined) dbObj.deleted = p.deleted;
     if (p.marketingOrigin !== undefined) dbObj.marketing_origin = p.marketingOrigin;
 
-    // Special handling for address
-    if (p.fullAddress || p.address || p.additionalContacts !== undefined || p.noAddress !== undefined) {
+    // Special handling for address and employee metadata (roles)
+    if (p.fullAddress || p.address || p.additionalContacts !== undefined || p.noAddress !== undefined || p.role !== undefined || p.roles !== undefined) {
         let addressVal: any = p.fullAddress || p.address || {};
         if (typeof addressVal === 'string' && addressVal.trim().startsWith('{')) {
             try {
@@ -44,6 +44,12 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
             }
             if (p.noAddress !== undefined) {
                 addressVal.noAddress = p.noAddress;
+            }
+            if (p.role !== undefined) {
+                addressVal.role = p.role;
+            }
+            if (p.roles !== undefined) {
+                addressVal.roles = p.roles;
             }
         }
         dbObj.address = addressVal;
@@ -83,6 +89,9 @@ const mapFromDB = (data: any): Person => {
         }
     }
 
+    const rolesFromAddress = typeof parsedAddress === 'object' && parsedAddress !== null ? parsedAddress.roles : undefined;
+    const roleFromAddress = typeof parsedAddress === 'object' && parsedAddress !== null ? parsedAddress.role : undefined;
+
     const p: any = {
         id: String(data.id),
         personType: data.person_type_pf_pj || 'PF',
@@ -102,6 +111,8 @@ const mapFromDB = (data: any): Person => {
         deleted: data.deleted ?? false,
         deletedAt: data.deleted_at,
         position: data.position || '',
+        role: roleFromAddress || (rolesFromAddress?.[0]) || (data.person_type === 'employees' ? 'seller' : undefined),
+        roles: rolesFromAddress || (roleFromAddress ? [roleFromAddress] : (data.person_type === 'employees' ? ['seller'] : undefined)),
         type: data.person_type as any,
         leadTime: data.lead_time || 0,
         marketingOrigin: data.marketing_origin || '',
@@ -117,15 +128,21 @@ const mapFromDB = (data: any): Person => {
 
 const mapProfileToPerson = (prof: any): Person => {
     const rolePositions: Record<string, string> = {
+        administrator: 'Administrador',
         manager: 'Gerente',
         seller: 'Vendedor',
         deliverer: 'Entregador / Montador',
+        pending: 'Sem Acesso'
     };
+    const effectiveRoles = prof.roles && prof.roles.length > 0 ? prof.roles : (prof.role ? [prof.role] : ['seller']);
     return {
         id: prof.id,
         fullName: prof.full_name || prof.email || 'Conta sem nome',
         email: prof.email || '',
         position: prof.position || rolePositions[prof.role] || '',
+        role: prof.role || effectiveRoles[0] || 'administrator',
+        roles: effectiveRoles,
+        type: 'employees',
         active: true,
         isDraft: false,
         fullAddress: { street: '' },
@@ -381,4 +398,28 @@ export const fetchPersons = async (collectionName: string = 'suppliers', include
         console.error("Erro ao buscar pessoas em personService:", e);
         return [];
     }
+};
+
+export const isEmployeeEmailTaken = async (email: string, excludeId?: string): Promise<boolean> => {
+    const normalized = email?.trim().toLowerCase();
+    if (!normalized) return false;
+
+    let query = supabase
+        .from(TABLE_NAME)
+        .select('id,email,person_type,deleted')
+        .or('deleted.eq.false,deleted.is.null')
+        .or(`person_type.ilike.employees,and(position.not.is.null,position.neq."")`)
+        .ilike('email', normalized);
+
+    if (excludeId) {
+        query = query.neq('id', String(excludeId));
+    }
+
+    const { data, error } = await query;
+    if (error) {
+        console.error("Erro ao verificar email duplicado de colaborador:", error);
+        return false;
+    }
+
+    return Boolean(data && data.length > 0);
 };

@@ -68,7 +68,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                                         const module = await import('./orderActionsConfig');
                                         module.actionsMap[btn.action](order);
                                         if (order.id) {
-                                            const clicked = { ...(order.isButtonsClicked || {}), [btn.key]: true };
+                                            const clicked = { ...(order.isButtonsClicked || {}), [btn.key]: true } as Order['isButtonsClicked'];
                                             await updateOrder(order.id, {
                                                 isButtonsClicked: clicked,
                                                 ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {})

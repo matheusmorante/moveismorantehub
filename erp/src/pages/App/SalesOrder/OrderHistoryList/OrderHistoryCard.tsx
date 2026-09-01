@@ -8,6 +8,9 @@ import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderType
 import { buttons } from "../OrderActions/orderActionsConfig";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import CancelledOrderBadge from "./CancelledOrderBadge";
+import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
+import { binaryOrderBadgeClass, warningOrderBadgeClass } from "./orderBadgeStyles";
+import { getOrderFulfillmentCountdown } from '@/pages/utils/orderFulfillmentCountdown';
 
 interface OrderHistoryCardProps {
     order: Order;
@@ -26,6 +29,7 @@ interface OrderHistoryCardProps {
     onBlingUpdate?: (id: string, value: boolean) => void;
     onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
     onViewDetails?: (order: Order) => void;
+    onShowPostSaleActions?: (order: Order) => void;
 }
 
 const OrderHistoryCard = ({
@@ -44,7 +48,8 @@ const OrderHistoryCard = ({
     isHighlighted,
     id,
     onFilterByOrderId,
-    onViewDetails
+    onViewDetails,
+    onShowPostSaleActions
 }: OrderHistoryCardProps) => {
     const settings = getSettings();
     const [showMenu, setShowMenu] = React.useState(false);
@@ -133,7 +138,8 @@ const OrderHistoryCard = ({
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
     const hasTemporaryItems = order.items?.some(item => !item.productId || item.productId.trim() === '') || false;
     const orderHandling = normalize(
-        order.handlingType || order.handling || order.shipping?.handlingType || order.shipping?.handling || ''
+        (order as any).handlingType || (order as any).handling ||
+        (order.shipping as any)?.handlingType || (order.shipping as any)?.handling || ''
     );
     const isOrderAssemblyOutside = orderHandling.includes('montagem fora') || orderHandling.includes('montagem na entrega') || orderHandling.includes('montagem no endereco');
     const isOrderAssemblyDepot = orderHandling.includes('montagem no deposito') || orderHandling.includes('montagem para retirada') || orderHandling.includes('montagem no depósito');
@@ -147,26 +153,11 @@ const OrderHistoryCard = ({
     const isPaidTraffic = 
         mOrigin1 === 'paid' || mOrigin1.includes('pago') || mOrigin1.includes('ads') || mOrigin1.includes('facebook') || mOrigin1.includes('insta') || mOrigin1.includes('trafego') || mOrigin1.includes('tráfego') || mOrigin1.includes('google') ||
         mOrigin2 === 'paid' || mOrigin2.includes('pago') || mOrigin2.includes('ads') || mOrigin2.includes('facebook') || mOrigin2.includes('insta') || mOrigin2.includes('trafego') || mOrigin2.includes('tráfego') || mOrigin2.includes('google');
-    
-    // Delivery Date calculation
-    const deliveryDateStr = order.shipping?.scheduling?.date;
-    let isPastDelivery = false;
-    if (deliveryDateStr) {
-        try {
-            const dateParts = deliveryDateStr.includes('/') ? deliveryDateStr.split('/') : deliveryDateStr.split('-');
-            const day = deliveryDateStr.includes('/') ? Number(dateParts[0]) : Number(dateParts[2]);
-            const month = deliveryDateStr.includes('/') ? Number(dateParts[1]) : Number(dateParts[1]);
-            const year = deliveryDateStr.includes('/') ? Number(dateParts[2]) : Number(dateParts[0]);
 
-            const deliveryDate = new Date(year, month - 1, day);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            isPastDelivery = deliveryDate < today;
-        } catch (e) {
-            console.error("Erro ao processar data de entrega:", e);
-        }
-    }
-    
+    // Fulfillment countdown e data de entrega vencida
+    const countdown = getOrderFulfillmentCountdown(order);
+    const isPastDelivery = countdown.isPastDelivery;
+
     // Card header accent colors
     const headerAccentClass =
         order.orderType === 'budget'
@@ -214,14 +205,10 @@ const OrderHistoryCard = ({
                             <button
                                 type="button"
                                 onClick={() => onStockCheckUpdate?.(order.id!, !order.isStockChecked)}
-                                className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${
-                                    order.isStockChecked 
-                                        ? 'bg-emerald-600 text-white border-emerald-700'
-                                        : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
-                                }`}
+                                className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${binaryOrderBadgeClass(Boolean(order.isStockChecked))}`}
                                 title={order.isStockChecked ? "Etiquetado (Clique para desmarcar)" : "Não Etiquetado (Clique para marcar)"}
                             >
-                                <i className={`bi bi-tag-fill text-[11px] ${order.isStockChecked ? 'text-white' : ''}`} />
+                                <i className="bi bi-tag-fill text-[11px] text-white" />
                                 {order.isStockChecked && (
                                     <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                                         <i className="bi bi-check text-[8px] font-black leading-none" />
@@ -237,14 +224,10 @@ const OrderHistoryCard = ({
                             <button
                                 type="button"
                                 onClick={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
-                                className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${
-                                    order.isRegisteredInBling
-                                        ? 'bg-emerald-600 text-white border-emerald-700'
-                                        : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
-                                }`}
+                                className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${binaryOrderBadgeClass(Boolean(order.isRegisteredInBling))}`}
                                 title={order.isRegisteredInBling ? 'Lançado no Bling (Clique para alternar)' : 'Falta Lançar no Bling (Clique para marcar)'}
                             >
-                                <span className={order.isRegisteredInBling ? 'text-white' : ''}>Bling</span>
+                                <span className="text-white">Bling</span>
                                 {order.isRegisteredInBling && (
                                     <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                                         <i className="bi bi-check text-[8px] font-black leading-none" />
@@ -296,7 +279,7 @@ const OrderHistoryCard = ({
                     {/* 6. Return Status Badge */}
                     {order.returnOrderId && (
                         <div 
-                            className="flex h-6 items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 text-amber-700 shadow-sm dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-400"
+                            className={`flex h-6 items-center gap-1 rounded-md border px-2 shadow-sm ${warningOrderBadgeClass}`}
                             title={`Este pedido possui uma devolução ${order.returnKind === 'complete' ? 'completa' : 'parcial'} vinculada`}
                         >
                             <i className="bi bi-arrow-return-left text-[10px]" />
@@ -385,7 +368,7 @@ const OrderHistoryCard = ({
                         Pedido vinculado: #{order.linkedOrderCode || formatOrderCode(order)}
                     </button>
                 )}
-                
+
                 {order.shipping?.scheduling?.pendingScheduling && (
                     <div className="mt-2 flex items-center gap-2 bg-orange-500 text-white p-2 rounded-lg border border-orange-600 shadow-sm">
                         <i className="bi bi-clock-history text-[10px]" />
@@ -394,20 +377,25 @@ const OrderHistoryCard = ({
                         </span>
                     </div>
                 )}
-                
-                {/* Redundância do Bling removida para privilegiar o ícone 'B' na barra de badges superior */}
 
-                {/* Manual Fulfillment Prompt */}
+                {/* Manual Fulfillment Prompt com subtítulo de contagem regressiva */}
                 {isPastDelivery && order.status !== 'fulfilled' && order.status !== 'cancelled' && !showTrash && settings.showManualFulfillmentPrompt && (
                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                         {!showFulfillmentConfirm ? (
                             <button
                                 onClick={() => setShowFulfillmentConfirm(true)}
-                                className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500 rounded-lg border border-amber-200 dark:border-amber-900/30 w-fit hover:scale-105 transition-all active:scale-95 shadow-sm"
+                                className="flex flex-col items-start px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg border border-amber-200 dark:border-amber-800/40 w-fit hover:scale-105 transition-all active:scale-95 shadow-sm text-left cursor-pointer"
                                 title="A data de entrega passou. Este pedido já foi atendido?"
                             >
-                                <i className="bi bi-clock-history text-[10px]" />
-                                <span className="text-[9px] font-black uppercase tracking-widest">Pedido Atendido?</span>
+                                <div className="flex items-center gap-1.5">
+                                    <i className="bi bi-clock-history text-[10px]" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">Pedido Atendido?</span>
+                                </div>
+                                {countdown.countdownLabel && (
+                                    <span className="text-[8px] font-bold text-amber-600 dark:text-amber-500 tracking-tight mt-0.5">
+                                        {countdown.countdownLabel}
+                                    </span>
+                                )}
                             </button>
                         ) : (
                             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-lg animate-slide-up w-fit">
@@ -433,29 +421,6 @@ const OrderHistoryCard = ({
                         )}
                     </div>
                 )}
-
-                {/* Review Request Button */}
-                {order.orderType !== 'assistance' && order.status === 'fulfilled' && !order.reviewRequested && !showTrash && !(order.shipping?.deliveryMethod === 'pickup' && (order.customerData?.fullName === "Consumidor Final" || order.customerData?.fullName === "Ao Consumidor")) && (
-                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                            onClick={() => onAction("sendCustomerReviews", order)}
-                            className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
-                        >
-                            <i className="bi bi-star-fill text-[10px]" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Enviar Avaliação</span>
-                        </button>
-                    </div>
-                )}
-
-                {/* Review Already Requested Label */}
-                {order.orderType !== 'assistance' && order.status === 'fulfilled' && order.reviewRequested && !showTrash && (
-                    <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-900/20 w-fit shadow-sm">
-                        <i className="bi bi-star-half text-[10px]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Avaliação Solicitada</span>
-                    </div>
-                )}
-
-
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/40">
                     <div className="flex flex-col">
@@ -568,10 +533,17 @@ const OrderHistoryCard = ({
                                                 {canReconcileTemporaryProducts && (
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }} className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30">
                                                         <i className="bi bi-link-45deg text-base" />
-                                                        <span className="text-[9px] font-black uppercase tracking-widest">Realizar conciliação</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Conciliação Comercial</span>
                                                     </button>
                                                 )}
+                                                <PostSaleActionMenuButton
+                                                    order={order}
+                                                    onOpen={onShowPostSaleActions}
+                                                    onCloseMenu={() => setShowMenu(false)}
+                                                />
+
                                                 {buttons.filter(btn => {
+                                                    if (isPostSaleAction(btn.key)) return false;
                                                     if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                     if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
 
@@ -581,9 +553,9 @@ const OrderHistoryCard = ({
                                                         order.status === 'returned' ||
                                                         (order as any).hasReturn ||
                                                         (order as any).returned ||
-                                                        (order.order_data as any)?.returnOrderId ||
-                                                        (order.order_data as any)?.returned ||
-                                                        (order.order_data as any)?.status === 'returned'
+                                                        (order as any).order_data?.returnOrderId ||
+                                                        (order as any).order_data?.returned ||
+                                                        (order as any).order_data?.status === 'returned'
                                                     );
 
                                                     if (btn.key === 'generateReturn' && hasReturn) return false;

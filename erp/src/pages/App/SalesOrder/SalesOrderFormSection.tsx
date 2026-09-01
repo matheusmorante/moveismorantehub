@@ -29,6 +29,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
     const isPickup = state.shipping.deliveryMethod === 'pickup';
     const { currentStep } = state;
     const isBudget = state.currentOrder.orderType === 'budget';
+    const isReturn = state.currentOrder.orderType === 'return';
     
     // Resolve all handling options
     const settings = getSettings();
@@ -74,7 +75,6 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                 icon="bi bi-info-circle"
                                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
                                 title="Informações básicas"
-                                subtitle="Defina o vendedor e a data do pedido"
                             >
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <SellerInput
@@ -95,7 +95,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                             type="datetime-local"
                                             value={state.orderDate}
                                             onChange={(e) => actions.setOrderDate(e.target.value)}
-                                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-100 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]"
+                                            className="w-full border-b-2 border-slate-200 bg-transparent px-3 py-3 text-sm font-bold text-slate-800 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-100 dark:focus:border-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
                                         />
                                     </div>
                                 </div>
@@ -140,6 +140,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                     errors={state.errors}
                                     onSelectProduct={actions.handleSelectProduct}
                                     isBudget={isBudget}
+                                    isReturn={isReturn}
                                     highlightTemporaryItems={highlightTemporaryItems}
                                 />
                             </SectionCard>
@@ -151,8 +152,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                             <SectionCard
                                 icon="bi bi-person-badge"
                                 iconBg="bg-purple-600 shadow-purple-100 dark:shadow-purple-900/20"
-                                title="Dados do Cliente"
-                                subtitle="Informações para faturamento e contato"
+                                title="Cliente"
                                 className="bg-white dark:bg-slate-900"
                             >
                                 <PersonalInfos
@@ -175,7 +175,6 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                 icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
                                 iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
                                 title={isBudget ? "Frete e Entrega" : "Logística"}
-                                subtitle={isBudget ? "Cálculo de valores para entrega" : "Defina como o produto chegará ao cliente"}
                                 className="bg-white dark:bg-slate-900 transition-colors duration-300"
                             >
                                 <ShippingInputs
@@ -209,10 +208,21 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                             <SectionCard
                                 icon={isBudget ? "bi bi-calculator" : "bi bi-credit-card-2-front"}
                                 iconBg="bg-indigo-600 shadow-indigo-100 dark:shadow-indigo-900/20"
-                                title="Condição de Pagamento"
-                                subtitle={isBudget ? "Preenchimento opcional para propostas" : "Formas e prazos acordados"}
+                                title="Pagamentos"
+                                action={
+                                    <button
+                                        type="button"
+                                        onClick={() => actions.setPayments((payments) => [...payments, {
+                                            method: 'Verificar', amount: 0, fee: 0, feeType: 'fixed', status: ''
+                                        }])}
+                                        className="flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:bg-indigo-700 active:scale-95"
+                                    >
+                                        <i className="bi bi-plus-lg" />
+                                        <span className="hidden sm:inline">Adicionar pagamento</span>
+                                    </button>
+                                }
                             >
-                                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
+                                <div className="overflow-x-auto rounded-3xl border border-slate-100 bg-white transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900">
                                     {isBudget && state.payments.length === 0 && (
                                         <div className="p-8 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center gap-4 text-center">
                                             <div className="flex flex-col gap-1">

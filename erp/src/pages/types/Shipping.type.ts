@@ -1,3 +1,5 @@
+import FullAddress from "./fullAddress.type";
+
 type Shipping = {
     value: number,
     distance?: number,
@@ -20,17 +22,8 @@ type Shipping = {
     routeGeoJSON?: any, // GeoJSON geometry from routing API
     autoCalculateValue?: boolean,
     useCustomerAddress?: boolean,
-    deliveryAddress?: {
-        cep: string,
-        street: string,
-        number: string,
-        complement: string,
-        observation: string,
-        neighborhood: string,
-        city: string,
-        state?: string,
-        housingType?: string
-    }
+    /** Snapshot do endereço efetivamente usado quando o pedido foi salvo. */
+    deliveryAddress?: FullAddress
 };
 
 export default Shipping;

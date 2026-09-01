@@ -139,12 +139,12 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         }}
                         onFocus={() => setShowSuggestions(query.trim().length >= 2)}
                         placeholder={placeholder}
-                        className={inputClassName || `w-full px-4 py-2 bg-white dark:bg-slate-900 border rounded-xl outline-none transition-all text-sm font-medium ${
+                        className={inputClassName || `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
                             isTemporary 
-                                ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 text-amber-950 dark:text-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20' 
+                                ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
                                 : isSelected 
-                                    ? 'border-emerald-500 bg-emerald-50/25 dark:bg-emerald-950/20 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 pr-9'
-                                    : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                                    ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                                    : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
                         } ${className}`}
                     />
                     {isLoading ? (

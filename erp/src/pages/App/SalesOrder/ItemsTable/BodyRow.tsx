@@ -22,10 +22,13 @@ interface Props {
     isMobile?: boolean;
     onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
     isBudget?: boolean;
+    isReturn?: boolean;
+    hideHandling?: boolean;
     highlightAsTemporary?: boolean;
 }
 
-const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget, highlightAsTemporary }: Props) => {
+const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget, isReturn, hideHandling, highlightAsTemporary }: Props) => {
+    const shouldHideHandling = Boolean(hideHandling || isBudget || isReturn);
     const isLinkedProduct = Boolean(item.description?.trim() && item.productId);
     const isTemporaryProduct = Boolean(item.description?.trim() && !item.productId);
     const errorKey = `item_${idx}_description`;
@@ -199,13 +202,13 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         )}
                     </div>
 
-                    {!isBudget && !item.isComboItem && (
+                    {!shouldHideHandling && !item.isComboItem && (
                         <div className="w-[240px] sm:w-[260px] shrink-0">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Tipo de Manuseio
                             </label>
                             <select
-                                className={`w-full bg-transparent border-b-2 ${handlingError ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} focus:border-blue-600 px-3 py-2 shadow-sm outline-none transition-all text-xs font-bold text-slate-700 dark:text-slate-200`}
+                                className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
                                 value={item.handlingType || ''}
                                 onChange={(e) => {
                                     const val = e.target.value;
@@ -352,12 +355,12 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     </div>
                 )}
             </td>
-            {!isBudget && (
+            {!shouldHideHandling && (
                 <td className="px-3 py-2 w-[140px]">
                     {!item.isComboItem && (
                         <div className="relative group/hsel">
                             <select
-                                className={`w-full bg-white dark:bg-slate-950 border ${handlingError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500 px-2 py-1.5 rounded-xl outline-none transition-all text-[11px] font-bold text-slate-600 dark:text-slate-400 pr-7`}
+                                className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1.5 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                 value={item.handlingType || ''}
                                 onChange={(e) => {
                                     const val = e.target.value;
@@ -474,8 +477,8 @@ const TemporaryProductAlert = () => (
     <span className="relative inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 group/temp-alert" tabIndex={0} aria-label="Produto sem cadastro">
         <i className="bi bi-exclamation-triangle-fill text-amber-500 text-xs cursor-help" />
         <span>Produto sem cadastro</span>
-        <span className="pointer-events-none absolute left-0 top-full z-[80] mt-1 hidden w-64 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
-            Produto sem cadastro: selecione um produto da lista de sugestões para vinculá-lo ao catálogo.
+        <span className="pointer-events-none absolute left-0 top-full z-[80] mt-1 hidden w-72 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
+            Produto sem cadastro: este item não gera movimentação de estoque (nem na venda, nem na devolução, nem na conciliação comercial). Selecione um produto da lista para vinculá-lo ao catálogo.
         </span>
     </span>
 );

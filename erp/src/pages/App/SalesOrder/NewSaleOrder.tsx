@@ -336,7 +336,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
 
     return (
         <div
-            className="fixed inset-x-0 bottom-0 top-[64px] xl:top-[80px] z-[90] bg-slate-900/60 backdrop-blur-sm animate-fade-in flex"
+            className="fixed inset-0 z-[9000] flex bg-slate-900/60 backdrop-blur-sm animate-fade-in"
             onClick={onClose}
         >
             {renderContent()}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Person from "../../../types/person.type";
-import { savePerson, getPersonByIdentifiers } from '@/pages/utils/personService';
+import { savePerson, getPersonByIdentifiers, isEmployeeEmailTaken } from '@/pages/utils/personService';
+import { getUserProfileByEmail, saveEmployeeInProfile } from '@/pages/utils/employeeProfileService';
 import { toast } from "react-toastify";
 import { capitalizePerson, toTitleCase } from "../../../utils/formatters";
 import SmartInput from "../../../../components/SmartInput";
@@ -11,6 +12,16 @@ const PatternFormat = PatternFormatBase as any;
 import { getAddressByCep, searchAddressSuggestions } from "../../../utils/maps";
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import AddressVerificationMap from "../../SalesOrder/AddressVerificationMap";
+import { UserRole } from "@/context/AuthContext";
+import { getPrimaryRole } from "@/pages/utils/accessRoles";
+
+const EMPLOYEE_ROLES: { value: UserRole; label: string; description: string; icon: string }[] = [
+    { value: 'administrator', label: 'Administrador', description: 'Acesso total a todas as áreas do sistema', icon: 'bi-shield-shaded' },
+    { value: 'manager', label: 'Gestor', description: 'Gestão operacional, estoque e relatórios', icon: 'bi-briefcase-fill' },
+    { value: 'seller', label: 'Vendedor', description: 'Vendas, pedidos e clientes', icon: 'bi-tag-fill' },
+    { value: 'deliverer', label: 'Entregador / Montador', description: 'Rotas de entrega e montagens', icon: 'bi-truck' },
+    { value: 'pending', label: 'Sem Acesso', description: 'Acesso bloqueado temporariamente', icon: 'bi-slash-circle' },
+];
 
 interface PersonFormModalProps {
     isOpen: boolean;
@@ -22,6 +33,8 @@ interface PersonFormModalProps {
 }
 
 const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, title }: PersonFormModalProps) => {
+    const isEmployee = collectionName === 'employees';
+
     const [formData, setFormData] = useState<Partial<Person>>({
         personType: "PF",
         fullName: "",
@@ -47,21 +60,92 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         noAddress: false,
         marketingOrigin: "",
         position: "",
+        role: "seller",
+        roles: ["seller"],
         additionalContacts: [],
         observations: ""
     });
 
-    const isEmployee = collectionName === 'employees';
-
     const [loading, setLoading] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-    const [settings, setSettings] = useState(getSettings());
+    const [settings] = useState(getSettings());
     const isInitialMount = useRef(true);
 
     const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
     const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = useState(false);
     const streetWrapperRef = useRef<HTMLDivElement>(null);
+
+    const toggleEmployeeRole = (roleValue: UserRole) => {
+        const currentRoles = (formData.roles && formData.roles.length > 0)
+            ? [...formData.roles]
+            : (formData.role ? [formData.role] : ['seller']);
+
+        let nextRoles: UserRole[];
+
+        if (roleValue === 'pending') {
+            nextRoles = ['pending'];
+        } else {
+            const withoutPending = currentRoles.filter(r => r !== 'pending');
+            if (withoutPending.includes(roleValue)) {
+                nextRoles = withoutPending.filter(r => r !== roleValue);
+                if (nextRoles.length === 0) {
+                    nextRoles = ['pending'];
+                }
+            } else {
+                nextRoles = [...withoutPending, roleValue];
+            }
+        }
+
+        const defaultRoleNames: Record<UserRole, string> = {
+            administrator: 'Administrador',
+            manager: 'Gestor',
+            seller: 'Vendedor',
+            deliverer: 'Entregador / Montador',
+            accountant: 'Contador',
+            pending: 'Sem Acesso'
+        };
+
+        const primaryRole = getPrimaryRole(nextRoles);
+
+        setFormData(prev => ({
+            ...prev,
+            roles: nextRoles,
+            role: primaryRole,
+            position: (!prev.position || prev.position.trim() === '' || EMPLOYEE_ROLES.some(er => er.label === prev.position) || prev.position.includes('/'))
+                ? (nextRoles.filter(r => r !== 'pending').map(r => defaultRoleNames[r]).join(' / ') || defaultRoleNames[primaryRole])
+                : prev.position
+        }));
+    };
+
+    const handleEmployeeEmailBlur = async () => {
+        if (!isEmployee || !formData.email?.trim()) return;
+
+        try {
+            const isTaken = await isEmployeeEmailTaken(formData.email, person?.id);
+            if (isTaken) {
+                toast.error("Este e-mail já está sendo utilizado por outro colaborador.");
+                return;
+            }
+
+            const profile = await getUserProfileByEmail(formData.email);
+            if (!profile) return;
+
+            const profileRoles = profile.roles && profile.roles.length > 0
+                ? profile.roles
+                : (profile.role ? [profile.role] : ['seller']);
+
+            setFormData((current) => ({
+                ...current,
+                fullName: current.fullName || profile.full_name || profile.email,
+                position: current.position || profile.position || "",
+                role: current.role || profile.role || getPrimaryRole(profileRoles),
+                roles: current.roles && current.roles.length > 0 ? current.roles : profileRoles,
+            }));
+            toast.info("Dados e cargos da conta vinculados ao funcionário.");
+        } catch (error) {
+            console.error("Erro ao localizar conta pelo e-mail:", error);
+        }
+    };
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -75,8 +159,14 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
     useEffect(() => {
         if (person) {
+            const initialRoles = (person.roles && person.roles.length > 0)
+                ? person.roles
+                : (person.role ? [person.role] : ['seller']);
+
             setFormData({
                 ...person,
+                role: person.role || getPrimaryRole(initialRoles),
+                roles: initialRoles,
                 personType: person.personType || "PF",
                 fullAddress: {
                     cep: person.fullAddress?.cep || "",
@@ -93,6 +183,23 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 additionalContacts: person.additionalContacts || [],
                 observations: person.observations || ""
             });
+            if (isEmployee && person.email) {
+                getUserProfileByEmail(person.email).then((prof) => {
+                    if (prof?.roles && prof.roles.length > 0) {
+                        setFormData((prev) => ({
+                            ...prev,
+                            roles: prof.roles || prev.roles,
+                            role: prof.role || getPrimaryRole(prof.roles || []) || prev.role
+                        }));
+                    } else if (prof?.role) {
+                        setFormData((prev) => ({
+                            ...prev,
+                            role: prof.role || prev.role,
+                            roles: [prof.role]
+                        }));
+                    }
+                }).catch(() => {});
+            }
         } else {
             setFormData({
                 personType: "PF",
@@ -104,6 +211,8 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 noPhone: false,
                 active: true,
                 type: collectionName as any,
+                role: "seller",
+                roles: ["seller"],
                 fullAddress: {
                     cep: "",
                     street: "",
@@ -138,7 +247,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             };
         });
     };
-    
+
     // Auto-enable noAddress for "Consumidor Final" in registration
     useEffect(() => {
         if (!formData.fullName) return;
@@ -178,7 +287,6 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         const state = addr.state || formData.fullAddress?.state || "PR";
         const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : formData.fullAddress?.cep || "";
 
-        // Se tiver place_id ou nome completo, monta link do Google Maps para facilitar
         const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
         const generatedMapsUrl = formData.fullAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
@@ -254,7 +362,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (collectionName !== 'suppliers' && requiredFields.customer?.email && (!formData.email || formData.email.trim() === '')) {
+        if ((isEmployee || (collectionName !== 'suppliers' && requiredFields.customer?.email)) && (!formData.email || formData.email.trim() === '')) {
             toast.error("O e-mail é obrigatório.");
             return;
         }
@@ -282,7 +390,14 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        // Verifica duplicidade apenas dentro do mesmo grupo (Clientes com Clientes, Fornecedores com Fornecedores)
+        if (isEmployee && formData.email && formData.email.trim() !== '') {
+            const isEmailTaken = await isEmployeeEmailTaken(formData.email, person?.id);
+            if (isEmailTaken) {
+                toast.error("Já existe outro colaborador cadastrado com este e-mail.");
+                return;
+            }
+        }
+
         if (!person) { 
             const existing = await getPersonByIdentifiers({
                 cpfCnpj: formData.cpfCnpj || "",
@@ -309,7 +424,26 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             if (dataToSave.position?.trim() === "") {
                 dataToSave.position = null as any;
             }
+            if (isEmployee) {
+                if (!dataToSave.roles || dataToSave.roles.length === 0) {
+                    dataToSave.roles = dataToSave.role ? [dataToSave.role] : ['seller'];
+                }
+                dataToSave.role = dataToSave.role || getPrimaryRole(dataToSave.roles);
+            }
+
             const savedPerson = await savePerson(formData.type || collectionName, dataToSave);
+
+            if (isEmployee && dataToSave.email) {
+                try {
+                    const userProfile = await getUserProfileByEmail(dataToSave.email);
+                    if (userProfile) {
+                        await saveEmployeeInProfile(userProfile, dataToSave);
+                    }
+                } catch (profErr) {
+                    console.warn("Aviso ao sincronizar profile do colaborador:", profErr);
+                }
+            }
+
             toast.success(person ? "Atualizado com sucesso!" : "Criado com sucesso!");
             if (onSuccess) onSuccess(savedPerson);
             onClose();
@@ -343,9 +477,6 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
                 <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Customer / Supplier Toggle */}
-
-                        {/* PF/PJ Toggle */}
                         {!isEmployee && (
                             <div className="md:col-span-2 flex items-center gap-6 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Pessoa:</label>
@@ -353,22 +484,21 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, personType: 'PF' })}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PF' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
+                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PF' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
                                     >
-                                        Física (PF)
+                                        Pessoa Física (PF)
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, personType: 'PJ' })}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PJ' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
+                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.personType === 'PJ' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
                                     >
-                                        Jurídica (PJ)
+                                        Pessoa Jurídica (PJ)
                                     </button>
                                 </div>
                             </div>
                         )}
 
-                        {/* Marketing Origin (Paid Traffic) */}
                         {collectionName === 'customers' && (
                             <div className="md:col-span-2 flex items-center gap-6 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cliente por tráfego pago? <span className="text-red-500">*</span></label>
@@ -392,17 +522,63 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         )}
 
                         {collectionName === 'employees' && (
-                            <div className="md:col-span-2">
-                                <SmartInput
-                                    label={`Cargo Principal ${settings.requiredFields.customer?.position ? '*' : ''}`}
-                                    value={formData.position || ""}
-                                    onValueChange={(val) => setFormData({ ...formData, position: val })}
-                                    patterns={['Vendedor', 'Gerente', 'Entregador', 'Montador', 'Auxiliar']}
-                                    tableName="people"
-                                    columnName="position"
-                                    placeholder="Ex: Vendedor, Gerente..."
-                                    icon="bi-person-badge"
-                                />
+                            <div className="md:col-span-2 flex flex-col gap-4 bg-slate-50/80 dark:bg-slate-950/60 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                            <i className="bi bi-shield-lock-fill text-blue-600" />
+                                            Cargos e Níveis de Acesso (Selecione um ou mais) <span className="text-red-500">*</span>
+                                        </label>
+                                        <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
+                                            {(formData.roles || []).length} cargo(s) selecionado(s)
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {EMPLOYEE_ROLES.map((r) => {
+                                            const isSelected = (formData.roles || [formData.role || 'seller']).includes(r.value);
+                                            return (
+                                                <button
+                                                    key={r.value}
+                                                    type="button"
+                                                    onClick={() => toggleEmployeeRole(r.value)}
+                                                    className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer relative group ${
+                                                        isSelected
+                                                            ? 'border-blue-500 bg-blue-50/90 dark:bg-blue-900/40 ring-2 ring-blue-500/20 shadow-sm'
+                                                            : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                                                    }`}
+                                                >
+                                                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                                        <i className={`bi ${isSelected ? 'bi-check-lg text-sm font-black' : r.icon + ' text-xs'}`} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 pr-4">
+                                                        <div className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                                                            {r.label}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-tight">
+                                                            {r.description}
+                                                        </div>
+                                                    </div>
+                                                    <div className="absolute top-3 right-3">
+                                                        <i className={`bi ${isSelected ? 'bi-check-circle-fill text-blue-600 dark:text-blue-400' : 'bi-circle text-slate-300 dark:text-slate-700'} text-xs`} />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <SmartInput
+                                        label={`Função / Cargo Personalizado ${settings.requiredFields.customer?.position ? '*' : ''}`}
+                                        value={formData.position || ""}
+                                        onValueChange={(val) => setFormData({ ...formData, position: val })}
+                                        patterns={['Vendedor', 'Gerente', 'Entregador', 'Montador', 'Auxiliar', 'Administrador']}
+                                        tableName="people"
+                                        columnName="position"
+                                        placeholder="Ex: Vendedor Interno, Gerente de Vendas..."
+                                        icon="bi-person-badge"
+                                    />
+                                </div>
                             </div>
                         )}
 
@@ -412,6 +588,11 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 required
                                 value={formData.fullName}
                                 onValueChange={(val) => setFormData({ ...formData, fullName: val })}
+                                onBlur={() => {
+                                    if (collectionName === 'customers') {
+                                        setFormData((current) => ({ ...current, fullName: toTitleCase(current.fullName) }));
+                                    }
+                                }}
                                 disableSuggestions={true}
                                 placeholder={isEmployee ? 'Nome do Funcionário' : (formData.personType === 'PJ' ? 'Razão Social da Empresa' : 'Nome do Cliente')}
                                 icon="bi-person"
@@ -500,11 +681,12 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         </div>
 
                         <div className="md:col-span-2 flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">E-mail {collectionName !== 'suppliers' && settings.requiredFields.customer?.email ? <span className="text-red-500">*</span> : null}</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">E-mail {isEmployee || (collectionName !== 'suppliers' && settings.requiredFields.customer?.email) ? <span className="text-red-500">*</span> : null}</label>
                             <input
                                 type="email"
                                 value={formData.email || ""}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                onBlur={() => void handleEmployeeEmailBlur()}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                                 placeholder="exemplo@email.com"
                             />
@@ -601,162 +783,161 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                  </button>
                              )}
                         </h4>
-                            <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.cep || ""}
-                                        onChange={(e) => handleAddressChange("cep", e.target.value)}
-                                        onBlur={handleCepBlur}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    />
-                                </div>
-                                <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.street || ""}
-                                        onChange={(e) => handleStreetChange(e.target.value)}
-                                        onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    />
-                                    <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
-                                        <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
-                                            {loadingSuggestions && (
-                                                <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                                                    <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
-                                                    Buscando endereços...
-                                                </div>
-                                            )}
-                                            {!loadingSuggestions && streetSuggestions.length === 0 && (
-                                                <div className="p-4 text-center text-xs text-slate-400">
-                                                    Nenhum endereço encontrado.
-                                                </div>
-                                            )}
-                                            {streetSuggestions.map((s, i) => (
-                                                <button key={i} type="button"
-                                                    onClick={() => handleSelectAddressSuggestion(s)}
-                                                    className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
-                                                >
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                                        {[
-                                                            s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
-                                                            s.address.neighbourhood || s.address.suburb,
-                                                            s.address.city || s.address.town || s.address.village
-                                                        ].filter(Boolean).join(', ')}
-                                                    </p>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </DropdownPortal>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.number || ""}
-                                        onChange={(e) => handleAddressChange("number", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.neighborhood || ""}
-                                        onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.complement || ""}
-                                        onChange={(e) => handleAddressChange("complement", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.city || ""}
-                                        onChange={(e) => handleAddressChange("city", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Estado</label>
-                                    <input
-                                        type="text"
-                                        value={formData.fullAddress?.state || ""}
-                                        onChange={(e) => handleAddressChange("state", e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
-                                {collectionName !== 'suppliers' && (
-                                    <>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
-                                            <select
-                                                value={(formData.fullAddress as any)?.housingType || ""}
-                                                onChange={(e) => handleAddressChange("housingType", e.target.value)}
-                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                            >
-                                                <option value="" disabled>Selecione...</option>
-                                                <option value="Casa">Casa</option>
-                                                <option value="Apartamento">Apartamento</option>
-                                                <option value="Condomínio Residencial">Condomínio Residencial</option>
-                                                <option value="Kitnet">Kitnet</option>
-                                                <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
-                                                <option value="Chácara">Chácara</option>
-                                            </select>
-                                        </div>
-                                        <div className="md:col-span-3 flex flex-col gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-                                                    <i className="bi bi-geo-alt-fill text-red-500"></i>
-                                                    Link do Google Maps da Localização <span className="text-[9px] font-normal text-slate-400">(Opcional - caso não localize por rua/número)</span>
-                                                </label>
-                                                {formData.fullAddress?.mapsUrl && (
-                                                    <a
-                                                        href={formData.fullAddress.mapsUrl}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                                    >
-                                                        <i className="bi bi-box-arrow-up-right"></i>
-                                                        Testar Link
-                                                    </a>
-                                                )}
-                                            </div>
-                                            <input
-                                                type="url"
-                                                value={formData.fullAddress?.mapsUrl || ""}
-                                                onChange={(e) => handleAddressChange("mapsUrl", e.target.value)}
-                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
-                                                placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
-                                            />
-                                        </div>
-                                        <div className="md:col-span-3 flex flex-col gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
-                                            <input
-                                                type="text"
-                                                value={formData.fullAddress?.observation || ""}
-                                                onChange={(e) => handleAddressChange("observation", e.target.value)}
-                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                                placeholder="Ponto de referência, etc."
-                                            />
-                                        </div>
-                                    </>
-                                )}
+                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.cep || ""}
+                                    onChange={(e) => handleAddressChange("cep", e.target.value)}
+                                    onBlur={handleCepBlur}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                />
                             </div>
+                            <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.street || ""}
+                                    onChange={(e) => handleStreetChange(e.target.value)}
+                                    onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                />
+                                <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
+                                    <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                        {loadingSuggestions && (
+                                            <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                                <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                                Buscando endereços...
+                                            </div>
+                                        )}
+                                        {!loadingSuggestions && streetSuggestions.length === 0 && (
+                                            <div className="p-4 text-center text-xs text-slate-400">
+                                                Nenhum endereço encontrado.
+                                            </div>
+                                        )}
+                                        {streetSuggestions.map((s, i) => (
+                                            <button key={i} type="button"
+                                                onClick={() => handleSelectAddressSuggestion(s)}
+                                                className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
+                                            >
+                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                    {[
+                                                        s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
+                                                        s.address.neighbourhood || s.address.suburb,
+                                                        s.address.city || s.address.town || s.address.village
+                                                    ].filter(Boolean).join(', ')}
+                                                </p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </DropdownPortal>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.number || ""}
+                                    onChange={(e) => handleAddressChange("number", e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.neighborhood || ""}
+                                    onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.complement || ""}
+                                    onChange={(e) => handleAddressChange("complement", e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    placeholder="Opcional"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.city || ""}
+                                    onChange={(e) => handleAddressChange("city", e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Estado</label>
+                                <input
+                                    type="text"
+                                    value={formData.fullAddress?.state || ""}
+                                    onChange={(e) => handleAddressChange("state", e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    placeholder="Opcional"
+                                />
+                            </div>
+                            {collectionName !== 'suppliers' && (
+                                <>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
+                                        <select
+                                            value={(formData.fullAddress as any)?.housingType || ""}
+                                            onChange={(e) => handleAddressChange("housingType", e.target.value)}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        >
+                                            <option value="" disabled>Selecione...</option>
+                                            <option value="Casa">Casa</option>
+                                            <option value="Apartamento">Apartamento</option>
+                                            <option value="Condomínio Residencial">Condomínio Residencial</option>
+                                            <option value="Kitnet">Kitnet</option>
+                                            <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
+                                            <option value="Chácara">Chácara</option>
+                                        </select>
+                                    </div>
+                                    <div className="md:col-span-3 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                                <i className="bi bi-geo-alt-fill text-red-500"></i>
+                                                Link do Google Maps da Localização <span className="text-[9px] font-normal text-slate-400">(Opcional - caso não localize por rua/número)</span>
+                                            </label>
+                                            {formData.fullAddress?.mapsUrl && (
+                                                <a
+                                                    href={formData.fullAddress.mapsUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                                >
+                                                    <i className="bi bi-box-arrow-up-right"></i>
+                                                    Testar Link
+                                                </a>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="url"
+                                            value={formData.fullAddress?.mapsUrl || ""}
+                                            onChange={(e) => handleAddressChange("mapsUrl", e.target.value)}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                            placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-3 flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
+                                        <input
+                                            type="text"
+                                            value={formData.fullAddress?.observation || ""}
+                                            onChange={(e) => handleAddressChange("observation", e.target.value)}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                            placeholder="Ponto de referência, etc."
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
-                        {/* Map Verification */}
                         {collectionName !== 'suppliers' && (
                             <div className="md:col-span-3 mt-4">
                                 <AddressVerificationMap 

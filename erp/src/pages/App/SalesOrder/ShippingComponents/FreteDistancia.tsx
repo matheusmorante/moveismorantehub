@@ -17,33 +17,28 @@ interface FreteDistanciaProps {
 }
 
 const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDistance, onAutoCalculateDistance, autoCalculateValue, onToggleAutoCalculate, isCalculatingDistance, errors }: FreteDistanciaProps) => (
-    <div className="flex-1 flex flex-row items-end gap-4 h-fit">
+    <div className="flex h-fit flex-1 flex-row flex-wrap items-end gap-10">
 
         {/* Valor do Frete */}
-        <div className="flex-1 flex flex-col relative group">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 ml-1">
-                <div className="flex flex-wrap justify-between items-center w-full gap-2">
-                    <span>Valor do Frete</span>
-                    {onToggleAutoCalculate && (
-                        <button
-                            type="button"
-                            onClick={onToggleAutoCalculate}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${autoCalculateValue
-                                ? 'bg-blue-600 text-white border-blue-700 shadow-sm shadow-blue-200'
-                                : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-700 hover:text-slate-600 dark:hover:text-slate-300'
-                                }`}
-                            title={autoCalculateValue ? "Cálculo automático de frete ativado" : "Cálculo automático de frete desativado"}
-                        >
-                            <i className={`bi ${autoCalculateValue ? 'bi-lightning-charge-fill' : 'bi-lightning-charge'}`} />
-                            {autoCalculateValue ? 'Auto: ON' : 'Auto: OFF'}
-                        </button>
-                    )}
-                </div>
-            </label>
+        <div className="group relative flex w-44 max-w-full flex-none flex-col">
+            <div className="mb-2 ml-1 flex h-5 w-full flex-nowrap items-center justify-between gap-2">
+                <span className="whitespace-nowrap text-[10px] font-black uppercase leading-none tracking-widest text-slate-400 dark:text-slate-500">Valor do Frete</span>
+                {onToggleAutoCalculate && (
+                    <button
+                        type="button"
+                        onClick={onToggleAutoCalculate}
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[9px] font-black uppercase leading-none tracking-wider text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        title={autoCalculateValue ? "Cálculo automático de frete ativado" : "Cálculo automático de frete desativado"}
+                    >
+                        <i className={`bi ${autoCalculateValue ? 'bi-lightning-charge-fill' : 'bi-lightning-charge'}`} />
+                        {autoCalculateValue ? 'Auto: ON' : 'Auto: OFF'}
+                    </button>
+                )}
+            </div>
             <div className="relative">
                 <NumericFormat
-                    className={`w-full bg-transparent border px-3 py-3 rounded-2xl transition-all text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300 ${errors['shipping_value'] ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
-                    value={value}
+                    className={`w-full border-b-2 bg-transparent px-2 py-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${errors['shipping_value'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
+                    value={value === 0 ? "" : value}
                     allowNegative={false}
                     thousandSeparator="."
                     prefix={"R$ "}
@@ -62,14 +57,14 @@ const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDist
         </div>
 
         {/* Distância KM */}
-        <div className="w-[140px] flex flex-col relative group">
-            <div className="flex justify-between items-center mb-2 px-1 w-full gap-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Distância KM</label>
+        <div className="group relative flex w-44 max-w-full flex-none flex-col">
+            <div className="mb-2 ml-1 flex h-5 w-full flex-nowrap items-center justify-between gap-2">
+                <label className="whitespace-nowrap text-[10px] font-black uppercase leading-none tracking-widest text-slate-400 dark:text-slate-500">Distância KM</label>
                 <a
                     href={routeUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-[10px] font-black uppercase tracking-widest border border-blue-100/50 dark:border-blue-900/20"
+                    className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[9px] font-black uppercase leading-none tracking-wider text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                     title="Ver rota"
                 >
                     <i className="bi bi-geo-alt-fill" />
@@ -78,7 +73,7 @@ const FreteDistancia = ({ value, distance, routeUrl, onChangeValue, onChangeDist
             </div>
             <input
                 type="text"
-                className="w-full bg-transparent border border-slate-100 dark:border-slate-800 px-3 py-3 rounded-2xl focus:border-blue-600 dark:focus:border-blue-500 transition-all text-sm font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 dark:text-slate-300"
+                className="w-full border-b-2 border-slate-200 bg-transparent px-2 py-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 focus:border-blue-600 dark:border-slate-700 dark:text-slate-300 dark:placeholder:text-slate-700 dark:focus:border-blue-500"
                 value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
                 onChange={(e) => onChangeDistance(e.target.value)}
                 placeholder="Ex: 5,5"

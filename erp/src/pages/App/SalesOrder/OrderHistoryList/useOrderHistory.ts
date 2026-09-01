@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
 import { subscribeToOrders, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
+import { autoFulfillExpiredOrders } from "@/pages/utils/orderFulfillmentCountdown";
 import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
 
@@ -51,6 +52,9 @@ export const useOrderHistory = (filters?: any) => {
             setTotalDatabaseItems(allOrders.length);
             setLoading(false);
             setLoadingMore(false);
+
+            // Auto-atende pedidos cuja data de entrega já passou há 5 dias ou mais
+            autoFulfillExpiredOrders(allOrders);
         });
 
         return () => {

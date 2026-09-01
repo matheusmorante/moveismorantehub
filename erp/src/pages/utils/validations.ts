@@ -8,16 +8,17 @@ import Order from "../types/order.type";
 
 export type ValidationErrors = Record<string, string>;
 
-export const validateItems = (items: Item[], isBudget: boolean = false): ValidationErrors => {
+export const validateItems = (items: Item[], isBudget: boolean = false, isReturn: boolean = false): ValidationErrors => {
     const errors: ValidationErrors = {};
     if (!items || !Array.isArray(items)) return errors;
+    const hideHandling = isBudget || isReturn;
     items.forEach((item, idx) => {
         if (!item) return;
         if (!item.description || item.description.trim() === "") {
             errors[`item_${idx}_description`] = "A descrição do item é obrigatória.";
         }
-        // No longer has default, must be explicitly selected
-        if (!isBudget && (!item.handlingType || item.handlingType.trim() === "")) {
+        // No longer has default, must be explicitly selected (dispensado em orçamentos e devoluções)
+        if (!hideHandling && (!item.handlingType || item.handlingType.trim() === "")) {
             errors[`item_${idx}_handlingType`] = "O manuseio do item é obrigatório.";
         }
     });
@@ -151,8 +152,10 @@ export const validateOrder = (order: Order): ValidationErrors => {
         shippingValue
     );
 
+    const isReturn = order.orderType === 'return';
+
     const errors: ValidationErrors = {
-        ...validateItems(items, isBudget),
+        ...validateItems(items, isBudget, isReturn),
         ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
         ...validateSeller(order.seller)
     };

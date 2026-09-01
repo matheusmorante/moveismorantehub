@@ -60,6 +60,7 @@ const PersonTable = ({
     onViewPurchaseHistory, collectionName, supplierProductCounts
 }: PersonTableProps) => {
     const columnsDef = getColumnsDef(collectionName);
+    const allowsSelection = collectionName !== 'employees';
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
     
@@ -126,7 +127,7 @@ const PersonTable = ({
 
     return (
         <div className="flex flex-col gap-4">
-            {selectedPeople.length > 0 && (
+            {allowsSelection && selectedPeople.length > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm animate-slide-up sticky top-2 z-10">
                     <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
                         {selectedPeople.length} <span className="hidden sm:inline">selecionado(s)</span>
@@ -149,22 +150,22 @@ const PersonTable = ({
                                 <span className="sm:hidden">Lixeira</span>
                             </button>
                         ) : (
-                                <div className="flex gap-2">
+                            <div className="flex gap-2">
                                 <button
                                     onClick={onBulkRestore}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
                                 >
                                     <i className="bi bi-arrow-counterclockwise" />
-                                        <span className="hidden sm:inline">Restaurar</span>
+                                    <span className="hidden sm:inline">Restaurar</span>
                                 </button>
                                 <button
                                     onClick={onBulkPermanentDelete}
-                                        className="bg-red-600 hover:bg-red-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
+                                    className="bg-red-600 hover:bg-red-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
                                 >
                                     <i className="bi bi-trash3-fill" />
-                                        <span className="hidden sm:inline">Excluir</span>
+                                    <span className="hidden sm:inline">Excluir</span>
                                 </button>
-                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -176,19 +177,21 @@ const PersonTable = ({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors">
-                                <th className="px-2 py-2 w-12 text-center">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={isAllSelected}
-                                            ref={input => {
-                                                if (input) input.indeterminate = isIndeterminate;
-                                            }}
-                                            onChange={onSelectAll}
-                                            className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                                        />
-                                    </label>
-                                </th>
+                                {allowsSelection && (
+                                    <th className="px-2 py-2 w-12 text-center">
+                                        <label className="flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={isAllSelected}
+                                                ref={input => {
+                                                    if (input) input.indeterminate = isIndeterminate;
+                                                }}
+                                                onChange={onSelectAll}
+                                                className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
+                                            />
+                                        </label>
+                                    </th>
+                                )}
                                 {orderedColumns.map((col) => {
                                     const isVisible = visibilitySettings[col.key];
                                     const sortableKeys = ['fullName', 'createdAt'];
@@ -232,13 +235,15 @@ const PersonTable = ({
                                                     </button>
                                                 )}
 
-                                                {collectionName !== 'suppliers' && <button
-                                                    onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
-                                                    className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
-                                                    title={`Ocultar ${col.label}`}
-                                                >
-                                                    <i className="bi bi-eye-slash text-sm" />
-                                                </button>}
+                                                {collectionName !== 'suppliers' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
+                                                        className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
+                                                        title={`Ocultar ${col.label}`}
+                                                    >
+                                                        <i className="bi bi-eye-slash text-sm" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </th>
                                     );
@@ -291,6 +296,7 @@ const PersonTable = ({
                             onToggleSelection={() => onToggleSelection(person.id!)}
                             onViewPurchaseHistory={onViewPurchaseHistory}
                             productCount={supplierProductCounts?.[person.id || ''] || 0}
+                            allowsSelection={allowsSelection}
                         />
                     ))
                 )}

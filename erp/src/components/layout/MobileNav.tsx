@@ -47,7 +47,7 @@ const menuItems = [
         bg: 'bg-violet-50 dark:bg-violet-900/20',
         links: [
             { to: '/registrations/customers', icon: 'bi-person-fill', iconColor: 'text-violet-500', label: 'Clientes' },
-            { to: '/registrations/employees', icon: 'bi-person-badge-fill', iconColor: 'text-violet-600', label: 'Funcionários' },
+            { to: '/registrations/employees', icon: 'bi-person-badge-fill', iconColor: 'text-violet-600', label: 'Colaboradores' },
         ]
     },
     {

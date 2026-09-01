@@ -14,7 +14,25 @@ interface PersonCardProps {
     onToggleSelection?: () => void;
     onViewPurchaseHistory?: (person: Person) => void;
     productCount?: number;
+    allowsSelection?: boolean;
 }
+
+const getRoleBadge = (role?: string) => {
+    switch (role) {
+        case 'administrator':
+            return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800"><i className="bi bi-shield-shaded" />Administrador</span>;
+        case 'manager':
+            return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"><i className="bi bi-briefcase-fill" />Gestor</span>;
+        case 'seller':
+            return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"><i className="bi bi-tag-fill" />Vendedor</span>;
+        case 'deliverer':
+            return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800"><i className="bi bi-truck" />Entregador / Montador</span>;
+        case 'pending':
+            return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700"><i className="bi bi-slash-circle" />Sem Acesso</span>;
+        default:
+            return null;
+    }
+};
 
 const PersonCard = ({
     person,
@@ -26,10 +44,12 @@ const PersonCard = ({
     showTrash,
     isSelected,
     onToggleSelection,
-    onViewPurchaseHistory, productCount = 0
+    onViewPurchaseHistory, productCount = 0,
+    allowsSelection = true
 }: PersonCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
+    const canSelect = allowsSelection && person.type !== 'employees';
 
     return (
         <div 
@@ -37,22 +57,29 @@ const PersonCard = ({
             onClick={() => onEdit(person)}
         >
             <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2">
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                            e.stopPropagation();
-                            onToggleSelection?.();
-                        }}
-                        className="w-5 h-5 text-blue-600 bg-white border-slate-300 rounded-md focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                    />
+                <div className="flex items-center gap-2 flex-wrap">
+                    {canSelect && (
+                        <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                                e.stopPropagation();
+                                onToggleSelection?.();
+                            }}
+                            className="w-5 h-5 text-blue-600 bg-white border-slate-300 rounded-md focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
+                        />
+                    )}
                     <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
-                        {person.id?.substring(0, 8) || "NO-ID"}
+                        {person.id || "NO-ID"}
                     </span>
                     <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${person.active ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500'}`}>
                         {person.active ? 'Ativo' : 'Inativo'}
                     </span>
+                    {person.type === 'employees' && (
+                        (person.roles && person.roles.length > 0 ? person.roles : (person.role ? [person.role] : [])).map((r) => (
+                            <React.Fragment key={r}>{getRoleBadge(r)}</React.Fragment>
+                        ))
+                    )}
                 </div>
                 
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -114,11 +141,11 @@ const PersonCard = ({
 
                                     <button
                                         onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            setIsMenuOpen(false);
-                                            import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
-                                                sendDirectPersonGroupInviteMessage(person);
-                                            });
+                                             e.stopPropagation(); 
+                                             setIsMenuOpen(false);
+                                             import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
+                                                 sendDirectPersonGroupInviteMessage(person);
+                                             });
                                         }}
                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left group"
                                     >

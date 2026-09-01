@@ -17,8 +17,8 @@ const ProductReconciliationItems = ({ items, temporaryIndexes, isSaving, onSelec
     return (
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 md:p-8">
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
-                <p className="text-sm font-black">Conciliação de produtos sem cadastro</p>
-                <p className="mt-1 text-xs font-medium leading-relaxed">Selecione o produto cadastrado correspondente para cada item. Esta ação apenas vincula o cadastro ao pedido e não gera uma nova movimentação de estoque.</p>
+                <p className="text-sm font-black">Conciliação comercial de produtos sem cadastro</p>
+                <p className="mt-1 text-xs font-medium leading-relaxed">Selecione o produto cadastrado correspondente para cada item. A conciliação comercial serve exclusivamente para indexar o produto cadastrado no lugar do item sem cadastro para relatórios e análises de vendas. <strong>Esta ação não gera nenhuma movimentação de estoque (nem saída na venda, nem entrada em devoluções).</strong></p>
             </div>
 
             {temporaryIndexes.map((index, position) => {
@@ -50,7 +50,7 @@ const ProductReconciliationItems = ({ items, temporaryIndexes, isSaving, onSelec
 
             <div className="flex justify-end">
                 <button type="button" disabled={missingProduct || isSaving} onClick={onSave} className="rounded-xl bg-blue-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
-                    {isSaving ? "Salvando..." : "Salvar conciliação"}
+                    {isSaving ? "Salvando..." : "Salvar conciliação comercial"}
                 </button>
             </div>
         </div>

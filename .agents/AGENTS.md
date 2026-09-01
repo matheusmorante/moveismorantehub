@@ -38,6 +38,11 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - Ao criar/editar produto, **nao** e feita chamada sincrona a API da Meta.
 - O Meta Commerce Manager consome o Feed CSV gerado dinamicamente em `/api/facebook-catalog.csv` a partir dos dados do Supabase.
 
+### Catalogo Digital (E-commerce / Vitrine)
+
+- Ao navegar entre as páginas da lista de produtos (paginação), o catálogo realiza um scroll suave automaticamente para o início da grade de produtos.
+- As consultas no Supabase devem carregar a totalidade dos produtos publicados (`limit(5000)`) para que a filtragem em tempo real e a paginação do front-end contemplem todos os itens da loja.
+
 ---
 
 ## MODULO: PEDIDOS DE VENDA (SalesOrder)
@@ -45,10 +50,14 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 ### Status e Restricoes de Rascunho
 
 - Status possiveis: `draft`, `scheduled`, `fulfilled`, `cancelled` (e outros customizados via `settings.orderStatuses`).
+- **Cadastramento e Mudança de Status no Formulário**:
+  - Ao clicar em **Cadastrar Pedido** (ou **Concluir Pedido**), o pedido deixa de ser rascunho.
+  - Para entregas em domicílio ou retiradas com agendamento futuro/pendente: o status torna-se **Agendado** (`scheduled`).
+  - Para retiradas imediatas na loja (sem agendamento futuro ou com data de hoje e sem agendamento pendente): o status torna-se diretamente **Atendido** (`fulfilled`).
 - **Restricoes de Rascunho (`status: 'draft'`)**:
   - Pedidos em rascunho **nao** podem ter o status alterado diretamente via menu ou seletor de status nos cards e linhas.
   - O seletor de status fica desabilitado para rascunhos, exibindo o aviso de que o cadastro precisa ser finalizado.
-  - Para um pedido em rascunho tornar-se agendado (`scheduled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Concluir Pedido**.
+  - Para um pedido em rascunho tornar-se agendado (`scheduled`) ou atendido (`fulfilled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Cadastrar Pedido / Concluir Pedido**.
   - Acoes de **Gerar Devolucao** e **Desfazer Devolucao** sao ocultadas para rascunhos.
 - As acoes de mudanca de status ficam no menu de 3 pontos de cada pedido (`OrderHistoryCard` / `OrderHistoryRow`).
 
@@ -59,13 +68,29 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - Os selos ficam **antes** dos badges informativos na lista de badges.
 - Sao botoes clicaveis sem checkbox visivel que alternam o valor diretamente.
 
-### Itens Temporarios (Produto sem Cadastro no Banco)
+### Itens Temporarios (Produto sem Cadastro no Banco) e Conciliação Comercial
 
 - Item e temporario quando nao tem `productId` ou tem `isTemporaryProduct: true`.
 - O aviso visual `TemporaryProductAlert` e a prop `highlightAsTemporary` (`BodyRow.tsx`) aparecem **exclusivamente** em itens temporarios.
 - Itens com produto cadastrado **nao** recebem aviso.
-- Itens temporarios **nao** geram movimentacao de estoque.
+- Itens temporarios **nao** geram movimentacao de estoque em nenhuma hipotese:
+  - Nem na criacao/finalizacao de venda (`sale`).
+  - Nem na criacao/atendimento de devolucao (`return`).
+  - Nem mesmo na **Conciliacao Comercial**.
+- **Regra da Conciliacao Comercial**: serve exclusivamente para o relatorio de vendas indexar um produto cadastrado no lugar do item temporario original para fins analiticos/metricas. Ela **nao** lanca saidas na venda nem entradas na devolucao.
 - Criterio de item valido para estoque: `item.productId` valido e `!item.isTemporaryProduct`.
+- Avisos de confirmacao e tooltips devem sempre explicitar ao usuario que itens sem cadastro nao movimentam estoque.
+
+### Contagem Regressiva e Auto-Atendimento de Pedidos Vencidos (5 Dias)
+
+- **Botão "Pedido Atendido?"**: exibido para pedidos cuja data de entrega/coleta agendada já passou e o status não é `fulfilled`, nem `cancelled`, nem `draft`.
+- **Subtítulo no Botão**:
+  - Exibe a contagem regressiva: `'Atendido em X dias'` (calculado como $5 - \text{dias passados desde a entrega}$).
+  - Se faltar 1 dia: `'Atendido em 1 dia'`.
+  - Se faltar 0 dias / hoje: `'Atendido hoje'`.
+- **Auto-Atendimento Automático**:
+  - Após 5 dias da data de entrega agendada sem atendimento manual, o sistema altera o status do pedido automaticamente para **Atendido** (`fulfilled`).
+  - Executa as regras de estoque e persistência pertinentes (`updateOrder`), com proteção contra execuções concorrentes duplicadas.
 
 ### Devolucoes de Pedidos
 
@@ -73,6 +98,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Gerar Devolucao** (`generateReturn`): visivel apenas se nao ha devolucao ja gerada (`!hasReturn`), o pedido nao for rascunho e `canGenerateReturn(order)` retornar `true` (status `fulfilled`).
 - **Desfazer Devolucao** (`undoReturn`): visivel apenas se `hasReturn === true` e nao for rascunho.
 - Os dois botoes sao mutuamente exclusivos na exibicao.
+- **Tipo de Manuseio em Devolucoes**: Pedidos de devolucao (com ou sem vinculo, `orderType: 'return'`) **nao** possuem e nao exigem o campo `Tipo de Manuseio` (`handlingType`). A coluna e o campo sao ocultados e dispensados da validacao.
 
 ---
 
@@ -123,6 +149,24 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 
 ---
 
+## MODULO: CONTROLE DE ACESSO E COLABORADORES
+
+### Gestão de Acessos (Configurações > Controle de Acesso)
+- A seção de Controle de Acesso gerencia **exclusivamente as áreas permitidas por cargo**, espelhando o comportamento do aplicativo mobile.
+- Áreas gerenciadas: `manualStockMovement` (Estoque), `productConfig` (Produtos e Cadastros), `viewFinancials` (Financeiro), `deleteOrders` (Excluir Pedidos), `startDelivery` (Iniciar Entrega).
+- **Regra do Administrador**: possui acesso total irrestrito e fixo (não pode ser desmarcado).
+- Permissões são persistidas em `settings.data.rolePermissions`.
+
+### Atribuição de Cargos (Colaboradores / Employees)
+- A atribuição de cargos aos colaboradores é feita **exclusivamente na tela de Colaboradores** (`PersonFormModal`).
+- **Múltiplos Cargos**: Um colaborador pode ter múltiplos cargos simultâneos (`roles: UserRole[]`), permitindo selecionar mais de uma função (ex: Vendedor + Entregador/Montador).
+- **Unicidade de E-mail**: Colaboradores possuem restrição estrita de unicidade de e-mail. Não é permitido cadastrar ou atualizar dois colaboradores com o mesmo e-mail.
+- Opções de cargo no sistema (`role` / `roles`): `Administrador` (`administrator`), `Gestor` (`manager`), `Vendedor` (`seller`), `Entregador / Montador` (`deliverer`), `Sem Acesso` (`pending`).
+- Ao salvar um colaborador, os campos `role`, `roles` e `position` são sincronizados com a tabela `profiles` do Supabase para que as permissões de login entrem em vigor imediatamente.
+- A listagem de colaboradores exibe os badges de todos os cargos atribuídos ao colaborador.
+
+---
+
 ## MODULO: APLICATIVO MOBILE (Expo / EAS)
 
 ### Versionamento Semantico (MAJOR.MINOR.PATCH)
@@ -152,5 +196,8 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 | `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryCard.tsx` | Pedidos | Card de pedido (visao cards) |
 | `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryRow.tsx` | Pedidos | Linha de pedido (visao tabela) |
 | `erp/src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts` | Pedidos | Configuracao dos botoes de acao |
+| `erp/src/pages/utils/orderFulfillmentCountdown.ts` | Pedidos | Contagem regressiva de 5 dias e auto-atendimento de pedidos vencidos |
+| `erp/src/pages/App/Settings/components/AccessManagementSection.tsx` | Acessos | Gerenciamento de áreas permitidas por cargo (rolePermissions) |
+| `erp/src/pages/App/Registrations/shared/PersonFormModal.tsx` | Colaboradores | Formulário de colaborador com seleção de cargo e sync de perfil |
 | `erp/src/pages/App/Stock/components/InventoryMovesHistory.tsx` | Estoque | Listagem e filtros de movimentacoes |
 | `erp/src/pages/App/Stock/components/InventoryAuditModal.tsx` | Estoque | Auditoria e correcao manual de estoque |

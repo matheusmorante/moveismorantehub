@@ -8,14 +8,14 @@ import usePaymentsData from "./hooks/usePayments";
 import { useCustomerData } from "./hooks/useCustomerData";
 import { calcPaymentsSummary, calcItemsSummary } from "../../utils/calculations";
 import { toast } from "react-toastify";
-import { saveOrder } from "../../utils/orderHistoryService";
+import { saveOrder, resolveCompletedOrderStatus } from "../../utils/orderHistoryService";
 import { validateBase, validateOrder, ValidationErrors } from "../../utils/validations";
 import { dateNow } from "../../utils/formatters";
 import Shipping from "../../types/Shipping.type";
 import CustomerData from "../../types/customerData.type";
 import { autoCalculateRouteDistance } from "../../utils/maps";
-import { getSettings } from '@/pages/utils/settingsService';
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
+import { calculateFreightByDistance } from "../../utils/shippingPricing";
 
 const getCurrentDatetimeLocal = () => {
     const now = new Date();
@@ -305,16 +305,15 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
         setIsCalculatingDistance(true);
         try {
-            const settings = getSettings();
             const routeResult = await autoCalculateRouteDistance(address);
             if (routeResult !== null) {
                 const { distanceKm, durationMinutes, destinationCoords, routeGeoJSON } = routeResult;
 
                 setShipping(prev => {
                     let value = prev.value;
-                    // Auto-calculate freight if rate is configured AND auto-calculate is enabled
-                    if (prev.autoCalculateValue && settings.freightPerKm > 0) {
-                        value = distanceKm * settings.freightPerKm;
+                    // Calcula o frete pela distância da rota quando o modo automático está ativo.
+                    if (prev.autoCalculateValue) {
+                        value = calculateFreightByDistance(distanceKm);
                     }
                     return {
                         ...prev,
@@ -424,15 +423,18 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
 
-        const savedStatus = latestState.current.currentOrderId && latestState.current.status !== 'draft'
-            ? latestState.current.status
-            : 'draft';
+        const isBudgetOrder = latestState.current.orderType === 'budget';
+        const savedStatus = isBudgetOrder
+            ? 'draft'
+            : (latestState.current.currentOrderId && latestState.current.status !== 'draft'
+                ? latestState.current.status
+                : 'draft');
         const orderData = getOrderData(savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled');
         const validationErrors = validateOrder(orderData); // Get actual error object
 
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
-            toast.error("Existem campos obrigatórios não preenchidos para salvar como rascunho.");
+            toast.error("Existem campos obrigatórios não preenchidos.");
             return false;
         }
 
@@ -446,10 +448,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 setCurrentOrderId(savedId);
             }
             setStatus(savedStatus);
-            toast.success(savedStatus === 'draft' ? "Pedido salvo como rascunho!" : "Alterações do pedido salvas!");
+            toast.success(savedStatus === 'draft' ? (isBudgetOrder ? "Orçamento salvo com sucesso!" : "Pedido salvo como rascunho!") : "Alterações do pedido salvas!");
             return savedId;
         } catch (error: any) {
-            toast.error(error?.message || "Erro ao salvar pedido como rascunho.");
+            toast.error(error?.message || "Erro ao salvar pedido.");
             return false;
         } finally {
             setIsSaving(false);
@@ -459,7 +461,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const handleCompleteOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
 
-        const orderData = getOrderData('scheduled');
+        const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
+        const orderData = getOrderData(resolvedStatus);
         const validationErrors = validateOrder(orderData);
 
         if (Object.keys(validationErrors).length > 0) {
@@ -474,11 +477,18 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
         try {
             const savedId = await saveOrder(orderData);
-            setStatus('scheduled');
-            toast.success("Pedido FINALIZADO com sucesso!");
+            if (!latestState.current.currentOrderId && savedId) {
+                setCurrentOrderId(savedId);
+            }
+            setStatus(resolvedStatus);
+            if (resolvedStatus === 'fulfilled') {
+                toast.success("Pedido CADASTRADO e ATENDIDO com sucesso! ✨");
+            } else {
+                toast.success("Pedido CADASTRADO com sucesso!");
+            }
             return savedId;
         } catch (error: any) {
-            toast.error(error?.message || "Erro ao efetivar pedido.");
+            toast.error(error?.message || "Erro ao cadastrar pedido.");
             return false;
         } finally {
             setIsSaving(false);

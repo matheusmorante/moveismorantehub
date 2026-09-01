@@ -12,6 +12,9 @@ import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoRet
 import { toast } from "react-toastify";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import CancelledOrderBadge from "./CancelledOrderBadge";
+import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
+import { binaryOrderBadgeClass, warningOrderBadgeClass } from "./orderBadgeStyles";
+import { getOrderFulfillmentCountdown } from "@/pages/utils/orderFulfillmentCountdown";
 
 interface OrderHistoryRowProps {
     order: Order;
@@ -32,6 +35,7 @@ interface OrderHistoryRowProps {
     isHighlighted?: boolean;
     id?: string;
     onFilterByOrderId?: (id: string) => void;
+    onShowPostSaleActions?: (order: Order) => void;
 }
 
 const OrderHistoryRow = ({
@@ -52,7 +56,8 @@ const OrderHistoryRow = ({
     isHighlighted,
     id,
     onFilterByOrderId,
-    onViewDetails
+    onViewDetails,
+    onShowPostSaleActions
 }: OrderHistoryRowProps) => {
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
@@ -148,14 +153,15 @@ const OrderHistoryRow = ({
 
     const allOrderItems = [...(order.items || []), ...(order.assistanceItems || [])];
     const orderHandling = normalize(
-        order.handlingType || order.handling || order.shipping?.handlingType || order.shipping?.handling || ''
+        (order as any).handlingType || (order as any).handling ||
+        (order.shipping as any)?.handlingType || (order.shipping as any)?.handling || ''
     );
     const isOrderAssemblyOutside = orderHandling.includes('montagem fora') || orderHandling.includes('montagem na entrega') || orderHandling.includes('montagem no endereco');
     const isOrderAssemblyDepot = orderHandling.includes('montagem no deposito') || orderHandling.includes('montagem para retirada') || orderHandling.includes('montagem no depósito');
 
     const hasAssemblyOutside = isOrderAssemblyOutside || allOrderItems.some(isHandlingOutside);
     const hasAssemblyDepot = isOrderAssemblyDepot || allOrderItems.some(isHandlingDepot);
-    
+
     const cellBgClass = 'bg-white dark:bg-slate-900';
     const rowBorderClass = order.status === 'draft'
         ? 'border-l-slate-300 dark:border-l-slate-600'
@@ -197,7 +203,7 @@ const OrderHistoryRow = ({
                             {order.linkedOrderId && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
-                                    className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md mt-0.5 w-fit"
+                                    className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md mt-0.5 w-fit cursor-pointer"
                                     title="Filtrar por pedido vinculado"
                                 >
                                     <i className="bi bi-link-45deg"></i>
@@ -218,23 +224,9 @@ const OrderHistoryRow = ({
                     </td>
                 );
             case 'deliveryDate':
+                const countdown = getOrderFulfillmentCountdown(order);
+                const isPastDelivery = countdown.isPastDelivery;
                 const deliveryDateStr = order.shipping?.scheduling?.date;
-                let isPastDelivery = false;
-                if (deliveryDateStr) {
-                    try {
-                        const dateParts = deliveryDateStr.includes('/') ? deliveryDateStr.split('/') : deliveryDateStr.split('-');
-                        const day = deliveryDateStr.includes('/') ? Number(dateParts[0]) : Number(dateParts[2]);
-                        const month = deliveryDateStr.includes('/') ? Number(dateParts[1]) : Number(dateParts[1]);
-                        const year = deliveryDateStr.includes('/') ? Number(dateParts[2]) : Number(dateParts[0]);
-
-                        const deliveryDate = new Date(year, month - 1, day);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        isPastDelivery = deliveryDate < today;
-                    } catch (e) {
-                        console.error("Erro ao processar data de entrega:", e);
-                    }
-                }
 
                 return (
                     <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
@@ -274,15 +266,22 @@ const OrderHistoryRow = ({
                                     {!showFulfillmentConfirm ? (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setShowFulfillmentConfirm(true); }}
-                                            className="flex items-center gap-1.5 px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 rounded-lg border border-red-200 dark:border-red-900/30 w-fit hover:scale-105 transition-all active:scale-95 shadow-sm"
+                                            className="flex flex-col items-start px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 rounded-lg border border-red-200 dark:border-red-900/30 w-fit hover:scale-105 transition-all active:scale-95 shadow-sm text-left cursor-pointer"
                                             title="A data de entrega passou. Este pedido já foi atendido?"
                                         >
-                                            <i className="bi bi-clock-history text-[10px]" />
-                                            <span className="text-[9px] font-black uppercase tracking-widest">Pedido {getStatusLabel('fulfilled')}?</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <i className="bi bi-clock-history text-[10px]" />
+                                                <span className="text-[9px] font-black uppercase tracking-widest">Pedido {getStatusLabel('fulfilled')}?</span>
+                                            </div>
+                                            {countdown.countdownLabel && (
+                                                <span className="text-[8px] font-bold text-red-500 dark:text-red-400 tracking-tight mt-0.5">
+                                                    {countdown.countdownLabel}
+                                                </span>
+                                            )}
                                         </button>
                                     ) : (
                                         <div className="flex items-center gap-1.5 animate-slide-up">
-                                                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold">Confirmar?</span>
+                                            <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold">Confirmar?</span>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -307,26 +306,6 @@ const OrderHistoryRow = ({
                                 </>
                             )}
 
-                            {order.status === 'fulfilled' && !order.reviewRequested && !showTrash && !(order.shipping?.deliveryMethod === 'pickup' && (order.customerData?.fullName === "Consumidor Final" || order.customerData?.fullName === "Ao Consumidor")) && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onAction("sendCustomerReviews", order);
-                                    }}
-                                    className="flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 rounded-lg border border-yellow-100 dark:border-yellow-900/30 w-fit hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-all active:scale-95 cursor-pointer shadow-sm"
-                                    title="Enviar pedido de avaliação para o Google Maps"
-                                >
-                                    <i className="bi bi-star-fill text-[10px]" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">Enviar Avaliação</span>
-                                </button>
-                            )}
-
-                            {order.status === 'fulfilled' && order.reviewRequested && !showTrash && (
-                                <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-900/20 w-fit shadow-sm">
-                                    <i className="bi bi-star-half text-[10px]" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">Avaliação Solicitada</span>
-                                </div>
-                            )}
                         </div>
                     </td>
                 );
@@ -371,14 +350,10 @@ const OrderHistoryRow = ({
                                         <button
                                             type="button"
                                             onClick={() => onStockCheckUpdate?.(order.id!, !order.isStockChecked)}
-                                            className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${
-                                                order.isStockChecked
-                                                    ? 'bg-emerald-600 text-white border-emerald-700'
-                                                    : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
-                                            }`}
+                                            className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${binaryOrderBadgeClass(Boolean(order.isStockChecked))}`}
                                             title={order.isStockChecked ? 'Etiquetado (Clique para desmarcar)' : 'Não Etiquetado (Clique para marcar)'}
                                         >
-                                            <i className={`bi bi-tag-fill text-[11px] ${order.isStockChecked ? 'text-white' : ''}`} />
+                                            <i className="bi bi-tag-fill text-[11px] text-white" />
                                             {order.isStockChecked && (
                                                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                                                     <i className="bi bi-check text-[8px] font-black leading-none" />
@@ -394,14 +369,10 @@ const OrderHistoryRow = ({
                                         <button
                                             type="button"
                                             onClick={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
-                                            className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${
-                                                order.isRegisteredInBling
-                                                    ? 'bg-emerald-600 text-white border-emerald-700'
-                                                    : 'bg-slate-50 text-slate-400 border-slate-200/80 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800'
-                                            }`}
+                                            className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${binaryOrderBadgeClass(Boolean(order.isRegisteredInBling))}`}
                                             title={order.isRegisteredInBling ? 'Lançado no Bling (Clique para alternar)' : 'Falta Lançar no Bling (Clique para marcar)'}
                                         >
-                                            <span className={order.isRegisteredInBling ? 'text-white' : ''}>Bling</span>
+                                            <span className="text-white">Bling</span>
                                             {order.isRegisteredInBling && (
                                                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                                                     <i className="bi bi-check text-[8px] font-black leading-none" />
@@ -486,7 +457,7 @@ const OrderHistoryRow = ({
                                 {/* Return Status Badge */}
                                 {order.returnOrderId && (
                                     <div 
-                                        className="flex items-center justify-center h-6 w-6 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md border border-amber-100 dark:border-amber-900/20 shadow-sm" 
+                                        className={`flex h-6 w-6 items-center justify-center rounded-md border shadow-sm ${warningOrderBadgeClass}`}
                                         title="Este pedido possui uma devolução vinculada"
                                     >
                                         <i className="bi bi-arrow-return-left text-[10px]" />
@@ -595,7 +566,7 @@ const OrderHistoryRow = ({
                                                                 className="flex w-full items-center gap-3 rounded-xl p-2.5 text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
                                                             >
                                                                 <i className="bi bi-link-45deg text-lg" />
-                                                                <div className="flex flex-col text-left"><span className="text-xs font-black uppercase tracking-widest">Realizar conciliação</span><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vincular produtos sem cadastro</span></div>
+                                                                <div className="flex flex-col text-left"><span className="text-xs font-black uppercase tracking-widest">Conciliação Comercial</span><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vincular produtos sem cadastro</span></div>
                                                             </button>
                                                         )}
                                                         <button
@@ -617,7 +588,14 @@ const OrderHistoryRow = ({
 
                                                         <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
 
+                                                        <PostSaleActionMenuButton
+                                                            order={order}
+                                                            onOpen={onShowPostSaleActions}
+                                                            onCloseMenu={() => setShowMenu(false)}
+                                                        />
+
                                                         {buttons.filter(btn => {
+                                                            if (isPostSaleAction(btn.key)) return false;
                                                             if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
                                                             if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
                                                             
@@ -627,9 +605,9 @@ const OrderHistoryRow = ({
                                                                 order.status === 'returned' ||
                                                                 (order as any).hasReturn ||
                                                                 (order as any).returned ||
-                                                                (order.order_data as any)?.returnOrderId ||
-                                                                (order.order_data as any)?.returned ||
-                                                                (order.order_data as any)?.status === 'returned'
+                                                                (order as any).order_data?.returnOrderId ||
+                                                                (order as any).order_data?.returned ||
+                                                                (order as any).order_data?.status === 'returned'
                                                             );
 
                                                             if (btn.key === 'generateReturn' && hasReturn) return false;

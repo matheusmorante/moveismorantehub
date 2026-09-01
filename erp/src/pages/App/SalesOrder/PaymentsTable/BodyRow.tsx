@@ -110,7 +110,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                             <button
                                 type="button"
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                className="w-full flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-500/50 px-3 py-2.5 rounded-2xl outline-none transition-all"
+                                className="w-full flex items-center justify-between gap-3 bg-transparent border-b-2 border-slate-200 px-3 py-2.5 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
                             >
                                 {renderMethodItem(payment.method)}
                                 <i className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -143,9 +143,9 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                         </button>
                     </div>
 
-                    {/* Inputs Grid (Valor, Taxa R$, Taxa %) */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1">
+                    {/* Campos compactos: só quebram a linha quando não houver espaço suficiente. */}
+                    <div className="flex flex-wrap items-start gap-x-4 gap-y-4">
+                        <div className="w-36 max-w-full space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400">Valor</label>
                             <div className="flex items-center gap-1 group/input">
                                 <CurrencyInput
@@ -170,7 +170,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                             </div>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="w-32 max-w-full space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400">Taxa R$</label>
                             <CurrencyInput
                                 value={tempFeeReais}
@@ -181,7 +181,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                             />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="w-32 max-w-full space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400">Taxa %</label>
                             <CurrencyOrPercentInput
                                 value={tempFeePercent}
@@ -191,44 +191,42 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                                 badgeText="%"
                             />
                         </div>
-                    </div>
+                        <div className="w-44 max-w-full space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-400">Status</label>
+                            <div className="relative">
+                                <select
+                                    className="w-full appearance-none border-b-2 border-slate-200 bg-transparent px-3 py-2 text-xs font-bold leading-4 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-200 dark:focus:border-blue-500"
+                                    value={payment.status}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val && window.confirm(`Tem certeza que quer alterar o status para "${val}"?`)) {
+                                            onChange(idx, 'status', val);
+                                        }
+                                    }}
+                                    required
+                                >
+                                    <option value="" disabled>Selecionar status...</option>
+                                    <option value="Pago">Pago</option>
+                                    <option value="Pendente">Pendente - no ato da entrega</option>
+                                    <option value="Verificar">Verificar</option>
+                                    {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
+                                        <option value={payment.status}>{payment.status}</option>
+                                    )}
+                                </select>
+                                <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
 
-                    {/* Status & Pix */}
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-400">Status</label>
-                        <div className="relative">
-                            <select
-                                className="w-full bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 focus:border-indigo-500 px-3 py-2 rounded-xl outline-none transition-all text-sm font-medium appearance-none"
-                                value={payment.status}
-                                onChange={e => {
-                                    const val = e.target.value;
-                                    if (val && window.confirm(`Tem certeza que quer alterar o status para "${val}"?`)) {
-                                        onChange(idx, 'status', val);
-                                    }
-                                }}
-                                required
-                            >
-                                <option value="" disabled>Selecionar status...</option>
-                                <option value="Pago">Pago</option>
-                                <option value="Pendente">Pendente - no ato da entrega</option>
-                                <option value="Verificar">Verificar</option>
-                                {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
-                                    <option value={payment.status}>{payment.status}</option>
-                                )}
-                            </select>
-                            <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            {payment.method === 'Pix' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPixModalOpen(true)}
+                                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                                >
+                                    <i className="bi bi-qr-code text-sm" />
+                                    Gerar QR Code
+                                </button>
+                            )}
                         </div>
-
-                        {payment.method === 'Pix' && (
-                            <button
-                                type="button"
-                                onClick={() => setIsPixModalOpen(true)}
-                                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all mt-2"
-                            >
-                                <i className="bi bi-qr-code text-sm" />
-                                Gerar QR Code
-                            </button>
-                        )}
                     </div>
 
                     {/* Footer: Total Row */}
@@ -260,7 +258,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                     <button
                         type="button"
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="w-full flex items-center justify-between gap-3 bg-transparent border border-slate-100 dark:border-slate-800 group-hover/method:border-indigo-300 dark:group-hover/method:border-indigo-600 focus:border-indigo-500 px-3 py-2 rounded-2xl outline-none transition-all shadow-sm"
+                        className="w-full flex items-center justify-between gap-3 border-b-2 border-slate-200 bg-transparent px-3 py-2 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
                     >
                         {renderMethodItem(payment.method)}
                         <i className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -357,7 +355,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
             <td className="px-4 py-2">
                 <div className="relative group/status min-w-[140px]">
                     <select
-                        className="w-full bg-transparent border border-slate-100 dark:border-slate-800 group-hover/status:border-indigo-300 dark:group-hover/status:border-indigo-600 focus:border-indigo-500 px-3 py-2 rounded-xl outline-none transition-all text-sm dark:text-slate-200 appearance-none"
+                        className="w-full appearance-none border-b-2 border-slate-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-200 dark:focus:border-blue-500"
                         value={payment.status}
                         onChange={e => {
                             const val = e.target.value;

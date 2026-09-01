@@ -70,7 +70,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                 </div>}
             </div>
 
-            <div className={`bg-white dark:bg-slate-900 border p-4 sm:p-5 lg:p-6 rounded-3xl sm:rounded-[2rem] shadow-sm w-full transition-all ${scheduling.pendingScheduling ? 'border-orange-200 bg-orange-50/20 ring-4 ring-orange-500/5' : (hasError ? 'border-red-500 ring-4 ring-red-500/10 shadow-lg shadow-red-100 dark:shadow-red-900/10' : 'border-slate-100 dark:border-slate-800')}`}>
+            <div className={`w-full transition-opacity ${scheduling.pendingScheduling ? 'opacity-90' : (hasError ? 'text-red-500' : '')}`}>
                 
                 {scheduling.pendingScheduling && (
                     <div className="flex items-center gap-4 py-4 px-4 bg-orange-50/50 dark:bg-orange-900/10 border border-dashed border-orange-200 dark:border-orange-800 rounded-2xl mb-6 animate-fade-in">
@@ -108,7 +108,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                         <input
                                             type="date"
                                             disabled={scheduling.pendingScheduling}
-                                            className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                             value={scheduling.date || ''}
                                             onChange={(e) => onChangeScheduling("date", e.target.value)}
                                         />
@@ -121,7 +121,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                                 <input
                                                     type="date"
                                                     disabled={scheduling.pendingScheduling}
-                                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                                    className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                                     value={scheduling.endDate || ''}
                                                     onChange={(e) => onChangeScheduling("endDate", e.target.value)}
                                                 />
@@ -152,7 +152,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                         <input
                                             type="time"
                                             disabled={scheduling.pendingScheduling}
-                                            className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                             value={scheduling.startTime || ''}
                                             onChange={(e) => onChangeScheduling("startTime", e.target.value)}
                                         />
@@ -165,7 +165,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                                 <input
                                                     type="time"
                                                     disabled={scheduling.pendingScheduling}
-                                                    className={`w-full bg-transparent border px-3 py-2 rounded-xl outline-none text-sm transition-all dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
+                                                    className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                                     value={scheduling.endTime || ''}
                                                     onChange={(e) => onChangeScheduling("endTime", e.target.value)}
                                                 />

@@ -5,6 +5,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { autoCalculateRouteDistance, searchAddressSuggestions, RouteResult } from '../../utils/maps';
 import { formatCurrency } from '../../utils/formatters';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import { calculateFreightByDistance } from '../../utils/shippingPricing';
 
 const FreightCalculation = () => {
     const mapContainer = useRef<HTMLDivElement>(null);
@@ -28,7 +29,6 @@ const FreightCalculation = () => {
 
     const settings = getSettings();
     const origin: [number, number] = settings.storeOriginCoords;
-    const freightPerKm = settings.freightPerKm || 0;
 
     const handleSearch = async (query: string) => {
         if (query.length < 3) {
@@ -164,7 +164,7 @@ const FreightCalculation = () => {
                             <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
                                 <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">Valor Sugerido</p>
                                 <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 tracking-tight">
-                                    {formatCurrency(routeResult.distanceKm * freightPerKm)}
+                                    {formatCurrency(calculateFreightByDistance(routeResult.distanceKm))}
                                 </p>
                             </div>
                         </div>

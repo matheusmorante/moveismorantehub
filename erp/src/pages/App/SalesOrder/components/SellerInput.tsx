@@ -82,10 +82,10 @@ export const SellerInput: React.FC<SellerInputProps> = ({
                     }}
                     onFocus={() => setIsOpen(true)}
                     placeholder={placeholder}
-                    className={`w-full bg-slate-50 dark:bg-slate-900 border px-4 py-3 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none transition-all ${
+                    className={`w-full border-b-2 bg-transparent px-3 py-3 text-sm font-bold text-slate-800 placeholder:text-slate-400 outline-none transition-colors dark:text-slate-100 dark:placeholder:text-slate-600 ${
                         isAIFilling
-                        ? 'border-violet-500 ring-4 ring-violet-500/30 shadow-lg shadow-violet-500/20 animate-pulse bg-violet-50/20 dark:bg-violet-950/20'
-                        : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                        ? 'border-violet-500 animate-pulse bg-violet-50/20 dark:bg-violet-950/20'
+                        : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500'
                     }`}
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">

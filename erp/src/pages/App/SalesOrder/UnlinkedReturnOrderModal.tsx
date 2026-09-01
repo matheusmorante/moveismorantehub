@@ -16,10 +16,11 @@ import ReturnFormTabs, { ReturnFormTab } from "./ReturnFormTabs";
 type Props = { onClose: () => void; onSaveSuccess: (id?: string, order?: Order) => void };
 const EMPTY_SCHEDULING: Shipping['scheduling'] = { dateType: 'fixed', date: '', endDate: '', time: '', type: 'fixed', startTime: '', endTime: '', notInformed: false };
 const EMPTY_CUSTOMER: CustomerData = { fullName: '', phone: '', noPhone: false, fullAddress: { cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', observation: '' } };
+const EMPTY_ITEM: Item = { description: '', quantity: 1, unitPrice: 0, unitDiscount: 0, discountType: 'fixed', handlingType: '' };
 
 const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
     const [customer, setCustomer] = useState<CustomerData>(EMPTY_CUSTOMER);
-    const [items, setItems] = useState<Item[]>([]);
+    const [items, setItems] = useState<Item[]>([{ ...EMPTY_ITEM }]);
     const [collectAtAddress, setCollectAtAddress] = useState(false);
     const [scheduling, setScheduling] = useState<Shipping['scheduling']>(EMPTY_SCHEDULING);
     const [observations, setObservations] = useState<string[]>([]);
@@ -39,11 +40,13 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
 
     const saveReturn = async () => {
         if (!customer.fullName.trim()) return toast.warning('Informe o cliente da devolução.');
-        if (!items.length) return toast.warning('Adicione pelo menos um item devolvido.');
+        const validItems = items.filter(item => item.description.trim() || item.productId);
+        if (!validItems.length) return toast.warning('Adicione pelo menos um item devolvido.');
+        const summary = calcItemsSummary(validItems);
         const order: Order = {
-            orderType: 'return', status: 'scheduled', customerData: customer, items, seller: '', date: new Date().toISOString(), observation: observations.join('\n'), collectionObservation: collectAtAddress ? observations.join('\n') : undefined,
-            itemsSummary,
-            payments: [], paymentsSummary: { totalPaymentsFee: 0, totalOrderValue: total, totalPaid: 0, totalAmountPaid: 0, amountRemaining: 0 },
+            orderType: 'return', status: 'scheduled', customerData: customer, items: validItems, seller: '', date: new Date().toISOString(), observation: observations.join('\n'), collectionObservation: collectAtAddress ? observations.join('\n') : undefined,
+            itemsSummary: summary,
+            payments: [], paymentsSummary: { totalPaymentsFee: 0, totalOrderValue: summary.itemsTotalValue, totalPaid: 0, totalAmountPaid: 0, amountRemaining: 0 },
             shipping: { value: 0, deliveryMethod: collectAtAddress ? 'delivery' : 'pickup', orderType: 'Standard', scheduling: collectAtAddress ? scheduling : { ...EMPTY_SCHEDULING, notInformed: true } }, returnStockProcessed: false,
         };
         setSubmitting(true);

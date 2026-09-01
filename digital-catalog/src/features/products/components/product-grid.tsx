@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { ProductCard } from "./product-card"
 import { ChevronLeft, ChevronRight, Loader2, Package } from "lucide-react"
@@ -31,6 +31,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
   const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings)
   const { isAdminMode } = useAdminMode()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const gridRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -124,7 +125,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           if (sort === "price-desc") q = q.order("price", { ascending: false })
           if (sort === "title-asc") q = q.order("name", { ascending: true })
 
-          return q.limit(100)
+          return q.limit(5000)
         }
 
         const stylePromise = supabase.from("store_style_settings").select("border_width, border_radius, shadow, opportunity_emphasis, button_style, product_image_fit, product_grid_columns, product_grid_gap").eq("id", true).maybeSingle()
@@ -435,13 +436,18 @@ export function ProductGrid({ filters }: ProductGridProps) {
   const handlePageChange = (p: number) => {
     if (p < 1 || p > totalPages || p === currentPage) return
     setCurrentPage(p)
+    if (gridRef.current) {
+      const yOffset = -90
+      const y = gridRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+    }
   }
 
   const columnsClass = productGridStyleClasses.columns[cardStyle.product_grid_columns] || productGridStyleClasses.columns["compact"]
   const gapClass = productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap["tight"]
 
   return (
-    <div className="space-y-8">
+    <div ref={gridRef} className="space-y-8 scroll-mt-24">
       <div className={cn("grid animate-in fade-in slide-in-from-bottom-4 duration-700", columnsClass, gapClass)}>
         {paginatedProducts.map((product) => {
           const mainImg = product.image_url ||

@@ -39,7 +39,7 @@ const CurrencyInput = ({
 
     if (showBadge) {
         return (
-            <div className="flex items-center bg-transparent border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 shadow-sm transition-all w-full">
+            <div className="flex w-full items-center border-b-2 border-slate-200 bg-transparent transition-colors focus-within:border-blue-600 dark:border-slate-700 dark:focus-within:border-blue-500">
                 <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-2 border-r border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shrink-0 self-stretch">
                     {displayBadge}
                 </div>

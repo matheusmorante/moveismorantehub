@@ -146,7 +146,7 @@ const PersonPage = ({
     return (
         <div className="flex -m-4 xl:-m-8 h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
             {/* Sidebar */}
-            <div
+            {!isEmployee && <div
                 className={`transition-all duration-300 ease-in-out border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 absolute md:relative z-30 h-full ${
                     isSidebarOpen
                         ? "w-[calc(100vw-32px)] md:w-80 shadow-2xl md:shadow-none"
@@ -162,9 +162,9 @@ const PersonPage = ({
                     </button>
                 </div>
                 <PersonFilters filters={filters} setFilters={setFilters} title={title} collectionName={collectionName} />
-            </div>
+            </div>}
 
-            {isSidebarOpen && (
+            {!isEmployee && isSidebarOpen && (
                 <div
                     className="md:hidden fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm"
                     onClick={() => setIsSidebarOpen(false)}
@@ -212,7 +212,7 @@ const PersonPage = ({
 
                 {/* Toolbar */}
                 <div className={isSupplier ? "hidden" : "flex flex-col gap-6"}>
-                    <div className="flex justify-between items-center px-2">
+                    {!isEmployee && <div className="flex justify-between items-center px-2">
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -289,7 +289,7 @@ const PersonPage = ({
                                 </>
                             )}
                         </div>
-                    </div>
+                    </div>}
 
                     {/* Table */}
                     <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none md:shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
@@ -312,7 +312,7 @@ const PersonPage = ({
             </div>
 
             {/* Trash Modal */}
-            {isTrashOpen && (
+            {!isEmployee && isTrashOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"

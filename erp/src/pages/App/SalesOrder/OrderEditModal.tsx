@@ -277,7 +277,7 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                             <i className="bi bi-pencil-square text-sm sm:text-base" />
                         </div>
                         <div>
-                            <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{reconciliationMode ? "Conciliar Produtos" : "Editar Pedido"}</h2>
+                            <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{reconciliationMode ? "Conciliação Comercial" : "Editar Pedido"}</h2>
                             <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
                                 Pedido de Venda
                             </p>
@@ -402,9 +402,9 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                 isOpen={isReconciliationConfirmationOpen}
                 onClose={() => setIsReconciliationConfirmationOpen(false)}
                 onConfirm={() => void handleSaveReconciliation()}
-                title="Confirmar conciliação?"
-                message="A conciliação somente vincula o produto cadastrado ao item deste pedido e à sua referência de devolução. Ela não gera saída de estoque na venda nem entrada de estoque na devolução."
-                confirmLabel="Confirmar conciliação"
+                title="Confirmar conciliação comercial?"
+                message="A conciliação comercial serve apenas para o relatório de vendas, indexando o produto cadastrado no lugar daquele que não estava cadastrado antes da conciliação. Ela NÃO gera movimentação de estoque (nem saída na venda, nem entrada na devolução). Deseja continuar?"
+                confirmLabel="Confirmar conciliação comercial"
                 type="info"
             />
         </div>

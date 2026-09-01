@@ -4,7 +4,7 @@ import Shipping from "../../types/Shipping.type";
 import CustomerData from "../../types/customerData.type";
 import { getShippingRouteUrl, getAddressByCep, searchAddressSuggestions } from "../../utils/maps";
 import { ValidationErrors } from "../../utils/validations";
-import { getSettings } from '@/pages/utils/settingsService';
+import { calculateFreightByDistance } from "../../utils/shippingPricing";
 import FreteDistancia from "./ShippingComponents/FreteDistancia";
 import Agendamento from "./ShippingComponents/Agendamento";
 import MapRoute from "./ShippingComponents/MapRoute";
@@ -47,8 +47,6 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
             : customerData.fullAddress);
 
     const route = getShippingRouteUrl(activeAddress);
-    const settings = getSettings();
-
     const onChangeShippingValue = (newValue: number) => {
         setShipping((prev: Shipping) => ({ ...prev, value: newValue, autoCalculateValue: false }));
     };
@@ -60,8 +58,8 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
             let value = prev.value;
 
             // Calcula o frete baseado na distância APENAS se o cálculo automático estiver ativado
-            if (distance !== undefined && settings.freightPerKm > 0 && prev.autoCalculateValue) {
-                value = distance * settings.freightPerKm;
+            if (distance !== undefined && prev.autoCalculateValue) {
+                value = calculateFreightByDistance(distance);
             }
 
             return { ...prev, distance, value };
@@ -214,29 +212,20 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             <div className="flex flex-col gap-10 animate-slide-up">
                         {/* Custom Delivery Address Toggle */}
                         {orderType !== 'budget' && (
-                            <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
-                                <label className="flex items-center gap-3 cursor-pointer group w-fit">
-                                    <div className="relative flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            checked={shipping.useCustomerAddress !== false}
-                                            onChange={(e) => setShipping(prev => ({ ...prev, useCustomerAddress: e.target.checked }))}
-                                        />
-                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                            Usar o mesmo endereço do cliente?
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 font-medium">
-                                            {shipping.useCustomerAddress !== false 
-                                                ? `Entregando em: ${customerData.fullAddress?.street || 'Endereço não informado'}` 
-                                                : 'Preencha um endereço de entrega diferente abaixo'}
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
+                            <label className="flex w-fit cursor-pointer items-center gap-3 group">
+                                <div className="relative flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={shipping.useCustomerAddress !== false}
+                                        onChange={(e) => setShipping(prev => ({ ...prev, useCustomerAddress: e.target.checked }))}
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                                </div>
+                                <span className="text-sm font-bold text-slate-700 transition-colors group-hover:text-blue-600 dark:text-slate-300 dark:group-hover:text-blue-400">
+                                    Usar o mesmo endereço do cliente?
+                                </span>
+                            </label>
                         )}
 
                         {orderType !== 'budget' && shipping.useCustomerAddress === false && (
@@ -250,7 +239,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">CEP</label>
                                         <PatternFormat
                                             format="#####-###"
-                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                            className="w-full border-b-2 border-slate-200 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors focus:border-blue-600 dark:border-slate-800 dark:text-slate-300 dark:focus:border-blue-500"
                                             placeholder="00000-000"
                                             value={shipping.deliveryAddress?.cep || ""}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateDeliveryAddress('cep', e.target.value)}
@@ -261,7 +250,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Rua/Avenida <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
-                                            className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_street'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_street'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                             placeholder="Nome da rua"
                                             value={shipping.deliveryAddress?.street || ""}
                                             onChange={e => handleStreetChange(e.target.value)}
@@ -295,7 +284,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Número <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
-                                            className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_number'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_number'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                             placeholder="Ex: 123"
                                             value={shipping.deliveryAddress?.number || ""}
                                             onChange={e => updateDeliveryAddress('number', e.target.value)}
@@ -308,7 +297,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Complemento</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                            className="w-full border-b-2 border-slate-200 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors focus:border-blue-600 dark:border-slate-800 dark:text-slate-300 dark:focus:border-blue-500"
                                             placeholder="Apto, Bloco, etc"
                                             value={shipping.deliveryAddress?.complement || ""}
                                             onChange={e => updateDeliveryAddress('complement', e.target.value)}
@@ -318,7 +307,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Bairro</label>
                                         <input
                                             type="text"
-                                            className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_neighborhood'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_neighborhood'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                             placeholder="Seu bairro"
                                             value={shipping.deliveryAddress?.neighborhood || ""}
                                             onChange={e => updateDeliveryAddress('neighborhood', e.target.value)}
@@ -328,7 +317,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Cidade <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
-                                            className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_city'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_city'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                             placeholder="Nome da cidade"
                                             value={shipping.deliveryAddress?.city || ""}
                                             onChange={e => updateDeliveryAddress('city', e.target.value)}
@@ -340,7 +329,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                     <div className="flex-1 relative group/field">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Tipo de Moradia</label>
                                         <select
-                                            className={`w-full bg-white dark:bg-slate-950 border px-3 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 transition-all ${errors['deliveryAddress_housingType'] ? 'border-red-500 focus:ring-red-500/30' : 'border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500/20'}`}
+                                            className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_housingType'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
                                             value={shipping.deliveryAddress?.housingType || ""}
                                             onChange={e => updateDeliveryAddress('housingType', e.target.value)}
                                         >
@@ -392,8 +381,8 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             onToggleAutoCalculate={() => setShipping(prev => {
                                 const newValue = !prev.autoCalculateValue;
                                 let newShippingValue = prev.value;
-                                if (newValue && prev.distance !== undefined && settings.freightPerKm > 0) {
-                                    newShippingValue = prev.distance * settings.freightPerKm;
+                                if (newValue && prev.distance !== undefined) {
+                                    newShippingValue = calculateFreightByDistance(prev.distance);
                                 }
                                 return { ...prev, autoCalculateValue: newValue, value: newShippingValue };
                             })}

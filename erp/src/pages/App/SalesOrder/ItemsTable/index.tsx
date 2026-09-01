@@ -14,11 +14,15 @@ interface Props {
     errors: ValidationErrors,
     onSelectProduct: (idx: number, product: any, variation?: any) => void,
     isBudget?: boolean,
+    isReturn?: boolean,
+    hideHandling?: boolean,
     /** Se true, destaca visualmente os itens sem produto real vinculado */
     highlightTemporaryItems?: boolean
 }
 
-const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct, isBudget, highlightTemporaryItems }: Props) => {
+const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelectProduct, isBudget, isReturn, hideHandling: propHideHandling, highlightTemporaryItems }: Props) => {
+    const hideHandling = Boolean(propHideHandling || isBudget || isReturn);
+
     const addItem = () => {
         setItems((prev: Item[]) => {
             return ([
@@ -42,7 +46,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
         return (
             <div className="flex flex-col gap-3 p-0 h-full">
                 <div className="grid grid-cols-1 gap-3">
-                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} highlightTemporaryItems={highlightTemporaryItems} />
+                    <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} isReturn={isReturn} hideHandling={hideHandling} highlightTemporaryItems={highlightTemporaryItems} />
                 </div>
 
                 <div className="mt-2 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
@@ -57,7 +61,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
             <thead className="bg-slate-50/50 dark:bg-slate-800/30">
                 <tr>
                     <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Produto <span className="text-red-500">*</span></th>
-                    {!isBudget && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio</th>}
+                    {!hideHandling && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio</th>}
                     <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd. <span className="text-red-500">*</span></th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Preço Un. <span className="text-red-500">*</span></th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Desc. R$</th>
@@ -76,7 +80,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
                     </th>
                 </tr>
             </thead>
-            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} highlightTemporaryItems={highlightTemporaryItems} />
+            <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={false} onSelectProduct={onSelectProduct} isBudget={isBudget} isReturn={isReturn} hideHandling={hideHandling} highlightTemporaryItems={highlightTemporaryItems} />
             <Footer summary={summary} isBudget={isBudget} />
         </table>
     );

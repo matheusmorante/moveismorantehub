@@ -1,4 +1,5 @@
 import Order from "../types/order.type";
+import Shipping from "../types/Shipping.type";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from "./formatters";
 import { saveInventoryMove, getAvailableLots, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
@@ -19,6 +20,7 @@ import {
     detectOrderChangedAreas,
     formatOrderChangeNotification
 } from '@/pages/utils/orderChangeDetector';
+import { withOrderAddressSnapshot } from './orderAddressSnapshot';
 
 export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
     const sched = shipping?.scheduling || {};
@@ -104,7 +106,7 @@ export const fetchOrdersPage = async (
     const orders = (data || [])
         .filter(isValidOrderRow)
         .map((row: any) => {
-            const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber ?? (Number.isInteger(Number(row.id)) ? Number(row.id) : undefined);
+            const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber;
             return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order);
         });
 
@@ -158,7 +160,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 console.log('[OrdersSync] Data received, count:', data.length);
                 currentOrders = data.filter(isValidOrderRow).map((row: any) => {
                     try {
-                        const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber ?? (Number.isInteger(Number(row.id)) ? Number(row.id) : undefined);
+                        const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber;
                         const rawData = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
                         // Inject marketing origin from people registry for legacy orders
                         const cInfo = rawData.customerData;
@@ -274,6 +276,43 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
 };
 
 
+/**
+ * Determina o status correto para um pedido no momento da finalização/cadastro.
+ * - Orçamento: 'draft'
+ * - Retirada imediata (retirada na loja sem agendamento futuro ou com data de hoje): 'fulfilled' (Atendido)
+ * - Entrega em domicílio ou retirada com agendamento futuro / em aberto: 'scheduled' (Agendado)
+ */
+export const resolveCompletedOrderStatus = (order: { shipping?: Shipping; orderType?: string; status?: string }): 'draft' | 'scheduled' | 'fulfilled' => {
+    if (order.orderType === 'budget') return 'draft';
+
+    const shipping = order.shipping;
+    const isPickup = shipping?.deliveryMethod === 'pickup';
+
+    if (isPickup) {
+        const scheduling = shipping?.scheduling;
+        // Se estiver com agendamento pendente, fica agendado para o futuro
+        if (scheduling?.pendingScheduling) {
+            return 'scheduled';
+        }
+
+        const schedDateStr = scheduling?.date?.trim();
+        if (schedDateStr) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            // Se a data de retirada for hoje ou anterior, é retirada imediata -> atendido (fulfilled)
+            if (schedDateStr <= todayStr) {
+                return 'fulfilled';
+            }
+            // Se for data futura, é agendado (scheduled)
+            return 'scheduled';
+        }
+
+        // Se for retirada e não tem data futura definida, é retirada imediata -> atendido (fulfilled)
+        return 'fulfilled';
+    }
+
+    return 'scheduled';
+};
+
 export const saveOrder = async (order: Order): Promise<string> => {
     if (order.id) {
         await updateOrder(order.id, order);
@@ -281,20 +320,19 @@ export const saveOrder = async (order: Order): Promise<string> => {
     }
 
     try {
-        const orderToSave = { ...order };
+        const orderToSave = withOrderAddressSnapshot(order);
         delete orderToSave.id;
         orderToSave.deleted = false;
         orderToSave.deletedAt = null;
 
         // Garantir atribuição de código sequencial único de 6 dígitos
         if (!orderToSave.orderIndex) {
-            try {
-                const nextIndex = await getNextOrderIndex();
-                orderToSave.orderIndex = nextIndex;
-                orderToSave.orderNumber = nextIndex;
-            } catch (idxErr) {
-                console.error("[OrderCreate] Erro ao obter próximo código sequencial:", idxErr);
-            }
+            const nextIndex = await getNextOrderIndex();
+            orderToSave.orderIndex = nextIndex;
+            orderToSave.orderNumber = nextIndex;
+        }
+        if (!getOrderIndex(orderToSave)) {
+            throw new Error('Não foi possível gerar um código válido. O pedido não foi salvo.');
         }
 
         // Se o cliente não tem ID, mas tem nome e não é Consumidor Final, vamos cadastrá-lo no CRM.
@@ -313,11 +351,13 @@ export const saveOrder = async (order: Order): Promise<string> => {
                     type: 'customers' as const
                 };
                 const savedPerson = await savePerson('customers', personToSave as any);
-                if (savedPerson && savedPerson.id) {
-                    orderToSave.customerData.id = savedPerson.id;
+                if (!savedPerson?.id) {
+                    throw new Error('O cadastro do cliente não retornou um identificador válido.');
                 }
+                orderToSave.customerData.id = savedPerson.id;
             } catch (savePersonErr) {
                 console.error("[OrderCreate] Erro ao cadastrar cliente no CRM:", savePersonErr);
+                throw new Error('Não foi possível cadastrar o cliente. O pedido não foi salvo.');
             }
         }
 
@@ -327,10 +367,15 @@ export const saveOrder = async (order: Order): Promise<string> => {
                 order_data: orderToSave,
                 updated_at: new Date().toISOString()
             }])
-            .select();
+            .select('id, order_data')
+            .single();
 
         if (error) throw error;
-        const rowId = (data as any)?.[0]?.id;
+        const rowId = (data as any)?.id;
+        const persistedIndex = getOrderIndex((data as any)?.order_data);
+        if (!rowId || persistedIndex !== orderToSave.orderIndex) {
+            throw new Error('O banco não confirmou o código do pedido. O cadastro foi interrompido.');
+        }
 
         // Log initial status history
         try {
@@ -556,6 +601,8 @@ export const updateOrder = async (
             const { id: _id, ...rest } = { ...(current.order_data || {}), ...orderToUpdate } as any;
             merged = rest;
         }
+
+        merged = withOrderAddressSnapshot(merged as Order);
         
         // Ensure ID is removed from the JSONB data to avoid redundancy and potential issues
         if (merged.id) delete merged.id;

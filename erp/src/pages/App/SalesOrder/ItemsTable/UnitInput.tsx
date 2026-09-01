@@ -10,7 +10,7 @@ interface Props {
 
 const UnitInput = ({ value, onChange, disabled, className }: Props) => {
     return (
-        <div className={`flex items-center bg-transparent border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 shadow-sm transition-all w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+        <div className={`flex w-full items-center border-b-2 border-slate-200 bg-transparent transition-colors focus-within:border-blue-600 dark:border-slate-700 dark:focus-within:border-blue-500 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <NumericFormat
                 className="w-full min-w-[30px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0"
                 value={value}
