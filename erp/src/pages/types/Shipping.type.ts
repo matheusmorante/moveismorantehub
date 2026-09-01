@@ -16,7 +16,8 @@ type Shipping = {
         endTime?: string,   // HH:mm
         type: 'fixed' | 'range',
         notInformed?: boolean,
-        pendingScheduling?: boolean
+        pendingScheduling?: boolean,
+        immediatePickup?: boolean
     },
     destinationCoords?: [number, number], // [lng, lat] (GeoJSON/MapLibre format)
     routeGeoJSON?: any, // GeoJSON geometry from routing API

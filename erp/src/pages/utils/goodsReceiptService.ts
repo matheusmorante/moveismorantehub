@@ -161,6 +161,7 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
                 variationId: item.variationId,
                 type: 'entry',
                 quantity: Number(item.quantity || 0),
+                unitCost: Number(item.unitCost || 0) || undefined,
                 date: finalizedReceipt.receivedAt || now,
                 label: finalizedReceipt.invoiceNumber 
                     ? `Recebimento NF-${finalizedReceipt.invoiceNumber}` 

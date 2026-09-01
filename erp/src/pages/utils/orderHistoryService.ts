@@ -2,12 +2,14 @@ import Order from "../types/order.type";
 import Shipping from "../types/Shipping.type";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from "./formatters";
-import { saveInventoryMove, getAvailableLots, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { saveInventoryMove, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { getCurrentMovingAverageUnitCost, reprocessMovingAverageCosts } from './movingAverageCostService';
+import { assertDeletedOrderId, canPermanentlyDeleteDraft } from './orderDeletionRules';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatOrderCode, getNextOrderIndex, getOrderIndex } from './orderCode';
 import { processReturnInventoryEntries } from './returnInventoryService';
-import { canMaintainSaleStock, getChangedSaleItems, hasActualSaleExit, isTemporarySaleItemReconciliation, reverseSaleItemMoves, syncLinkedReturnProductReferences } from './saleItemInventorySync';
+import { canMaintainSaleStock, getChangedSaleItems, hasActualSaleExit, isTemporarySaleItemReconciliation, reverseSaleItemMoves, shouldProcessSaleStock, syncLinkedReturnProductReferences } from './saleItemInventorySync';
 import { splitNoticeTags } from './noticeTags';
 import { applyActualInventoryStatus } from './orderInventoryStatus';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
@@ -83,9 +85,9 @@ export const fetchOrdersPage = async (
     const isDraft = filters?.isDraft || false;
 
     if (showTrash) {
-        query = query.eq('deleted', true);
+        query = query.eq('order_data->>deleted', 'true');
     } else {
-        query = query.or('deleted.is.null,deleted.eq.false');
+        query = query.or('order_data->>deleted.is.null,order_data->>deleted.eq.false');
         if (isDraft) {
             query = query.eq('status', 'draft');
         }
@@ -392,7 +394,7 @@ export const saveOrder = async (order: Order): Promise<string> => {
         // Stock Management logic refactored
         const updatedOrder = await handleStockAndBusinessRules(rowId, orderToSave);
         if (updatedOrder.stockProcessed) {
-            await updateOrder(String(rowId), { stockProcessed: true });
+            await updateOrder(String(rowId), { stockProcessed: true, items: updatedOrder.items }, updatedOrder);
         }
 
         // Sync customer data back to CRM if applicable
@@ -433,16 +435,21 @@ export const saveOrder = async (order: Order): Promise<string> => {
  * Centralized logic for stock movements based on settings and order state.
  * Returns the modified order with stockProcessed flag if applicable.
  */
-export async function handleStockAndBusinessRules(orderId: string, order: Order, force: boolean = false): Promise<Order> {
+export async function handleStockAndBusinessRules(
+    orderId: string,
+    order: Order,
+    force: boolean = false,
+    historical: boolean = false,
+): Promise<Order> {
     const settings = getSettings();
     const { businessRules, inventoryAutomation } = settings;
     const orderToUpdate = { ...order };
 
-    // Don't process assistance orders or orders already processed (unless forced)
-    if (order.orderType !== 'sale' || (order.stockProcessed && !force)) return orderToUpdate;
-
-    // Determine if stock should be subtracted based on new automation settings or force flag
-    const shouldSubtractStock = force || (order.status && inventoryAutomation?.autoWithdrawalOnStatus?.includes(order.status));
+    const shouldSubtractStock = shouldProcessSaleStock(
+        order,
+        inventoryAutomation?.autoWithdrawalOnStatus || [],
+        force,
+    );
 
     if (shouldSubtractStock && order.items) {
         let itemsProcessed = 0;
@@ -451,6 +458,7 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
         const customerName = order.customerData?.fullName || (order as any).customerName || '';
         const baseMoveLabel = customerName ? `Saída - Pedido #${orderCode} - ${customerName}` : `Saída - Pedido #${orderCode}`;
         const baseMoveObs = `${customerName ? `Pedido de venda #${orderCode} - ${customerName}` : `Pedido de venda #${orderCode}`}${(order as any).inventoryMovementNote ? ` | ${(order as any).inventoryMovementNote}` : ''}`;
+        const movementDate = historical && order.date ? order.date : new Date().toISOString();
 
         // All checks passed, proceed with withdrawal
         for (const item of order.items) {
@@ -473,7 +481,7 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                             productDescription: comboItem.description || `Parte do combo ${item.description}`,
                             type: 'withdrawal',
                             quantity: comboItem.quantity * item.quantity,
-                            date: new Date().toISOString(),
+                            date: movementDate,
                             label: baseMoveLabel,
                             relatedEntityId: orderId,
                             relatedEntityType: 'sales_order',
@@ -483,68 +491,25 @@ export async function handleStockAndBusinessRules(orderId: string, order: Order,
                     }
                 }
 
-                // Record moves using FIFO logic
-                let remainingToWithdraw = item.quantity;
-                const availableLots = await getAvailableLots(item.productId, item.variationId);
-
-                if (availableLots.length === 0) {
-                    // Fallback if no lots found (e.g. migration data without lots)
-                    await saveInventoryMove({
-                        productId: item.productId,
-                        variationId: item.variationId,
-                        productDescription: item.description,
-                        type: 'withdrawal',
-                        quantity: item.quantity,
-                        date: new Date().toISOString(),
-                        label: baseMoveLabel,
-                        relatedEntityId: orderId,
-                        relatedEntityType: 'sales_order',
-                        observation: baseMoveObs,
-                        unitPrice: item.unitPrice,
-                        status: 'effective'
-                    }, currentStock);
-                } else {
-                    for (const lot of availableLots) {
-                        if (remainingToWithdraw <= 0) break;
-
-                        const takeFromLot = Math.min(remainingToWithdraw, lot.balance);
-                        await saveInventoryMove({
-                            productId: item.productId,
-                            variationId: item.variationId,
-                            productDescription: item.description,
-                            type: 'withdrawal',
-                            quantity: takeFromLot,
-                            date: new Date().toISOString(),
-                            label: baseMoveLabel,
-                            relatedEntityId: orderId,
-                            relatedEntityType: 'sales_order',
-                            observation: `${baseMoveObs} | Lote de ${new Date(lot.date).toLocaleDateString()}`,
-                            unitCost: lot.unitCost, // USE THE LOT COST!
-                            parentMoveId: lot.id,   // LINK TO LOT
-                            unitPrice: item.unitPrice,
-                            status: 'effective'
-                        }, currentStock);
-
-                        remainingToWithdraw -= takeFromLot;
-                    }
-
-                    // If still remaining (inventory mismatch), record as unlinked withdrawal
-                    if (remainingToWithdraw > 0) {
-                        await saveInventoryMove({
-                            productId: item.productId,
-                            variationId: item.variationId,
-                            productDescription: item.description,
-                            type: 'withdrawal',
-                            quantity: remainingToWithdraw,
-                            date: new Date().toISOString(),
-                            label: baseMoveLabel,
-                            relatedEntityId: orderId,
-                            relatedEntityType: 'sales_order',
-                            observation: `${baseMoveObs} | Quantidade acima dos lotes disponíveis`,
-                            unitPrice: item.unitPrice,
-                            status: 'effective'
-                        }, currentStock);
-                    }
+                const movingAverageCost = await getCurrentMovingAverageUnitCost(item.productId, item.variationId);
+                item.unitCost = movingAverageCost;
+                await saveInventoryMove({
+                    productId: item.productId,
+                    variationId: item.variationId,
+                    productDescription: item.description,
+                    type: 'withdrawal',
+                    quantity: item.quantity,
+                    date: movementDate,
+                    label: baseMoveLabel,
+                    relatedEntityId: orderId,
+                    relatedEntityType: 'sales_order',
+                    observation: movingAverageCost === undefined ? `${baseMoveObs} | CMV não apurado: sem custo de aquisição disponível` : baseMoveObs,
+                    unitCost: movingAverageCost,
+                    unitPrice: item.unitPrice,
+                    status: 'effective'
+                }, currentStock);
+                if (historical) {
+                    await reprocessMovingAverageCosts(item.productId, item.variationId);
                 }
             }
         }
@@ -660,7 +625,58 @@ export const updateOrder = async (
         const changedItems = detectedItemChanges.filter(({ previous, current }) => !isTemporarySaleItemReconciliation(previous, current));
         const isOnlyTemporaryReconciliation = detectedItemChanges.length > 0 && changedItems.length === 0;
         if (isOnlyTemporaryReconciliation && merged.orderType === 'sale') {
+            // Ao vincular um item antes temporário a um produto real, a venda já
+            // agendada/atendida precisa gerar a baixa que antes não existia.
+            if (['scheduled', 'fulfilled'].includes(merged.status || '')) {
+                const reconciledItems = detectedItemChanges
+                    .filter(({ previous, current }) => isTemporarySaleItemReconciliation(previous, current))
+                    .map(({ current }) => current!)
+                    .filter(item => item.productId && !item.isTemporaryProduct);
+
+                if (reconciledItems.length > 0) {
+                    const updated = await handleStockAndBusinessRules(id, {
+                        ...merged,
+                        items: reconciledItems,
+                        stockProcessed: false,
+                        inventoryMovementNote: 'Produto cadastrado durante a conciliação do pedido.',
+                    }, true, true);
+                    if (updated.stockProcessed) {
+                        merged.stockProcessed = true;
+                        await supabase.from(TABLE_NAME).update({
+                            order_data: { ...merged, items: merged.items },
+                            updated_at: new Date().toISOString(),
+                        }).eq('id', id);
+                    }
+                }
+            }
+            // A saída acima materializa o CMV no item da venda. Só então a
+            // referência é propagada para a devolução vinculada, permitindo que
+            // uma devolução já atendida receba a entrada histórica correta.
             await syncLinkedReturnProductReferences(id, previousOrderData, merged);
+        }
+
+        // Integridade: stockProcessed pode estar defasado (por exemplo, quando
+        // um item temporário foi conciliado depois). A fonte de confirmação é a
+        // existência de uma saída efetiva vinculada ao pedido.
+        const hasRegisteredSaleItem = (merged.items || []).some(item => item.productId?.trim() && !item.isTemporaryProduct);
+        const requiresMissingStockExit = merged.orderType === 'sale'
+            && ['scheduled', 'fulfilled'].includes(merged.status || '')
+            && hasRegisteredSaleItem
+            && !await hasActualSaleExit(id);
+
+        if (requiresMissingStockExit) {
+            const updated = await handleStockAndBusinessRules(id, {
+                ...merged,
+                stockProcessed: false,
+                inventoryMovementNote: 'Baixa de estoque recuperada ao salvar a edição do pedido.',
+            }, true, true);
+            if (updated.stockProcessed) {
+                merged.stockProcessed = true;
+                await supabase.from(TABLE_NAME).update({
+                    order_data: { ...merged, items: updated.items },
+                    updated_at: new Date().toISOString(),
+                }).eq('id', id);
+            }
         }
         const shouldSynchronizeItems = previousOrderData && previousOrderData.stockProcessed && changedItems.length > 0;
         if (shouldSynchronizeItems && merged.status !== 'cancelled') {
@@ -831,7 +847,7 @@ export const updateOrder = async (
                         await supabase
                             .from(TABLE_NAME)
                             .update({ 
-                                order_data: { ...merged, status: newStatus, stockProcessed: true }, 
+                            order_data: { ...updatedOrder, status: newStatus, stockProcessed: true },
                                 updated_at: new Date().toISOString() 
                             })
                             .eq('id', id);
@@ -848,7 +864,7 @@ export const updateOrder = async (
                     await supabase
                         .from(TABLE_NAME)
                         .update({ 
-                            order_data: { ...merged, stockProcessed: true }, 
+                            order_data: { ...updatedOrder, stockProcessed: true },
                             updated_at: new Date().toISOString() 
                         })
                         .eq('id', id);
@@ -914,6 +930,34 @@ export const permanentDeleteOrder = async (id: string): Promise<void> => {
         console.error("Erro ao deletar permanentemente o pedido: ", error);
         throw error;
     }
+};
+
+/**
+ * A política do banco bloqueia DELETE físico pelo cliente. Para rascunhos,
+ * aplica a exclusão lógica já suportada pela lixeira e confirma a atualização.
+ */
+export const permanentDeleteDraftOrder = async (id: string): Promise<void> => {
+    const { data: row, error: fetchError } = await supabase
+        .from(TABLE_NAME)
+        .select('order_data')
+        .eq('id', id)
+        .single();
+    if (fetchError) throw fetchError;
+    if (!canPermanentlyDeleteDraft(row?.order_data?.status)) {
+        throw new Error('Somente pedidos em rascunho podem ser excluídos.');
+    }
+
+    const deletedAt = new Date().toLocaleString('pt-BR');
+    const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .update({
+            order_data: { ...row.order_data, deleted: true, deletedAt },
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select('id');
+    if (error) throw error;
+    assertDeletedOrderId(id, data);
 };
 
 /**

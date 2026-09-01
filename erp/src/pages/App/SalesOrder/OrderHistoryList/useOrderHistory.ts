@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
-import { subscribeToOrders, restoreOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { subscribeToOrders, restoreOrder, permanentDeleteDraftOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { autoFulfillExpiredOrders } from "@/pages/utils/orderFulfillmentCountdown";
 import { toast } from "react-toastify";
@@ -225,8 +225,8 @@ export const useOrderHistory = (filters?: any) => {
             toast.warning("Somente pedidos em rascunho podem ser excluídos.");
             return;
         }
-        await permanentDeleteOrder(id);
-        toast.success("Rascunho excluído permanentemente.");
+        await permanentDeleteDraftOrder(id);
+        toast.success("Rascunho excluído da lista.");
         refresh();
     };
 

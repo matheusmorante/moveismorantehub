@@ -260,7 +260,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                 onPrev={actions.goToPrevStep}
                 onNext={actions.goToNextStep}
                 currentStep={currentStep}
-                buttonLabel={isBudget ? "Salvar Orçamento" : (state.status === 'draft' ? "Cadastrar Pedido" : "Salvar Edição")}
+                buttonLabel={isBudget ? "Salvar Orçamento" : (state.status === 'draft' ? "Finalizar Cadastro" : "Salvar Edição")}
                 colorScheme={isBudget ? "indigo" : (state.status === 'draft' ? "emerald" : "blue")}
             />
             

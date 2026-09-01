@@ -9,6 +9,8 @@ export type Item = {
     quantity: number;
     unitPrice: number;
     costPrice?: number;
+    /** CMV unitário apurado no instante da saída de estoque. */
+    unitCost?: number;
     unitDiscount: number;
     discountType: DiscountType;
     handlingType: string;

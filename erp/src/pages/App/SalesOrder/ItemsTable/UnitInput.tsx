@@ -21,9 +21,20 @@ const UnitInput = ({ value, onChange, disabled, className }: Props) => {
                 decimalScale={0}
                 decimalSeparator=","
                 fixedDecimalScale
-                onFocus={(e: any) => e.target.select()}
+                onBlur={() => {
+                    if (!value || value < 1) {
+                        onChange(1);
+                    }
+                }}
                 onValueChange={
-                    (values: NumberFormatValues) => onChange(values.floatValue ?? 1)
+                    (values: NumberFormatValues) => {
+                        const parsed = values.floatValue;
+                        if (parsed === undefined || parsed < 1) {
+                            onChange(1);
+                        } else {
+                            onChange(parsed);
+                        }
+                    }
                 }
             />
             <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-2 border-l border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shrink-0 self-stretch">

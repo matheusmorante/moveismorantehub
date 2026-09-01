@@ -32,6 +32,7 @@ export const userDocumentation: DocumentationSection[] = [
         summary: "Guia para recebimentos, inventários e leitura das movimentações que atualizam o saldo físico do estoque.",
         rules: [
             "Registre o recebimento de mercadoria com itens reais para criar entradas e atualizar o saldo.",
+            "O custo do recebimento atualiza o custo médio do saldo. Não trate custo desconhecido como custo zero.",
             "Movimentação é o histórico de cada entrada, saída, ajuste ou estorno. Consulte o detalhe para saber origem e motivo.",
             "A devolução só cria entrada quando o pedido de devolução é marcado como Atendido, após confirmação de segurança de cinco segundos.",
             "Inicie uma contagem com responsável. Cada diferença efetiva gera ajuste ao finalizar; inventário em andamento pode ser excluído.",

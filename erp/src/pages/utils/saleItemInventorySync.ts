@@ -2,6 +2,23 @@ import Order from "../types/order.type";
 import { Item } from "../types/items.type";
 import { supabase } from "./supabaseConfig";
 import { reverseInventoryMove } from "./inventoryService";
+import {
+    canMaintainSaleStock,
+    canCreateSaleExitForItem,
+    hasTemporarySaleItem,
+    isTemporarySaleItem,
+    isTemporarySaleItemReconciliation,
+    shouldProcessSaleStock,
+} from './saleInventoryRules';
+import { isEffectiveInventoryMove } from './movingAverageCostRules';
+
+export {
+    canMaintainSaleStock,
+    canCreateSaleExitForItem,
+    hasTemporarySaleItem,
+    isTemporarySaleItemReconciliation,
+    shouldProcessSaleStock,
+} from './saleInventoryRules';
 
 const trackedFields = (item?: Item) => JSON.stringify({
     productId: item?.productId || "",
@@ -14,32 +31,31 @@ const trackedFields = (item?: Item) => JSON.stringify({
     handlingType: item?.handlingType || "",
 });
 
-export const hasTemporarySaleItem = (order: Order) =>
-    (order.items || []).some((item) => !item.productId || item.productId.trim() === "" || item.isTemporaryProduct);
-
 export const getChangedSaleItems = (previous: Order, current: Order) =>
     Array.from({ length: Math.max(previous.items?.length || 0, current.items?.length || 0) }, (_, index) => ({
         previous: previous.items?.[index],
         current: current.items?.[index],
     })).filter(({ previous, current }) => trackedFields(previous) !== trackedFields(current));
 
-const isTemporaryItem = (item?: Item) =>
-    Boolean(item && (!item.productId?.trim() || item.isTemporaryProduct));
-
 // Vincular o cadastro a uma venda já feita só identifica o produto para relatórios.
 // Não é uma troca de mercadoria e, portanto, não pode alterar o estoque.
-export const isTemporarySaleItemReconciliation = (previous?: Item, current?: Item) =>
-    isTemporaryItem(previous) && Boolean(current?.productId?.trim()) && !current?.isTemporaryProduct;
 
 export const hasActualSaleExit = async (orderId: string) => {
     const { data, error } = await supabase
         .from("inventory_moves")
-        .select("status")
+        .select("observation, reason")
         .eq("order_id", orderId)
         .in("type", ["exit", "withdrawal"]);
 
     if (error) throw error;
-    return (data || []).some((move: any) => move.status !== "reversed" && move.status !== "cancelled");
+    return (data || []).some((move: any) => {
+        try {
+            const metadata = JSON.parse(move.observation || "{}");
+            return metadata.status !== "reversed" && metadata.status !== "cancelled";
+        } catch {
+            return !String(move.reason || "").startsWith("Cancelamento da venda");
+        }
+    });
 };
 
 const comparableDescription = (item?: Item) => (item?.description || "").trim().toLocaleLowerCase("pt-BR");
@@ -74,23 +90,33 @@ export const syncLinkedReturnProductReferences = async (saleOrderId: string, pre
             };
         });
         if (wasUpdated) {
+            const reconciledReturn = { ...returnOrder, id: String(row.id), items } as Order;
             const { error: updateError } = await supabase.from("orders").update({
-                order_data: { ...returnOrder, items },
+                order_data: reconciledReturn,
                 updated_at: new Date().toISOString(),
             }).eq("id", row.id);
             if (updateError) throw updateError;
+
+            if (reconciledReturn.status === 'fulfilled' && !reconciledReturn.returnStockProcessed) {
+                const { processReturnInventoryEntries } = await import('./returnInventoryService');
+                const processed = await processReturnInventoryEntries(String(row.id), reconciledReturn, { historical: true });
+                if (processed) {
+                    const { error: processedUpdateError } = await supabase.from('orders').update({
+                        order_data: { ...reconciledReturn, returnStockProcessed: true },
+                        updated_at: new Date().toISOString(),
+                    }).eq('id', row.id);
+                    if (processedUpdateError) throw processedUpdateError;
+                }
+            }
         }
     }));
 };
-
-export const canMaintainSaleStock = (order: Order) =>
-    order.orderType === "sale" && ["scheduled", "fulfilled"].includes(order.status || "");
 
 export const reverseSaleItemMoves = async (orderId: string, item: Item, reason: string) => {
     if (!item?.productId) return;
     let query = supabase
         .from("inventory_moves")
-        .select("id, status, observation, reason")
+        .select("id, observation, reason")
         .eq("order_id", orderId)
         .eq("product_id", item.productId);
 
@@ -99,6 +125,6 @@ export const reverseSaleItemMoves = async (orderId: string, item: Item, reason: 
     if (error) throw error;
 
     await Promise.all((data || [])
-        .filter((move: any) => move.status !== "reversed" && move.status !== "cancelled")
+        .filter(isEffectiveInventoryMove)
         .map((move: any) => reverseInventoryMove(String(move.id), reason, true)));
 };

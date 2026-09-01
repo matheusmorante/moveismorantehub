@@ -13,6 +13,10 @@ interface AgendamentoProps {
 const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSchedulingShortcuts }: AgendamentoProps) => {
     if (!scheduling) return null;
     const hasError = errors['shipping_date'] || errors['shipping_time'];
+    const onScheduleChange = (key: keyof Shipping['scheduling'], value: string | Date | boolean) => {
+        if (key !== 'immediatePickup') onChangeScheduling('immediatePickup', false);
+        onChangeScheduling(key, value);
+    };
 
     return (
         <div className="flex-1 flex flex-col min-w-0">
@@ -24,9 +28,10 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                 {!hideSchedulingShortcuts && <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => {
-                            const isPending = !scheduling.pendingScheduling;
-                            onChangeScheduling("pendingScheduling", isPending);
+                            onClick={() => {
+                                const isPending = !scheduling.pendingScheduling;
+                                onChangeScheduling("immediatePickup", false);
+                                onChangeScheduling("pendingScheduling", isPending);
                             if (isPending) {
                                 onChangeScheduling("date", "");
                                 onChangeScheduling("startTime", "");
@@ -54,6 +59,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                 const time = `${hours}:${mins}`;
                                 
                                 onChangeScheduling("pendingScheduling", false);
+                                onChangeScheduling("immediatePickup", true);
                                 onChangeScheduling("notInformed", false);
                                 onChangeScheduling("date", date);
                                 onChangeScheduling("endDate", "");
@@ -96,7 +102,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                         disabled={scheduling.pendingScheduling}
                                         className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
                                         value={scheduling.dateType || 'fixed'}
-                                        onChange={(e) => onChangeScheduling("dateType", e.target.value as any)}
+                                        onChange={(e) => onScheduleChange("dateType", e.target.value as any)}
                                     >
                                         <option value="fixed" className="dark:bg-slate-900">Data Fixa</option>
                                         <option value="range" className="dark:bg-slate-900">Período de Data</option>
@@ -110,7 +116,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                             disabled={scheduling.pendingScheduling}
                                             className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                             value={scheduling.date || ''}
-                                            onChange={(e) => onChangeScheduling("date", e.target.value)}
+                                            onChange={(e) => onScheduleChange("date", e.target.value)}
                                         />
                                     </div>
 
@@ -123,7 +129,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                                     disabled={scheduling.pendingScheduling}
                                                     className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_date'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                                     value={scheduling.endDate || ''}
-                                                    onChange={(e) => onChangeScheduling("endDate", e.target.value)}
+                                                    onChange={(e) => onScheduleChange("endDate", e.target.value)}
                                                 />
                                             </div>
                                         </>
@@ -140,7 +146,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                         disabled={scheduling.pendingScheduling}
                                         className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
                                         value={scheduling.type || 'fixed'}
-                                        onChange={(e) => onChangeScheduling("type", e.target.value as any)}
+                                        onChange={(e) => onScheduleChange("type", e.target.value as any)}
                                     >
                                         <option value="fixed" className="dark:bg-slate-900">Horário Fixo</option>
                                         <option value="range" className="dark:bg-slate-900">Período de Horário</option>
@@ -154,7 +160,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                             disabled={scheduling.pendingScheduling}
                                             className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                             value={scheduling.startTime || ''}
-                                            onChange={(e) => onChangeScheduling("startTime", e.target.value)}
+                                            onChange={(e) => onScheduleChange("startTime", e.target.value)}
                                         />
                                     </div>
 
@@ -167,7 +173,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                                                     disabled={scheduling.pendingScheduling}
                                                     className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_time'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                                     value={scheduling.endTime || ''}
-                                                    onChange={(e) => onChangeScheduling("endTime", e.target.value)}
+                                                    onChange={(e) => onScheduleChange("endTime", e.target.value)}
                                                 />
                                             </div>
                                         </>
