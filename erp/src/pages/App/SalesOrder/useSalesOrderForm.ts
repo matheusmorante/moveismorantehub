@@ -16,10 +16,10 @@ import CustomerData from "../../types/customerData.type";
 import { autoCalculateRouteDistance } from "../../utils/maps";
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import { calculateFreightByDistance } from "../../utils/shippingPricing";
+import { getNextOrderIndex, getOrderIndex } from "../../utils/orderCode";
 
 const getCurrentDatetimeLocal = () => {
     const now = new Date();
-    // Retorna YYYY-MM-DDTHH:mm (formato exigido pelo input datetime-local)
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -30,7 +30,6 @@ const getCurrentDatetimeLocal = () => {
 
 const formatToStorageDate = (datetimeLocalStr: string) => {
     if (!datetimeLocalStr) return new Date().toISOString();
-    // Converte YYYY-MM-DDTHH:mm do input para ISO real (UTC)
     const date = new Date(datetimeLocalStr);
     return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
@@ -40,10 +39,8 @@ export const parseStorageDateToLocal = (dateStr: string) => {
     
     let date: Date;
     if (dateStr.includes('T') && dateStr.includes('-')) {
-        // Formato ISO
         date = new Date(dateStr);
     } else {
-        // Tenta converter formato antigo PT-BR (DD/MM/YYYY, HH:mm:ss)
         try {
             const [datePart, timePart] = dateStr.split(', ');
             const [d, m, y] = datePart.split('/');
@@ -56,7 +53,6 @@ export const parseStorageDateToLocal = (dateStr: string) => {
 
     if (isNaN(date.getTime())) return getCurrentDatetimeLocal();
 
-    // Converte para YYYY-MM-DDTHH:mm para o input
     const y = date.getFullYear();
     const mo = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -69,15 +65,6 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const { items, setItems } = useItems();
     const { shipping, setShipping } = useShipping(initialDeliveryMethod);
     
-    // When initializing as budget, we don't have customer data step, so we force manual address entry
-    // Budgets no longer force off customer address - they follow the same logic as sales, but skip logistics step
-    useEffect(() => {
-        if (initialOrderType === 'budget') {
-            // We previously forced manual address, but user wants customer identification now.
-            // Leaving it as default (useCustomerAddress: true) is better.
-        }
-    }, [initialOrderType, setShipping]);
-
     const { payments, setPayments } = usePaymentsData();
     const { customerData, setCustomerData } = useCustomerData();
     const [observation, setObservation] = useState("");
@@ -85,6 +72,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const [marketingOrigin, setMarketingOrigin] = useState("organic");
     const [orderDate, setOrderDate] = useState(() => getCurrentDatetimeLocal());
     const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
+    const [orderIndex, setOrderIndex] = useState<number | null>(null);
+    const [isGeneratingCode, setIsGeneratingCode] = useState(false);
     const [status, setStatus] = useState<string>('draft');
     const [isSaving, setIsSaving] = useState(false);
     const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
@@ -101,6 +90,30 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const prevGlobalOrderTypeRef = useRef(shipping.orderType);
     const prevFirstItemHandlingRef = useRef(items[0]?.handlingType);
 
+    // Gerar código sequencial único imediatamente ao abrir novo formulário
+    useEffect(() => {
+        if (!currentOrderId && orderIndex === null && !isGeneratingCode) {
+            let isMounted = true;
+            setIsGeneratingCode(true);
+            getNextOrderIndex()
+                .then(code => {
+                    if (isMounted) {
+                        setOrderIndex(code);
+                    }
+                })
+                .catch(err => {
+                    if (isMounted) {
+                        console.error("[useSalesOrderForm] Erro ao gerar código sequencial do pedido:", err);
+                        toast.error(`Erro ao gerar código do pedido: ${err.message || 'Falha de comunicação'}. Não é permitido cadastrar sem código.`);
+                    }
+                })
+                .finally(() => {
+                    if (isMounted) setIsGeneratingCode(false);
+                });
+            return () => { isMounted = false; };
+        }
+    }, [currentOrderId, orderIndex, isGeneratingCode]);
+
     // Auto-save control
     const autoSaveTimerRef = useRef<any>(null);
     const isInitialMount = useRef(true);
@@ -110,24 +123,25 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     // Stable state ref for callbacks
     const latestState = useRef({
-        currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
+        currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
         orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
     });
 
     useEffect(() => {
         latestState.current = {
-            currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
+            currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
             orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
         };
-    }, [currentOrderId, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft, orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep]);
+    }, [currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft, orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep]);
 
     const getOrderData = useCallback((newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'): Order => {
         const s = latestState.current;
-        // Recalculate itemsSummary to ensure it's up-to-date with the latest items and includes totalItemsCost
         const currentItemsSummary = calcItemsSummary(s.items);
 
         return {
             id: s.currentOrderId,
+            orderIndex: s.orderIndex || undefined,
+            orderNumber: s.orderIndex || undefined,
             orderType: s.orderType,
             status: newStatus || s.status,
             items: s.items,
@@ -157,21 +171,19 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         // Disable auto-save for already finalized orders (not draft)
         if (status !== 'draft' && currentOrderId) return;
 
+        // Não executa auto-save sem código válido gerado
+        if (!latestState.current.orderIndex) return;
+
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
         // Check if there's any meaningful changes from the default state
         const isDefaultState = (() => {
-            // Check Customer
             if (customerData.fullName || customerData.phone || customerData.fullAddress.street || customerData.fullAddress.cep) return false;
-            // Check Items
             if (items.length > 1) return false;
             if (items.length === 1 && (items[0].description !== '' || items[0].unitPrice !== 0)) return false;
-            // Check Shipping
             if (shipping.value !== 0 || shipping.distance !== undefined || shipping.scheduling.date !== '' || shipping.scheduling.notInformed) return false;
-            // Check Payments
             if (payments.length > 1) return false;
             if (payments.length === 1 && payments[0].amount !== 0) return false;
-            // Check Observation and Seller
             if (observation !== '' || seller !== '' || (marketingOrigin !== 'organic' && marketingOrigin !== 'Direto na Loja')) return false;
 
             return true;
@@ -179,22 +191,23 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
         if (isDefaultState) return;
 
-        // Use a ref for immediate check to avoid race conditions during auto-save
         const isSavingRef = { current: false };
 
         autoSaveTimerRef.current = setTimeout(async () => {
             if (latestState.current.isSaving || latestState.current.isSavingDraft || isSavingRef.current) return;
             
+            if (!latestState.current.orderIndex) {
+                console.warn("[useSalesOrderForm] Auto-save bloqueado: pedido sem código.");
+                return;
+            }
+
             const currentStatus = latestState.current.status;
-            // Only force 'draft' for new orders or those already in 'draft'
             const saveStatus = (currentStatus === 'draft' || !latestState.current.currentOrderId) ? 'draft' : currentStatus;
             const draft = getOrderData(saveStatus as any); 
             try {
                 isSavingRef.current = true;
                 setIsSavingDraft(true);
                 const savedId = await saveOrder(draft);
-                // After first auto-save, update currentOrderId so all subsequent
-                // saves update the same doc instead of creating new ones.
                 if (!latestState.current.currentOrderId && savedId) {
                     setCurrentOrderId(savedId);
                 }
@@ -209,10 +222,32 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [items, shipping, payments, customerData, observation, seller, marketingOrigin, orderDate, getOrderData, status, currentOrderId]);
+    }, [items, shipping, payments, customerData, observation, seller, marketingOrigin, orderDate, getOrderData, status, currentOrderId, orderIndex]);
 
     const loadOrderForEditing = useCallback((order: Order) => {
         const migratedOrder = migrateOrderHandlings(order);
+        const existingIndex = getOrderIndex(order);
+
+        if (order.id && existingIndex) {
+            setOrderIndex(existingIndex);
+            setCurrentOrderId(order.id);
+        } else {
+            setCurrentOrderId(undefined);
+            setOrderIndex(null);
+            setIsGeneratingCode(true);
+            getNextOrderIndex()
+                .then(newCode => {
+                    setOrderIndex(newCode);
+                })
+                .catch(err => {
+                    console.error("[useSalesOrderForm] Erro ao gerar novo código para cópia do pedido:", err);
+                    toast.error(`Erro ao gerar novo código para a cópia do pedido: ${err.message || 'Falha de comunicação'}.`);
+                })
+                .finally(() => {
+                    setIsGeneratingCode(false);
+                });
+        }
+
         setItems(migratedOrder.items || []);
         const defaultScheduling = {
             date: "",
@@ -279,149 +314,175 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                     observation: '',
                     neighborhood: '',
                     city: ''
-                }
+                },
+                additionalContacts: []
             });
         }
         setObservation(order.observation || "");
-        setSeller((order.seller as string) || "");
-        setMarketingOrigin(order.marketingOrigin === 'Tráfego Pago' ? 'paid' : (order.marketingOrigin === 'Direto na Loja' ? 'organic' : (order.marketingOrigin || 'organic')));
-        setOrderDate(parseStorageDateToLocal(order.date));
-        setCurrentOrderId(order.id);
+        setSeller((order as any).seller || "");
+        setMarketingOrigin(order.marketingOrigin || "organic");
+        setStatus(order.status || 'draft');
         setOrderType(order.orderType || 'sale');
         setAssistanceItems(order.assistanceItems || []);
         setAssistanceServiceValue(order.assistanceServiceValue || 0);
         setAssistanceCost(order.assistanceCost || 0);
         setLinkedOrderId(order.linkedOrderId || "");
-        setStatus(order.status || 'draft');
-        setErrors({});
-        // Update refs to reflect loaded data and prevent immediate sync triggers/resets
-        prevDeliveryMethodRef.current = migratedOrder.shipping?.deliveryMethod || 'delivery';
-        prevGlobalOrderTypeRef.current = migratedOrder.shipping?.orderType || '';
-        prevFirstItemHandlingRef.current = migratedOrder.items?.[0]?.handlingType || '';
-    }, [setItems, setShipping, setPayments, setCustomerData, setObservation, setSeller, setMarketingOrigin]);
+        
+        if (order.date) {
+            setOrderDate(parseStorageDateToLocal(order.date));
+        }
+    }, [setItems, setShipping, setPayments, setCustomerData]);
 
-    const handleAutoCalculateDistance = useCallback(async (address: CustomerData['fullAddress']) => {
-        if (!address.street || !address.city) return;
+    const handleAutoCalculateDistance = useCallback(async () => {
+        if (!shipping.useCustomerAddress && !shipping.deliveryAddress?.cep && !shipping.deliveryAddress?.street) {
+            toast.warn("Preencha o endereço de entrega para calcular a distância.");
+            return;
+        }
+
+        const addressObj = shipping.useCustomerAddress ? customerData.fullAddress : shipping.deliveryAddress;
+        if (!addressObj) {
+            toast.warn("Endereço não informado.");
+            return;
+        }
+
+        const currentAddrStr = `${addressObj.street || ''}, ${addressObj.number || ''}, ${addressObj.neighborhood || ''}, ${addressObj.city || ''}, ${addressObj.cep || ''}`;
+        if (currentAddrStr.trim() === ", , , ,") {
+            toast.warn("Preencha os campos do endereço.");
+            return;
+        }
 
         setIsCalculatingDistance(true);
         try {
-            const routeResult = await autoCalculateRouteDistance(address);
-            if (routeResult !== null) {
-                const { distanceKm, durationMinutes, destinationCoords, routeGeoJSON } = routeResult;
-
-                setShipping(prev => {
-                    let value = prev.value;
-                    // Calcula o frete pela distância da rota quando o modo automático está ativo.
-                    if (prev.autoCalculateValue) {
-                        value = calculateFreightByDistance(distanceKm);
-                    }
-                    return {
-                        ...prev,
-                        distance: distanceKm,
-                        durationMinutes,
-                        value,
-                        destinationCoords,
-                        routeGeoJSON
-                    };
-                });
+            const distance = await autoCalculateRouteDistance(addressObj);
+            if (distance !== null && distance !== undefined) {
+                lastCalculatedAddressRef.current = currentAddrStr;
+                const calculatedFreight = calculateFreightByDistance(distance);
+                setShipping(prev => ({
+                    ...prev,
+                    distance: distance,
+                    value: calculatedFreight,
+                    autoCalculateValue: true
+                }));
+                toast.success(`Distância calculada: ${distance.toFixed(1)} km (Frete: R$ ${calculatedFreight.toFixed(2)})`);
+            } else {
+                toast.error("Não foi possível calcular a rota para o endereço informado.");
             }
-        } catch (e) {
-            console.error("Erro ao calcular rota automática:", e);
+        } catch (error) {
+            console.error("Erro ao calcular distância:", error);
+            toast.error("Erro ao calcular a distância via Google Maps.");
         } finally {
             setIsCalculatingDistance(false);
         }
-    }, [setShipping]);
+    }, [shipping.useCustomerAddress, shipping.deliveryAddress, customerData.fullAddress, setShipping]);
 
-    const handleSelectProduct = useCallback((idx: number, product: Product, variation?: Variation) => {
-        // Prioriza estritamente o NOME do produto (product.name ou product.title), nunca a descrição técnica
-        const prodName = (product.name || product.title || '').trim();
-        const normProductDesc = prodName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const normVarName = variation?.name ? variation.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
-
-        const fullName = variation 
-            ? (normVarName && normVarName.includes(normProductDesc) ? variation.name : `${prodName} - ${variation.name}`)
-            : prodName;
-
+    const handleSelectProduct = useCallback((index: number, product: Product, variation?: Variation) => {
         const selectedPrice = variation 
-            ? (variation.promoPrice || variation.unitPrice || product.promoPrice || product.unitPrice || 0)
-            : (product.promoPrice || product.unitPrice || 0);
+            ? (variation.syncUnitPrice ? (product.unitPrice ?? variation.unitPrice) : (variation.unitPrice ?? product.unitPrice))
+            : (product.unitPrice ?? 0);
 
-        const selectedCost = variation 
+        const selectedCost = variation
             ? (variation.costPrice ?? product.costPrice ?? 0)
             : (product.costPrice ?? 0);
 
-        setItems(prev => {
-            const newItems = [...prev];
-            const isHistoricalReconciliation = Boolean(latestState.current.currentOrderId)
-                && ['scheduled', 'fulfilled'].includes(latestState.current.status)
-                && (!newItems[idx].productId?.trim() || newItems[idx].isTemporaryProduct);
+        const defaultHandling = (product.itemType === 'service' ? "Execução no local" : items[0]?.handlingType) || "";
 
-            if (isHistoricalReconciliation) {
-                newItems[idx] = {
-                    ...newItems[idx],
+        let resolvedCode = "";
+        if (variation) {
+            resolvedCode = variation.sku || "";
+        }
+        if (!resolvedCode) {
+            resolvedCode = product.code && product.code !== '000000' 
+                ? product.code 
+                : (product.sku || "");
+        }
+
+        let fullDescription = product.name || "";
+        if (variation && variation.name && variation.name !== product.name) {
+            fullDescription = `${product.name} - ${variation.name}`;
+        }
+
+        setItems(currentItems => currentItems.map((item, i) => {
+            if (i === index) {
+                return {
+                    ...item,
                     productId: product.id,
                     variationId: variation?.id,
                     isTemporaryProduct: false,
+                    code: resolvedCode,
+                    description: fullDescription,
+                    unitPrice: Number(selectedPrice) || 0,
+                    costPrice: Number(selectedCost) || 0,
+                    handlingType: defaultHandling,
+                    condition: variation?.condition || product.condition || "novo"
                 };
-                return newItems;
             }
+            return item;
+        }));
+    }, [items, setItems]);
 
-            newItems[idx] = {
-                ...newItems[idx],
-                productId: product.id,
-                variationId: variation?.id,
-                isTemporaryProduct: false,
-                code: variation?.sku || product.code || product.sku || '',
-                description: fullName,
-                unitPrice: Number(selectedPrice) || 0,
-                costPrice: Number(selectedCost) || 0,
-                handlingType: (product as any).itemType === 'service' ? 'Execução no local' : (newItems[idx].handlingType || ''),
-                condition: variation?.condition || product.condition || 'novo'
-            };
-            return newItems;
-        });
+    const handleItemChange = useCallback((index: number, field: keyof Item, value: any) => {
+        setItems(currentItems => currentItems.map((item, i) => {
+            if (i === index) {
+                const updated = { ...item, [field]: value };
+                if (field === 'unitPrice' || field === 'quantity' || field === 'unitDiscount') {
+                    const price = field === 'unitPrice' ? Number(value) : (item.unitPrice || 0);
+                    const qty = field === 'quantity' ? Number(value) : (item.quantity || 1);
+                    const disc = field === 'unitDiscount' ? Number(value) : (item.unitDiscount || 0);
+                    updated.total = Math.max(0, (price - disc) * qty);
+                }
+                return updated;
+            }
+            return item;
+        }));
     }, [setItems]);
 
-    const handleItemChange = useCallback((idx: number, key: keyof Item, value: any) => {
-        setItems(prev => {
-            const newItems = [...prev];
-            newItems[idx] = { ...newItems[idx], [key]: value };
-            return newItems;
-        });
-    }, [setItems]);
-
-    // Automatic calculation when address changes
+    // Tratar mudanças de modalidade global
     useEffect(() => {
-        const addr = shipping.useCustomerAddress ? customerData.fullAddress : shipping.deliveryAddress;
-        if (!addr) return;
-
-        if (addr.street && addr.city && (addr.number || addr.cep)) {
-            const addrStr = JSON.stringify(addr);
-            if (addrStr === lastCalculatedAddressRef.current) return;
-
-            const timer = setTimeout(() => {
-                handleAutoCalculateDistance(addr);
-                lastCalculatedAddressRef.current = addrStr;
-            }, 1000); // Debounce to avoid excessive API calls
-            return () => clearTimeout(timer);
+        if (shipping.orderType && shipping.orderType !== prevGlobalOrderTypeRef.current) {
+            prevGlobalOrderTypeRef.current = shipping.orderType;
+            setItems(currentItems => currentItems.map(item => ({
+                ...item,
+                handlingType: shipping.orderType
+            })));
         }
-    }, [customerData.fullAddress, shipping.deliveryAddress, shipping.useCustomerAddress, handleAutoCalculateDistance]);
+    }, [shipping.orderType, setItems]);
 
-    // Note: Implicit auto-update when switching delivery method was removed as requested
-    // Since there's no default handling anymore, items retain their manually selected handling type.
-    // Synchronize noAddress flag between customerData and shipping
     useEffect(() => {
-        if (shipping.useCustomerAddress && customerData.noAddress !== shipping.noAddress) {
-            setShipping(prev => ({ ...prev, noAddress: !!customerData.noAddress }));
+        const firstItemHandling = items[0]?.handlingType;
+        if (firstItemHandling && firstItemHandling !== prevFirstItemHandlingRef.current) {
+            prevFirstItemHandlingRef.current = firstItemHandling;
         }
-    }, [customerData.noAddress, shipping.useCustomerAddress]);
+    }, [items]);
 
     useEffect(() => {
+        if (shipping.deliveryMethod !== prevDeliveryMethodRef.current) {
+            const isPickup = shipping.deliveryMethod === 'pickup';
+            setItems(currentItems => currentItems.map(item => ({
+                ...item,
+                handlingType: isPickup ? 'Retirada no depósito' : item.handlingType
+            })));
+        }
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
-    }, [shipping.deliveryMethod]);
+    }, [shipping.deliveryMethod, setItems]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
+
+        // Validar / Assegurar código sequencial
+        let currentIdx = latestState.current.orderIndex;
+        if (!currentIdx) {
+            try {
+                setIsGeneratingCode(true);
+                currentIdx = await getNextOrderIndex();
+                setOrderIndex(currentIdx);
+                latestState.current.orderIndex = currentIdx;
+            } catch (codeErr: any) {
+                toast.error(`Não foi possível gerar um código único para o pedido: ${codeErr.message || 'Erro no banco'}. O pedido não pode ser salvo.`);
+                return false;
+            } finally {
+                setIsGeneratingCode(false);
+            }
+        }
 
         const isBudgetOrder = latestState.current.orderType === 'budget';
         const savedStatus = isBudgetOrder
@@ -430,7 +491,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 ? latestState.current.status
                 : 'draft');
         const orderData = getOrderData(savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled');
-        const validationErrors = validateOrder(orderData); // Get actual error object
+        const validationErrors = validateOrder(orderData);
 
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
@@ -460,6 +521,22 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     const handleCompleteOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
+
+        // Validar / Assegurar código sequencial
+        let currentIdx = latestState.current.orderIndex;
+        if (!currentIdx) {
+            try {
+                setIsGeneratingCode(true);
+                currentIdx = await getNextOrderIndex();
+                setOrderIndex(currentIdx);
+                latestState.current.orderIndex = currentIdx;
+            } catch (codeErr: any) {
+                toast.error(`Não foi possível gerar um código único para o pedido: ${codeErr.message || 'Erro no banco'}. O pedido não pode ser cadastrado.`);
+                return false;
+            } finally {
+                setIsGeneratingCode(false);
+            }
+        }
 
         const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
         const orderData = getOrderData(resolvedStatus);
@@ -503,6 +580,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     const currentOrder = useMemo((): Order => ({
         id: currentOrderId,
+        orderIndex: orderIndex || undefined,
+        orderNumber: orderIndex || undefined,
         orderType,
         status: status as any,
         items,
@@ -519,7 +598,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         assistanceServiceValue,
         assistanceCost,
         linkedOrderId,
-    }), [currentOrderId, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, orderType]);
+    }), [currentOrderId, orderIndex, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, orderType]);
 
     const isValidForCompletion = useMemo(() => validateBase(getOrderData('scheduled')), [getOrderData]);
 
@@ -532,6 +611,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         seller,
         marketingOrigin,
         currentOrderId,
+        orderIndex,
+        isGeneratingCode,
         status,
         isSaving,
         isSavingDraft,
@@ -543,7 +624,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         errors,
         orderDate,
         currentStep,
-    }), [items, shipping, payments, customerData, observation, seller, marketingOrigin, currentOrderId, status, isSaving, isSavingDraft, isCalculatingDistance, itemsSummary, paymentsSummary, currentOrder, isValidForCompletion, errors, orderDate, currentStep]);
+    }), [items, shipping, payments, customerData, observation, seller, marketingOrigin, currentOrderId, orderIndex, isGeneratingCode, status, isSaving, isSavingDraft, isCalculatingDistance, itemsSummary, paymentsSummary, currentOrder, isValidForCompletion, errors, orderDate, currentStep]);
 
     const actions = useMemo(() => ({
         setItems,
@@ -579,6 +660,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             });
         },
         setMarketingOrigin,
+        setOrderIndex,
         loadOrderForEditing,
         handleAutoCalculateDistance,
         handleSelectProduct,
@@ -605,7 +687,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         jumpToStep: (step: number) => {
             setCurrentStep(step);
         },
-    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
+    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, setOrderIndex, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
 
     return { state, actions };
 };

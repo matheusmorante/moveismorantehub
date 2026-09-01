@@ -54,11 +54,23 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - Ao clicar em **Cadastrar Pedido** (ou **Concluir Pedido**), o pedido deixa de ser rascunho.
   - Para entregas em domicílio ou retiradas com agendamento futuro/pendente: o status torna-se **Agendado** (`scheduled`).
   - Para retiradas imediatas na loja (sem agendamento futuro ou com data de hoje e sem agendamento pendente): o status torna-se diretamente **Atendido** (`fulfilled`).
-- **Restricoes de Rascunho (`status: 'draft'`)**:
-  - Pedidos em rascunho **nao** podem ter o status alterado diretamente via menu ou seletor de status nos cards e linhas.
-  - O seletor de status fica desabilitado para rascunhos, exibindo o aviso de que o cadastro precisa ser finalizado.
-  - Para um pedido em rascunho tornar-se agendado (`scheduled`) ou atendido (`fulfilled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Cadastrar Pedido / Concluir Pedido**.
-  - Acoes de **Gerar Devolucao** e **Desfazer Devolucao** sao ocultadas para rascunhos.
+
+### Código Sequencial Obrigatório do Pedido (`orderIndex`)
+
+- **Geração Imediata na Abertura do Formulário**:
+  - Ao abrir o formulário de cadastro de novo pedido, orçamento ou cópia/duplicação de pedido, o código sequencial de 6 dígitos (`orderIndex`, ex: `#002485`) é **gerado imediatamente** e exibido no cabeçalho do formulário.
+  - Cópia/duplicação de pedidos **nunca herda** o código do pedido original; um novo código exclusivo é gerado no ato da abertura.
+- **Unicidade Estrita e Bloqueio sem Código**:
+  - Nenhum pedido pode ter o mesmo código de outro.
+  - Se houver falha na geração do código, o formulário bloqueia tanto o salvamento como rascunho (auto-save desativado) quanto a finalização do cadastro, exibindo erro imediato.
+  - É expressamente proibido persistir pedidos sem código (`orderIndex: null` ou `orderIndex: undefined`).
+
+### Restricoes de Rascunho (`status: 'draft'`)
+
+- Pedidos em rascunho **nao** podem ter o status alterado diretamente via menu ou seletor de status nos cards e linhas.
+- O seletor de status fica desabilitado para rascunhos, exibindo o aviso de que o cadastro precisa ser finalizado.
+- Para um pedido em rascunho tornar-se agendado (`scheduled`) ou atendido (`fulfilled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Cadastrar Pedido / Concluir Pedido**.
+- Acoes de **Gerar Devolucao** e **Desfazer Devolucao** sao ocultadas para rascunhos.
 - As acoes de mudanca de status ficam no menu de 3 pontos de cada pedido (`OrderHistoryCard` / `OrderHistoryRow`).
 
 ### Selos de Triagem nos Cards e Linhas

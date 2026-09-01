@@ -1,62 +1,66 @@
-import React, { useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import SalesOrderFormSection from "./SalesOrderFormSection";
-import { useSalesOrderForm, parseStorageDateToLocal } from "./useSalesOrderForm";
-import OrderStepper from "./OrderStepper";
+import React, { useCallback, useRef, useState } from "react";
+import { useSalesOrderForm } from "./useSalesOrderForm";
 import Order from "../../types/order.type";
-import SellerSearchModal from "./SellerSearchModal";
-import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import SalesOrderFormSection from "./SalesOrderFormSection";
+import OrderStepper from "./OrderStepper";
 import { toast } from "react-toastify";
-import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
+import SellerSearchModal from "./components/SellerSearchModal";
+import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import { useSearchParams } from "react-router-dom";
 
-interface NewSaleOrderProps {
+type NewSaleOrderProps = {
     onClose?: () => void;
-    onSaveSuccess?: (id?: string, order?: Order) => void;
-    initialDeliveryMethod?: 'delivery' | 'pickup';
-    orderType?: Order['orderType'];
+    onSaveSuccess?: (orderId?: string, orderData?: Order) => void;
     initialOrder?: Order;
-}
+    defaultDeliveryMethod?: 'delivery' | 'pickup';
+    defaultOrderType?: Order['orderType'];
+};
 
-const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, initialDeliveryMethod, orderType: propOrderType, initialOrder }: NewSaleOrderProps) => {
+const NewSaleOrder = ({
+    onClose: propOnClose,
+    onSaveSuccess = () => {},
+    initialOrder,
+    defaultDeliveryMethod = 'delivery',
+    defaultOrderType = 'sale'
+}: NewSaleOrderProps) => {
     const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
+    const typeFromQuery = searchParams.get("type") as Order['orderType'] | null;
+    const initialType = defaultOrderType || typeFromQuery || 'sale';
 
-    const orderType = propOrderType || (searchParams.get("type") as Order["orderType"]) || "sale";
-    const onClose = propOnClose || (() => navigate("/sales-order"));
-    const onSaveSuccess = propOnSaveSuccess || (() => {
-        toast.success("Pedido salvo com sucesso!");
-        navigate("/sales-order");
-    });
+    const form = useSalesOrderForm(defaultDeliveryMethod, initialType);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [isScrolled, setIsScrolled] = useState(false);
 
-    const form = useSalesOrderForm(initialDeliveryMethod, orderType);
-    const isBudget = orderType === 'budget';
-    const isReturn = orderType === 'return';
+    // Modal de Busca/Seleção de Vendedores
+    const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
+    const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = useState(false);
+    const sellerRef = useRef<HTMLButtonElement>(null);
+
+    // Modal de Cadastro Rápido de Cliente (via Preenchimento IA)
+    const [isCustomerRegistrationOpen, setIsCustomerRegistrationOpen] = useState(false);
+    const [pendingCustomerData, setPendingCustomerData] = useState<any>(null);
+    const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+
+    const isBudget = form.state.currentOrder.orderType === 'budget';
+    const isReturn = form.state.currentOrder.orderType === 'return';
     const isPickup = form.state.shipping.deliveryMethod === 'pickup';
-    const isEditing = false;
-    const [isSellerSearchOpen, setIsSellerSearchOpen] = React.useState(false);
-    const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = React.useState(false);
-    const [isScrolled, setIsScrolled] = React.useState(false);
-    const sellerRef = React.useRef<HTMLButtonElement>(null);
-    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    const [isCustomerRegistrationOpen, setIsCustomerRegistrationOpen] = React.useState(false);
-    const [pendingCustomerData, setPendingCustomerData] = React.useState<any>(null);
-    const [pendingOrderData, setPendingOrderData] = React.useState<any>(null);
+    const onClose = useCallback(() => {
+        if (propOnClose) {
+            propOnClose();
+        } else {
+            window.history.back();
+        }
+    }, [propOnClose]);
 
-    const applyOrderData = useCallback((order: any) => {
-        const migrated = migrateOrderHandlings(order);
-        if (migrated.seller) {
-            form.actions.setSeller(migrated.seller);
-        }
-        if (migrated.observation) {
-            form.actions.setObservation(migrated.observation);
-        }
-        if (migrated.date) {
-            form.actions.setOrderDate(parseStorageDateToLocal(migrated.date));
-        }
+    const applyOrderData = useCallback((migrated: any) => {
+        if (migrated.seller) form.actions.setSeller(migrated.seller);
+        if (migrated.observation) form.actions.setObservation(migrated.observation);
+        if (migrated.marketingOrigin) form.actions.setMarketingOrigin(migrated.marketingOrigin);
         if (migrated.shipping) {
             form.actions.setShipping(prev => ({
                 ...prev,
+                ...migrated.shipping,
                 deliveryMethod: migrated.shipping.deliveryMethod || prev.deliveryMethod,
                 orderType: migrated.shipping.orderType || prev.orderType,
                 value: typeof migrated.shipping.value === 'number' ? migrated.shipping.value : prev.value,
@@ -119,28 +123,20 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                         number: clientData.fullAddress?.number || "",
                         neighborhood: clientData.fullAddress?.neighborhood || "",
                         city: clientData.fullAddress?.city || "",
-                        state: clientData.fullAddress?.state || "",
                         complement: clientData.fullAddress?.complement || "",
-                        observation: clientData.fullAddress?.observation || ""
+                        observation: clientData.fullAddress?.observation || "",
                     },
-                    noAddress: clientData.noAddress !== undefined ? !!clientData.noAddress : false
+                    additionalContacts: clientData.additionalContacts || [],
                 };
 
                 setPendingCustomerData(personObj);
-                if (jsonData.order) {
-                    setPendingOrderData(jsonData.order);
-                } else {
-                    setPendingOrderData(null);
-                }
+                setPendingOrderData(jsonData);
                 setIsCustomerRegistrationOpen(true);
-                toast.info("Cliente identificado no JSON. Confirme o cadastro do cliente primeiro.");
-            } else if (jsonData.order) {
-                applyOrderData(jsonData.order);
-                toast.success("Pedido preenchido com sucesso via JSON!");
-            } else {
-                applyOrderData(jsonData);
-                toast.success("Pedido preenchido com sucesso via JSON!");
+                return;
             }
+
+            applyOrderData(jsonData);
+            toast.success("Pedido preenchido com sucesso via JSON!");
         } catch (err: any) {
             toast.error("Erro ao carregar JSON: " + err.message);
         }
@@ -158,6 +154,11 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                 try {
                     loadedInitialRef.current = true;
                     const parsed = JSON.parse(dupData);
+                    // Garante que duplicações nunca herdem o código nem ID do pedido original
+                    delete parsed.id;
+                    delete parsed.orderIndex;
+                    delete parsed.orderNumber;
+                    delete (parsed as any).order_index;
                     form.actions.loadOrderForEditing(parsed);
                     sessionStorage.removeItem("pdv_duplicate_order");
                 } catch (e) {
@@ -202,7 +203,7 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
 
     const renderContent = () => (
         <div
-            className={isPageRoute ? "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden" : "bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"}
+            className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
         >
             <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col lg:flex-row justify-between items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0 ${isScrolled ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/40 border-indigo-100/60 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/40 border-amber-100/60 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/40 border-purple-100/60 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/40 border-emerald-100/60 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
@@ -213,9 +214,24 @@ const NewSaleOrder = ({ onClose: propOnClose, onSaveSuccess: propOnSaveSuccess, 
                             <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-sm sm:text-base`} />
                         </div>
                         <div>
-                            <h2 className={`text-sm sm:text-base font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
-                                {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova devolução sem venda vinculada' : 'Novo Pedido'}
-                            </h2>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className={`text-sm sm:text-base font-black tracking-tight ${isBudget ? 'text-indigo-900 dark:text-indigo-100' : isReturn ? 'text-amber-900 dark:text-amber-100' : isPickup ? 'text-purple-900 dark:text-purple-100' : 'text-emerald-900 dark:text-emerald-100'}`}>
+                                    {isBudget ? 'Novo Orçamento' : isReturn ? 'Nova devolução sem venda vinculada' : 'Novo Pedido'}
+                                </h2>
+                                {form.state.orderIndex ? (
+                                    <span className="inline-flex items-center font-mono text-[11px] font-black px-2.5 py-0.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm border border-slate-700/50">
+                                        #{String(form.state.orderIndex).padStart(6, '0')}
+                                    </span>
+                                ) : form.state.isGeneratingCode ? (
+                                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 animate-pulse">
+                                        <i className="bi bi-arrow-repeat animate-spin text-[10px]" /> Gerando código...
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                        Sem código
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                 {isBudget ? 'Simulação de Venda' : isReturn ? 'Informe cliente e itens devolvidos; este pedido não terá vínculo com uma venda.' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
                             </p>
